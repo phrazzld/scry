@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   description: "Transform any topic into quiz questions with AI",
 };
 
+import { ConditionalNavbar } from '@/components/conditional-navbar'
+import { Footer } from '@/components/footer'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -27,7 +30,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ConditionalNavbar />
         {children}
+        <Footer />
       </body>
     </html>
   );
