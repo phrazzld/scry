@@ -163,10 +163,10 @@ All dynamic components include optimized loading skeletons:
 ### Bundle Analysis
 ```bash
 # Analyze bundle composition
-npm run build:analyze
+pnpm run build:analyze
 
 # View chunk sizes and dependencies
-npm run build && npx next-bundle-analyzer
+pnpm run build && npx next-bundle-analyzer
 ```
 
 ### Performance Monitoring
@@ -207,13 +207,13 @@ npm run build && npx next-bundle-analyzer
 ### Debug Commands
 ```bash
 # Check bundle composition
-npm run build:analyze
+pnpm run build:analyze
 
 # Analyze webpack stats
 npx webpack-bundle-analyzer .next/static/chunks/*.js
 
 # Monitor runtime performance
-npm run dev # Check Network tab in DevTools
+pnpm run dev # Check Network tab in DevTools
 ```
 
 This optimization strategy provides a solid foundation for maintaining fast, efficient bundle sizes as the application grows.

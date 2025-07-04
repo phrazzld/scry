@@ -98,7 +98,7 @@ Track performance with response headers:
 
 ### Testing
 1. Generate test assets: `node scripts/create-test-assets.js`
-2. Start dev server: `npm run dev`
+2. Start dev server: `pnpm dev`
 3. Test quiz generation API with popular topics
 
 ### Production Deployment
