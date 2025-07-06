@@ -56,7 +56,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
               Question {currentIndex + 1} of {quiz.questions.length}
             </span>
             <span className="text-sm text-gray-600">
-              Score: {score}/{currentIndex}
+              Score: {score}/{quiz.questions.length}
             </span>
           </div>
           <Progress value={progress} className="h-2" />

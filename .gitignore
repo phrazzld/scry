@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 /docs/leyline
+
+# Temporary files
+.nextauth-secret.tmp
+.env*.local
+
+/lib/generated/prisma
