@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
   ],
   
   session: {
-    strategy: 'database',
+    strategy: 'jwt',
     maxAge: 30 * 60, // 30 minutes idle timeout
     updateAge: 5 * 60, // Update session every 5 minutes
   },
@@ -34,10 +34,17 @@ export const authOptions: NextAuthOptions = {
   },
   
   callbacks: {
-    async session({ session, user }) {
+    async jwt({ token, user }) {
+      // On sign-in, add user id to the token
+      if (user) {
+        token.id = user.id
+      }
+      return token
+    },
+    async session({ session, token }) {
+      // Add user id to the session from the token
       if (session?.user) {
-        // Add user id to session
-        session.user.id = user.id
+        session.user.id = token.id as string
       }
       return session
     },
