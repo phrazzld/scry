@@ -2,29 +2,23 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-// import { useSession } from 'next-auth/react' // TODO: Uncomment once SessionProvider is set up
+import { useSession, signOut } from 'next-auth/react'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
-// TODO: Uncomment these imports once SessionProvider is set up
-// import {
-//   DropdownMenu,
-//   DropdownMenuContent,
-//   DropdownMenuItem,
-//   DropdownMenuSeparator,
-//   DropdownMenuTrigger,
-// } from '@/components/ui/dropdown-menu'
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-// import { User, BookOpen, Settings, LogOut } from 'lucide-react'
-// import { signOut } from 'next-auth/react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { User, BookOpen, Settings, LogOut } from 'lucide-react'
 
 export function Navbar() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   
-  // TODO: Enable this once SessionProvider is set up in layout.tsx
-  // const { data: session, status } = useSession()
-  
-  // For now, we'll just show the sign in button
-  // This will be updated to use session once SessionProvider is configured
+  const { data: session } = useSession()
   
   return (
     <>
@@ -35,7 +29,6 @@ export function Navbar() {
           </Link>
           
           <div className="flex items-center gap-4">
-            {/* TODO: Enable this once SessionProvider is configured
             {session ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -84,7 +77,7 @@ export function Navbar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : ( */}
+            ) : (
               <Button 
                 variant="outline" 
                 size="sm"
@@ -92,7 +85,7 @@ export function Navbar() {
               >
                 Sign in
               </Button>
-            {/* )} */}
+            )}
           </div>
         </div>
       </nav>

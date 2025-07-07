@@ -3,56 +3,103 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Calendar, Trophy, Target, BookOpen } from 'lucide-react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { QuizHistoryViews } from '@/components/quiz-history-views'
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from '@/components/ui/pagination'
+import { BookOpen } from 'lucide-react'
 
-async function getUserQuizzes(userId: string) {
-  const quizzes = await prisma.quizResult.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      completedAt: 'desc',
-    },
-  })
+async function getUserQuizzes(userId: string, page: number = 1, limit: number = 12) {
+  const offset = (page - 1) * limit
   
-  return quizzes
-}
-
-function getDifficultyColor(difficulty: string) {
-  switch (difficulty) {
-    case 'easy':
-      return 'bg-green-100 text-green-800'
-    case 'medium':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'hard':
-      return 'bg-red-100 text-red-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
+  const [quizzes, totalCount] = await Promise.all([
+    prisma.quizResult.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        completedAt: 'desc',
+      },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.quizResult.count({
+      where: {
+        userId,
+      },
+    }),
+  ])
+  
+  return {
+    quizzes,
+    totalCount,
+    currentPage: page,
+    totalPages: Math.ceil(totalCount / limit),
   }
 }
 
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)
+async function getUserQuizStats(userId: string) {
+  const result = await prisma.quizResult.aggregate({
+    where: {
+      userId,
+    },
+    _avg: {
+      score: true,
+    },
+    _sum: {
+      score: true,
+      totalQuestions: true,
+    },
+    _count: {
+      id: true,
+    },
+  })
+  
+  const uniqueTopics = await prisma.quizResult.findMany({
+    where: {
+      userId,
+    },
+    distinct: ['topic'],
+    select: {
+      topic: true,
+    },
+  })
+  
+  return {
+    totalQuizzes: result._count.id,
+    totalQuestions: result._sum.totalQuestions || 0,
+    totalScore: result._sum.score || 0,
+    averageScore: result._avg.score || 0,
+    uniqueTopics: uniqueTopics.length,
+  }
 }
 
-export default async function QuizzesPage() {
+
+export default async function QuizzesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const session = await getServerSession(authOptions)
   
   if (!session?.user?.id) {
     redirect('/auth/signin')
   }
   
-  const quizzes = await getUserQuizzes(session.user.id)
+  const params = await searchParams
+  const page = Number(params.page) || 1
+  const [{ quizzes, totalCount, currentPage, totalPages }, stats] = await Promise.all([
+    getUserQuizzes(session.user.id, page),
+    getUserQuizStats(session.user.id),
+  ])
   
-  if (quizzes.length === 0) {
+  if (totalCount === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -93,64 +140,76 @@ export default async function QuizzesPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">My Quiz History</h1>
           <p className="text-gray-600">
-            You&apos;ve completed {quizzes.length} quiz{quizzes.length !== 1 ? 'es' : ''}
+            You&apos;ve completed {totalCount} quiz{totalCount !== 1 ? 'es' : ''}
+            {totalPages > 1 && (
+              <span className="ml-2 text-sm">
+                (Page {currentPage} of {totalPages})
+              </span>
+            )}
           </p>
         </div>
         
-        {/* Quiz Cards Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {quizzes.map((quiz) => (
-            <Card key={quiz.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg mb-2 line-clamp-2">
-                      {quiz.topic}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge className={getDifficultyColor(quiz.difficulty)}>
-                        {quiz.difficulty}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <CardDescription className="flex items-center gap-1 text-sm text-gray-500">
-                  <Calendar className="w-4 h-4" />
-                  {formatDate(quiz.completedAt)}
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Score Display */}
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-yellow-600" />
-                      <span className="font-medium">Score</span>
-                    </div>
-                    <div className="text-lg font-bold">
-                      {quiz.score}/{quiz.totalQuestions}
-                      <span className="text-sm text-gray-500 ml-1">
-                        ({Math.round((quiz.score / quiz.totalQuestions) * 100)}%)
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Quiz Stats */}
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Target className="w-4 h-4" />
-                      {quiz.totalQuestions} questions
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/* Quiz History Views */}
+        <QuizHistoryViews quizzes={quizzes} />
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                {currentPage > 1 && (
+                  <PaginationItem>
+                    <PaginationPrevious href={`/quizzes?page=${currentPage - 1}`} />
+                  </PaginationItem>
+                )}
+                
+                {/* Show first page */}
+                {currentPage > 3 && (
+                  <>
+                    <PaginationItem>
+                      <PaginationLink href="/quizzes?page=1">1</PaginationLink>
+                    </PaginationItem>
+                    {currentPage > 4 && <span className="px-2">...</span>}
+                  </>
+                )}
+                
+                {/* Show pages around current page */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const startPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4))
+                  return startPage + i
+                }).filter(pageNum => pageNum <= totalPages).map((pageNum) => (
+                  <PaginationItem key={pageNum}>
+                    <PaginationLink 
+                      href={`/quizzes?page=${pageNum}`}
+                      isActive={pageNum === currentPage}
+                    >
+                      {pageNum}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                
+                {/* Show last page */}
+                {currentPage < totalPages - 2 && (
+                  <>
+                    {currentPage < totalPages - 3 && <span className="px-2">...</span>}
+                    <PaginationItem>
+                      <PaginationLink href={`/quizzes?page=${totalPages}`}>{totalPages}</PaginationLink>
+                    </PaginationItem>
+                  </>
+                )}
+                
+                {currentPage < totalPages && (
+                  <PaginationItem>
+                    <PaginationNext href={`/quizzes?page=${currentPage + 1}`} />
+                  </PaginationItem>
+                )}
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
         
         {/* Summary Stats */}
-        {quizzes.length > 0 && (
+        {totalCount > 0 && (
           <Card className="mt-8">
             <CardHeader>
               <CardTitle>Quiz Statistics</CardTitle>
@@ -159,27 +218,27 @@ export default async function QuizzesPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {quizzes.length}
+                    {stats.totalQuizzes}
                   </div>
                   <div className="text-sm text-gray-600">Total Quizzes</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {Math.round(
-                      quizzes.reduce((acc, quiz) => acc + (quiz.score / quiz.totalQuestions), 0) / quizzes.length * 100
-                    )}%
+                    {stats.totalQuestions > 0 
+                      ? Math.round((stats.totalScore / stats.totalQuestions) * 100)
+                      : 0}%
                   </div>
                   <div className="text-sm text-gray-600">Average Score</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {quizzes.reduce((acc, quiz) => acc + quiz.totalQuestions, 0)}
+                    {stats.totalQuestions}
                   </div>
                   <div className="text-sm text-gray-600">Questions Answered</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">
-                    {new Set(quizzes.map(quiz => quiz.topic)).size}
+                    {stats.uniqueTopics}
                   </div>
                   <div className="text-sm text-gray-600">Unique Topics</div>
                 </div>
