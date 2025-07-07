@@ -6,8 +6,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL_UNPOOLED")
+  provider  = "postgresql"
+  // Pooled connection for runtime (Neon's built-in pooler)
+  url       = env("DATABASE_URL")
+  // Direct connection for migrations and schema management
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
