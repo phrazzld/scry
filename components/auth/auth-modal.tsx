@@ -28,7 +28,8 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, CheckCircle } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { Loader2, CheckCircle, Mail, Github } from 'lucide-react'
 import { toast } from 'sonner'
 
 const emailFormSchema = z.object({
@@ -47,6 +48,8 @@ interface AuthModalProps {
 
 export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
+  const [isGithubLoading, setIsGithubLoading] = React.useState(false)
   const [emailSent, setEmailSent] = React.useState(false)
   const [sentEmail, setSentEmail] = React.useState('')
   
@@ -62,6 +65,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     if (!open) {
       setEmailSent(false)
       setSentEmail('')
+      setIsGoogleLoading(false)
+      setIsGithubLoading(false)
       form.reset()
     }
   }, [open, form])
@@ -102,6 +107,44 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
       })
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true)
+    try {
+      // Set flag to detect OAuth success later
+      sessionStorage.setItem('auth-flow', 'oauth')
+      await signIn('google', {
+        callbackUrl: window.location.href
+      })
+    } catch (error) {
+      console.error('Google sign in error:', error)
+      sessionStorage.removeItem('auth-flow')
+      toast.error('Something went wrong', {
+        description: 'Please try again or use another method.'
+      })
+    } finally {
+      setIsGoogleLoading(false)
+    }
+  }
+
+  const handleGithubSignIn = async () => {
+    setIsGithubLoading(true)
+    try {
+      // Set flag to detect OAuth success later
+      sessionStorage.setItem('auth-flow', 'oauth')
+      await signIn('github', {
+        callbackUrl: window.location.href
+      })
+    } catch (error) {
+      console.error('GitHub sign in error:', error)
+      sessionStorage.removeItem('auth-flow')
+      toast.error('Something went wrong', {
+        description: 'Please try again or use another method.'
+      })
+    } finally {
+      setIsGithubLoading(false)
     }
   }
 
@@ -157,8 +200,61 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <TabsContent value="signin" className="space-y-4">
             <div className="space-y-2 text-center">
               <p className="text-sm text-muted-foreground">
-                Enter your email to sign in to your account
+                Sign in to your account
               </p>
+            </div>
+            
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading || isGithubLoading}
+                className="w-full h-11"
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGithubSignIn}
+                disabled={isGoogleLoading || isGithubLoading}
+                className="w-full h-11"
+              >
+                {isGithubLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Github className="mr-2 h-4 w-4" />
+                    Continue with GitHub
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
             </div>
             
             <Form {...form}>
@@ -207,6 +303,59 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
               <p className="text-sm text-muted-foreground">
                 Create a new account to start tracking your learning
               </p>
+            </div>
+            
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading || isGithubLoading}
+                className="w-full h-11"
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing up...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGithubSignIn}
+                disabled={isGoogleLoading || isGithubLoading}
+                className="w-full h-11"
+              >
+                {isGithubLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing up...
+                  </>
+                ) : (
+                  <>
+                    <Github className="mr-2 h-4 w-4" />
+                    Continue with GitHub
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
             </div>
             
             <Form {...form}>

@@ -29,6 +29,35 @@ pnpm assets:generate
 pnpm assets:generate-all  # Verbose mode with all assets
 ```
 
+## Vercel CLI Usage (2025)
+
+**Current Best Practices for Vercel Storage:**
+
+```bash
+# Project linking and environment management
+vercel link                    # Link local project to Vercel project
+vercel env pull .env.local     # Pull environment variables locally
+vercel env ls                  # List all environment variables
+vercel env add VAR_NAME        # Add new environment variable
+vercel env rm VAR_NAME         # Remove environment variable
+
+# Deployment commands
+vercel                         # Deploy to preview environment
+vercel --prod                  # Deploy to production
+vercel logs --prod            # View production logs
+vercel logs --prod --follow   # Stream real-time logs
+```
+
+**Important Notes:**
+- **No `vercel kv create` command exists** - KV stores are created via Vercel Dashboard
+- **Storage Setup Process:**
+  1. Create KV store in Vercel Dashboard (Storage tab)
+  2. Use `vercel link` to connect project
+  3. Use `vercel env pull` to get connection strings
+  4. Use `@vercel/kv` package for programmatic access
+- **Environment Variables:** KV stores auto-populate `KV_URL`, `KV_REST_API_URL`, `KV_REST_API_TOKEN`
+- **Redis Compatibility:** Vercel KV is Redis-compatible, use standard Redis commands
+
 ## Environment Setup
 
 Create `.env.local` with these required variables:

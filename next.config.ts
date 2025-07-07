@@ -59,9 +59,63 @@ const nextConfig: NextConfig = {
     return config
   },
   
-  // Configure headers for static quiz assets
+  // Configure headers for security and static quiz assets
   async headers() {
     return [
+      {
+        // Apply security headers to all routes
+        source: '/(.*)',
+        headers: [
+          // Enforce HTTPS and prevent downgrade attacks
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          // Prevent MIME type sniffing
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          // Prevent clickjacking attacks
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          // Control referrer information
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          // Prevent XSS attacks (browser's built-in protection)
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          // Control resource loading and prevent XSS
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://cdn.vercel-insights.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://vercel.live wss://ws-us3.pusher.com",
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "upgrade-insecure-requests"
+            ].join('; '),
+          },
+          // Permissions policy for browser features
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+          },
+        ],
+      },
       {
         // Apply caching headers to quiz assets
         source: '/quiz-assets/:path*',
