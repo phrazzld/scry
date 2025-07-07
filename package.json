@@ -10,14 +10,15 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "next dev --turbopack",
-    "build": "next build",
-    "build:analyze": "ANALYZE=true next build",
+    "build": "prisma generate && next build",
+    "build:analyze": "prisma generate && ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
     "assets:test": "node scripts/create-test-assets.js",
     "assets:generate": "node scripts/generate-static-assets.js",
     "assets:generate-high": "node scripts/generate-static-assets.js --priority high",
-    "assets:generate-all": "node scripts/generate-static-assets.js --verbose"
+    "assets:generate-all": "node scripts/generate-static-assets.js --verbose",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
@@ -69,8 +70,19 @@
     "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "bash -c 'pnpm tsc --noEmit'"
+    ],
+    "prisma/schema.prisma": [
+      "prisma generate"
+    ]
   }
 }

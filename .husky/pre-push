@@ -1,0 +1,11 @@
+#!/bin/sh
+echo "🔍 Running pre-push checks..."
+echo "🏗️  Testing full build..."
+pnpm build
+
+if [ $? -eq 0 ]; then
+  echo "✅ Build successful - push allowed"
+else
+  echo "❌ Build failed - push rejected"
+  exit 1
+fi

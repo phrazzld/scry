@@ -1,3 +1,4 @@
+// Enhanced Prisma client with Neon adapter and performance monitoring
 import { PrismaClient } from './generated/prisma'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import { neonConfig } from '@neondatabase/serverless'
