@@ -1413,7 +1413,27 @@
 [23:00] Successful deployment in 2s - much faster incremental upload (84.3KB vs 957KB)
 [23:00] New preview URL: https://scry-mi9ftuowc-moomooskycow.vercel.app
 [23:00] Build completed successfully with fixed Prisma generation
-- [ ] Test preview deployment: thoroughly test auth flow on preview URL
+- [x] Test preview deployment: thoroughly test auth flow on preview URL
+### Issue Found & Fixed: No Auth Access on Homepage
+**Problem**: Navbar (with Sign in button) was hidden on homepage via ConditionalNavbar logic
+**Impact**: Users couldn't sign in from main landing page - UX dead end
+**Solution**: Added subtle "Sign in" button to homepage top-right corner
+**Implementation**: 
+- Made homepage client component with useSession hook
+- Added AuthModal integration directly to homepage
+- Positioned sign-in button in absolute top-right header
+- Only shows when user is not authenticated
+- Preserves clean minimal design
+
+### Execution Log
+[23:12] Identified authentication UX gap on homepage
+[23:13] Modified app/page.tsx to include sign-in functionality
+[23:14] Added useState for modal, useSession for auth state
+[23:15] Integrated existing AuthModal component
+[23:16] Added subtle Button with User icon in top-right
+[23:17] Tested build successfully - homepage now dynamic (1.23 kB)
+[23:18] Deployed to new preview: https://scry-izs80fhbn-moomooskycow.vercel.app
+[23:18] Authentication flow now accessible from homepage
 
 ### Git Hooks Setup (Prevention)  
 - [x] Install git hooks: add husky and lint-staged for automated quality checks

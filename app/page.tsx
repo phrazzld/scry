@@ -1,8 +1,33 @@
+'use client'
+
+import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { TopicInput } from '@/components/topic-input'
+import { AuthModal } from '@/components/auth/auth-modal'
+import { Button } from '@/components/ui/button'
+import { User } from 'lucide-react'
 
 export default function Home() {
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const { data: session } = useSession()
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      {/* Subtle header with sign-in option */}
+      <header className="absolute top-0 right-0 p-8 md:p-16">
+        {!session && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setAuthModalOpen(true)}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            <User className="h-4 w-4 mr-2" />
+            Sign in
+          </Button>
+        )}
+      </header>
+
       <main className="flex-grow flex items-center">
         <div className="w-full max-w-7xl mx-auto px-8 md:px-16">
           <div className="max-w-xl">
@@ -16,6 +41,11 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      <AuthModal 
+        open={authModalOpen} 
+        onOpenChange={setAuthModalOpen} 
+      />
     </div>
   )
 }
