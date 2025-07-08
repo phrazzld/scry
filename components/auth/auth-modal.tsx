@@ -14,12 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import {
   Form,
   FormControl,
   FormField,
@@ -28,8 +22,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Separator } from '@/components/ui/separator'
-import { Loader2, CheckCircle, Mail, Github } from 'lucide-react'
+import { Loader2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthPerformanceTracking } from '@/lib/auth-analytics'
 
@@ -49,8 +42,6 @@ interface AuthModalProps {
 
 export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [isLoading, setIsLoading] = React.useState(false)
-  const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
-  const [isGithubLoading, setIsGithubLoading] = React.useState(false)
   const [emailSent, setEmailSent] = React.useState(false)
   const [sentEmail, setSentEmail] = React.useState('')
   
@@ -71,8 +62,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
       trackModalClose('user_action')
       setEmailSent(false)
       setSentEmail('')
-      setIsGoogleLoading(false)
-      setIsGithubLoading(false)
       form.reset()
     }
   }, [open, form, trackModalOpen, trackModalClose])
@@ -122,53 +111,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true)
-    startTracking('google')
-    markStep('providerRedirect')
-    
-    try {
-      // Set flag to detect OAuth success later
-      sessionStorage.setItem('auth-flow', 'oauth')
-      await signIn('google', {
-        callbackUrl: window.location.href
-      })
-      // Note: OAuth completion tracking happens in navbar component after redirect
-    } catch (error) {
-      console.error('Google sign in error:', error)
-      completeTracking(false, error instanceof Error ? error.message : 'Google OAuth error')
-      sessionStorage.removeItem('auth-flow')
-      toast.error('Something went wrong', {
-        description: 'Please try again or use another method.'
-      })
-    } finally {
-      setIsGoogleLoading(false)
-    }
-  }
-
-  const handleGithubSignIn = async () => {
-    setIsGithubLoading(true)
-    startTracking('github')
-    markStep('providerRedirect')
-    
-    try {
-      // Set flag to detect OAuth success later
-      sessionStorage.setItem('auth-flow', 'oauth')
-      await signIn('github', {
-        callbackUrl: window.location.href
-      })
-      // Note: OAuth completion tracking happens in navbar component after redirect
-    } catch (error) {
-      console.error('GitHub sign in error:', error)
-      completeTracking(false, error instanceof Error ? error.message : 'GitHub OAuth error')
-      sessionStorage.removeItem('auth-flow')
-      toast.error('Something went wrong', {
-        description: 'Please try again or use another method.'
-      })
-    } finally {
-      setIsGithubLoading(false)
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -178,7 +120,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           <DialogDescription>
             {emailSent 
               ? 'We sent you a magic link to sign in'
-              : 'Sign in to save your quiz progress and access your learning history.'
+              : 'Enter your email to get started. We\'ll send you a magic link to sign in.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -213,72 +155,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
             </div>
           </div>
         ) : (
-          <Tabs defaultValue="signin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Sign in</TabsTrigger>
-            <TabsTrigger value="signup">Sign up</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="signin" className="space-y-4">
-            <div className="space-y-2 text-center">
-              <p className="text-sm text-muted-foreground">
-                Sign in to your account
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || isGithubLoading}
-                className="w-full h-11"
-              >
-                {isGoogleLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Continue with Google
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGithubSignIn}
-                disabled={isGoogleLoading || isGithubLoading}
-                className="w-full h-11"
-              >
-                {isGithubLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <Github className="mr-2 h-4 w-4" />
-                    Continue with GitHub
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with email
-                </span>
-              </div>
-            </div>
-            
+          <div className="space-y-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
@@ -313,114 +190,12 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                       Sending magic link...
                     </>
                   ) : (
-                    'Continue with Email'
+                    'Send Magic Link'
                   )}
                 </Button>
               </form>
             </Form>
-          </TabsContent>
-          
-          <TabsContent value="signup" className="space-y-4">
-            <div className="space-y-2 text-center">
-              <p className="text-sm text-muted-foreground">
-                Create a new account to start tracking your learning
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleLoading || isGithubLoading}
-                className="w-full h-11"
-              >
-                {isGoogleLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing up...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Continue with Google
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGithubSignIn}
-                disabled={isGoogleLoading || isGithubLoading}
-                className="w-full h-11"
-              >
-                {isGithubLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing up...
-                  </>
-                ) : (
-                  <>
-                    <Github className="mr-2 h-4 w-4" />
-                    Continue with GitHub
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with email
-                </span>
-              </div>
-            </div>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter your email"
-                          type="email"
-                          autoComplete="email"
-                          {...field}
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <Button
-                  type="submit"
-                  variant="default"
-                  className="w-full h-11"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending magic link...
-                    </>
-                  ) : (
-                    'Create Account'
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </TabsContent>
-        </Tabs>
+          </div>
         )}
       </DialogContent>
     </Dialog>

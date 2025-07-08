@@ -10,7 +10,7 @@ import { trackAuthPagePerformance } from '@/lib/auth-analytics'
 
 export default function Home() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
 
   // Track auth-related page performance
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function Home() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Subtle header with sign-in option */}
       <header className="absolute top-0 right-0 p-8 md:p-16">
-        {!session && (
+        {status !== "loading" && !session && (
           <Button 
             variant="ghost" 
             size="sm"

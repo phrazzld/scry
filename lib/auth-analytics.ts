@@ -11,7 +11,7 @@ export interface AuthStepDuration {
 }
 
 export interface AuthPerformanceMetrics {
-  authMethod: 'email' | 'google' | 'github'
+  authMethod: 'email'
   startTime: number
   endTime?: number
   success: boolean
@@ -22,7 +22,7 @@ export interface AuthPerformanceMetrics {
 class AuthPerformanceTracker {
   private activeTracking = new Map<string, AuthPerformanceMetrics>()
   
-  startAuthFlow(method: 'email' | 'google' | 'github', sessionId: string = 'default') {
+  startAuthFlow(method: 'email', sessionId: string = 'default') {
     const startTime = performance.now()
     
     this.activeTracking.set(sessionId, {
@@ -118,7 +118,7 @@ export function useAuthPerformanceTracking() {
   }, [])
   
   return {
-    startTracking: (method: 'email' | 'google' | 'github') => {
+    startTracking: (method: 'email') => {
       if (sessionRef.current) {
         authTracker.startAuthFlow(method, sessionRef.current)
       }

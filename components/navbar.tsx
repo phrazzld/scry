@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { toast } from 'sonner'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,77 +20,6 @@ export function Navbar() {
   
   const { data: session, status } = useSession()
   
-  // Handle OAuth success/error detection (client-side only)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    
-    const urlParams = new URLSearchParams(window.location.search)
-    const hasOAuthCallback = urlParams.get('code') || 
-                            urlParams.get('state') || 
-                            window.location.href.includes('/api/auth/callback/')
-    
-    // Handle OAuth errors (when user is redirected back with error parameter)
-    const oauthError = urlParams.get('error')
-    if (oauthError && sessionStorage.getItem('auth-flow') === 'oauth') {
-      sessionStorage.removeItem('auth-flow')
-      
-      let errorMessage = 'Authentication failed'
-      let errorDescription = 'Please try again or use another method.'
-      
-      switch (oauthError) {
-        case 'access_denied':
-          errorMessage = 'Access denied'
-          errorDescription = 'You cancelled the authentication process.'
-          break
-        case 'oauth_error':
-          errorMessage = 'OAuth error'
-          errorDescription = 'There was an issue with the OAuth provider.'
-          break
-        case 'configuration_error':
-          errorMessage = 'Configuration error'
-          errorDescription = 'OAuth provider is not configured correctly.'
-          break
-        default:
-          errorDescription = `Error: ${oauthError}. Please try again.`
-      }
-      
-      toast.error(errorMessage, {
-        description: errorDescription
-      })
-      
-      // Clean up error parameter from URL
-      if (window.history.replaceState) {
-        const url = new URL(window.location.href)
-        url.searchParams.delete('error')
-        url.searchParams.delete('error_description')
-        window.history.replaceState({}, '', url.toString())
-      }
-      return
-    }
-    
-    // Handle OAuth success
-    if (status === 'authenticated' && session) {
-      const justSignedIn = sessionStorage.getItem('auth-flow') === 'oauth'
-      
-      if (hasOAuthCallback || justSignedIn) {
-        toast.success('Welcome back!', {
-          description: `Successfully signed in as ${session.user?.name || session.user?.email}`
-        })
-        
-        // Clean up session storage flag
-        sessionStorage.removeItem('auth-flow')
-        
-        // Clean up URL parameters if they exist
-        if (hasOAuthCallback && window.history.replaceState) {
-          const url = new URL(window.location.href)
-          url.searchParams.delete('code')
-          url.searchParams.delete('state')
-          url.searchParams.delete('session_state')
-          window.history.replaceState({}, '', url.toString())
-        }
-      }
-    }
-  }, [status, session])
   
   return (
     <>
@@ -102,7 +30,7 @@ export function Navbar() {
           </Link>
           
           <div className="flex items-center gap-4">
-            {session ? (
+            {status === "loading" ? null : session ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
