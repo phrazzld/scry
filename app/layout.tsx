@@ -21,6 +21,8 @@ import { ConditionalNavbar } from '@/components/conditional-navbar'
 import { Footer } from '@/components/footer'
 import { Toaster } from '@/components/ui/sonner'
 import { Providers } from './providers'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 export default function RootLayout({
   children,
@@ -37,6 +39,8 @@ export default function RootLayout({
           {children}
           <Footer />
           <Toaster />
+          <Analytics />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>

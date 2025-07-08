@@ -1,15 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { TopicInput } from '@/components/topic-input'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
 import { User } from 'lucide-react'
+import { trackAuthPagePerformance } from '@/lib/auth-analytics'
 
 export default function Home() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const { data: session } = useSession()
+
+  // Track auth-related page performance
+  useEffect(() => {
+    trackAuthPagePerformance('homepage')
+  }, [])
 
   return (
     <div className="min-h-screen bg-white flex flex-col">

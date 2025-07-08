@@ -31,6 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
 import { Loader2, CheckCircle, Mail, Github } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuthPerformanceTracking } from '@/lib/auth-analytics'
 
 const emailFormSchema = z.object({
   email: z
@@ -53,6 +54,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [emailSent, setEmailSent] = React.useState(false)
   const [sentEmail, setSentEmail] = React.useState('')
   
+  const { startTracking, markStep, completeTracking, trackModalOpen, trackModalClose } = useAuthPerformanceTracking()
+  
   const form = useForm<EmailFormValues>({
     resolver: zodResolver(emailFormSchema),
     defaultValues: {
@@ -60,19 +63,24 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     }
   })
   
-  // Reset success state when modal is closed
+  // Track modal open/close and reset state
   React.useEffect(() => {
-    if (!open) {
+    if (open) {
+      trackModalOpen()
+    } else {
+      trackModalClose('user_action')
       setEmailSent(false)
       setSentEmail('')
       setIsGoogleLoading(false)
       setIsGithubLoading(false)
       form.reset()
     }
-  }, [open, form])
+  }, [open, form, trackModalOpen, trackModalClose])
 
   const handleSubmit = async (values: EmailFormValues) => {
     setIsLoading(true)
+    startTracking('email')
+    markStep('formSubmission')
     
     try {
       const result = await signIn('email', {
@@ -82,6 +90,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
       })
       
       if (result?.error) {
+        completeTracking(false, result.error)
         // Handle specific email-related errors
         if (result.error.includes('email') || result.error.includes('Email')) {
           form.setError('email', {
@@ -95,12 +104,15 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           })
         }
       } else {
+        markStep('emailSent')
+        completeTracking(true)
         // Success - show check your email message
         setEmailSent(true)
         setSentEmail(values.email)
       }
     } catch (error) {
       console.error('Sign in error:', error)
+      completeTracking(false, error instanceof Error ? error.message : 'Unknown error')
       // Show network or unexpected errors as toast
       toast.error('Something went wrong', {
         description: 'Please check your connection and try again.'
@@ -112,14 +124,19 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true)
+    startTracking('google')
+    markStep('providerRedirect')
+    
     try {
       // Set flag to detect OAuth success later
       sessionStorage.setItem('auth-flow', 'oauth')
       await signIn('google', {
         callbackUrl: window.location.href
       })
+      // Note: OAuth completion tracking happens in navbar component after redirect
     } catch (error) {
       console.error('Google sign in error:', error)
+      completeTracking(false, error instanceof Error ? error.message : 'Google OAuth error')
       sessionStorage.removeItem('auth-flow')
       toast.error('Something went wrong', {
         description: 'Please try again or use another method.'
@@ -131,14 +148,19 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   const handleGithubSignIn = async () => {
     setIsGithubLoading(true)
+    startTracking('github')
+    markStep('providerRedirect')
+    
     try {
       // Set flag to detect OAuth success later
       sessionStorage.setItem('auth-flow', 'oauth')
       await signIn('github', {
         callbackUrl: window.location.href
       })
+      // Note: OAuth completion tracking happens in navbar component after redirect
     } catch (error) {
       console.error('GitHub sign in error:', error)
+      completeTracking(false, error instanceof Error ? error.message : 'GitHub OAuth error')
       sessionStorage.removeItem('auth-flow')
       toast.error('Something went wrong', {
         description: 'Please try again or use another method.'
