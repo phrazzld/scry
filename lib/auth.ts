@@ -1,7 +1,51 @@
-import NextAuth, { NextAuthOptions } from 'next-auth'
+import NextAuth, { NextAuthOptions, User, Account, Profile } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import EmailProvider from 'next-auth/providers/email'
 import { prisma } from './prisma'
+import pino from 'pino'
+
+// Type for signIn event message that covers both success and error scenarios
+type SignInEventMessage =
+  | {
+      user: User
+      account: Account | null
+      profile?: Profile
+      isNewUser?: boolean
+      error?: undefined
+    }
+  | {
+      user?: User
+      account?: Account | null
+      profile?: Profile
+      isNewUser?: boolean
+      error: Error & { cause?: unknown }
+    }
+
+// Initialize structured logger for authentication events
+const authLogger = pino({
+  level: process.env.NODE_ENV === 'development' ? 'debug' : 'error',
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  serializers: {
+    // Ensure no sensitive data is logged
+    error: (err) => ({
+      name: err.name,
+      message: err.message,
+      code: err.code,
+      cause: err.cause ? {
+        code: err.cause.code,
+        command: err.cause.command,
+        response: err.cause.response ? 
+          (typeof err.cause.response === 'string' ? err.cause.response.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]') : err.cause.response) 
+          : undefined,
+        responseCode: err.cause.responseCode,
+        statusCode: err.cause.statusCode,
+      } : undefined,
+    })
+  }
+})
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -56,6 +100,44 @@ export const authOptions: NextAuthOptions = {
       else if (new URL(url).origin === baseUrl) return url
       return baseUrl
     },
+  },
+  
+  // Comprehensive event logging for authentication
+  events: {
+    signIn(message: SignInEventMessage) {
+      if (message.error) {
+        // Log authentication failures
+        authLogger.error({
+          event: 'next-auth.signin.failure',
+          timestamp: new Date().toISOString(),
+          error: {
+            name: message.error.name,
+            message: message.error.message,
+            cause: message.error.cause,
+          },
+          // Add context about the error type for easier debugging
+          errorType: message.error.name?.includes('Email') ? 'EMAIL_PROVIDER' : 
+                    message.error.name?.includes('SMTP') ? 'SMTP_CONNECTION' :
+                    'code' in message.error && message.error.code === 'EMAIL_SEND_ERROR' ? 'EMAIL_SEND' :
+                    message.error.cause && typeof message.error.cause === 'object' && 'statusCode' in message.error.cause && message.error.cause.statusCode === 429 ? 'RATE_LIMIT' : 'UNKNOWN',
+        }, `NextAuth.js Sign In Error: ${message.error.name} - ${message.error.message}`)
+      } else if (process.env.NODE_ENV === 'development') {
+        // Log successful sign-ins (in development only) for debugging
+        authLogger.debug({
+          event: 'next-auth.signin.success',
+          timestamp: new Date().toISOString(),
+          user: {
+            id: message.user?.id,
+            // Never log email addresses - just indicate if email is present
+            hasEmail: !!message.user?.email,
+          },
+          account: message.account ? {
+            provider: message.account.provider,
+            type: message.account.type,
+          } : undefined,
+        }, 'NextAuth.js Sign In Success')
+      }
+    }
   },
   
   secret: process.env.NEXTAUTH_SECRET,
