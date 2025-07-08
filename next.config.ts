@@ -100,7 +100,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https:",
-              "font-src 'self' data:",
+              "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://vercel.live",
               "frame-src 'none'",
               "object-src 'none'",
