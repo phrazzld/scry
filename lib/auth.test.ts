@@ -29,7 +29,13 @@ vi.mock('./logger', () => ({
   },
   loggers: {
     error: vi.fn()
-  }
+  },
+  createContextLogger: vi.fn(() => ({
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
+  }))
 }))
 
 vi.mock('pino', () => {

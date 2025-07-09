@@ -3,12 +3,11 @@ import { redirect } from 'next/navigation'
 import { authOptionsMonitored as authOptions } from '@/lib/auth-monitored'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { DeleteAccountDialog } from '@/components/delete-account-dialog'
 import { SessionManagement } from '@/components/session-management'
 import { EmailPreferences } from '@/components/email-preferences'
 import { PerformanceDashboard } from '@/components/performance-dashboard'
+import { ProfileForm } from '@/components/profile-form'
 import { User, Shield, Settings, Activity } from 'lucide-react'
 
 export default async function SettingsPage() {
@@ -51,52 +50,7 @@ export default async function SettingsPage() {
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={user.name || 'Not provided'}
-                    disabled
-                    className="bg-gray-50"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Your name is automatically synced from your authentication provider
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={user.email || 'Not provided'}
-                    disabled
-                    className="bg-gray-50"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Your email address is verified and cannot be changed
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="user-id">User ID</Label>
-                  <Input
-                    id="user-id"
-                    value={user.id}
-                    disabled
-                    className="bg-gray-50 font-mono text-xs"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Your unique user identifier
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <ProfileForm />
           </TabsContent>
 
           <TabsContent value="security" className="space-y-6">
