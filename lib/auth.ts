@@ -3,6 +3,7 @@ import { PrismaAdapter } from '@auth/prisma-adapter'
 import EmailProvider from 'next-auth/providers/email'
 import { prisma } from './prisma'
 import { authLogger, loggers } from './logger'
+import { createDevAuthProvider, isDevAuthAvailable } from './dev-auth'
 
 // Type for signIn event message that covers both success and error scenarios
 type SignInEventMessage =
@@ -21,10 +22,9 @@ type SignInEventMessage =
       error: Error & { cause?: unknown }
     }
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  
-  providers: [
+// Create providers array with conditional development shortcuts
+const createProviders = () => {
+  const providers = [
     EmailProvider({
       server: {
         host: process.env.EMAIL_SERVER_HOST || 'smtp.resend.com',
@@ -37,7 +37,31 @@ export const authOptions: NextAuthOptions = {
       from: process.env.EMAIL_FROM!,
       maxAge: 60 * 60, // Magic link valid for 1 hour
     }),
-  ],
+  ]
+
+  // Add development authentication shortcuts only in development environment
+  if (isDevAuthAvailable()) {
+    try {
+      providers.push(createDevAuthProvider() as never)
+      authLogger.debug({
+        event: 'auth.dev-provider-enabled',
+        environment: process.env.NODE_ENV
+      }, 'Development authentication shortcuts enabled')
+    } catch (error) {
+      authLogger.warn({
+        event: 'auth.dev-provider-failed',
+        error: error instanceof Error ? error.message : String(error)
+      }, 'Failed to enable development authentication shortcuts')
+    }
+  }
+
+  return providers
+}
+
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  
+  providers: createProviders(),
   
   session: {
     strategy: 'jwt',
