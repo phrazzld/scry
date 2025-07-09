@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { authOptionsMonitored as authOptions } from '@/lib/auth-monitored'
+import { prismaMonitored as prisma } from '@/lib/prisma-monitored'
 
 export async function GET() {
   try {
@@ -26,7 +26,7 @@ export async function GET() {
     })
 
     // Add metadata to sessions
-    const sessionsWithMetadata = userSessions.map(userSession => {
+    const sessionsWithMetadata = userSessions.map((userSession: { id: string; expires: Date; sessionToken: string; userId: string }) => {
       // Check if this is the current session by comparing with current session data
       const isCurrent = userSession.expires > new Date()
       

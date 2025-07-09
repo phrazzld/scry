@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
+import { authOptionsMonitored as authOptions } from '@/lib/auth-monitored'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import { DeleteAccountDialog } from '@/components/delete-account-dialog'
 import { SessionManagement } from '@/components/session-management'
 import { EmailPreferences } from '@/components/email-preferences'
-import { User, Shield, Settings } from 'lucide-react'
+import { PerformanceDashboard } from '@/components/performance-dashboard'
+import { User, Shield, Settings, Activity } from 'lucide-react'
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -30,7 +31,7 @@ export default async function SettingsPage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="w-4 h-4" />
               Profile
@@ -42,6 +43,10 @@ export default async function SettingsPage() {
             <TabsTrigger value="preferences" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Preferences
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Performance
             </TabsTrigger>
           </TabsList>
 
@@ -162,6 +167,10 @@ export default async function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            <PerformanceDashboard />
           </TabsContent>
         </Tabs>
       </div>

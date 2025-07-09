@@ -2,6 +2,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { SimpleQuestion } from '@/types/quiz'
+import { aiLogger, loggers } from './logger'
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_AI_API_KEY,
@@ -25,15 +26,53 @@ Make the questions educational and engaging.
 Include a brief explanation for each answer.`
 
   try {
+    const timer = loggers.time(`ai.quiz-generation.${topic}`, 'ai')
+    
+    aiLogger.info({
+      event: 'ai.quiz-generation.start',
+      topic,
+      model: 'gemini-2.0-flash-exp',
+      questionCount: 10
+    }, `Starting quiz generation for topic: ${topic}`)
+
     const { object } = await generateObject({
       model: google('gemini-2.0-flash-exp'),
       schema: questionsSchema,
       prompt,
     })
 
+    const duration = timer.end({
+      topic,
+      questionCount: object.questions.length,
+      success: true
+    })
+
+    aiLogger.info({
+      event: 'ai.quiz-generation.success',
+      topic,
+      questionCount: object.questions.length,
+      duration
+    }, `Successfully generated ${object.questions.length} questions for ${topic}`)
+
     return object.questions
   } catch (error) {
-    console.error('Failed to generate quiz:', error)
+    loggers.error(
+      error as Error,
+      'ai',
+      {
+        event: 'ai.quiz-generation.failure',
+        topic,
+        model: 'gemini-2.0-flash-exp'
+      },
+      'Failed to generate quiz questions with AI'
+    )
+
+    aiLogger.warn({
+      event: 'ai.quiz-generation.fallback',
+      topic,
+      fallbackQuestionCount: 1
+    }, `Using fallback question for topic: ${topic}`)
+
     // Return some default questions as fallback
     return [{
       question: `What is ${topic}?`,

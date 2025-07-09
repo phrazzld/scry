@@ -3,6 +3,7 @@ import { PrismaClient } from './generated/prisma'
 import { PrismaNeon } from '@prisma/adapter-neon'
 import { neonConfig } from '@neondatabase/serverless'
 import ws from 'ws'
+import { databaseLogger } from './logger'
 
 // Extend the global scope to include a cached PrismaClient
 declare const globalThis: {
@@ -53,27 +54,43 @@ if (process.env.NODE_ENV === 'development') {
     target: string
   }
   
-  // Type-safe event listener for query logging
+  // Type-safe event listener for query logging with structured logging
   (prisma as { $on: (event: 'query', callback: (e: QueryEvent) => void) => void }).$on('query', (e) => {
     const duration = Number(e.duration)
+    const queryPreview = e.query.slice(0, 80) + (e.query.length > 80 ? '...' : '')
+    const hasParams = e.params && e.params !== '[]'
     
-    // Log very slow queries (>500ms) with red error
+    // Log very slow queries (>500ms) as errors
     if (duration > 500) {
-      console.error(`🚨 Very Slow Query (${duration}ms):`, e.query)
-      if (e.params && e.params !== '[]') {
-        console.error('   Params:', e.params)
-      }
+      databaseLogger.error({
+        event: 'database.query.very-slow',
+        duration,
+        query: queryPreview,
+        params: hasParams ? e.params : undefined,
+        target: e.target,
+        timestamp: e.timestamp
+      }, `🚨 Very Slow Query (${duration}ms): ${queryPreview}`)
     }
-    // Log slow queries (>100ms) with yellow warning
+    // Log slow queries (>100ms) as warnings
     else if (duration > 100) {
-      console.warn(`🐌 Slow Query (${duration}ms):`, e.query)
-      if (e.params && e.params !== '[]') {
-        console.warn('   Params:', e.params)
-      }
+      databaseLogger.warn({
+        event: 'database.query.slow',
+        duration,
+        query: queryPreview,
+        params: hasParams ? e.params : undefined,
+        target: e.target,
+        timestamp: e.timestamp
+      }, `🐌 Slow Query (${duration}ms): ${queryPreview}`)
     } 
-    // Log all queries with performance timing in development (truncated for readability)
+    // Log fast queries (development only) as debug
     else {
-      console.log(`⚡ Query (${duration}ms):`, e.query.slice(0, 80) + (e.query.length > 80 ? '...' : ''))
+      databaseLogger.debug({
+        event: 'database.query.fast',
+        duration,
+        query: queryPreview,
+        target: e.target,
+        timestamp: e.timestamp
+      }, `⚡ Query (${duration}ms): ${queryPreview}`)
     }
   })
 }

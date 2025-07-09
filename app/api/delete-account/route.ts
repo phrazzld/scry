@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { authOptionsMonitored as authOptions } from '@/lib/auth-monitored'
+import { prismaMonitored as prisma } from '@/lib/prisma-monitored'
 
 const requestSchema = z.object({
   confirmationEmail: z.string().email('Please enter a valid email address'),

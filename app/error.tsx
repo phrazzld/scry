@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
+import { systemLogger } from '@/lib/logger'
 
 export default function Error({
   error,
@@ -12,7 +13,17 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Application error:', error)
+    systemLogger.error({
+      event: 'app.unhandled-error',
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      },
+      timestamp: new Date().toISOString(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown'
+    }, `Unhandled application error: ${error.message}`)
   }, [error])
 
   return (

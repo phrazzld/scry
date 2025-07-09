@@ -100,7 +100,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         setSentEmail(values.email)
       }
     } catch (error) {
-      console.error('Sign in error:', error)
+      // Import logger at the top level would be better, but for now inline logging
+      console.error('Sign in error:', error) // Keep console for now since this is client-side
       completeTracking(false, error instanceof Error ? error.message : 'Unknown error')
       // Show network or unexpected errors as toast
       toast.error('Something went wrong', {
