@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,7 +20,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, User } from 'lucide-react'
-import { toast } from 'sonner'
 
 const profileFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
@@ -31,67 +30,47 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
 export function ProfileForm() {
-  const { data: session, update } = useSession()
+  const { user, updateProfile } = useAuth()
   const [isLoading, setIsLoading] = React.useState(false)
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: session?.user?.name || '',
-      email: session?.user?.email || '',
-      image: session?.user?.image || null
+      name: user?.name || '',
+      email: user?.email || '',
+      image: user?.image || null
     }
   })
 
-  // Update form when session changes
+  // Update form when user changes
   React.useEffect(() => {
-    if (session?.user) {
-      form.setValue('name', session.user.name || '')
-      form.setValue('email', session.user.email || '')
-      form.setValue('image', session.user.image || null)
-      setImagePreview(session.user.image || null)
+    if (user) {
+      form.setValue('name', user.name || '')
+      form.setValue('email', user.email || '')
+      form.setValue('image', user.image || null)
+      setImagePreview(user.image || null)
     }
-  }, [session, form])
+  }, [user, form])
 
   const onSubmit = async (data: ProfileFormValues) => {
     setIsLoading(true)
     
     try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+      const result = await updateProfile({
+        name: data.name,
+        email: data.email,
+        image: data.image
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update profile')
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to update profile')
       }
-
-      // Update the session with new data
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          name: result.user.name,
-          email: result.user.email,
-          image: result.user.image
-        }
-      })
-
-      toast.success('Profile updated', {
-        description: 'Your profile has been updated successfully.'
-      })
-
+      
+      // Success message is handled by AuthContext
     } catch (error) {
+      // Error handling is done by AuthContext, but we can add additional handling here if needed
       console.error('Profile update error:', error)
-      toast.error('Update failed', {
-        description: error instanceof Error ? error.message : 'Failed to update profile'
-      })
     } finally {
       setIsLoading(false)
     }
@@ -112,7 +91,7 @@ export function ProfileForm() {
       .slice(0, 2)
   }
 
-  if (!session?.user) {
+  if (!user) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -143,7 +122,7 @@ export function ProfileForm() {
                 <Avatar className="h-20 w-20">
                   <AvatarImage src={imagePreview || undefined} alt="Profile" />
                   <AvatarFallback className="text-lg">
-                    {session.user.name ? getInitials(session.user.name) : <User className="h-8 w-8" />}
+                    {user?.name ? getInitials(user.name) : <User className="h-8 w-8" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
@@ -212,7 +191,7 @@ export function ProfileForm() {
             />
 
             {/* Email change warning */}
-            {form.watch('email') !== session.user.email && (
+            {form.watch('email') !== user?.email && (
               <Alert>
                 <AlertDescription>
                   Changing your email address will require verification. You&apos;ll need to verify 
@@ -228,7 +207,7 @@ export function ProfileForm() {
                 variant="outline"
                 onClick={() => {
                   form.reset()
-                  setImagePreview(session.user.image || null)
+                  setImagePreview(user?.image || null)
                 }}
                 disabled={isLoading}
               >

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { signIn } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [emailSent, setEmailSent] = React.useState(false)
   const [sentEmail, setSentEmail] = React.useState('')
   
+  const { sendMagicLink } = useAuth()
   const { startTracking, markStep, completeTracking, trackModalOpen, trackModalClose } = useAuthPerformanceTracking()
   
   const form = useForm<EmailFormValues>({
@@ -72,24 +73,20 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     markStep('formSubmission')
     
     try {
-      const result = await signIn('email', {
-        email: values.email,
-        redirect: false,
-        callbackUrl: window.location.href
-      })
+      const result = await sendMagicLink(values.email)
       
-      if (result?.error) {
-        completeTracking(false, result.error)
-        // Handle specific email-related errors
-        if (result.error.includes('email') || result.error.includes('Email')) {
+      if (!result.success) {
+        completeTracking(false, result.error?.message || 'Failed to send magic link')
+        // Handle email-related errors
+        if (result.error?.message?.includes('email') || result.error?.message?.includes('Email')) {
           form.setError('email', {
             type: 'manual',
-            message: result.error
+            message: result.error.message
           })
         } else {
           // Show general errors as toast
           toast.error('Authentication Error', {
-            description: result.error
+            description: result.error?.message || 'Failed to send magic link'
           })
         }
       } else {
@@ -115,7 +112,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-testid="auth-modal">
         <DialogHeader>
           <DialogTitle>{emailSent ? 'Check your email' : 'Welcome to Scry'}</DialogTitle>
           <DialogDescription>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import { TopicInput } from '@/components/topic-input'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { trackAuthPagePerformance } from '@/lib/auth-analytics'
 
 export default function Home() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const { data: session, status } = useSession()
+  const { isAuthenticated, isLoading } = useAuth()
 
   // Track auth-related page performance
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function Home() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Subtle header with sign-in option */}
       <header className="absolute top-0 right-0 p-8 md:p-16">
-        {status !== "loading" && !session && (
+        {!isLoading && !isAuthenticated && (
           <Button 
             variant="ghost" 
             size="sm"

@@ -1,0 +1,317 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { Resend } from "resend";
+
+// Initialize Resend client
+// This will need RESEND_API_KEY in environment variables
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Helper to generate a secure random token
+function generateToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 32; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+export const sendMagicLink = mutation({
+  args: { email: v.string() },
+  handler: async (ctx: any, { email }: { email: string }) => {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
+    // Check for existing unused magic links for this email
+    const existingLink = await ctx.db
+      .query("magicLinks")
+      .withIndex("by_email", (q: any) => q.eq("email", email))
+      .filter((q: any) => q.eq(q.field("used"), false))
+      .filter((q: any) => q.gt(q.field("expiresAt"), Date.now()))
+      .first();
+
+    if (existingLink) {
+      // Return early if a valid link already exists
+      return { success: true, message: "Magic link already sent" };
+    }
+
+    // Generate new token
+    const token = generateToken();
+    const expiresAt = Date.now() + 3600000; // 1 hour from now
+
+    // Store magic link in database
+    await ctx.db.insert("magicLinks", {
+      email,
+      token,
+      expiresAt,
+      used: false,
+    });
+
+    // Send email
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
+
+    if (resend) {
+      try {
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || 'Scry <noreply@scry.app>',
+          to: email,
+          subject: 'Sign in to Scry',
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2>Sign in to Scry</h2>
+              <p>Click the link below to sign in to your account:</p>
+              <a href="${magicLinkUrl}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">
+                Sign In
+              </a>
+              <p style="margin-top: 20px; color: #666;">
+                Or copy and paste this URL into your browser:<br>
+                <code>${magicLinkUrl}</code>
+              </p>
+              <p style="margin-top: 20px; color: #666;">
+                This link will expire in 1 hour.
+              </p>
+            </div>
+          `,
+        });
+      } catch (error) {
+        console.error('Failed to send email:', error);
+        throw new Error('Failed to send magic link email');
+      }
+    } else {
+      // In development without Resend, log the magic link
+      console.log(`Magic link for ${email}: ${magicLinkUrl}`);
+    }
+
+    return { success: true, message: "Magic link sent" };
+  },
+});
+
+export const verifyMagicLink = mutation({
+  args: { token: v.string() },
+  handler: async (ctx: any, { token }: { token: string }) => {
+    // Find the magic link
+    const magicLink = await ctx.db
+      .query("magicLinks")
+      .withIndex("by_token", (q: any) => q.eq("token", token))
+      .first();
+
+    if (!magicLink) {
+      throw new Error("Invalid magic link");
+    }
+
+    // Check if expired
+    if (magicLink.expiresAt < Date.now()) {
+      throw new Error("Magic link has expired");
+    }
+
+    // Check if already used
+    if (magicLink.used) {
+      throw new Error("Magic link has already been used");
+    }
+
+    // Mark as used
+    await ctx.db.patch(magicLink._id, { used: true });
+
+    // Find or create user
+    let user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q: any) => q.eq("email", magicLink.email))
+      .first();
+
+    if (!user) {
+      // Create new user
+      const userId = await ctx.db.insert("users", {
+        email: magicLink.email,
+        emailVerified: Date.now(),
+      });
+      user = await ctx.db.get(userId);
+    } else if (!user.emailVerified) {
+      // Update existing user to mark email as verified
+      await ctx.db.patch(user._id, { emailVerified: Date.now() });
+    }
+
+    if (!user) {
+      throw new Error("Failed to create or retrieve user");
+    }
+
+    // Create session
+    const sessionToken = generateToken();
+    const sessionExpiresAt = Date.now() + 30 * 24 * 3600000; // 30 days
+
+    await ctx.db.insert("sessions", {
+      userId: user._id,
+      token: sessionToken,
+      expiresAt: sessionExpiresAt,
+    });
+
+    return { 
+      success: true, 
+      sessionToken, 
+      userId: user._id,
+      email: user.email 
+    };
+  },
+});
+
+export const getCurrentUser = query({
+  args: { sessionToken: v.optional(v.string()) },
+  handler: async (ctx: any, { sessionToken }: { sessionToken: string | null }) => {
+    if (!sessionToken) {
+      return null;
+    }
+
+    // Find session
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .first();
+
+    if (!session || session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Get user
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      image: user.image,
+    };
+  },
+});
+
+export const signOut = mutation({
+  args: { sessionToken: v.string() },
+  handler: async (ctx: any, { sessionToken }: { sessionToken: string | null }) => {
+    // Find and delete session
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .first();
+
+    if (session) {
+      await ctx.db.delete(session._id);
+    }
+
+    return { success: true };
+  },
+});
+
+export const updateProfile = mutation({
+  args: { 
+    sessionToken: v.string(),
+    name: v.string(),
+    email: v.string(),
+    image: v.optional(v.union(v.string(), v.null()))
+  },
+  handler: async (ctx: any, { sessionToken, name, email, image }: { sessionToken: string; name: string; email: string; image: string | null }) => {
+    // Find session
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .first();
+
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    // Get user
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if email is being changed to one that already exists
+    if (email !== user.email) {
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q: any) => q.eq("email", email))
+        .first();
+      
+      if (existingUser && existingUser._id !== user._id) {
+        throw new Error("Email already in use");
+      }
+    }
+
+    // Update user
+    await ctx.db.patch(user._id, {
+      name,
+      email,
+      image: image || undefined,
+    });
+
+    return { 
+      success: true,
+      user: {
+        id: user._id,
+        email,
+        name,
+        image: image || undefined,
+      }
+    };
+  },
+});
+
+export const deleteAccount = mutation({
+  args: { 
+    sessionToken: v.string(),
+    confirmationEmail: v.string()
+  },
+  handler: async (ctx: any, { sessionToken, confirmationEmail }: { sessionToken: string; confirmationEmail: string }) => {
+    // Find session
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .first();
+
+    if (!session || session.expiresAt < Date.now()) {
+      throw new Error("Invalid or expired session");
+    }
+
+    // Get user
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Verify email confirmation
+    if (confirmationEmail.toLowerCase() !== user.email.toLowerCase()) {
+      throw new Error("Email confirmation does not match");
+    }
+
+    // Delete all user's sessions
+    const userSessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .collect();
+    
+    for (const userSession of userSessions) {
+      await ctx.db.delete(userSession._id);
+    }
+
+    // Delete all user's quiz results
+    const quizResults = await ctx.db
+      .query("quizResults")
+      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .collect();
+    
+    for (const result of quizResults) {
+      await ctx.db.delete(result._id);
+    }
+
+    // Delete the user
+    await ctx.db.delete(user._id);
+
+    return { success: true };
+  },
+});

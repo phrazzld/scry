@@ -1,20 +1,20 @@
 # Scry
 
-An AI-powered quiz generation and learning application built with Next.js 15. Uses Google Gemini for intelligent content generation and implements spaced repetition algorithms for optimized learning.
+An AI-powered quiz generation and learning application built with Next.js 15 and Convex. Uses Google Gemini for intelligent content generation and implements spaced repetition algorithms for optimized learning.
 
 ## Features
 
-- **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini 2.5 Flash
+- **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini
 - **Spaced Repetition Learning**: Optimized review scheduling using the ts-fsrs algorithm
-- **Magic Link Authentication**: Secure, passwordless authentication with NextAuth
-- **Performance Monitoring**: Built-in monitoring and analytics dashboard
+- **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
+- **Real-time Updates**: Built on Convex for instant data synchronization
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
 
 ## Prerequisites
 
 - Node.js 18.0.0 or higher
 - pnpm 10.0.0 or higher
-- PostgreSQL database
+- Convex account (free tier available)
 - Google AI API key
 - Resend API key for email
 
@@ -44,8 +44,11 @@ pnpm env:validate
 ### 3. Development Server
 
 ```bash
-# Start development server with Turbopack
+# In terminal 1: Start Next.js development server
 pnpm dev
+
+# In terminal 2: Start Convex development server
+npx convex dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
@@ -57,19 +60,15 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation | `AIzaSy...` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host/db` |
-| `NEXTAUTH_SECRET` | NextAuth.js JWT signing secret | Generate with `openssl rand -base64 32` |
-| `RESEND_API_KEY` | Resend API key for emails | `re_...` |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://...convex.cloud` |
+| `RESEND_API_KEY` | Resend API key for magic link emails | `re_...` |
 | `EMAIL_FROM` | From address for auth emails | `Scry <noreply@yourdomain.com>` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXTAUTH_URL` | Application base URL | Auto-detected (required in production) |
-| `KV_URL` | Redis/KV connection for rate limiting | None |
-| `KV_REST_API_URL` | KV REST API endpoint | None |
-| `KV_REST_API_TOKEN` | KV API authentication token | None |
+| `NEXT_PUBLIC_APP_URL` | Application base URL for magic links | Auto-detected |
 
 For detailed setup instructions, see [docs/environment-setup.md](docs/environment-setup.md).
 
@@ -115,20 +114,24 @@ pnpm assets:generate-all    # Generate all assets (verbose)
 
 ### Deployment Process
 
-1. **Link Project** (first time only):
+1. **Deploy Convex Backend**:
+   ```bash
+   npx convex deploy
+   ```
+
+2. **Link Vercel Project** (first time only):
    ```bash
    vercel link
    ```
 
-2. **Configure Environment Variables**:
+3. **Configure Environment Variables**:
    ```bash
    # Pull existing variables (if any)
    vercel env pull .env.local
    
    # Add required variables via Vercel Dashboard or CLI
    vercel env add GOOGLE_AI_API_KEY
-   vercel env add DATABASE_URL
-   vercel env add NEXTAUTH_SECRET
+   vercel env add NEXT_PUBLIC_CONVEX_URL
    vercel env add RESEND_API_KEY
    vercel env add EMAIL_FROM
    ```
@@ -142,14 +145,6 @@ pnpm assets:generate-all    # Generate all assets (verbose)
    vercel --prod
    ```
 
-### Vercel KV Setup (Optional)
-
-For rate limiting features:
-
-1. Visit [Vercel Dashboard](https://vercel.com/dashboard) → Storage → KV
-2. Create a new KV store named "scry-kv"
-3. Pull environment variables: `vercel env pull .env.local`
-4. The KV variables will be automatically added to your environment
 
 ### Production Monitoring
 
@@ -178,11 +173,11 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 ## Architecture
 
 - **Framework**: Next.js 15 with App Router
-- **Database**: PostgreSQL with Prisma ORM
-- **AI Integration**: Google Gemini 2.5 Flash via Vercel AI SDK
-- **Authentication**: NextAuth with magic link email authentication
+- **Backend**: Convex for database, authentication, and real-time features
+- **AI Integration**: Google Gemini via Vercel AI SDK
+- **Authentication**: Magic link email authentication with Convex Auth
 - **Styling**: Tailwind CSS v4 with shadcn/ui components
-- **Caching**: Optional Vercel KV for rate limiting and session storage
+- **Email**: Resend for magic link delivery
 
 ## Key Features
 

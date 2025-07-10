@@ -51,4 +51,6 @@ next-env.d.ts
 # Temporary files
 .nextauth-secret.tmp
 
-/lib/generated/prisma
+# Convex
+.convex/
+convex/_generated/
