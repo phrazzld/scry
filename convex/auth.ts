@@ -160,7 +160,7 @@ export const verifyMagicLink = mutation({
 
 export const getCurrentUser = query({
   args: { sessionToken: v.optional(v.string()) },
-  handler: async (ctx: any, { sessionToken }: { sessionToken: string | null }) => {
+  handler: async (ctx: any, { sessionToken }: { sessionToken: string | undefined }) => {
     if (!sessionToken) {
       return null;
     }
@@ -192,7 +192,7 @@ export const getCurrentUser = query({
 
 export const signOut = mutation({
   args: { sessionToken: v.string() },
-  handler: async (ctx: any, { sessionToken }: { sessionToken: string | null }) => {
+  handler: async (ctx: any, { sessionToken }: { sessionToken: string }) => {
     // Find and delete session
     const session = await ctx.db
       .query("sessions")
@@ -214,7 +214,7 @@ export const updateProfile = mutation({
     email: v.string(),
     image: v.optional(v.union(v.string(), v.null()))
   },
-  handler: async (ctx: any, { sessionToken, name, email, image }: { sessionToken: string; name: string; email: string; image: string | null }) => {
+  handler: async (ctx: any, { sessionToken, name, email, image }: { sessionToken: string; name: string; email: string; image: string | null | undefined }) => {
     // Find session
     const session = await ctx.db
       .query("sessions")

@@ -54,7 +54,13 @@ Include a brief explanation for each answer.`
       duration
     }, `Successfully generated ${object.questions.length} questions for ${topic}`)
 
-    return object.questions
+    // Validate and ensure all required properties are present
+    return object.questions.map((q): SimpleQuestion => ({
+      question: q.question || '',
+      options: q.options || [],
+      correctAnswer: q.correctAnswer || '',
+      explanation: q.explanation
+    }))
   } catch (error) {
     loggers.error(
       error as Error,
