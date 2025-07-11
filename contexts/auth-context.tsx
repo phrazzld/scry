@@ -40,9 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendMagicLinkMutation = useMutation(api.auth.sendMagicLink)
   const verifyMagicLinkMutation = useMutation(api.auth.verifyMagicLink)
   const signOutMutation = useMutation(api.auth.signOut)
-  // TODO: Enable when these mutations are added to Convex
-  // const updateProfileMutation = useMutation(api.auth.updateProfile)
-  // const deleteAccountMutation = useMutation(api.auth.deleteAccount)
+  const updateProfileMutation = useMutation(api.auth.updateProfile)
+  const deleteAccountMutation = useMutation(api.auth.deleteAccount)
 
   // Load session token from storage on mount
   useEffect(() => {
@@ -110,28 +109,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [sessionToken, signOutMutation, router])
 
   // Update profile
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const updateProfile = useCallback(async (_data: { name: string; email: string; image?: string | null }) => {
-    // TODO: Implement when updateProfile mutation is added to Convex
-    console.warn('Profile update not yet implemented')
-    toast.error('Profile update not yet implemented')
-    return { 
-      success: false, 
-      error: new Error('Profile update not yet implemented') 
+  const updateProfile = useCallback(async (data: { name: string; email: string; image?: string | null }) => {
+    if (!sessionToken) {
+      toast.error('You must be signed in to update your profile')
+      return { success: false, error: new Error('Not authenticated') }
     }
-  }, [])
+
+    try {
+      const result = await updateProfileMutation({
+        sessionToken,
+        name: data.name,
+        email: data.email,
+        image: data.image
+      })
+      
+      if (result.success) {
+        toast.success('Profile updated successfully')
+        return { success: true }
+      }
+      
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile'
+      toast.error(errorMessage)
+      return { success: false, error: error instanceof Error ? error : new Error(errorMessage) }
+    }
+  }, [sessionToken, updateProfileMutation])
 
   // Delete account
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const deleteAccount = useCallback(async (_confirmationEmail: string) => {
-    // TODO: Implement when deleteAccount mutation is added to Convex
-    console.warn('Account deletion not yet implemented')
-    toast.error('Account deletion not yet implemented')
-    return { 
-      success: false, 
-      error: new Error('Account deletion not yet implemented') 
+  const deleteAccount = useCallback(async (confirmationEmail: string) => {
+    if (!sessionToken) {
+      toast.error('You must be signed in to delete your account')
+      return { success: false, error: new Error('Not authenticated') }
     }
-  }, [])
+
+    try {
+      const result = await deleteAccountMutation({
+        sessionToken,
+        confirmationEmail
+      })
+      
+      if (result.success) {
+        // Clear session
+        localStorage.removeItem(SESSION_TOKEN_KEY)
+        setSessionToken(null)
+        
+        toast.success('Account deleted successfully')
+        router.push('/')
+        return { success: true }
+      }
+      
+      return { success: false }
+    } catch (error) {
+      console.error('Failed to delete account:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete account'
+      toast.error(errorMessage)
+      return { success: false, error: error instanceof Error ? error : new Error(errorMessage) }
+    }
+  }, [sessionToken, deleteAccountMutation, router])
 
   const value: AuthContextType = {
     user: user as User | null,
