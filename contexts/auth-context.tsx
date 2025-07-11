@@ -45,7 +45,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Load session token from storage on mount
   useEffect(() => {
-    const token = localStorage.getItem(SESSION_TOKEN_KEY)
+    // Try localStorage first
+    let token = localStorage.getItem(SESSION_TOKEN_KEY)
+    
+    // If not in localStorage, check cookies
+    if (!token) {
+      const cookies = document.cookie.split(';')
+      const sessionCookie = cookies.find(cookie => cookie.trim().startsWith(`${SESSION_TOKEN_KEY}=`))
+      if (sessionCookie) {
+        token = sessionCookie.split('=')[1]
+        // Sync to localStorage
+        if (token) {
+          localStorage.setItem(SESSION_TOKEN_KEY, token)
+        }
+      }
+    }
+    
     if (token) {
       setSessionToken(token)
     }
@@ -73,12 +88,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await verifyMagicLinkMutation({ token })
       if (result.success && result.sessionToken) {
-        // Store session token
+        // Store session token in both localStorage and cookies
         localStorage.setItem(SESSION_TOKEN_KEY, result.sessionToken)
         setSessionToken(result.sessionToken)
         
+        // Set cookie for middleware access
+        document.cookie = `${SESSION_TOKEN_KEY}=${result.sessionToken}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
+        
         toast.success('Successfully signed in!')
-        router.push('/dashboard')
+        
+        // Check if there's a redirect URL
+        const urlParams = new URLSearchParams(window.location.search)
+        const fromPath = urlParams.get('from')
+        
+        if (fromPath) {
+          router.push(fromPath)
+        } else {
+          router.push('/dashboard')
+        }
         return { success: true }
       }
       return { success: false }
@@ -96,9 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOutMutation({ sessionToken })
       
-      // Clear session
+      // Clear session from localStorage
       localStorage.removeItem(SESSION_TOKEN_KEY)
       setSessionToken(null)
+      
+      // Clear cookie
+      document.cookie = `${SESSION_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax`
       
       toast.success('Signed out successfully')
       router.push('/')
@@ -151,9 +181,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       if (result.success) {
-        // Clear session
+        // Clear session from localStorage
         localStorage.removeItem(SESSION_TOKEN_KEY)
         setSessionToken(null)
+        
+        // Clear cookie
+        document.cookie = `${SESSION_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax`
         
         toast.success('Account deleted successfully')
         router.push('/')

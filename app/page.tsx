@@ -1,16 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { TopicInput } from '@/components/topic-input'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
 import { User } from 'lucide-react'
 import { trackAuthPagePerformance } from '@/lib/auth-analytics'
+import { useSearchParams } from 'next/navigation'
 
-export default function Home() {
+function HomeContent() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const { isAuthenticated, isLoading } = useAuth()
+  const searchParams = useSearchParams()
+
+  // Check if auth is required from URL params
+  const fromPath = searchParams.get('from')
+  
+  useEffect(() => {
+    if (searchParams.get('auth') === 'required' && !isAuthenticated && !isLoading) {
+      setAuthModalOpen(true)
+    }
+  }, [searchParams, isAuthenticated, isLoading])
 
   // Track auth-related page performance
   useEffect(() => {
@@ -50,8 +61,17 @@ export default function Home() {
 
       <AuthModal 
         open={authModalOpen} 
-        onOpenChange={setAuthModalOpen} 
+        onOpenChange={setAuthModalOpen}
+        redirectTo={fromPath}
       />
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   )
 }

@@ -20,10 +20,11 @@ export function middleware(request: NextRequest) {
     const sessionToken = request.cookies.get(SESSION_TOKEN_KEY)
     
     if (!sessionToken) {
-      // Redirect to sign in page if no session token
-      const signInUrl = new URL('/auth/signin', request.url)
-      signInUrl.searchParams.set('from', pathname)
-      return NextResponse.redirect(signInUrl)
+      // Redirect to homepage with auth parameter to trigger auth modal
+      const homeUrl = new URL('/', request.url)
+      homeUrl.searchParams.set('auth', 'required')
+      homeUrl.searchParams.set('from', pathname)
+      return NextResponse.redirect(homeUrl)
     }
   }
   

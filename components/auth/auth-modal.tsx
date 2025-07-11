@@ -38,6 +38,7 @@ type EmailFormValues = z.infer<typeof emailFormSchema>
 interface AuthModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  redirectTo?: string | null
 }
 
 export function AuthModal({ open, onOpenChange }: AuthModalProps) {
