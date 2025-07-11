@@ -1,11 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { Resend } from "resend";
-
-// Initialize Resend client
-// This will need RESEND_API_KEY in environment variables
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+import { internal } from "./_generated/api";
 
 // Helper to generate a secure random token
 function generateToken(): string {
@@ -51,40 +47,32 @@ export const sendMagicLink = mutation({
       used: false,
     });
 
-    // Send email
+    // Generate magic link URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
 
-    if (resend) {
-      try {
-        await resend.emails.send({
-          from: process.env.EMAIL_FROM || 'Scry <noreply@scry.app>',
-          to: email,
-          subject: 'Sign in to Scry',
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Sign in to Scry</h2>
-              <p>Click the link below to sign in to your account:</p>
-              <a href="${magicLinkUrl}" style="display: inline-block; padding: 12px 24px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">
-                Sign In
-              </a>
-              <p style="margin-top: 20px; color: #666;">
-                Or copy and paste this URL into your browser:<br>
-                <code>${magicLinkUrl}</code>
-              </p>
-              <p style="margin-top: 20px; color: #666;">
-                This link will expire in 1 hour.
-              </p>
-            </div>
-          `,
-        });
-      } catch (error) {
-        console.error('Failed to send email:', error);
-        throw new Error('Failed to send magic link email');
-      }
-    } else {
-      // In development without Resend, log the magic link
-      console.log(`Magic link for ${email}: ${magicLinkUrl}`);
+    // Schedule the email action to run asynchronously
+    console.log('[MUTATION] About to schedule email action for:', email);
+    try {
+      const scheduledId = await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
+        email,
+        magicLinkUrl,
+      });
+      console.log('[MUTATION] Successfully scheduled email action with ID:', scheduledId);
+    } catch (error) {
+      console.error('[MUTATION] Failed to schedule email action:', error);
+      throw error;
+    }
+
+    // Return immediately - don't wait for email to send
+    const isDevMode = !process.env.RESEND_API_KEY;
+    if (isDevMode) {
+      // In development, return the magic link URL for easy testing
+      return { 
+        success: true, 
+        message: "Magic link sent",
+        devUrl: magicLinkUrl
+      };
     }
 
     return { success: true, message: "Magic link sent" };

@@ -61,6 +61,12 @@ npx convex deploy
 # Required: RESEND_API_KEY, EMAIL_FROM, NEXT_PUBLIC_APP_URL
 ```
 
+**Important Notes:**
+- Always use `npx convex dev` to ensure deployment to correct instance
+- Check Convex dashboard logs to verify deployments succeeded
+- Actions that make external API calls must use `internalAction` not `action`
+- Schedule actions using `internal.module.functionName` not `api.module.functionName`
+
 ## Environment Setup
 
 Create `.env.local` with these required variables:

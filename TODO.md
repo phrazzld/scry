@@ -1,5 +1,49 @@
 # TODO
 
+## Completed: Fix Email Sending in Convex Actions ✅
+
+### [x] Fix scheduler.runAfter not executing email action
+- **Issue**: Email action was scheduled but never executed, no logs appeared in Convex dashboard
+- **Root Cause**: Multiple issues:
+  1. Using `api.emailActions.sendMagicLinkEmail` instead of `internal.emailActions.sendMagicLinkEmail`
+  2. Using `action` instead of `internalAction` for the email action
+  3. Deployment mismatch - changes were deploying to wrong Convex instance
+- **Solution Implemented**:
+  1. Changed from `action` to `internalAction` in emailActions.ts
+  2. Updated scheduler call to use `internal.emailActions.sendMagicLinkEmail`
+  3. Added comprehensive logging throughout the action
+  4. Properly deployed to correct Convex instance using `npx convex dev`
+
+#### Key Learnings:
+- **Convex Actions Pattern**: External API calls must be made from actions, not mutations
+- **Internal vs Public**: Scheduled actions should use `internalAction` and be called with `internal` reference
+- **Deployment Verification**: Always verify deployment by checking for expected logs in Convex dashboard
+- **Environment Variables**: Convex actions can access env vars via `process.env` within handler
+
+#### Working Implementation:
+```typescript
+// convex/emailActions.ts
+export const sendMagicLinkEmail = internalAction({
+  args: { email: v.string(), magicLinkUrl: v.string() },
+  handler: async (ctx, { email, magicLinkUrl }) => {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    // ... send email
+  }
+});
+
+// convex/auth.ts
+await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
+  email,
+  magicLinkUrl,
+});
+```
+
+#### Verified Working:
+- ✅ Emails sending successfully via Resend
+- ✅ Magic links arrive in inbox
+- ✅ Click-through authentication works
+- ✅ Logs visible in Convex dashboard
+
 ## Critical: Fix Build Issues
 
 ### [x] Configure Convex Backend
