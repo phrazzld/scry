@@ -5,13 +5,14 @@ import { useAuth } from '@/contexts/auth-context'
 import { TopicInput } from '@/components/topic-input'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
-import { User } from 'lucide-react'
+import { User, LayoutDashboard, LogOut } from 'lucide-react'
 import { trackAuthPagePerformance } from '@/lib/auth-analytics'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 
 function HomeContent() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user, signOut } = useAuth()
   const searchParams = useSearchParams()
 
   // Check if auth is required from URL params
@@ -30,18 +31,47 @@ function HomeContent() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Subtle header with sign-in option */}
-      <header className="absolute top-0 right-0 p-8 md:p-16">
-        {!isLoading && !isAuthenticated && (
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => setAuthModalOpen(true)}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <User className="h-4 w-4 mr-2" />
-            Sign in
-          </Button>
+      {/* Header with auth options */}
+      <header className="absolute top-0 right-0 p-4 sm:p-8 md:p-16">
+        {!isLoading && (
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isAuthenticated && user ? (
+              <>
+                <div className="hidden sm:block text-sm text-gray-600 mr-2">
+                  Welcome, <span className="font-medium text-gray-900">{user.name || user.email.split('@')[0]}</span>
+                </div>
+                <Link href="/dashboard">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-gray-700 hover:text-gray-900"
+                  >
+                    <LayoutDashboard className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </Button>
+                </Link>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => signOut()}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <LogOut className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Sign out</span>
+                </Button>
+              </>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setAuthModalOpen(true)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Sign in
+              </Button>
+            )}
+          </div>
         )}
       </header>
 
@@ -55,6 +85,16 @@ function HomeContent() {
               Remember everything.
             </p>
             <TopicInput />
+            {isAuthenticated && !isLoading && (
+              <div className="mt-8 text-sm text-gray-600">
+                <p>
+                  Continue learning or{' '}
+                  <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 underline">
+                    view your progress
+                  </Link>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </main>

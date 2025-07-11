@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { setClientSessionCookie, removeClientSessionCookie, getSessionCookie } from '@/lib/auth-cookies'
 
 const SESSION_TOKEN_KEY = 'scry_session_token'
 
@@ -45,24 +46,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Load session token from storage on mount
   useEffect(() => {
-    // Try localStorage first
-    let token = localStorage.getItem(SESSION_TOKEN_KEY)
-    
-    // If not in localStorage, check cookies
-    if (!token) {
-      const cookies = document.cookie.split(';')
-      const sessionCookie = cookies.find(cookie => cookie.trim().startsWith(`${SESSION_TOKEN_KEY}=`))
-      if (sessionCookie) {
-        token = sessionCookie.split('=')[1]
-        // Sync to localStorage
-        if (token) {
-          localStorage.setItem(SESSION_TOKEN_KEY, token)
-        }
-      }
-    }
+    // Try to get token from localStorage first, then cookies
+    const localToken = localStorage.getItem(SESSION_TOKEN_KEY)
+    const cookieToken = getSessionCookie()
+    const token = localToken || cookieToken
     
     if (token) {
       setSessionToken(token)
+      // Ensure both storage methods have the token
+      if (!localToken && cookieToken) {
+        localStorage.setItem(SESSION_TOKEN_KEY, cookieToken)
+      }
+      if (!cookieToken && localToken) {
+        setClientSessionCookie(localToken)
+      }
     }
     setIsLoading(false)
   }, [])
@@ -90,10 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.success && result.sessionToken) {
         // Store session token in both localStorage and cookies
         localStorage.setItem(SESSION_TOKEN_KEY, result.sessionToken)
+        setClientSessionCookie(result.sessionToken)
         setSessionToken(result.sessionToken)
-        
-        // Set cookie for middleware access
-        document.cookie = `${SESSION_TOKEN_KEY}=${result.sessionToken}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
         
         toast.success('Successfully signed in!')
         
@@ -123,12 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOutMutation({ sessionToken })
       
-      // Clear session from localStorage
+      // Clear session from both localStorage and cookies
       localStorage.removeItem(SESSION_TOKEN_KEY)
+      removeClientSessionCookie()
       setSessionToken(null)
-      
-      // Clear cookie
-      document.cookie = `${SESSION_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax`
       
       toast.success('Signed out successfully')
       router.push('/')
@@ -181,12 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       if (result.success) {
-        // Clear session from localStorage
+        // Clear session from both localStorage and cookies
         localStorage.removeItem(SESSION_TOKEN_KEY)
+        removeClientSessionCookie()
         setSessionToken(null)
-        
-        // Clear cookie
-        document.cookie = `${SESSION_TOKEN_KEY}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax`
         
         toast.success('Account deleted successfully')
         router.push('/')
@@ -202,9 +193,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sessionToken, deleteAccountMutation, router])
 
+  // Combine loading states: initial load and query loading
+  const isActuallyLoading = isLoading || (sessionToken !== null && user === undefined)
+  
   const value: AuthContextType = {
     user: user as User | null,
-    isLoading,
+    isLoading: isActuallyLoading,
     isAuthenticated: !!user,
     sendMagicLink,
     verifyMagicLink,
