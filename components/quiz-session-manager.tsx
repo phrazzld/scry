@@ -9,7 +9,7 @@ import type { SimpleQuiz } from '@/types/quiz'
 
 interface QuizSessionManagerProps {
   quiz: SimpleQuiz
-  onComplete: (score: number) => void
+  onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>) => void
 }
 
 export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps) {
@@ -17,6 +17,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
   const [score, setScore] = useState(0)
+  const [answers, setAnswers] = useState<Array<{ userAnswer: string; isCorrect: boolean }>>([])
   
   const currentQuestion = quiz.questions[currentIndex]
   const isLastQuestion = currentIndex === quiz.questions.length - 1
@@ -32,6 +33,12 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     if (!selectedAnswer) return
     
     setShowFeedback(true)
+    const newAnswer = {
+      userAnswer: selectedAnswer,
+      isCorrect: isCorrect
+    }
+    setAnswers([...answers, newAnswer])
+    
     if (isCorrect) {
       setScore(score + 1)
     }
@@ -39,7 +46,9 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
 
   const handleNext = () => {
     if (isLastQuestion) {
-      onComplete(isCorrect ? score + 1 : score)
+      // Include the current answer in the final answers array
+      const finalAnswers = [...answers]
+      onComplete(score, finalAnswers)
     } else {
       setCurrentIndex(currentIndex + 1)
       setSelectedAnswer('')
@@ -56,7 +65,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
               Question {currentIndex + 1} of {quiz.questions.length}
             </span>
             <span className="text-sm text-gray-600">
-              Score: {score}/{quiz.questions.length}
+              Score: {score}/{currentIndex}
             </span>
           </div>
           <Progress value={progress} className="h-2" />

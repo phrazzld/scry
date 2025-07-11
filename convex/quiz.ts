@@ -210,3 +210,37 @@ export const getQuizStatsByTopicAuth = query({
     }));
   },
 });
+
+export const getRecentActivity = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx: any, args: any) => {
+    const limit = args.limit || 10;
+    
+    // Get recent quiz results across all users
+    const recentQuizzes = await ctx.db
+      .query("quizResults")
+      .order("desc")
+      .take(limit);
+    
+    // Get user information for each quiz
+    const activityWithUsers = await Promise.all(
+      recentQuizzes.map(async (quiz: any) => {
+        const user = await ctx.db.get(quiz.userId);
+        return {
+          id: quiz._id,
+          topic: quiz.topic,
+          score: quiz.score,
+          totalQuestions: quiz.totalQuestions,
+          difficulty: quiz.difficulty,
+          completedAt: quiz.completedAt,
+          userEmail: user?.email || 'Anonymous',
+          percentage: Math.round((quiz.score / quiz.totalQuestions) * 100),
+        };
+      })
+    );
+    
+    return activityWithUsers;
+  },
+});
