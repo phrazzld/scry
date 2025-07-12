@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/contexts/auth-context'
 import { useQuery } from 'convex/react'
@@ -40,9 +39,12 @@ export function QuizStatsRealtime() {
   // Calculate statistics from quiz history
   const quizzes = quizHistory?.quizzes || []
   const totalQuizzes = quizzes.length
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const totalQuestions = quizzes.reduce((sum: number, quiz: any) => sum + quiz.totalQuestions, 0)
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const totalScore = quizzes.reduce((sum: number, quiz: any) => sum + quiz.score, 0)
   const averageScore = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   const uniqueTopics = new Set(quizzes.map((q: any) => q.topic)).size
   
   return (

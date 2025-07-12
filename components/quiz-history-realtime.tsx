@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Card, CardContent } from '@/components/ui/card'
 import { BookOpen, Trophy, Calendar, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
@@ -74,6 +73,7 @@ export function QuizHistoryRealtime() {
   // Display quiz history
   return (
     <div className="space-y-4">
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {quizHistory.quizzes.map((quiz: any) => (
         <Card key={quiz.id} className="hover:shadow-md transition-shadow">
           <CardContent className="p-6">

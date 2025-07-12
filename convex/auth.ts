@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -15,7 +14,7 @@ function generateToken(): string {
 
 export const sendMagicLink = mutation({
   args: { email: v.string() },
-  handler: async (ctx: any, { email }: { email: string }) => {
+  handler: async (ctx, { email }) => {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -25,9 +24,9 @@ export const sendMagicLink = mutation({
     // Check for existing unused magic links for this email
     const existingLink = await ctx.db
       .query("magicLinks")
-      .withIndex("by_email", (q: any) => q.eq("email", email))
-      .filter((q: any) => q.eq(q.field("used"), false))
-      .filter((q: any) => q.gt(q.field("expiresAt"), Date.now()))
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .filter((q) => q.eq(q.field("used"), false))
+      .filter((q) => q.gt(q.field("expiresAt"), Date.now()))
       .first();
 
     if (existingLink) {
@@ -81,11 +80,11 @@ export const sendMagicLink = mutation({
 
 export const verifyMagicLink = mutation({
   args: { token: v.string() },
-  handler: async (ctx: any, { token }: { token: string }) => {
+  handler: async (ctx, { token }) => {
     // Find the magic link
     const magicLink = await ctx.db
       .query("magicLinks")
-      .withIndex("by_token", (q: any) => q.eq("token", token))
+      .withIndex("by_token", (q) => q.eq("token", token))
       .first();
 
     if (!magicLink) {
@@ -108,7 +107,7 @@ export const verifyMagicLink = mutation({
     // Find or create user
     let user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q: any) => q.eq("email", magicLink.email))
+      .withIndex("by_email", (q) => q.eq("email", magicLink.email))
       .first();
 
     if (!user) {
@@ -148,7 +147,7 @@ export const verifyMagicLink = mutation({
 
 export const getCurrentUser = query({
   args: { sessionToken: v.optional(v.string()) },
-  handler: async (ctx: any, { sessionToken }: { sessionToken: string | undefined }) => {
+  handler: async (ctx, { sessionToken }) => {
     if (!sessionToken) {
       return null;
     }
@@ -156,7 +155,7 @@ export const getCurrentUser = query({
     // Find session
     const session = await ctx.db
       .query("sessions")
-      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .withIndex("by_token", (q) => q.eq("token", sessionToken))
       .first();
 
     if (!session || session.expiresAt < Date.now()) {
@@ -180,11 +179,11 @@ export const getCurrentUser = query({
 
 export const signOut = mutation({
   args: { sessionToken: v.string() },
-  handler: async (ctx: any, { sessionToken }: { sessionToken: string }) => {
+  handler: async (ctx, { sessionToken }) => {
     // Find and delete session
     const session = await ctx.db
       .query("sessions")
-      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .withIndex("by_token", (q) => q.eq("token", sessionToken))
       .first();
 
     if (session) {
@@ -202,11 +201,11 @@ export const updateProfile = mutation({
     email: v.string(),
     image: v.optional(v.union(v.string(), v.null()))
   },
-  handler: async (ctx: any, { sessionToken, name, email, image }: { sessionToken: string; name: string; email: string; image: string | null | undefined }) => {
+  handler: async (ctx, { sessionToken, name, email, image }) => {
     // Find session
     const session = await ctx.db
       .query("sessions")
-      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .withIndex("by_token", (q) => q.eq("token", sessionToken))
       .first();
 
     if (!session || session.expiresAt < Date.now()) {
@@ -223,7 +222,7 @@ export const updateProfile = mutation({
     if (email !== user.email) {
       const existingUser = await ctx.db
         .query("users")
-        .withIndex("by_email", (q: any) => q.eq("email", email))
+        .withIndex("by_email", (q) => q.eq("email", email))
         .first();
       
       if (existingUser && existingUser._id !== user._id) {
@@ -255,11 +254,11 @@ export const deleteAccount = mutation({
     sessionToken: v.string(),
     confirmationEmail: v.string()
   },
-  handler: async (ctx: any, { sessionToken, confirmationEmail }: { sessionToken: string; confirmationEmail: string }) => {
+  handler: async (ctx, { sessionToken, confirmationEmail }) => {
     // Find session
     const session = await ctx.db
       .query("sessions")
-      .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+      .withIndex("by_token", (q) => q.eq("token", sessionToken))
       .first();
 
     if (!session || session.expiresAt < Date.now()) {
@@ -280,7 +279,7 @@ export const deleteAccount = mutation({
     // Delete all user's sessions
     const userSessions = await ctx.db
       .query("sessions")
-      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
     
     for (const userSession of userSessions) {
@@ -290,7 +289,7 @@ export const deleteAccount = mutation({
     // Delete all user's quiz results
     const quizResults = await ctx.db
       .query("quizResults")
-      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
     
     for (const result of quizResults) {

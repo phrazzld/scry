@@ -1,16 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
 // Helper to get authenticated user ID from session token
-async function getAuthenticatedUserId(ctx: any, sessionToken: string | undefined) {
+async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken: string | undefined) {
   if (!sessionToken) {
     throw new Error("Authentication required");
   }
 
   const session = await ctx.db
     .query("sessions")
-    .withIndex("by_token", (q: any) => q.eq("token", sessionToken))
+    .withIndex("by_token", (q) => q.eq("token", sessionToken))
     .first();
 
   if (!session || session.expiresAt < Date.now()) {
@@ -36,7 +35,7 @@ export const completeQuiz = mutation({
       options: v.array(v.string()),
     })),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     // Verify authentication
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
 
@@ -70,7 +69,7 @@ export const getQuizHistory = query({
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     if (!args.sessionToken) {
       return { quizzes: [], total: 0 };
     }
@@ -89,7 +88,7 @@ export const getQuizHistory = query({
     // Get total count
     const allQuizzes = await ctx.db
       .query("quizResults")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     
     const total = allQuizzes.length;
@@ -97,7 +96,7 @@ export const getQuizHistory = query({
     // Get paginated results
     const quizzes = await ctx.db
       .query("quizResults")
-      .withIndex("by_user", (q: any) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .take(limit + offset);
 
@@ -105,7 +104,7 @@ export const getQuizHistory = query({
     const paginatedQuizzes = quizzes.slice(offset, offset + limit);
 
     return {
-      quizzes: paginatedQuizzes.map((quiz: any) => ({
+      quizzes: paginatedQuizzes.map((quiz) => ({
         id: quiz._id,
         topic: quiz.topic,
         difficulty: quiz.difficulty,
@@ -125,7 +124,7 @@ export const getQuizStatsByTopic = query({
     sessionToken: v.optional(v.string()),
     topic: v.string(),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     if (!args.sessionToken) {
       return null;
     }
@@ -141,7 +140,7 @@ export const getQuizStatsByTopic = query({
     // Get all quizzes for this topic
     const quizzes = await ctx.db
       .query("quizResults")
-      .withIndex("by_user_topic", (q: any) => 
+      .withIndex("by_user_topic", (q) => 
         q.eq("userId", userId).eq("topic", args.topic)
       )
       .collect();
@@ -152,8 +151,8 @@ export const getQuizStatsByTopic = query({
 
     // Calculate statistics
     const totalQuizzes = quizzes.length;
-    const totalScore = quizzes.reduce((sum: any, quiz: any) => sum + quiz.score, 0);
-    const totalQuestions = quizzes.reduce((sum: any, quiz: any) => sum + quiz.totalQuestions, 0);
+    const totalScore = quizzes.reduce((sum, quiz) => sum + quiz.score, 0);
+    const totalQuestions = quizzes.reduce((sum, quiz) => sum + quiz.totalQuestions, 0);
     const averageScore = totalScore / totalQuestions;
 
     const latestQuiz = quizzes[quizzes.length - 1];
@@ -163,14 +162,14 @@ export const getQuizStatsByTopic = query({
       totalQuizzes,
       averageScore: Math.round(averageScore * 100),
       lastAttempt: latestQuiz.completedAt,
-      bestScore: Math.max(...quizzes.map((q: any) => Math.round((q.score / q.totalQuestions) * 100))),
+      bestScore: Math.max(...quizzes.map((q) => Math.round((q.score / q.totalQuestions) * 100))),
     };
   },
 });
 
 export const getQuizStatsByTopicAuth = query({
   args: {},
-  handler: async (ctx: any) => {
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return [];
@@ -178,7 +177,7 @@ export const getQuizStatsByTopicAuth = query({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q: any) => q.eq("email", identity.email!))
+      .withIndex("by_email", (q) => q.eq("email", identity.email!))
       .first();
 
     if (!user) {
@@ -188,7 +187,7 @@ export const getQuizStatsByTopicAuth = query({
     // Get all quiz results for the user
     const results = await ctx.db
       .query("quizResults")
-      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
     // Group by topic and calculate stats
@@ -215,7 +214,7 @@ export const getRecentActivity = query({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (ctx: any, args: any) => {
+  handler: async (ctx, args) => {
     const limit = args.limit || 10;
     
     // Get recent quiz results across all users
@@ -226,7 +225,7 @@ export const getRecentActivity = query({
     
     // Get user information for each quiz
     const activityWithUsers = await Promise.all(
-      recentQuizzes.map(async (quiz: any) => {
+      recentQuizzes.map(async (quiz) => {
         const user = await ctx.db.get(quiz.userId);
         return {
           id: quiz._id,

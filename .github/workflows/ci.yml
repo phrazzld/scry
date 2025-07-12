@@ -162,11 +162,20 @@ jobs:
       - name: Install Vercel CLI
         run: pnpm add -g vercel@latest
 
+      - name: Debug Environment Variables
+        run: |
+          echo "VERCEL_TOKEN length: ${#VERCEL_TOKEN}"
+          echo "VERCEL_ORG_ID length: ${#VERCEL_ORG_ID}"
+          echo "VERCEL_PROJECT_ID length: ${#VERCEL_PROJECT_ID}"
+          echo "VERCEL_TOKEN set: $([[ -n "$VERCEL_TOKEN" ]] && echo 'yes' || echo 'no')"
+          echo "VERCEL_ORG_ID set: $([[ -n "$VERCEL_ORG_ID" ]] && echo 'yes' || echo 'no')"
+          echo "VERCEL_PROJECT_ID set: $([[ -n "$VERCEL_PROJECT_ID" ]] && echo 'yes' || echo 'no')"
+
       - name: Deploy to Vercel Preview
         run: |
-          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+          vercel pull --yes --environment=preview
+          vercel build
+          vercel deploy --prebuilt > deployment-url.txt
           echo "PREVIEW_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
 
       - name: Comment PR with preview URL
@@ -216,6 +225,6 @@ jobs:
 
       - name: Deploy to Vercel Production
         run: |
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel pull --yes --environment=production
+          vercel build --prod
+          vercel deploy --prebuilt --prod

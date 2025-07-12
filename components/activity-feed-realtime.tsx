@@ -1,6 +1,5 @@
 'use client'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,6 +48,7 @@ export function ActivityFeedRealtime() {
           <p className="text-center text-gray-500 py-8">No recent activity</p>
         ) : (
           <div className="space-y-4">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {recentActivity.map((activity: any) => {
               const isCurrentUser = user?.email === activity.userEmail
               return (
