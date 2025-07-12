@@ -56,6 +56,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Generate Convex type definitions required for TypeScript compilation
+      # These files are gitignored but necessary for the build process
+      - name: Generate Convex Types
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex codegen
+
       - name: Run type check
         run: pnpm tsc --noEmit
 
@@ -107,6 +114,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Generate Convex type definitions required for TypeScript compilation
+      # These files are gitignored but necessary for the build process
+      - name: Generate Convex Types
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex codegen
 
       - name: Build application
         run: pnpm build
