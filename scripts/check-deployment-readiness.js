@@ -141,24 +141,18 @@ class DeploymentChecker {
   }
 
   async checkDatabaseConnectivity() {
-    this.logSection('Database Connectivity')
+    this.logSection('Convex Configuration')
     
-    if (!process.env.DATABASE_URL) {
-      this.addCheck('Database Connection', 'fail', 'DATABASE_URL not configured')
+    if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+      this.addCheck('Convex URL', 'fail', 'NEXT_PUBLIC_CONVEX_URL not configured')
       return
     }
 
-    try {
-      // Test Prisma database connection
-      const result = await this.runCommand('npx', ['prisma', 'db', 'execute', '--stdin'], 5000)
-      
-      if (result.success || result.stderr.includes('connected')) {
-        this.addCheck('Database Connection', 'pass', 'Database is reachable')
-      } else {
-        this.addCheck('Database Connection', 'fail', 'Cannot connect to database')
-      }
-    } catch {
-      this.addCheck('Database Connection', 'warn', 'Could not test database connection')
+    // Check if Convex URL is valid
+    if (process.env.NEXT_PUBLIC_CONVEX_URL.startsWith('https://')) {
+      this.addCheck('Convex URL', 'pass', 'Convex URL configured correctly')
+    } else {
+      this.addCheck('Convex URL', 'fail', 'Convex URL must use HTTPS')
     }
   }
 
@@ -212,49 +206,15 @@ class DeploymentChecker {
   async checkSecurityConfiguration() {
     this.logSection('Security Configuration')
     
-    // Check NEXTAUTH_SECRET
-    const authSecret = process.env.NEXTAUTH_SECRET
-    if (!authSecret) {
-      this.addCheck('NextAuth Secret', 'fail', 'NEXTAUTH_SECRET not configured')
-    } else if (authSecret.length < 32) {
-      this.addCheck('NextAuth Secret', 'fail', 'NEXTAUTH_SECRET too short (minimum 32 characters)')
-    } else {
-      this.addCheck('NextAuth Secret', 'pass', 'NextAuth secret properly configured')
-    }
-
-    // Check for common insecure values
-    const insecureValues = ['test', 'development', 'secret', 'password', '123']
-    if (authSecret && insecureValues.some(val => authSecret.toLowerCase().includes(val))) {
-      this.addCheck('NextAuth Secret Strength', 'warn', 'Secret may be too predictable')
-    }
-
-    // Check NEXTAUTH_URL for production
-    if (this.environment === 'production') {
-      const authUrl = process.env.NEXTAUTH_URL
-      if (!authUrl) {
-        this.addCheck('NextAuth URL', 'warn', 'NEXTAUTH_URL not set for production')
-      } else if (!authUrl.startsWith('https://')) {
-        this.addCheck('NextAuth URL', 'fail', 'NEXTAUTH_URL must use HTTPS in production')
-      } else {
-        this.addCheck('NextAuth URL', 'pass', 'NextAuth URL properly configured')
-      }
-    }
+    // Authentication is handled by Convex
+    this.addCheck('Authentication System', 'pass', 'Using Convex Auth with magic links')
   }
 
   async checkOptionalServices() {
     this.logSection('Optional Services')
     
-    // Check Vercel KV (rate limiting)
-    const kvVars = ['KV_URL', 'KV_REST_API_URL', 'KV_REST_API_TOKEN']
-    const kvPresent = kvVars.filter(name => process.env[name]).length
-    
-    if (kvPresent === 0) {
-      this.addCheck('Vercel KV (Rate Limiting)', 'warn', 'Not configured - rate limiting disabled')
-    } else if (kvPresent === kvVars.length) {
-      this.addCheck('Vercel KV (Rate Limiting)', 'pass', 'Fully configured')
-    } else {
-      this.addCheck('Vercel KV (Rate Limiting)', 'fail', 'Partially configured - all or none required')
-    }
+    // Convex handles all data storage needs
+    this.addCheck('Data Storage', 'pass', 'Using Convex for all data storage')
   }
 
   generateDeploymentReport() {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -29,6 +29,7 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
   const [confirmationEmail, setConfirmationEmail] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
+  const { deleteAccount } = useAuth()
 
   const handleDeleteAccount = async () => {
     if (!confirmationEmail) {
@@ -44,20 +45,9 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
     setIsDeleting(true)
 
     try {
-      const response = await fetch('/api/delete-account', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          confirmationEmail: confirmationEmail,
-        }),
-      })
+      const result = await deleteAccount(confirmationEmail)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        toast.error(data.error || 'Failed to delete account')
+      if (!result.success) {
         setIsDeleting(false)
         return
       }
@@ -65,12 +55,7 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
       // Success - show success message and redirect
       toast.success('Account successfully deleted')
       
-      // Sign out and redirect to home page
-      await signOut({ 
-        callbackUrl: '/',
-        redirect: false 
-      })
-      
+      // Redirect to home page
       router.push('/')
       router.refresh()
       

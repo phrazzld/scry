@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,7 +18,7 @@ import { User, BookOpen, Settings, LogOut } from 'lucide-react'
 export function Navbar() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   
-  const { data: session, status } = useSession()
+  const { user, isLoading, signOut } = useAuth()
   
   
   return (
@@ -30,12 +30,12 @@ export function Navbar() {
           </Link>
           
           <div className="flex items-center gap-4">
-            {status === "loading" ? null : session ? (
+            {isLoading ? null : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="user-menu">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || 'User'} />
+                      <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
                       <AvatarFallback>
                         <User className="h-4 w-4" />
                       </AvatarFallback>
@@ -45,18 +45,18 @@ export function Navbar() {
                 <DropdownMenuContent className="w-64" align="end" forceMount loop>
                   <div className="flex items-center justify-start gap-3 p-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || 'User'} />
+                      <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />
                       <AvatarFallback>
                         <User className="h-5 w-5" />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col space-y-1 leading-none min-w-0 flex-1">
-                      {session.user?.name && (
-                        <p className="font-medium text-sm truncate">{session.user.name}</p>
+                      {user.name && (
+                        <p className="font-medium text-sm truncate">{user.name}</p>
                       )}
-                      {session.user?.email && (
+                      {user.email && (
                         <p className="truncate text-xs text-muted-foreground">
-                          {session.user.email}
+                          {user.email}
                         </p>
                       )}
                     </div>

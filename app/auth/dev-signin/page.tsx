@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn, signOut, useSession } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AlertTriangle, User, Mail, Zap, LogOut, Home } from 'lucide-react'
+import { toast } from 'sonner'
 
 // Development environment check
 const isDevelopment = process.env.NODE_ENV === 'development'
@@ -36,7 +37,7 @@ interface DevAuthStatus {
 }
 
 export default function DevSignInPage() {
-  const { data: session } = useSession()
+  const { user, isAuthenticated, sendMagicLink, signOut } = useAuth()
   const router = useRouter()
   const [authStatus, setAuthStatus] = useState<DevAuthStatus | null>(null)
   const [customEmail, setCustomEmail] = useState('')
@@ -51,12 +52,21 @@ export default function DevSignInPage() {
       return
     }
     
-    // Fetch development auth status
-    fetch('/api/dev-auth')
-      .then(res => res.json())
-      .then(data => setAuthStatus(data))
-      .catch(() => setError('Failed to load development auth status'))
-  }, [router])
+    // Set mock auth status for development
+    setAuthStatus({
+      available: true,
+      environment: 'development',
+      testUsers: ['admin', 'user', 'tester'],
+      currentSession: user ? {
+        user: {
+          id: user.id,
+          email: user.email || '',
+          name: user.name || ''
+        },
+        authenticated: true
+      } : undefined
+    })
+  }, [router, user])
 
   // Redirect if not development environment
   if (!isDevelopment) {
@@ -77,16 +87,14 @@ export default function DevSignInPage() {
     setError('')
     
     try {
-      const result = await signIn('dev-shortcut', {
-        email: `${testUser}@dev.local`,
-        name: `Dev ${testUser.charAt(0).toUpperCase() + testUser.slice(1)}`,
-        redirect: false
-      })
+      // In development, we'll send a magic link to the test email
+      const email = `${testUser}@dev.local`
+      const result = await sendMagicLink(email)
       
-      if (result?.error) {
-        setError(result.error)
+      if (!result.success) {
+        setError('Failed to send magic link')
       } else {
-        router.push('/')
+        toast.success(`Magic link sent to ${email}. Check the Convex dashboard for the link in development.`)
       }
     } catch {
       setError('Failed to sign in with test user')
@@ -105,16 +113,12 @@ export default function DevSignInPage() {
     setError('')
     
     try {
-      const result = await signIn('dev-shortcut', {
-        email: customEmail,
-        name: customName || customEmail.split('@')[0],
-        redirect: false
-      })
+      const result = await sendMagicLink(customEmail)
       
-      if (result?.error) {
-        setError(result.error)
+      if (!result.success) {
+        setError('Failed to send magic link')
       } else {
-        router.push('/')
+        toast.success(`Magic link sent to ${customEmail}. Check your email or the Convex dashboard in development.`)
       }
     } catch {
       setError('Failed to sign in with custom user')
@@ -126,8 +130,7 @@ export default function DevSignInPage() {
   const handleSignOut = async () => {
     setLoading(true)
     try {
-      await signOut({ redirect: false })
-      router.refresh()
+      await signOut()
     } catch {
       setError('Failed to sign out')
     }
@@ -160,7 +163,7 @@ export default function DevSignInPage() {
       </Alert>
 
       {/* Current Session Status */}
-      {session && (
+      {isAuthenticated && user && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -170,9 +173,9 @@ export default function DevSignInPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p><strong>Email:</strong> {session.user?.email}</p>
-              <p><strong>Name:</strong> {session.user?.name}</p>
-              <p><strong>ID:</strong> {session.user?.id}</p>
+              <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Name:</strong> {user.name || 'Not set'}</p>
+              <p><strong>ID:</strong> {user.id}</p>
               <div className="flex gap-2 mt-4">
                 <Button onClick={() => router.push('/')} variant="outline">
                   <Home className="h-4 w-4 mr-2" />
@@ -189,7 +192,7 @@ export default function DevSignInPage() {
       )}
 
       {/* Quick Test Users */}
-      {!session && (
+      {!isAuthenticated && (
         <Card>
           <CardHeader>
             <CardTitle>Quick Test Users</CardTitle>
@@ -217,7 +220,7 @@ export default function DevSignInPage() {
       )}
 
       {/* Custom User Sign-In */}
-      {!session && (
+      {!isAuthenticated && (
         <Card>
           <CardHeader>
             <CardTitle>Custom Development User</CardTitle>

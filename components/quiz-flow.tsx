@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { QuizSessionManager } from '@/components/quiz-session-manager'
+import { useAuth } from '@/contexts/auth-context'
+import { toast } from 'sonner'
 import type { SimpleQuiz } from '@/types/quiz'
 
 type QuizFlowState = 'generating' | 'ready' | 'quiz' | 'complete'
@@ -12,10 +14,12 @@ type QuizFlowState = 'generating' | 'ready' | 'quiz' | 'complete'
 interface QuizFlowProps {
   topic: string
   questionCount?: number
+  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
-export function QuizFlow({ topic }: QuizFlowProps) {
+export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const [flowState, setFlowState] = useState<QuizFlowState>('generating')
   const [quiz, setQuiz] = useState<SimpleQuiz | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +33,7 @@ export function QuizFlow({ topic }: QuizFlowProps) {
       const response = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic, difficulty }),
       })
 
       if (!response.ok) {
@@ -56,9 +60,45 @@ export function QuizFlow({ topic }: QuizFlowProps) {
     setFlowState('quiz')
   }
 
-  const handleQuizComplete = (finalScore: number) => {
+  const handleQuizComplete = async (finalScore: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>) => {
     if (quiz) {
       setQuiz({ ...quiz, score: finalScore })
+      
+      // Save quiz results if user is authenticated
+      if (user) {
+        try {
+          const sessionToken = localStorage.getItem('scry_session_token')
+          if (sessionToken) {
+            const response = await fetch('/api/quiz/complete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sessionToken,
+                topic,
+                difficulty,
+                score: finalScore,
+                totalQuestions: quiz.questions.length,
+                answers: answers.map((answer, index) => ({
+                  questionId: `q${index}`,
+                  question: quiz.questions[index].question,
+                  userAnswer: answer.userAnswer,
+                  correctAnswer: quiz.questions[index].correctAnswer,
+                  isCorrect: answer.isCorrect,
+                  options: quiz.questions[index].options
+                }))
+              }),
+            })
+            
+            if (response.ok) {
+              toast.success('Quiz results saved!')
+            } else {
+              console.error('Failed to save quiz results')
+            }
+          }
+        } catch (error) {
+          console.error('Error saving quiz results:', error)
+        }
+      }
     }
     setFlowState('complete')
   }

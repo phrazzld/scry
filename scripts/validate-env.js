@@ -33,17 +33,11 @@ const ENV_VARIABLES = {
       validation: (value) => value && value.startsWith('AIzaSy') && value.length > 20,
       errorMessage: 'Must start with "AIzaSy" and be at least 20 characters long'
     },
-    'DATABASE_URL': {
-      description: 'PostgreSQL database connection string',
-      example: 'postgresql://user:pass@host:port/dbname',
-      validation: (value) => value && (value.startsWith('postgresql://') || value.startsWith('postgres://') || value.startsWith('prisma+')),
-      errorMessage: 'Must be a valid PostgreSQL connection string'
-    },
-    'NEXTAUTH_SECRET': {
-      description: 'NextAuth.js secret for JWT signing',
-      example: 'generated-secret-string',
-      validation: (value) => value && value.length >= 32,
-      errorMessage: 'Must be at least 32 characters long. Generate with: openssl rand -base64 32'
+    'NEXT_PUBLIC_CONVEX_URL': {
+      description: 'Convex deployment URL',
+      example: 'https://...',
+      validation: (value) => value && value.startsWith('https://'),
+      errorMessage: 'Must be a valid Convex HTTPS URL'
     },
     'RESEND_API_KEY': {
       description: 'Resend API key for email sending',
@@ -84,26 +78,6 @@ const ENV_VARIABLES = {
       example: 'resend',
       default: 'resend'
     },
-    'DATABASE_URL_UNPOOLED': {
-      description: 'Unpooled database connection (for migrations)',
-      example: 'postgresql://user:pass@host:port/dbname'
-    }
-  },
-  
-  // KV-related variables (optional, for rate limiting)
-  kv: {
-    'KV_URL': {
-      description: 'Vercel KV connection URL',
-      example: 'redis://...'
-    },
-    'KV_REST_API_URL': {
-      description: 'Vercel KV REST API URL',
-      example: 'https://...'
-    },
-    'KV_REST_API_TOKEN': {
-      description: 'Vercel KV REST API token',
-      example: 'token...'
-    }
   },
   
   // System variables (auto-populated)
