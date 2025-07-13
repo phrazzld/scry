@@ -8,7 +8,17 @@
 - [ ] Generate Production Deploy Key
 - [ ] Copy the key (starts with `prod:`)
 
-### 2. Vercel Environment Variables
+### 2. Convex Environment Variables ⚠️ CRITICAL FOR EMAIL
+- [ ] Set environment variables in Convex (not just Vercel!):
+  ```bash
+  npx convex env set RESEND_API_KEY "your-key" --prod
+  npx convex env set EMAIL_FROM "Scry <noreply@yourdomain.com>" --prod
+  npx convex env set NEXT_PUBLIC_APP_URL "https://yourdomain.com" --prod
+  ```
+- [ ] Verify they're set: `npx convex env list --prod`
+- [ ] **Note**: These are separate from Vercel env vars!
+
+### 3. Vercel Environment Variables
 - [ ] Open Vercel Dashboard: https://vercel.com/phrazzld/scry/settings/environment-variables
 - [ ] Add `CONVEX_DEPLOY_KEY`:
   - Key: `CONVEX_DEPLOY_KEY`
@@ -20,16 +30,16 @@
   - [ ] `RESEND_API_KEY` (if using email features)
   - [ ] `EMAIL_FROM` (if using email features)
 
-### 3. Local Verification
+### 4. Local Verification
 - [ ] Run: `node scripts/check-vercel-env.js`
 - [ ] Confirm all required variables show as ✅
 
-### 4. Deployment
+### 5. Deployment
 - [ ] Commit any pending changes
 - [ ] Push to your branch
 - [ ] Deploy: `vercel --prod`
 
-### 5. Post-Deployment Verification
+### 6. Post-Deployment Verification
 - [ ] Check build logs in Vercel Dashboard
 - [ ] Look for "Convex functions deployed successfully"
 - [ ] Visit your production URL

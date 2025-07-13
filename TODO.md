@@ -695,3 +695,17 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
   - Benefits of separate preview deployments
   - Migration steps when ready to upgrade
 - **Labels**: `technical-debt`, `enhancement`, `infrastructure`
+## Fixed: Magic Link Email Sending
+
+### [x] Set Convex Environment Variables for Email
+- **Issue**: Magic link emails weren't sending because Convex environment variables weren't set
+- **Root Cause**: Convex actions run in Convex runtime, not Vercel, so they need their own env vars
+- **Solution**: Set RESEND_API_KEY, EMAIL_FROM, and NEXT_PUBLIC_APP_URL in Convex production
+- **Commands Used**:
+  ```bash
+  npx convex env set RESEND_API_KEY "re_..." --prod
+  npx convex env set EMAIL_FROM "Scry <noreply@scry.study>" --prod
+  npx convex env set NEXT_PUBLIC_APP_URL "https://www.scry.study" --prod
+  ```
+- **Result**: ✅ Environment variables now set, emails should send properly
+- **Documentation**: Updated deployment checklist to emphasize this critical step
