@@ -619,6 +619,21 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 - **Hypothesis**: Convex CLI might be validating the key format or permissions
 - **Investigation Started**: 2025-07-13 13:55
 
+#### Actions Taken:
+1. ✅ Removed dummy key from preview environment
+2. ✅ Added production CONVEX_DEPLOY_KEY to preview environment
+3. ✅ Enhanced build script with debugging and --prod flag for preview codegen
+4. ✅ Verified key is set for both Production and Preview in Vercel
+
+#### Current Status:
+- Build script works locally with VERCEL_ENV=preview
+- Vercel deployments still failing at codegen step
+- Need to check actual Vercel build logs to see debug output
+
+#### Next Steps:
+- Check deployment logs to see environment debug output
+- May need to use a different approach or contact Convex support
+
 ### [ ] Trigger New Vercel Preview Deployment
 - **Context**: Test that preview builds now succeed with production key for type generation
 - **Command**: `vercel`

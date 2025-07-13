@@ -60,24 +60,34 @@ if (vercelEnv) {
   console.log('');
 }
 
-try {
-  // For preview environments with a production key, we need to ensure Convex uses it
-  if (!isProduction && hasDeployKey && vercelEnv) {
-    console.log('⚠️  Preview environment with production key detected');
-    console.log('   Running codegen with production configuration...');
-    execSync('npx convex codegen --prod', { stdio: 'inherit' });
-  } else {
-    execSync('npx convex codegen', { stdio: 'inherit' });
+// Check if types already exist (they should be committed to the repo)
+const fs = require('fs');
+const path = require('path');
+const typesExist = fs.existsSync(path.join(__dirname, '..', 'convex', '_generated'));
+
+if (!isProduction && vercelEnv && typesExist) {
+  console.log('ℹ️  Preview environment detected - using pre-generated Convex types');
+  console.log('   (Types should be committed to the repository)');
+  console.log('✅ Convex types already exist\n');
+} else {
+  try {
+    // For production or local development, generate types
+    if (isProduction && hasDeployKey) {
+      console.log('   Running production codegen...');
+      execSync('npx convex codegen --prod', { stdio: 'inherit' });
+    } else if (!vercelEnv) {
+      // Local development
+      execSync('npx convex codegen', { stdio: 'inherit' });
+    } else {
+      // Preview without types - this is a problem
+      throw new Error('Preview deployment missing Convex types - ensure convex/_generated is committed');
+    }
+    console.log('✅ Convex types generated successfully\n');
+  } catch (error) {
+    console.error('❌ Failed to generate Convex types');
+    console.error('   Error details:', error.message);
+    process.exit(1);
   }
-  console.log('✅ Convex types generated successfully\n');
-} catch (error) {
-  console.error('❌ Failed to generate Convex types');
-  console.error('   Error details:', error.message);
-  if (!isProduction && !hasDeployKey && vercelEnv) {
-    console.error('\n   Preview environment needs CONVEX_DEPLOY_KEY for type generation');
-    console.error('   Add the production key to preview environment in Vercel dashboard');
-  }
-  process.exit(1);
 }
 
 // Always run Next.js build
