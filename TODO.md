@@ -613,7 +613,7 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 - **Security**: Ensures no keys left on filesystem
 - **Status**: ✅ Cleaned up all temporary files
 
-### [~] Investigate Preview Build Failures Despite CONVEX_DEPLOY_KEY
+### [x] Investigate Preview Build Failures Despite CONVEX_DEPLOY_KEY
 - **Context**: Preview builds still fail even after adding production key
 - **Issue**: `npx convex codegen` fails in Vercel build environment
 - **Hypothesis**: Convex CLI might be validating the key format or permissions
@@ -625,18 +625,22 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 3. ✅ Enhanced build script with debugging and --prod flag for preview codegen
 4. ✅ Verified key is set for both Production and Preview in Vercel
 
-#### Current Status:
-- Build script works locally with VERCEL_ENV=preview
-- Vercel deployments still failing at codegen step
-- Need to check actual Vercel build logs to see debug output
+#### Solution Found:
+- Convex codegen was failing in preview even with valid production key
+- Solution: Commit generated types to repository
+- Removed `convex/_generated/` from .gitignore
+- Updated build script to skip codegen for preview and use committed types
+- Preview deployments now work without needing CONVEX_DEPLOY_KEY at all!
 
-#### Next Steps:
-- Check deployment logs to see environment debug output
-- May need to use a different approach or contact Convex support
+#### Result: ✅ Preview deployment successful!
+- URL: https://scry-g9lsncins-moomooskycow.vercel.app
+- Preview uses committed types and production Convex backend
+- No Convex Pro subscription required
 
-### [ ] Trigger New Vercel Preview Deployment
+### [x] Trigger New Vercel Preview Deployment
 - **Context**: Test that preview builds now succeed with production key for type generation
 - **Command**: `vercel`
+- **Result**: ✅ SUCCESS! Preview deployed to https://scry-g9lsncins-moomooskycow.vercel.app
 - **Expected Output**: 
   - "🔍 Build Configuration: Environment: preview"
   - "📝 Generating Convex types..."
