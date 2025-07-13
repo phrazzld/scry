@@ -528,8 +528,143 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 - Convex CLI commands are essential for debugging and should be documented
 - Environment setup flow is crucial for developer onboarding experience
 
-### [ ] Document CI/CD Requirements
+### [x] Document CI/CD Requirements
 - **New Task**: Add comprehensive CI/CD setup documentation
 - List all required GitHub secrets and how to obtain them
 - Provide step-by-step Vercel project setup guide
 - Include troubleshooting section for common CI failures
+
+#### Complexity: MEDIUM
+#### Started: 2025-07-13 11:27
+
+#### Context Discovery
+- Analyzed .github/workflows/ci.yml - found 6 required GitHub secrets
+- Found 5 existing docs files, with ci-cd-setup.md as main guide
+- Discovered environment-setup.md has outdated PostgreSQL/NextAuth references
+- Identified custom build script that handles Convex deployment intelligently
+
+#### Execution Log
+[11:27] Starting analysis of CI/CD configuration and documentation
+[11:28] Identified all required secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID, CONVEX_DEPLOY_KEY, NEXT_PUBLIC_CONVEX_URL, GOOGLE_AI_API_KEY
+[11:29] Found existing ci-cd-setup.md needs enhancement with complete secret details
+[11:30] Reading existing ci-cd-setup.md - has good foundation but missing some details
+[11:31] Need to add: secret validation info, retry mechanisms, preview deployment workaround
+[11:32] Starting comprehensive documentation update
+[11:33] Enhanced ci-cd-setup.md with detailed secret instructions and troubleshooting
+[11:34] Added security best practices, retry logic explanation, and architecture diagram
+[11:35] Updated environment-setup.md to remove outdated PostgreSQL/NextAuth references
+[11:36] Replaced with accurate Convex-based environment configuration
+[11:37] Added comprehensive troubleshooting sections to both docs
+
+#### Approach Decisions
+- Enhanced existing documentation rather than creating new files
+- Added specific examples and formats for each secret/variable
+- Included step-by-step instructions with screenshots references
+- Added security best practices section for handling secrets
+- Created clear separation between local, Convex, and Vercel environments
+- Added ASCII architecture diagram for visual understanding
+
+#### Learnings
+- Documentation was significantly outdated (PostgreSQL/NextAuth vs Convex)
+- CI/CD pipeline has sophisticated retry logic and error handling
+- Free Convex tier limitation requires workaround for preview deployments
+- Environment variables are split across three systems: local, Convex dashboard, Vercel
+- Build script intelligently handles preview vs production deployments
+
+## Critical: Fix Vercel Preview Deployments Without Convex Pro
+
+### [ ] Remove Invalid Dummy CONVEX_DEPLOY_KEY from Preview Environment
+- **Context**: We added dummy key `preview:dummy_key_for_type_generation_only` but Convex validates key format
+- **Command**: `vercel env rm CONVEX_DEPLOY_KEY preview`
+- **Expected Output**: "Removed Environment Variable CONVEX_DEPLOY_KEY from Project scry"
+- **Verify**: Run `vercel env ls | grep CONVEX_DEPLOY_KEY` to confirm only Production key remains
+
+### [ ] Extract Production CONVEX_DEPLOY_KEY Value to Temporary File
+- **Context**: Need to get the actual production key value to reuse it for preview environments
+- **Command**: `vercel env pull .env.vercel`
+- **Expected Output**: Creates `.env.vercel` file with all Vercel environment variables
+- **Security**: This file contains sensitive data - must be deleted after use
+- **Verify**: `ls -la .env.vercel` should show the file exists
+
+### [ ] Extract Just the CONVEX_DEPLOY_KEY Value
+- **Context**: Isolate the key value from the environment file for safe piping
+- **Command**: `cat .env.vercel | grep CONVEX_DEPLOY_KEY | cut -d'=' -f2 > /tmp/convex_key.tmp`
+- **Expected Output**: Creates temporary file with just the key value
+- **Security**: Using /tmp ensures automatic cleanup on reboot
+- **Verify**: `wc -l /tmp/convex_key.tmp` should show 1 line
+
+### [ ] Add Production CONVEX_DEPLOY_KEY to Preview Environment
+- **Context**: Convex free tier doesn't support preview keys, so we safely reuse production key
+- **Command**: `cat /tmp/convex_key.tmp | vercel env add CONVEX_DEPLOY_KEY preview`
+- **Expected Output**: "Added Environment Variable CONVEX_DEPLOY_KEY to Project scry"
+- **Why Safe**: Our build script prevents actual deployment in preview environments
+- **Verify**: `vercel env ls | grep CONVEX_DEPLOY_KEY` should show key for both Production and Preview
+
+### [ ] Clean Up Sensitive Temporary Files
+- **Context**: Remove files containing sensitive key data
+- **Commands**: 
+  ```bash
+  rm .env.vercel
+  rm /tmp/convex_key.tmp
+  ```
+- **Expected Output**: No output (successful deletion)
+- **Verify**: `ls -la .env.vercel` should show "No such file or directory"
+- **Security**: Ensures no keys left on filesystem
+
+### [ ] Trigger New Vercel Preview Deployment
+- **Context**: Test that preview builds now succeed with production key for type generation
+- **Command**: `vercel`
+- **Expected Output**: 
+  - "🔍 Build Configuration: Environment: preview"
+  - "📝 Generating Convex types..."
+  - "✅ Convex types generated successfully"
+  - "✅ Next.js build successful"
+- **Monitor**: Watch for successful deployment URL
+
+### [ ] Verify Preview Deployment Build Logs
+- **Context**: Confirm the build process worked correctly with new configuration
+- **Command**: `vercel logs <deployment-url> | grep -A5 -B5 "Convex"`
+- **Expected Output**: Should show successful type generation without deployment attempt
+- **Key Lines**: 
+  - "Skipping Convex deployment for preview environment"
+  - "Convex types generated successfully"
+- **No Errors**: Should NOT see "Please set CONVEX_DEPLOY_KEY to a new key"
+
+### [ ] Test Preview Deployment Functionality
+- **Context**: Ensure preview site works correctly using production Convex backend
+- **Steps**:
+  1. Visit the preview URL from deployment
+  2. Check that the app loads without errors
+  3. Verify console shows connection to production Convex URL
+- **Expected**: App functions normally, uses production data in read-only mode
+- **Warning**: Any writes will affect production data
+
+### [ ] Update scripts/vercel-build.cjs Error Messages
+- **Context**: Remove confusing dummy key instructions now that we have working solution
+- **File**: `scripts/vercel-build.cjs`
+- **Remove Lines 55-64**: The dummy key suggestion that doesn't work
+- **Replace With**: Clear message about using production key for preview environments
+- **Test**: Run `VERCEL_ENV=preview node scripts/vercel-build.cjs` locally to verify
+
+### [ ] Document the Production Key Sharing Approach
+- **Context**: Update docs to reflect the working solution instead of dummy key approach
+- **File**: `docs/vercel-preview-workaround.md`
+- **Update**: Replace dummy key instructions with production key sharing steps
+- **Include**: Security explanation of why this is safe with our build script
+- **Add**: Troubleshooting section for common issues
+
+### [ ] Add Vercel Environment Setup to CI/CD Documentation
+- **Context**: Ensure future developers know about this preview deployment requirement
+- **File**: `docs/ci-cd-setup.md`
+- **Add Section**: "Vercel Preview Deployments on Free Convex Tier"
+- **Include**: Step-by-step for extending production key to preview
+- **Explain**: Why this is necessary and safe with current architecture
+
+### [ ] Create GitHub Issue for Future Convex Pro Migration
+- **Context**: Track technical debt of using production key in preview environments
+- **Title**: "Migrate to Convex Pro for Proper Preview Deployments"
+- **Body**: 
+  - Current workaround explanation
+  - Benefits of separate preview deployments
+  - Migration steps when ready to upgrade
+- **Labels**: `technical-debt`, `enhancement`, `infrastructure`
