@@ -49,11 +49,30 @@ if (isProduction && hasDeployKey) {
 
 // Generate Convex types (required for TypeScript compilation)
 console.log('📝 Generating Convex types...');
+
+// Check if we're in a problematic environment (Vercel preview without deploy key)
+if (!isProduction && !hasDeployKey && vercelEnv) {
+  console.log('⚠️  Detected Vercel preview environment without CONVEX_DEPLOY_KEY');
+  console.log('   The Convex CLI requires a deploy key even for type generation in Vercel');
+  console.log('');
+  console.log('   Quick fix: Add a dummy CONVEX_DEPLOY_KEY to Vercel preview environment:');
+  console.log('   Key: CONVEX_DEPLOY_KEY');
+  console.log('   Value: preview:dummy_key_for_type_generation_only');
+  console.log('   Environment: Preview only');
+  console.log('');
+  console.log('   See: docs/vercel-preview-workaround.md for details');
+  console.log('');
+}
+
 try {
   execSync('npx convex codegen', { stdio: 'inherit' });
   console.log('✅ Convex types generated successfully\n');
 } catch (error) {
   console.error('❌ Failed to generate Convex types');
+  if (!isProduction && !hasDeployKey && vercelEnv) {
+    console.error('\n   This is expected in Vercel preview without CONVEX_DEPLOY_KEY');
+    console.error('   Please follow the instructions above to fix this issue');
+  }
   process.exit(1);
 }
 
