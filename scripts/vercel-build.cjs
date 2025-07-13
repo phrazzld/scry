@@ -50,28 +50,32 @@ if (isProduction && hasDeployKey) {
 // Generate Convex types (required for TypeScript compilation)
 console.log('📝 Generating Convex types...');
 
-// Check if we're in a problematic environment (Vercel preview without deploy key)
-if (!isProduction && !hasDeployKey && vercelEnv) {
-  console.log('⚠️  Detected Vercel preview environment without CONVEX_DEPLOY_KEY');
-  console.log('   The Convex CLI requires a deploy key even for type generation in Vercel');
-  console.log('');
-  console.log('   Quick fix: Add a dummy CONVEX_DEPLOY_KEY to Vercel preview environment:');
-  console.log('   Key: CONVEX_DEPLOY_KEY');
-  console.log('   Value: preview:dummy_key_for_type_generation_only');
-  console.log('   Environment: Preview only');
-  console.log('');
-  console.log('   See: docs/vercel-preview-workaround.md for details');
+// Debug environment for Convex
+if (vercelEnv) {
+  console.log('🔍 Convex Environment Debug:');
+  console.log(`  CONVEX_DEPLOY_KEY exists: ${!!process.env.CONVEX_DEPLOY_KEY}`);
+  console.log(`  CONVEX_DEPLOY_KEY length: ${process.env.CONVEX_DEPLOY_KEY ? process.env.CONVEX_DEPLOY_KEY.length : 0}`);
+  console.log(`  CONVEX_DEPLOY_KEY prefix: ${process.env.CONVEX_DEPLOY_KEY ? process.env.CONVEX_DEPLOY_KEY.substring(0, 5) + '...' : 'N/A'}`);
+  console.log(`  NEXT_PUBLIC_CONVEX_URL: ${process.env.NEXT_PUBLIC_CONVEX_URL || 'Not set'}`);
   console.log('');
 }
 
 try {
-  execSync('npx convex codegen', { stdio: 'inherit' });
+  // For preview environments with a production key, we need to ensure Convex uses it
+  if (!isProduction && hasDeployKey && vercelEnv) {
+    console.log('⚠️  Preview environment with production key detected');
+    console.log('   Running codegen with production configuration...');
+    execSync('npx convex codegen --prod', { stdio: 'inherit' });
+  } else {
+    execSync('npx convex codegen', { stdio: 'inherit' });
+  }
   console.log('✅ Convex types generated successfully\n');
 } catch (error) {
   console.error('❌ Failed to generate Convex types');
+  console.error('   Error details:', error.message);
   if (!isProduction && !hasDeployKey && vercelEnv) {
-    console.error('\n   This is expected in Vercel preview without CONVEX_DEPLOY_KEY');
-    console.error('   Please follow the instructions above to fix this issue');
+    console.error('\n   Preview environment needs CONVEX_DEPLOY_KEY for type generation');
+    console.error('   Add the production key to preview environment in Vercel dashboard');
   }
   process.exit(1);
 }

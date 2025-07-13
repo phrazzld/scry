@@ -573,34 +573,35 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 
 ## Critical: Fix Vercel Preview Deployments Without Convex Pro
 
-### [ ] Remove Invalid Dummy CONVEX_DEPLOY_KEY from Preview Environment
+### [x] Remove Invalid Dummy CONVEX_DEPLOY_KEY from Preview Environment
 - **Context**: We added dummy key `preview:dummy_key_for_type_generation_only` but Convex validates key format
 - **Command**: `vercel env rm CONVEX_DEPLOY_KEY preview`
 - **Expected Output**: "Removed Environment Variable CONVEX_DEPLOY_KEY from Project scry"
 - **Verify**: Run `vercel env ls | grep CONVEX_DEPLOY_KEY` to confirm only Production key remains
+- **Status**: ✅ Successfully removed dummy key
 
-### [ ] Extract Production CONVEX_DEPLOY_KEY Value to Temporary File
+### [x] Extract Production CONVEX_DEPLOY_KEY Value to Temporary File
 - **Context**: Need to get the actual production key value to reuse it for preview environments
 - **Command**: `vercel env pull .env.vercel`
 - **Expected Output**: Creates `.env.vercel` file with all Vercel environment variables
 - **Security**: This file contains sensitive data - must be deleted after use
 - **Verify**: `ls -la .env.vercel` should show the file exists
 
-### [ ] Extract Just the CONVEX_DEPLOY_KEY Value
+### [x] Extract Just the CONVEX_DEPLOY_KEY Value
 - **Context**: Isolate the key value from the environment file for safe piping
 - **Command**: `cat .env.vercel | grep CONVEX_DEPLOY_KEY | cut -d'=' -f2 > /tmp/convex_key.tmp`
 - **Expected Output**: Creates temporary file with just the key value
 - **Security**: Using /tmp ensures automatic cleanup on reboot
 - **Verify**: `wc -l /tmp/convex_key.tmp` should show 1 line
 
-### [ ] Add Production CONVEX_DEPLOY_KEY to Preview Environment
+### [x] Add Production CONVEX_DEPLOY_KEY to Preview Environment
 - **Context**: Convex free tier doesn't support preview keys, so we safely reuse production key
 - **Command**: `cat /tmp/convex_key.tmp | vercel env add CONVEX_DEPLOY_KEY preview`
 - **Expected Output**: "Added Environment Variable CONVEX_DEPLOY_KEY to Project scry"
 - **Why Safe**: Our build script prevents actual deployment in preview environments
 - **Verify**: `vercel env ls | grep CONVEX_DEPLOY_KEY` should show key for both Production and Preview
 
-### [ ] Clean Up Sensitive Temporary Files
+### [x] Clean Up Sensitive Temporary Files
 - **Context**: Remove files containing sensitive key data
 - **Commands**: 
   ```bash
@@ -610,6 +611,13 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 - **Expected Output**: No output (successful deletion)
 - **Verify**: `ls -la .env.vercel` should show "No such file or directory"
 - **Security**: Ensures no keys left on filesystem
+- **Status**: ✅ Cleaned up all temporary files
+
+### [~] Investigate Preview Build Failures Despite CONVEX_DEPLOY_KEY
+- **Context**: Preview builds still fail even after adding production key
+- **Issue**: `npx convex codegen` fails in Vercel build environment
+- **Hypothesis**: Convex CLI might be validating the key format or permissions
+- **Investigation Started**: 2025-07-13 13:55
 
 ### [ ] Trigger New Vercel Preview Deployment
 - **Context**: Test that preview builds now succeed with production key for type generation
