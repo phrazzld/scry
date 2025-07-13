@@ -15,6 +15,7 @@
     "dev:convex": "convex dev",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
+    "build:vercel": "node scripts/vercel-build.cjs",
     "start": "next start",
     "lint": "next lint",
     "convex:deploy": "convex deploy",

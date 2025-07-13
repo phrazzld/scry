@@ -55,3 +55,11 @@ If you prefer to deploy Convex separately:
 1. Replace `vercel.json` with `vercel-alternative.json`
 2. Deploy Convex manually: `npx convex deploy --prod`
 3. Then deploy to Vercel: `vercel --prod`
+
+## Preview Deployments
+
+As of the latest update, preview deployments no longer require Convex Pro subscription:
+- Preview deployments automatically skip Convex deployment
+- They use the production Convex backend (via NEXT_PUBLIC_CONVEX_URL)
+- Only production deployments will deploy Convex functions
+- This is handled automatically by the `scripts/vercel-build.cjs` script

@@ -1,15 +1,18 @@
 # Fix Convex Deployment Key Issue
 
-## Problem
-Vercel deployments are failing with the error:
+## Update: Preview Deployments No Longer Require Convex Pro
+As of the latest update, preview deployments automatically skip Convex deployment and use the production backend. You only need to configure CONVEX_DEPLOY_KEY for production deployments.
+
+## Problem (Historical)
+Vercel deployments were failing with the error:
 ```
 Error: CONVEX_DEPLOY_KEY is not set
 ```
 
-This happens because:
-1. `vercel.json` uses build command: `npx convex deploy --cmd 'pnpm build'`
-2. This command requires `CONVEX_DEPLOY_KEY` environment variable
-3. The key is not configured in Vercel environment variables
+This happened because:
+1. `vercel.json` used build command: `npx convex deploy --cmd 'pnpm build'`
+2. This command required `CONVEX_DEPLOY_KEY` environment variable
+3. The key was not configured in Vercel environment variables
 
 ## Solution Steps
 

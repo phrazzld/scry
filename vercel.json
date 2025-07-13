@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex deploy --cmd 'pnpm build'",
+  "buildCommand": "node scripts/vercel-build.cjs",
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "framework": "nextjs",
