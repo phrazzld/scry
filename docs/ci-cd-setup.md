@@ -49,9 +49,11 @@ Add these secrets to your GitHub repository (Settings → Secrets and variables 
    ```
 
 2. Configure environment variables in Vercel dashboard:
-   - `NEXT_PUBLIC_CONVEX_URL`
-   - `GOOGLE_AI_API_KEY`
-   - `CONVEX_DEPLOY_KEY` (for production deployments)
+   - `NEXT_PUBLIC_CONVEX_URL` - Your Convex deployment URL
+   - `GOOGLE_AI_API_KEY` - Your Google AI API key
+   - `CONVEX_DEPLOY_KEY` - Your Convex deploy key (REQUIRED)
+     - For Production: Use production deploy key from Convex dashboard
+     - For Preview: Use preview deploy key (optional, creates separate preview instances)
 
 3. Set the build command in Vercel to:
    ```bash
@@ -97,6 +99,14 @@ When pushing to main/master:
 ## Troubleshooting
 
 ### Build Failures
+
+#### "CONVEX_DEPLOY_KEY is not set" Error
+- This means Vercel is trying to deploy Convex but can't find the deploy key
+- Solution: Add `CONVEX_DEPLOY_KEY` to Vercel environment variables
+- Go to Vercel Dashboard → Settings → Environment Variables
+- Get the key from Convex Dashboard → Settings → Deploy Keys
+
+#### Other Build Issues
 - Check that all environment variables are set in GitHub Secrets
 - Verify Convex URL is accessible
 - Ensure all dependencies are in package.json

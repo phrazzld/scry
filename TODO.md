@@ -287,6 +287,16 @@ await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
 - When VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID are set as env vars, the CLI uses them automatically
 - Debug steps help diagnose secret/env var issues without exposing sensitive data
 
+### [ ] [CI FIX] Fix Vercel Direct Deployment - Missing CONVEX_DEPLOY_KEY
+- **Issue**: Vercel deployments failing with "CONVEX_DEPLOY_KEY is not set" error
+- **Priority**: Critical - Blocking all Vercel deployments (both preview and production)
+- **Root Cause**: vercel.json includes `npx convex deploy` in buildCommand but CONVEX_DEPLOY_KEY not in Vercel env
+- **Tasks**:
+  - [ ] Add CONVEX_DEPLOY_KEY to Vercel environment variables (Production)
+  - [ ] Optionally add Preview deploy key for preview environments
+  - [ ] Verify NEXT_PUBLIC_CONVEX_URL and GOOGLE_AI_API_KEY are also set
+  - [ ] Redeploy and verify successful build
+
 ### [ ] [CI FIX] Add Secret Validation Job
 - **Purpose**: Prevent future secret-related failures
 - **Tasks**:

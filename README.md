@@ -61,6 +61,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 |----------|-------------|---------|
 | `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation | `AIzaSy...` |
 | `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://...convex.cloud` |
+| `CONVEX_DEPLOY_KEY` | Convex deploy key (for Vercel deployments) | `prod:...` |
 | `RESEND_API_KEY` | Resend API key for magic link emails | `re_...` |
 | `EMAIL_FROM` | From address for auth emails | `Scry <noreply@yourdomain.com>` |
 
@@ -132,11 +133,14 @@ pnpm assets:generate-all    # Generate all assets (verbose)
    # Add required variables via Vercel Dashboard or CLI
    vercel env add GOOGLE_AI_API_KEY
    vercel env add NEXT_PUBLIC_CONVEX_URL
+   vercel env add CONVEX_DEPLOY_KEY
    vercel env add RESEND_API_KEY
    vercel env add EMAIL_FROM
    ```
+   
+   **Important**: Get your `CONVEX_DEPLOY_KEY` from the Convex Dashboard → Settings → Deploy Keys
 
-3. **Deploy**:
+4. **Deploy**:
    ```bash
    # Deploy to preview
    vercel
