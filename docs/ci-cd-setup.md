@@ -28,6 +28,8 @@ Add these secrets to your GitHub repository (Settings → Secrets and variables 
    - Create at: https://vercel.com/account/tokens
    - Scope: Full access
 
+📚 **Note**: For detailed instructions on setting up Vercel project configuration and finding these values, see [Vercel Project Setup Guide](./vercel-project-setup.md)
+
 ### Convex Secrets
 4. **CONVEX_DEPLOY_KEY**: Your Convex production deploy key
    - Get it from Convex dashboard → Settings → Deploy Keys

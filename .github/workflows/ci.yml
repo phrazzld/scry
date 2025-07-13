@@ -11,9 +11,77 @@ env:
   PNPM_VERSION: '10.12.1'
 
 jobs:
+  validate-secrets:
+    name: Validate Required Secrets
+    runs-on: ubuntu-latest
+    outputs:
+      secrets-valid: ${{ steps.secret-check.outputs.valid }}
+      missing-secrets: ${{ steps.secret-check.outputs.missing }}
+    steps:
+      - name: Validate Required Secrets
+        id: secret-check
+        shell: bash
+        run: |
+          echo "🔍 Validating required secrets for CI/CD pipeline..."
+
+          missing_secrets=()
+
+          # Required for Vercel deployments
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            missing_secrets+=("VERCEL_TOKEN")
+          fi
+
+          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
+            missing_secrets+=("VERCEL_ORG_ID")
+          fi
+
+          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            missing_secrets+=("VERCEL_PROJECT_ID")
+          fi
+
+          # Required for Convex deployments and TypeScript codegen
+          if [ -z "${{ secrets.CONVEX_DEPLOY_KEY }}" ]; then
+            missing_secrets+=("CONVEX_DEPLOY_KEY")
+          fi
+
+          # Required for Next.js build
+          if [ -z "${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" ]; then
+            missing_secrets+=("NEXT_PUBLIC_CONVEX_URL")
+          fi
+
+          if [ -z "${{ secrets.GOOGLE_AI_API_KEY }}" ]; then
+            missing_secrets+=("GOOGLE_AI_API_KEY")
+          fi
+
+          # Set outputs and determine result
+          if [ ${#missing_secrets[@]} -eq 0 ]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+            echo "missing=" >> $GITHUB_OUTPUT
+            echo "✅ All required secrets are available"
+            echo "📋 Validated secrets: VERCEL_TOKEN, VERCEL_ORG_ID,"
+            echo "    VERCEL_PROJECT_ID, CONVEX_DEPLOY_KEY,"
+            echo "    NEXT_PUBLIC_CONVEX_URL, GOOGLE_AI_API_KEY"
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "missing=${missing_secrets[*]}" >> $GITHUB_OUTPUT
+            echo "❌ Missing required secrets: ${missing_secrets[*]}"
+            echo ""
+            echo "🔧 To fix this issue:"
+            echo "1. Go to GitHub repository Settings → Secrets and"
+            echo "   variables → Actions"
+            echo "2. Add the missing secrets with their respective values"
+            echo "3. Re-run this workflow"
+            echo ""
+            echo "📚 For setup instructions, see: docs/ci-cd-setup.md"
+            echo "::error::Missing required secrets: ${missing_secrets[*]}"
+            exit 1
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: validate-secrets
+    if: needs.validate-secrets.outputs.secrets-valid == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,6 +106,8 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    needs: validate-secrets
+    if: needs.validate-secrets.outputs.secrets-valid == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,6 +139,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: validate-secrets
+    if: needs.validate-secrets.outputs.secrets-valid == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -88,12 +160,15 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: pnpm test:unit || true  # Allow failure for now since no unit tests exist
+        run: |
+          # Allow failure for now since no unit tests exist
+          pnpm test:unit || true
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
+    needs: [validate-secrets, lint, typecheck]
+    if: needs.validate-secrets.outputs.secrets-valid == 'true'
     env:
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
@@ -135,8 +210,10 @@ jobs:
   deploy-preview:
     name: Deploy Preview
     runs-on: ubuntu-latest
-    needs: [build, test]
-    if: github.event_name == 'pull_request'
+    needs: [validate-secrets, build, test]
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.validate-secrets.outputs.secrets-valid == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -167,33 +244,118 @@ jobs:
           echo "VERCEL_TOKEN length: ${#VERCEL_TOKEN}"
           echo "VERCEL_ORG_ID length: ${#VERCEL_ORG_ID}"
           echo "VERCEL_PROJECT_ID length: ${#VERCEL_PROJECT_ID}"
-          echo "VERCEL_TOKEN set: $([[ -n "$VERCEL_TOKEN" ]] && echo 'yes' || echo 'no')"
-          echo "VERCEL_ORG_ID set: $([[ -n "$VERCEL_ORG_ID" ]] && echo 'yes' || echo 'no')"
-          echo "VERCEL_PROJECT_ID set: $([[ -n "$VERCEL_PROJECT_ID" ]] && echo 'yes' || echo 'no')"
+          echo "VERCEL_TOKEN set: $([[ -n "$VERCEL_TOKEN" ]] && echo 'yes' \
+            || echo 'no')"
+          echo "VERCEL_ORG_ID set: $([[ -n "$VERCEL_ORG_ID" ]] && echo 'yes' \
+            || echo 'no')"
+          echo "VERCEL_PROJECT_ID set: $([[ -n "$VERCEL_PROJECT_ID" ]] \
+            && echo 'yes' || echo 'no')"
 
       - name: Deploy to Vercel Preview
-        run: |
-          vercel pull --yes --environment=preview
-          vercel build
-          vercel deploy --prebuilt > deployment-url.txt
-          echo "PREVIEW_URL=$(cat deployment-url.txt)" >> $GITHUB_ENV
+        id: deploy-preview
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          warning_on_retry: true
+          on_retry_command: |
+            echo "⚠️ Deployment attempt failed, cleaning up before retry..."
+            rm -rf .vercel/output 2>/dev/null || true
+          command: |
+            echo "🚀 Starting preview deployment..."
+            
+            # Pull project settings with error handling
+            echo "📥 Pulling Vercel project settings..."
+            if ! vercel pull --yes --environment=preview; then
+              echo "::error::Failed to pull Vercel project settings"
+              exit 1
+            fi
+            
+            # Build with detailed logging
+            echo "🔨 Building project..."
+            if ! vercel build 2>&1 | tee build.log; then
+              echo "::error::Build failed - check build.log for details"
+              echo "### Build Error Summary" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              tail -n 50 build.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            # Deploy with URL capture
+            echo "📤 Deploying to Vercel preview..."
+            DEPLOYMENT_URL=$(vercel deploy --prebuilt 2>&1 | tee deploy.log | tail -1)
+            
+            if [ -z "$DEPLOYMENT_URL" ] || [[ "$DEPLOYMENT_URL" == *"Error"* ]]; then
+              echo "::error::Deployment failed - no URL returned"
+              echo "### Deployment Logs" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat deploy.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            echo "PREVIEW_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+            echo "preview_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "✅ Preview deployed successfully to: $DEPLOYMENT_URL"
+      
+      - name: Upload Deployment Logs on Failure
+        if: failure() && steps.deploy-preview.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-deployment-logs
+          path: |
+            build.log
+            deploy.log
+          retention-days: 7
+
+      - name: Validate Preview Deployment
+        if: success()
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 5
+          retry_wait_seconds: 10
+          command: |
+            echo "🔍 Validating preview deployment..."
+            if ! curl --fail --location --max-time 30 "${{ steps.deploy-preview.outputs.preview_url }}" > /dev/null 2>&1; then
+              echo "::warning::Preview deployment is not responding yet"
+              exit 1
+            fi
+            echo "✅ Preview deployment is accessible"
 
       - name: Comment PR with preview URL
+        if: success()
         uses: actions/github-script@v7
         with:
           script: |
+            const url = '${{ steps.deploy-preview.outputs.preview_url }}';
+            const comment = `## 🚀 Preview Deployment Ready!
+            
+            Your changes have been deployed to: ${url}
+            
+            ### Deployment Details
+            - **Environment**: Preview
+            - **Branch**: \`${{ github.head_ref }}\`
+            - **Commit**: \`${{ github.sha.substring(0, 7) }}\`
+            - **Status**: ✅ Validated and accessible
+            
+            [View Deployment](${url}) | [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '🚀 Preview deployment ready at: ' + process.env.PREVIEW_URL
+              body: comment
             })
 
   deploy-production:
     name: Deploy Production
     runs-on: ubuntu-latest
-    needs: [build, test]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    needs: [validate-secrets, build, test]
+    if: >-
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      needs.validate-secrets.outputs.secrets-valid == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -221,10 +383,120 @@ jobs:
         run: pnpm add -g vercel@latest
 
       - name: Deploy Convex Functions
-        run: npx convex deploy --prod
+        id: deploy-convex
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 30
+          warning_on_retry: true
+          command: |
+            echo "🚀 Deploying Convex functions to production..."
+            
+            # Deploy with detailed error handling
+            if ! npx convex deploy --prod 2>&1 | tee convex-deploy.log; then
+              echo "::error::Convex deployment failed"
+              echo "### Convex Deployment Error" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              tail -n 50 convex-deploy.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            echo "✅ Convex functions deployed successfully"
 
       - name: Deploy to Vercel Production
-        run: |
-          vercel pull --yes --environment=production
-          vercel build --prod
-          vercel deploy --prebuilt --prod
+        id: deploy-vercel-prod
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 60
+          warning_on_retry: true
+          on_retry_command: |
+            echo "⚠️ Vercel deployment failed, cleaning up before retry..."
+            rm -rf .vercel/output 2>/dev/null || true
+            # Add small delay to avoid rate limits
+            sleep 10
+          command: |
+            echo "🚀 Starting production deployment to Vercel..."
+            
+            # Pull project settings
+            echo "📥 Pulling Vercel project settings..."
+            if ! vercel pull --yes --environment=production; then
+              echo "::error::Failed to pull Vercel project settings"
+              exit 1
+            fi
+            
+            # Build with detailed logging and error handling
+            echo "🔨 Building production bundle..."
+            export VERCEL_BUILD_OUTPUT_DETAIL=1
+            
+            if ! vercel build --prod 2>&1 | tee vercel-build.log; then
+              echo "::error::Production build failed"
+              echo "### Build Error Summary" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              # Extract and show error messages
+              grep -E "(Error:|error:|ERROR:|Failed|failed|FAILED)" vercel-build.log | tail -n 20 >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            # Deploy with URL capture and validation
+            echo "📤 Deploying to Vercel production..."
+            PROD_URL=$(vercel deploy --prebuilt --prod 2>&1 | tee vercel-deploy.log | tail -1)
+            
+            if [ -z "$PROD_URL" ] || [[ "$PROD_URL" == *"Error"* ]]; then
+              echo "::error::Production deployment failed"
+              echo "### Deployment Error Details" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat vercel-deploy.log >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            echo "production_url=$PROD_URL" >> $GITHUB_OUTPUT
+            echo "✅ Production deployed successfully to: $PROD_URL"
+            
+            # Add deployment summary
+            {
+              echo "## 🎉 Production Deployment Successful"
+              echo ""
+              echo "- **URL**: $PROD_URL"
+              echo "- **Commit**: ${{ github.sha }}"
+              echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            } >> $GITHUB_STEP_SUMMARY
+      
+      - name: Validate Production Deployment
+        if: success()
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 10
+          retry_wait_seconds: 15
+          command: |
+            echo "🔍 Validating production deployment..."
+            PROD_URL="${{ steps.deploy-vercel-prod.outputs.production_url }}"
+            
+            # Wait a bit for deployment to propagate
+            sleep 5
+            
+            # Check if site is accessible
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$PROD_URL")
+            
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "✅ Production site is live and responding (HTTP $HTTP_STATUS)"
+            else
+              echo "::warning::Production site returned HTTP $HTTP_STATUS"
+              exit 1
+            fi
+      
+      - name: Upload Production Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deployment-logs
+          path: |
+            convex-deploy.log
+            vercel-build.log
+            vercel-deploy.log
+          retention-days: 7

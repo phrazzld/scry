@@ -28,20 +28,57 @@ cd scry
 pnpm install
 ```
 
-### 2. Environment Setup
+### 2. Convex Setup
+
+Scry uses Convex for the backend database and real-time features. You'll need to create a Convex account and project.
+
+#### Create Convex Account and Project
+
+1. **Sign up for Convex** (free tier available):
+   ```bash
+   # Visit https://convex.dev and create an account
+   # Or sign up via CLI
+   npx convex dev --new
+   ```
+
+2. **Initialize Convex in your project**:
+   ```bash
+   # Install Convex CLI globally (recommended)
+   npm install -g convex
+   
+   # Initialize Convex (follow prompts to create/link project)
+   npx convex dev
+   ```
+
+3. **Configure your Convex project**:
+   - Follow the CLI prompts to create a new project or link an existing one
+   - Choose your team/organization
+   - The CLI will automatically generate your `NEXT_PUBLIC_CONVEX_URL`
+
+#### Get Required Keys
+
+4. **Get your Convex Deployment Key** (for production deployments):
+   - Go to [Convex Dashboard](https://dashboard.convex.dev)
+   - Select your project
+   - Navigate to **Settings** → **URL and Deploy Key**
+   - Generate and copy your **production deploy key**
+   - For preview deployments, also generate a **preview deploy key**
+
+### 3. Environment Setup
 
 ```bash
 # Copy the environment template
 cp .env.example .env.local
 
 # Edit .env.local with your configuration
-# See "Environment Variables" section below for required values
+# Your NEXT_PUBLIC_CONVEX_URL should already be set from the Convex setup
+# Add the remaining required values (see "Environment Variables" section)
 
 # Validate your environment
 pnpm env:validate
 ```
 
-### 3. Development Server
+### 4. Development Server
 
 ```bash
 # In terminal 1: Start Next.js development server
@@ -149,6 +186,53 @@ pnpm assets:generate-all    # Generate all assets (verbose)
    vercel --prod
    ```
 
+### Convex + Vercel Integration
+
+This application uses a coordinated deployment strategy where Convex functions are deployed automatically as part of the Vercel build process.
+
+#### How It Works
+
+1. **Build Command Integration**: The `vercel.json` file configures Convex deployment as part of the build:
+   ```json
+   {
+     "buildCommand": "npx convex deploy --cmd 'pnpm build'"
+   }
+   ```
+
+2. **Automatic Deployment**: When you deploy to Vercel, it automatically:
+   - Deploys your Convex functions first
+   - Then builds and deploys your Next.js application
+   - Ensures both backend and frontend are synchronized
+
+#### Deployment Verification
+
+After deployment, verify everything is working:
+
+```bash
+# Check deployment status
+node scripts/verify-deployment-setup.cjs
+
+# Monitor Convex logs
+npx convex logs
+
+# Test the deployed application
+curl https://your-app.vercel.app/api/health
+```
+
+#### Troubleshooting Deployments
+
+If deployments fail:
+
+1. **Check Convex deployment first**:
+   ```bash
+   npx convex deploy --prod
+   ```
+
+2. **Verify environment variables** in Vercel dashboard
+3. **Check build logs** in Vercel deployment details
+4. **Review Convex logs** for backend errors: `npx convex logs`
+
+For detailed troubleshooting, see [docs/convex-deployment-fix.md](docs/convex-deployment-fix.md).
 
 ### Production Monitoring
 
@@ -193,7 +277,7 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 
 ### Authentication System
 - Magic link authentication via email
-- Session management with NextAuth
+- Session management with Convex Auth
 - Protected routes and API endpoints
 - Comprehensive error handling and logging
 
@@ -213,14 +297,24 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Check Node.js version compatibility
 
 **Authentication issues**:
-- Verify `NEXTAUTH_SECRET` is set and unique
-- Check email configuration (RESEND_API_KEY, EMAIL_FROM)
-- Ensure `NEXTAUTH_URL` is set correctly in production
+- Verify `RESEND_API_KEY` and `EMAIL_FROM` are configured correctly
+- Check magic link email delivery in your email provider
+- Ensure `NEXT_PUBLIC_APP_URL` is set correctly in production
+- Verify Convex auth mutations are deployed
 
-**Database connection**:
-- Verify `DATABASE_URL` format and connectivity
-- Check database permissions and network access
-- Run `pnpm prisma generate` if models have changed
+**Convex connection issues**:
+- Verify `NEXT_PUBLIC_CONVEX_URL` is correct from your Convex dashboard
+- Ensure Convex development server is running: `npx convex dev`
+- Check that Convex functions are deployed: `npx convex deploy`
+- Verify `CONVEX_DEPLOY_KEY` is set for production deployments
+- Run `npx convex logs` to check for backend errors
+- Ensure you're connected to the correct Convex project
+
+**Deployment issues**:
+- Check that both Convex and Vercel deployments succeed
+- Verify all environment variables are set in Vercel dashboard
+- Ensure `CONVEX_DEPLOY_KEY` is configured for both Production and Preview environments
+- Run the deployment verification script: `node scripts/verify-deployment-setup.cjs`
 
 ### Getting Help
 
