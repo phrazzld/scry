@@ -47,6 +47,16 @@ if (isProduction && hasDeployKey) {
   console.log('   (via NEXT_PUBLIC_CONVEX_URL environment variable)\n');
 }
 
+// Generate Convex types (required for TypeScript compilation)
+console.log('📝 Generating Convex types...');
+try {
+  execSync('npx convex codegen', { stdio: 'inherit' });
+  console.log('✅ Convex types generated successfully\n');
+} catch (error) {
+  console.error('❌ Failed to generate Convex types');
+  process.exit(1);
+}
+
 // Always run Next.js build
 console.log('🔨 Building Next.js application...');
 try {
