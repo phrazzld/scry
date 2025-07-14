@@ -27,6 +27,39 @@ export default defineSchema({
   }).index("by_token", ["token"])
     .index("by_email", ["email"]),
 
+  questions: defineTable({
+    userId: v.id("users"),
+    topic: v.string(),
+    difficulty: v.string(),
+    question: v.string(),
+    type: v.union(v.literal('multiple-choice'), v.literal('true-false')),
+    options: v.array(v.string()),
+    correctAnswer: v.string(),
+    explanation: v.optional(v.string()),
+    generatedAt: v.number(),
+    // Denormalized fields for query performance
+    attemptCount: v.number(), // Default: 0
+    correctCount: v.number(), // Default: 0
+    lastAttemptedAt: v.optional(v.number()),
+  }).index("by_user", ["userId", "generatedAt"])
+    .index("by_user_topic", ["userId", "topic", "generatedAt"])
+    .index("by_user_unattempted", ["userId", "attemptCount"]),
+
+  interactions: defineTable({
+    userId: v.id("users"),
+    questionId: v.id("questions"),
+    userAnswer: v.string(),
+    isCorrect: v.boolean(),
+    attemptedAt: v.number(),
+    timeSpent: v.optional(v.number()), // milliseconds
+    context: v.optional(v.object({
+      sessionId: v.optional(v.string()), // for grouping quiz attempts
+      isRetry: v.optional(v.boolean()),
+    })),
+  }).index("by_user", ["userId", "attemptedAt"])
+    .index("by_question", ["questionId", "attemptedAt"])
+    .index("by_user_question", ["userId", "questionId"]),
+
   quizResults: defineTable({
     userId: v.id("users"),
     topic: v.string(),

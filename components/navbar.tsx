@@ -63,9 +63,9 @@ export function Navbar() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center gap-2 px-3 py-2">
+                    <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2">
                       <User className="h-4 w-4" />
-                      <span>Profile</span>
+                      <span>Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

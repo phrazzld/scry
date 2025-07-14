@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as auth from "../auth.js";
 import type * as emailActions from "../emailActions.js";
+import type * as questions from "../questions.js";
 import type * as quiz from "../quiz.js";
 import type * as types from "../types.js";
 
@@ -29,6 +30,7 @@ import type * as types from "../types.js";
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   emailActions: typeof emailActions;
+  questions: typeof questions;
   quiz: typeof quiz;
   types: typeof types;
 }>;
