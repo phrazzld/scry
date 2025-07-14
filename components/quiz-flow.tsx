@@ -81,6 +81,7 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
                 answers: answers.map((answer, index) => ({
                   questionId: `q${index}`,
                   question: quiz.questions[index].question,
+                  type: quiz.questions[index].type,
                   userAnswer: answer.userAnswer,
                   correctAnswer: quiz.questions[index].correctAnswer,
                   isCorrect: answer.isCorrect,

@@ -1,5 +1,8 @@
+export type QuestionType = 'multiple-choice' | 'true-false'
+
 export interface SimpleQuestion {
   question: string
+  type?: QuestionType // Optional for backwards compatibility, defaults to 'multiple-choice'
   options: string[]
   correctAnswer: string
   explanation?: string

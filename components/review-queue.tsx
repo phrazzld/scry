@@ -162,44 +162,85 @@ export function ReviewQueue() {
             <h3 className="text-lg font-medium mb-4">{currentCard.question}</h3>
             
             {/* Options */}
-            <div className="space-y-3">
-              {currentCard.options.map((option: string, index: number) => {
-                const isSelected = selectedAnswer === option
-                const isCorrectOption = option === currentCard.correctAnswer
-                
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswerSelect(option)}
-                    disabled={showAnswer}
-                    className={`w-full text-left p-4 rounded-lg border transition-all ${
-                      showAnswer
-                        ? isCorrectOption
-                          ? 'bg-green-50 border-green-500 text-green-900'
+            {currentCard && 'type' in currentCard && currentCard.type === 'true-false' ? (
+              // True/False specific layout
+              <div className="grid grid-cols-2 gap-4">
+                {currentCard.options.map((option: string, index: number) => {
+                  const isSelected = selectedAnswer === option
+                  const isCorrectOption = option === currentCard.correctAnswer
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswerSelect(option)}
+                      disabled={showAnswer}
+                      className={`p-6 rounded-lg border-2 transition-all font-medium ${
+                        showAnswer
+                          ? isCorrectOption
+                            ? 'bg-green-50 border-green-500 text-green-700'
+                            : isSelected
+                            ? 'bg-red-50 border-red-500 text-red-700'
+                            : 'bg-gray-50 border-gray-200 text-gray-500'
                           : isSelected
-                          ? 'bg-red-50 border-red-500 text-red-900'
-                          : 'bg-gray-50 border-gray-200 text-gray-500'
-                        : isSelected
-                        ? 'bg-blue-50 border-blue-500 text-blue-900'
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{option}</span>
-                      {showAnswer && (
-                        <span>
-                          {isCorrectOption ? (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <span className="text-lg">{option}</span>
+                        {showAnswer && (
+                          isCorrectOption ? (
+                            <CheckCircle className="h-6 w-6 text-green-600" />
                           ) : isSelected ? (
-                            <XCircle className="h-5 w-5 text-red-600" />
-                          ) : null}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+                            <XCircle className="h-6 w-6 text-red-600" />
+                          ) : null
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              // Multiple choice layout
+              <div className="space-y-3">
+                {currentCard.options.map((option: string, index: number) => {
+                  const isSelected = selectedAnswer === option
+                  const isCorrectOption = option === currentCard.correctAnswer
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleAnswerSelect(option)}
+                      disabled={showAnswer}
+                      className={`w-full text-left p-4 rounded-lg border transition-all ${
+                        showAnswer
+                          ? isCorrectOption
+                            ? 'bg-green-50 border-green-500 text-green-900'
+                            : isSelected
+                            ? 'bg-red-50 border-red-500 text-red-900'
+                            : 'bg-gray-50 border-gray-200 text-gray-500'
+                          : isSelected
+                          ? 'bg-blue-50 border-blue-500 text-blue-900'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{option}</span>
+                        {showAnswer && (
+                          <span>
+                            {isCorrectOption ? (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            ) : isSelected ? (
+                              <XCircle className="h-5 w-5 text-red-600" />
+                            ) : null}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
           
           {/* Action Buttons */}

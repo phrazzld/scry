@@ -30,6 +30,7 @@ export const completeQuiz = mutation({
     answers: v.array(v.object({
       questionId: v.string(),
       question: v.string(),
+      type: v.optional(v.union(v.literal('multiple-choice'), v.literal('true-false'))),
       userAnswer: v.string(),
       correctAnswer: v.string(),
       isCorrect: v.boolean(),

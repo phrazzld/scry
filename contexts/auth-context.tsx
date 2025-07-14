@@ -6,6 +6,7 @@ import { api } from '@/convex/_generated/api'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { setClientSessionCookie, removeClientSessionCookie, getSessionCookie } from '@/lib/auth-cookies'
+import { getClientEnvironment } from '@/lib/environment-client'
 
 const SESSION_TOKEN_KEY = 'scry_session_token'
 
@@ -34,11 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Get current user from Convex
-  const user = useQuery(api.auth.getCurrentUser, { sessionToken: sessionToken || undefined })
+  // Get current user from Convex with environment context
+  const environment = getClientEnvironment()
+  const user = useQuery(api.auth.getCurrentUser, { 
+    sessionToken: sessionToken || undefined,
+    environment 
+  })
   
   // Mutations
-  const sendMagicLinkMutation = useMutation(api.auth.sendMagicLink)
   const verifyMagicLinkMutation = useMutation(api.auth.verifyMagicLink)
   const signOutMutation = useMutation(api.auth.signOut)
   const updateProfileMutation = useMutation(api.auth.updateProfile)
@@ -67,7 +71,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Send magic link
   const sendMagicLink = useCallback(async (email: string) => {
     try {
-      const result = await sendMagicLinkMutation({ email })
+      // Use API endpoint instead of direct Convex mutation to handle deployment URLs
+      const response = await fetch('/api/auth/send-magic-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send magic link')
+      }
+
+      const result = await response.json()
       if (result.success) {
         toast.success('Check your email for the magic link!')
         return { success: true }
@@ -78,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error('Failed to send magic link. Please try again.')
       return { success: false, error: error instanceof Error ? error : new Error('Unknown error') }
     }
-  }, [sendMagicLinkMutation])
+  }, [])
 
   // Verify magic link and sign in
   const verifyMagicLink = useCallback(async (token: string) => {

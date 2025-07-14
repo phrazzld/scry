@@ -102,7 +102,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://vercel.live https://*.convex.cloud wss://*.convex.cloud",
-              "frame-src 'none'",
+              `frame-src ${process.env.VERCEL_ENV === 'production' ? "'none'" : "'self' https://vercel.live"}`,
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

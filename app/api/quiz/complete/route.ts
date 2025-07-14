@@ -13,6 +13,7 @@ const requestSchema = z.object({
   answers: z.array(z.object({
     questionId: z.string(),
     question: z.string(),
+    type: z.enum(['multiple-choice', 'true-false']).optional(),
     userAnswer: z.string(),
     correctAnswer: z.string(),
     isCorrect: z.boolean(),

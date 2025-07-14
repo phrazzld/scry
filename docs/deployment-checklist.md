@@ -73,3 +73,41 @@ As of the latest update, preview deployments no longer require Convex Pro subscr
 - They use the production Convex backend (via NEXT_PUBLIC_CONVEX_URL)
 - Only production deployments will deploy Convex functions
 - This is handled automatically by the `scripts/vercel-build.cjs` script
+
+### Preview Environment Setup
+
+1. **Session Isolation**: Preview deployments now use environment-tagged sessions
+   - Sessions created in preview won't work in production
+   - Sessions are tagged with environment (production, preview-{branch}, development)
+   - This prevents accidental cross-environment access
+
+2. **Required Environment Variables for Preview**:
+   ```bash
+   # Already configured if following this guide:
+   NEXT_PUBLIC_CONVEX_URL    # Points to production Convex
+   GOOGLE_AI_API_KEY         # For AI quiz generation
+   ```
+
+3. **Health Check**: Verify preview deployment health
+   ```bash
+   curl https://your-preview-url.vercel.app/api/health/preview
+   ```
+
+4. **Testing Guide**: See `docs/preview-deployment-testing.md` for comprehensive tests
+
+### Preview Deployment Flow
+
+1. Push to branch → Vercel creates preview
+2. Preview uses production Convex backend (read/write)
+3. Sessions are environment-isolated
+4. Magic links point to preview URL
+5. All features work as in production
+
+### Debugging Preview Issues
+
+If preview deployments have issues:
+1. Check `/api/health/preview` endpoint
+2. Verify environment detection is working
+3. Ensure magic links use preview URL
+4. Check browser console for session warnings
+5. See `docs/preview-deployment-debugging.md`

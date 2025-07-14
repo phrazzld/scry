@@ -13,8 +13,12 @@ function generateToken(): string {
 }
 
 export const sendMagicLink = mutation({
-  args: { email: v.string() },
-  handler: async (ctx, { email }) => {
+  args: { 
+    email: v.string(),
+    deploymentUrl: v.optional(v.string()),
+    environment: v.optional(v.string())
+  },
+  handler: async (ctx, { email, deploymentUrl, environment }) => {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -38,16 +42,18 @@ export const sendMagicLink = mutation({
     const token = generateToken();
     const expiresAt = Date.now() + 3600000; // 1 hour from now
 
-    // Store magic link in database
+    // Store magic link in database with environment
     await ctx.db.insert("magicLinks", {
       email,
       token,
       expiresAt,
       used: false,
+      environment: environment || 'development',
     });
 
     // Generate magic link URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // Use deployment URL if provided (from preview environments), otherwise use configured URL
+    const baseUrl = deploymentUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
 
     // Schedule the email action to run asynchronously
@@ -126,7 +132,7 @@ export const verifyMagicLink = mutation({
       throw new Error("Failed to create or retrieve user");
     }
 
-    // Create session
+    // Create session with environment from magic link
     const sessionToken = generateToken();
     const sessionExpiresAt = Date.now() + 30 * 24 * 3600000; // 30 days
 
@@ -134,6 +140,7 @@ export const verifyMagicLink = mutation({
       userId: user._id,
       token: sessionToken,
       expiresAt: sessionExpiresAt,
+      environment: magicLink.environment || 'development',
     });
 
     return { 
@@ -146,8 +153,11 @@ export const verifyMagicLink = mutation({
 });
 
 export const getCurrentUser = query({
-  args: { sessionToken: v.optional(v.string()) },
-  handler: async (ctx, { sessionToken }) => {
+  args: { 
+    sessionToken: v.optional(v.string()),
+    environment: v.optional(v.string())
+  },
+  handler: async (ctx, { sessionToken, environment }) => {
     if (!sessionToken) {
       return null;
     }
@@ -159,6 +169,31 @@ export const getCurrentUser = query({
       .first();
 
     if (!session || session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Validate session environment matches current environment
+    const currentEnv = environment || 'development';
+    const sessionEnv = session.environment || 'development';
+    
+    // Environment validation rules:
+    // 1. Production sessions only work in production
+    // 2. Preview sessions work in any preview environment
+    // 3. Development sessions only work in development
+    // 4. Legacy sessions (no environment) only work in development
+    
+    if (currentEnv === 'production' && sessionEnv !== 'production') {
+      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      return null;
+    }
+    
+    if (currentEnv.startsWith('preview') && !sessionEnv.startsWith('preview')) {
+      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      return null;
+    }
+    
+    if (currentEnv === 'development' && sessionEnv !== 'development') {
+      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
       return null;
     }
 

@@ -76,32 +76,65 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
             <CardTitle className="text-xl">{currentQuestion.question}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {currentQuestion.options.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => handleAnswerSelect(option)}
-                className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                  selectedAnswer === option
-                    ? showFeedback
-                      ? option === currentQuestion.correctAnswer
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-red-500 bg-red-50'
-                      : 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:bg-gray-50'
-                } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
-                disabled={showFeedback}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{option}</span>
-                  {showFeedback && option === currentQuestion.correctAnswer && (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  )}
-                  {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
-              </button>
-            ))}
+            {currentQuestion.type === 'true-false' ? (
+              // True/False specific layout
+              <div className="grid grid-cols-2 gap-4">
+                {currentQuestion.options.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleAnswerSelect(option)}
+                    className={`p-6 rounded-lg border-2 transition-all font-medium ${
+                      selectedAnswer === option
+                        ? showFeedback
+                          ? option === currentQuestion.correctAnswer
+                            ? 'border-green-500 bg-green-50 text-green-700'
+                            : 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                    } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
+                    disabled={showFeedback}
+                  >
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <span className="text-lg">{option}</span>
+                      {showFeedback && option === currentQuestion.correctAnswer && (
+                        <CheckCircle className="h-6 w-6 text-green-500" />
+                      )}
+                      {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
+                        <XCircle className="h-6 w-6 text-red-500" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              // Multiple choice layout
+              currentQuestion.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleAnswerSelect(option)}
+                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                    selectedAnswer === option
+                      ? showFeedback
+                        ? option === currentQuestion.correctAnswer
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-red-500 bg-red-50'
+                        : 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
+                  disabled={showFeedback}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{option}</span>
+                    {showFeedback && option === currentQuestion.correctAnswer && (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
+                    {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                </button>
+              ))
+            )}
 
             {showFeedback && currentQuestion.explanation && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">

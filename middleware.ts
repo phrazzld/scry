@@ -35,6 +35,7 @@ export const config = {
   matcher: [
     // Protected routes that require authentication
     '/create',
+    '/dashboard',
     '/quizzes',
     '/quizzes/:path*',
     '/settings',

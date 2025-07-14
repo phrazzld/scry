@@ -128,6 +128,7 @@ export const getReviewQueue = query({
         return {
           cardId: card._id,
           question: answer.question,
+          type: answer.type,
           options: answer.options,
           correctAnswer: answer.correctAnswer,
           topic: quizResult.topic,
