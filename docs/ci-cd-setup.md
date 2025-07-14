@@ -133,19 +133,22 @@ vercel link
 - `EMAIL_FROM` - Email sender address (e.g., "Scry <noreply@yourdomain.com>")
 - `NEXT_PUBLIC_APP_URL` - Your production URL (optional, for magic links)
 
-**For Preview Environments (Free Convex Tier Workaround):**
+**For Preview Environments (Free Convex Tier Solution):**
 
-Since Convex free tier doesn't support preview deploy keys, we have a workaround:
+We've implemented a solution that allows preview deployments without Convex Pro:
 
-1. The build script (`scripts/vercel-build.cjs`) skips Convex deployment for preview builds
-2. Preview builds only generate Convex types, they don't deploy functions
-3. You need to add the production CONVEX_DEPLOY_KEY to preview environment for type generation
+1. **Convex generated types are committed to the repository** (`convex/_generated/`)
+2. Preview builds use these pre-committed types instead of generating new ones
+3. **No CONVEX_DEPLOY_KEY needed for preview environments**
+4. Preview deployments connect to the production Convex backend (read-only usage recommended)
 
-```bash
-# Add production key to preview environment (safe with our build script)
-vercel env add CONVEX_DEPLOY_KEY preview
-# Paste your production key when prompted
-```
+This approach:
+- ✅ Eliminates the need for any deployment keys in preview
+- ✅ Speeds up preview builds (no type generation needed)
+- ✅ Works perfectly with Convex free tier
+- ⚠️ Preview writes will affect production data (use caution)
+
+For more details, see [Vercel Preview Deployment Workaround](./vercel-preview-workaround.md)
 
 ### 3. Verify Vercel Configuration
 

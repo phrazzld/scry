@@ -67,7 +67,8 @@ const typesExist = fs.existsSync(path.join(__dirname, '..', 'convex', '_generate
 
 if (!isProduction && vercelEnv && typesExist) {
   console.log('ℹ️  Preview environment detected - using pre-generated Convex types');
-  console.log('   (Types should be committed to the repository)');
+  console.log('   (Types are committed to the repository for preview deployments)');
+  console.log('   No CONVEX_DEPLOY_KEY needed for preview environments');
   console.log('✅ Convex types already exist\n');
 } else {
   try {
