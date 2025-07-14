@@ -16,6 +16,7 @@ import type {
 import type * as auth from "../auth.js";
 import type * as emailActions from "../emailActions.js";
 import type * as quiz from "../quiz.js";
+import type * as spacedRepetition from "../spacedRepetition.js";
 import type * as types from "../types.js";
 
 /**
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   emailActions: typeof emailActions;
   quiz: typeof quiz;
+  spacedRepetition: typeof spacedRepetition;
   types: typeof types;
 }>;
 export declare const api: FilterApi<

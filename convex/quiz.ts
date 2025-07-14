@@ -1,5 +1,6 @@
 import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 // Helper to get authenticated user ID from session token
 async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken: string | undefined) {
@@ -53,6 +54,13 @@ export const completeQuiz = mutation({
       totalQuestions: args.totalQuestions,
       answers: args.answers,
       completedAt: Date.now(),
+    });
+
+    // Create spaced repetition cards for this quiz
+    // We'll do this in a separate mutation to keep concerns separated
+    await ctx.scheduler.runAfter(0, api.spacedRepetition.createCardsForQuiz, {
+      sessionToken: args.sessionToken,
+      quizResultId,
     });
 
     return {
