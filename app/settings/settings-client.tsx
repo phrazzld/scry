@@ -6,11 +6,8 @@ import { useAuth } from '@/contexts/auth-context'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeleteAccountDialog } from '@/components/delete-account-dialog'
-import { SessionManagement } from '@/components/session-management'
-import { EmailPreferences } from '@/components/email-preferences'
-import { PerformanceDashboard } from '@/components/performance-dashboard'
 import { ProfileForm } from '@/components/profile-form'
-import { User, Shield, Settings, Activity } from 'lucide-react'
+import { User, Shield } from 'lucide-react'
 
 export function SettingsPageClient() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -53,7 +50,7 @@ export function SettingsPageClient() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="w-4 h-4" />
               Profile
@@ -61,14 +58,6 @@ export function SettingsPageClient() {
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="w-4 h-4" />
               Security
-            </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Preferences
-            </TabsTrigger>
-            <TabsTrigger value="performance" className="flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              Performance
             </TabsTrigger>
           </TabsList>
 
@@ -93,7 +82,6 @@ export function SettingsPageClient() {
                     </p>
                   </div>
 
-                  <SessionManagement />
                 </div>
               </CardContent>
             </Card>
@@ -125,30 +113,6 @@ export function SettingsPageClient() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="preferences" className="space-y-6">
-            <EmailPreferences />
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Quiz Preferences</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-gray-50 rounded-lg border">
-                  <h3 className="font-medium text-gray-900 mb-2">
-                    Learning Customization
-                  </h3>
-                  <p className="text-gray-700 text-sm">
-                    Customization options for quiz generation, difficulty preferences, and spaced repetition settings 
-                    will be available in future updates.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="performance" className="space-y-6">
-            <PerformanceDashboard />
-          </TabsContent>
         </Tabs>
       </div>
     </div>

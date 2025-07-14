@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, BookOpen, Settings, LogOut, Brain } from 'lucide-react'
+import { User, BookOpen, Settings, LogOut } from 'lucide-react'
 
 export function Navbar() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
@@ -72,12 +72,6 @@ export function Navbar() {
                     <Link href="/quizzes" className="flex items-center gap-2 px-3 py-2">
                       <BookOpen className="h-4 w-4" />
                       <span>My Quizzes</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/review" className="flex items-center gap-2 px-3 py-2">
-                      <Brain className="h-4 w-4" />
-                      <span>Review Queue</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

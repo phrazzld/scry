@@ -6,7 +6,6 @@ import { TopicInput } from '@/components/topic-input'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
 import { User, LayoutDashboard, LogOut } from 'lucide-react'
-import { trackAuthPagePerformance } from '@/lib/auth-analytics'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -23,11 +22,6 @@ function HomeContent() {
       setAuthModalOpen(true)
     }
   }, [searchParams, isAuthenticated, isLoading])
-
-  // Track auth-related page performance
-  useEffect(() => {
-    trackAuthPagePerformance('homepage')
-  }, [])
 
   return (
     <div className="min-h-screen bg-white flex flex-col">

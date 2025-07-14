@@ -1,7 +1,5 @@
 import { QuizHistoryRealtime } from '@/components/quiz-history-realtime'
 import { QuizStatsRealtime } from '@/components/quiz-stats-realtime'
-import { ActivityFeedRealtime } from '@/components/activity-feed-realtime'
-import { ReviewStatsWidget } from '@/components/review-stats-widget'
 
 export default function DashboardPage() {
   return (
@@ -21,8 +19,6 @@ export default function DashboardPage() {
           {/* Sidebar - Stats and Activity */}
           <div className="space-y-6">
             <QuizStatsRealtime />
-            <ReviewStatsWidget />
-            <ActivityFeedRealtime />
           </div>
         </div>
       </div>

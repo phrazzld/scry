@@ -24,7 +24,6 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuthPerformanceTracking } from '@/lib/auth-analytics'
 
 const emailFormSchema = z.object({
   email: z
@@ -47,8 +46,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [sentEmail, setSentEmail] = React.useState('')
   
   const { sendMagicLink } = useAuth()
-  const { startTracking, markStep, completeTracking, trackModalOpen, trackModalClose } = useAuthPerformanceTracking()
-  
   const form = useForm<EmailFormValues>({
     resolver: zodResolver(emailFormSchema),
     defaultValues: {
@@ -59,25 +56,22 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   // Track modal open/close and reset state
   React.useEffect(() => {
     if (open) {
-      trackModalOpen()
+      // Modal opened
     } else {
-      trackModalClose('user_action')
+      // Modal closed
       setEmailSent(false)
       setSentEmail('')
       form.reset()
     }
-  }, [open, form, trackModalOpen, trackModalClose])
+  }, [open, form])
 
   const handleSubmit = async (values: EmailFormValues) => {
     setIsLoading(true)
-    startTracking('email')
-    markStep('formSubmission')
     
     try {
       const result = await sendMagicLink(values.email)
       
       if (!result.success) {
-        completeTracking(false, result.error?.message || 'Failed to send magic link')
         // Handle email-related errors
         if (result.error?.message?.includes('email') || result.error?.message?.includes('Email')) {
           form.setError('email', {
@@ -91,8 +85,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
           })
         }
       } else {
-        markStep('emailSent')
-        completeTracking(true)
         // Success - show check your email message
         setEmailSent(true)
         setSentEmail(values.email)
@@ -100,7 +92,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     } catch (error) {
       // Import logger at the top level would be better, but for now inline logging
       console.error('Sign in error:', error) // Keep console for now since this is client-side
-      completeTracking(false, error instanceof Error ? error.message : 'Unknown error')
       // Show network or unexpected errors as toast
       toast.error('Something went wrong', {
         description: 'Please check your connection and try again.'
