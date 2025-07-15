@@ -24,9 +24,9 @@ export function Navbar() {
   return (
     <>
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-        <div className="px-8 md:px-16 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold font-mono text-black hover:text-black border-b-0 transition-none">
-            scry
+        <div className="max-w-7xl mx-auto py-4 flex items-center justify-between">
+          <Link href="/" className="text-2xl md:text-3xl font-bold tracking-tight text-black hover:text-black border-b-0 transition-none">
+            Scry.
           </Link>
           
           <div className="flex items-center gap-4">
@@ -42,7 +42,7 @@ export function Navbar() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64" align="end" forceMount loop>
+                <DropdownMenuContent className="w-64 bg-white" align="end" forceMount loop>
                   <div className="flex items-center justify-start gap-3 p-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.image || undefined} alt={user.name || 'User'} />

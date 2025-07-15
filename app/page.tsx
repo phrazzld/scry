@@ -83,7 +83,7 @@ function HomeContent() {
               <div className="mt-8 text-sm text-gray-600">
                 <p>
                   Continue learning or{' '}
-                  <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 underline">
+                  <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 hover:opacity-80 transition-opacity">
                     view your progress
                   </Link>
                 </p>

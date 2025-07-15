@@ -69,6 +69,19 @@
   --muted-foreground: var(--color-gray-600);
   --border: var(--color-gray-200);
   --ring: var(--color-gray-300);
+  
+  /* Additional variables for shadcn/ui components */
+  --popover: var(--color-background);
+  --popover-foreground: var(--color-foreground);
+  --card: var(--color-background);
+  --card-foreground: var(--color-foreground);
+  --accent: var(--color-gray-100);
+  --accent-foreground: var(--color-gray-900);
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --input: var(--color-gray-200);
+  --secondary: var(--color-gray-100);
+  --secondary-foreground: var(--color-gray-900);
 }
 
 @layer base {
@@ -124,12 +137,11 @@
   a {
     color: var(--color-blue-500);
     text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.2s ease;
+    transition: opacity 0.2s ease;
   }
   
   a:hover {
-    border-bottom-color: var(--color-blue-500);
+    opacity: 0.8;
   }
   
   /* Code elements */

@@ -1,25 +1,25 @@
 'use client'
 
+import { useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2, CheckCircle, Circle, Target, Trophy, Brain, Clock } from "lucide-react"
+import { Loader2, CheckCircle, Target, Trophy, Brain, Clock, Calendar, Search } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import type { Question } from "@/types/quiz"
 
 export function QuizQuestionsGrid() {
-  const [filter, setFilter] = useState<'all' | 'unattempted'>('all')
   const { user } = useAuth()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loadedCount, setLoadedCount] = useState(30)
   const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
 
-  // Fetch user's questions based on filter
+  // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {
     sessionToken: sessionToken || '',
-    onlyUnattempted: filter === 'unattempted',
-    limit: 100
+    limit: loadedCount
   })
 
   if (!user) {
@@ -43,129 +43,153 @@ export function QuizQuestionsGrid() {
       <Card className="text-center py-12">
         <CardContent>
           <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">
-            {filter === 'unattempted' ? 'No unattempted questions' : 'No questions yet'}
-          </h3>
+          <h3 className="text-lg font-semibold mb-2">No questions yet</h3>
           <p className="text-gray-600">
-            {filter === 'unattempted' 
-              ? "You've attempted all your questions! Great job!" 
-              : 'Generate some quizzes to see your questions here.'}
+            Generate some quizzes to see your questions here.
           </p>
         </CardContent>
       </Card>
     )
   }
 
-  // Helper function to get difficulty color
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy':
-        return 'bg-green-100 text-green-800'
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'hard':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
+  // Helper function to format relative time
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Date.now()
+    const diff = now - timestamp
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const minutes = Math.floor(diff / (1000 * 60))
+    
+    if (days > 0) return `${days}d ago`
+    if (hours > 0) return `${hours}h ago`
+    if (minutes > 0) return `${minutes}m ago`
+    return 'Just now'
   }
 
-  // Helper function to format date
-  const formatDate = (timestamp: number) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    }).format(new Date(timestamp))
+
+  // Filter questions based on search query
+  const filteredQuestions = searchQuery
+    ? questions.filter((q: Question) => 
+        q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.topic.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : questions
+
+  const handleLoadMore = () => {
+    setLoadedCount(prev => prev + 30)
   }
 
   return (
     <div className="space-y-6">
-      {/* Filter Tabs */}
-      <Tabs value={filter} onValueChange={(value) => setFilter(value as 'all' | 'unattempted')}>
-        <TabsList>
-          <TabsTrigger value="all" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            All Questions
-          </TabsTrigger>
-          <TabsTrigger value="unattempted" className="flex items-center gap-2">
-            <Circle className="h-4 w-4" />
-            Unattempted
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          type="text"
+          placeholder="Search questions by text or topic..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
 
       {/* Questions Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {questions.map((question: Question) => {
+      <div className="grid grid-cols-1 gap-4">
+        {filteredQuestions.map((question: Question) => {
           const accuracy = question.attemptCount > 0 
             ? Math.round((question.correctCount / question.attemptCount) * 100)
             : null
 
           return (
-            <Card key={question._id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start gap-2">
-                  <CardTitle className="text-base line-clamp-2 flex-1">
-                    {question.question}
-                  </CardTitle>
+            <Card key={question._id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1">
+                    <CardTitle className="text-base mb-2 leading-relaxed">
+                      {question.question}
+                    </CardTitle>
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <span className="font-medium">{question.topic}</span>
+                      <span className="text-gray-400">•</span>
+                      <span>{question.type === 'true-false' ? 'True/False' : 'Multiple Choice'}</span>
+                    </div>
+                  </div>
                   {question.attemptCount > 0 && (
-                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
                   )}
                 </div>
-                <CardDescription className="flex items-center gap-2 mt-2">
-                  <Badge className={getDifficultyColor(question.difficulty)}>
-                    {question.difficulty}
-                  </Badge>
-                  <span className="text-xs text-gray-500">{question.topic}</span>
-                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Question type */}
-                  <div className="text-sm text-gray-600">
-                    Type: {question.type === 'true-false' ? 'True/False' : 'Multiple Choice'}
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-4">
-                      {question.attemptCount > 0 ? (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <Trophy className="h-4 w-4 text-gray-400" />
-                            <span>{accuracy}% accuracy</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Target className="h-4 w-4 text-gray-400" />
-                            <span>{question.attemptCount} attempts</span>
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-gray-500">Not attempted</span>
-                      )}
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  {/* Accuracy */}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+                      <Trophy className="h-4 w-4" />
+                      <span>Accuracy</span>
+                    </div>
+                    <div className="font-medium text-gray-900">
+                      {question.attemptCount > 0 ? `${accuracy}%` : '—'}
                     </div>
                   </div>
 
-                  {/* Generated date */}
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Generated {formatDate(question.generatedAt)}
+                  {/* Attempts */}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+                      <Target className="h-4 w-4" />
+                      <span>Reviews</span>
+                    </div>
+                    <div className="font-medium text-gray-900">
+                      {question.attemptCount || 0}
+                    </div>
                   </div>
 
-                  {/* Last attempted date */}
-                  {question.lastAttemptedAt && (
-                    <div className="text-xs text-gray-500">
-                      Last attempted {formatDate(question.lastAttemptedAt)}
+                  {/* Last Review */}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>Last Review</span>
                     </div>
-                  )}
+                    <div className="font-medium text-gray-900">
+                      {question.lastAttemptedAt ? formatRelativeTime(question.lastAttemptedAt) : 'Never'}
+                    </div>
+                  </div>
+
+                  {/* Generated */}
+                  <div>
+                    <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+                      <Clock className="h-4 w-4" />
+                      <span>Created</span>
+                    </div>
+                    <div className="font-medium text-gray-900">
+                      {formatRelativeTime(question.generatedAt)}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )
         })}
       </div>
+
+      {/* Load More Button */}
+      {questions.length >= loadedCount && !searchQuery && (
+        <div className="flex justify-center mt-8">
+          <Button
+            onClick={handleLoadMore}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            Load More Questions
+          </Button>
+        </div>
+      )}
+
+      {/* Results count */}
+      {searchQuery && (
+        <div className="text-center text-sm text-gray-600">
+          Showing {filteredQuestions.length} of {questions.length} questions
+        </div>
+      )}
     </div>
   )
 }

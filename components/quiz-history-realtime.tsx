@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent } from '@/components/ui/card'
-import { BookOpen, Trophy, Calendar, TrendingUp } from 'lucide-react'
+import { BookOpen, Trophy, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useQuery } from 'convex/react'
@@ -86,10 +86,6 @@ export function QuizHistoryRealtime() {
                   <span className="flex items-center gap-1">
                     <Trophy className="h-4 w-4" />
                     Score: {quiz.score}/{quiz.totalQuestions} ({quiz.percentage}%)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4" />
-                    {quiz.difficulty}
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />

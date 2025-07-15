@@ -14,10 +14,9 @@ type QuizFlowState = 'generating' | 'ready' | 'quiz' | 'complete'
 interface QuizFlowProps {
   topic: string
   questionCount?: number
-  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
-export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
+export function QuizFlow({ topic }: QuizFlowProps) {
   const router = useRouter()
   const { user } = useAuth()
   const [flowState, setFlowState] = useState<QuizFlowState>('generating')
@@ -36,7 +35,7 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           topic, 
-          difficulty,
+          difficulty: 'medium',
           sessionToken, // Add this
         }),
       })
@@ -81,7 +80,7 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
               body: JSON.stringify({
                 sessionToken,
                 topic,
-                difficulty,
+                difficulty: 'medium',
                 score: finalScore,
                 totalQuestions: quiz.questions.length,
                 sessionId, // Add sessionId to the request

@@ -15,7 +15,6 @@ export default function CreateQuizPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const topic = searchParams.get('topic')
-  const difficulty = searchParams.get('difficulty') as 'easy' | 'medium' | 'hard' | null
 
   useEffect(() => {
     if (!topic) {
@@ -31,7 +30,6 @@ export default function CreateQuizPage() {
     <QuizFlow 
       topic={topic}
       questionCount={10}
-      difficulty={difficulty || 'medium'}
     />
   )
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,18 +24,6 @@ type QuizHistoryViewsProps = {
   quizzes: QuizResult[]
 }
 
-function getDifficultyColor(difficulty: string) {
-  switch (difficulty) {
-    case 'easy':
-      return 'bg-green-100 text-green-800'
-    case 'medium':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'hard':
-      return 'bg-red-100 text-red-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
-  }
-}
 
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat('en-US', {
@@ -108,7 +95,6 @@ function QuizTableLoadingSkeleton({ rows = 6 }: { rows?: number }) {
         <TableHeader>
           <TableRow>
             <TableHead>Topic</TableHead>
-            <TableHead>Difficulty</TableHead>
             <TableHead>Score</TableHead>
             <TableHead>Questions</TableHead>
             <TableHead>Completed</TableHead>
@@ -194,11 +180,6 @@ function QuizCardsView({ quizzes }: { quizzes: QuizResult[] }) {
                 <CardTitle className="text-lg mb-2 line-clamp-2">
                   {quiz.topic}
                 </CardTitle>
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge className={getDifficultyColor(quiz.difficulty)}>
-                    {quiz.difficulty}
-                  </Badge>
-                </div>
               </div>
             </div>
             <CardDescription className="flex items-center gap-1 text-sm text-gray-500">
@@ -246,7 +227,6 @@ function QuizTableView({ quizzes }: { quizzes: QuizResult[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>Topic</TableHead>
-            <TableHead>Difficulty</TableHead>
             <TableHead>Score</TableHead>
             <TableHead>Questions</TableHead>
             <TableHead>Tracked</TableHead>
@@ -260,11 +240,6 @@ function QuizTableView({ quizzes }: { quizzes: QuizResult[] }) {
                 <div className="truncate" title={quiz.topic}>
                   {quiz.topic}
                 </div>
-              </TableCell>
-              <TableCell>
-                <Badge className={getDifficultyColor(quiz.difficulty)}>
-                  {quiz.difficulty}
-                </Badge>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
