@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Calendar, Trophy, Target, LayoutGrid, List } from 'lucide-react'
+import { Calendar, Trophy, Target, LayoutGrid, List, Activity } from 'lucide-react'
+import { useQuery } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 
 type QuizResult = {
   id: string
@@ -16,6 +18,7 @@ type QuizResult = {
   totalQuestions: number
   answers: unknown
   completedAt: Date
+  sessionId?: string
 }
 
 type QuizHistoryViewsProps = {
@@ -146,6 +149,40 @@ function QuizTableLoadingSkeleton({ rows = 6 }: { rows?: number }) {
   )
 }
 
+function InteractionStats({ sessionId }: { sessionId?: string }) {
+  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const stats = useQuery(
+    api.questions.getQuizInteractionStats, 
+    sessionId && sessionToken ? { sessionToken, sessionId } : "skip"
+  )
+  
+  if (!sessionId || !stats) return null
+  
+  return (
+    <div className="flex items-center gap-1 text-sm text-gray-600">
+      <Activity className="w-4 h-4" />
+      {stats.uniqueQuestions} tracked
+    </div>
+  )
+}
+
+function InteractionStatsInline({ sessionId }: { sessionId?: string }) {
+  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const stats = useQuery(
+    api.questions.getQuizInteractionStats, 
+    sessionId && sessionToken ? { sessionToken, sessionId } : "skip"
+  )
+  
+  if (!sessionId) return <span className="text-sm text-gray-400">-</span>
+  if (!stats) return <span className="text-sm text-gray-400">...</span>
+  
+  return (
+    <span className="text-sm text-gray-600">
+      {stats.uniqueQuestions}
+    </span>
+  )
+}
+
 function QuizCardsView({ quizzes }: { quizzes: QuizResult[] }) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -192,6 +229,7 @@ function QuizCardsView({ quizzes }: { quizzes: QuizResult[] }) {
                   <Target className="w-4 h-4" />
                   {quiz.totalQuestions} questions
                 </div>
+                <InteractionStats sessionId={quiz.sessionId} />
               </div>
             </div>
           </CardContent>
@@ -211,6 +249,7 @@ function QuizTableView({ quizzes }: { quizzes: QuizResult[] }) {
             <TableHead>Difficulty</TableHead>
             <TableHead>Score</TableHead>
             <TableHead>Questions</TableHead>
+            <TableHead>Tracked</TableHead>
             <TableHead>Completed</TableHead>
           </TableRow>
         </TableHeader>
@@ -242,6 +281,9 @@ function QuizTableView({ quizzes }: { quizzes: QuizResult[] }) {
                   <Target className="w-4 h-4" />
                   {quiz.totalQuestions}
                 </div>
+              </TableCell>
+              <TableCell>
+                <InteractionStatsInline sessionId={quiz.sessionId} />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1 text-sm text-gray-500">

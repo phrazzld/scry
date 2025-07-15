@@ -135,3 +135,32 @@ export const getUserQuestions = query({
     return questions;
   },
 });
+
+export const getQuizInteractionStats = query({
+  args: {
+    sessionToken: v.string(),
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // Get all interactions for this session
+    const interactions = await ctx.db
+      .query("interactions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q => q.eq(q.field("context.sessionId"), args.sessionId))
+      .collect();
+    
+    // Calculate stats
+    const totalInteractions = interactions.length;
+    const correctInteractions = interactions.filter(i => i.isCorrect).length;
+    const uniqueQuestions = new Set(interactions.map(i => i.questionId)).size;
+    
+    return {
+      totalInteractions,
+      correctInteractions,
+      uniqueQuestions,
+      accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
+    };
+  },
+});

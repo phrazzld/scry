@@ -26,6 +26,7 @@ export const completeQuiz = mutation({
     difficulty: v.string(),
     score: v.number(),
     totalQuestions: v.number(),
+    sessionId: v.optional(v.string()), // Add sessionId parameter
     answers: v.array(v.object({
       questionId: v.string(),
       question: v.string(),
@@ -52,6 +53,7 @@ export const completeQuiz = mutation({
       difficulty: args.difficulty,
       score: args.score,
       totalQuestions: args.totalQuestions,
+      sessionId: args.sessionId, // Store sessionId if provided
       answers: args.answers,
       completedAt: Date.now(),
     });
@@ -113,6 +115,7 @@ export const getQuizHistory = query({
         totalQuestions: quiz.totalQuestions,
         percentage: Math.round((quiz.score / quiz.totalQuestions) * 100),
         completedAt: quiz.completedAt,
+        sessionId: quiz.sessionId, // Include sessionId for interaction lookup
       })),
       total,
       hasMore: offset + limit < total,

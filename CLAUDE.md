@@ -95,9 +95,10 @@ The application follows Next.js 15 App Router structure with Convex backend:
 - **app/create/**: Quiz creation interface with topic selection and difficulty settings
 - **components/**: React components split between business logic and UI primitives (shadcn/ui)
 - **convex/**: Backend functions and schema definitions
-  - **schema.ts**: Database schema with users, sessions, quizResults tables
+  - **schema.ts**: Database schema with users, sessions, questions, interactions, quizResults tables
   - **auth.ts**: Magic link authentication mutations
   - **quiz.ts**: Quiz completion and history queries
+  - **questions.ts**: Individual question persistence and interaction tracking
 - **lib/ai-client.ts**: AI integration using Vercel AI SDK with Google provider
 - **types/**: TypeScript types for quiz data structures
 
@@ -108,6 +109,8 @@ Key architectural decisions:
 - React Hook Form with Zod for type-safe form validation
 - Radix UI primitives wrapped with custom styling
 - Tailwind CSS v4 for styling with CSS variables
+- **Individual question persistence**: Each generated question is saved immediately (not bundled in sessions)
+- **Granular interaction tracking**: Every answer attempt is recorded with timing and accuracy data
 
 ## Key Development Patterns
 
@@ -131,8 +134,10 @@ The quiz generation system:
 - Generates structured quiz data with JSON schema validation
 - Supports difficulty levels: easy, medium, hard
 - Creates 5 questions per quiz with 4 answer options each
+- **Questions persist individually** upon generation (not just quiz results)
+- Each answer attempt is tracked with timing and accuracy
 
-API endpoint pattern: `/api/generate-quiz` accepts POST with topic and difficulty.
+API endpoint pattern: `/api/generate-quiz` accepts POST with topic, difficulty, and optional sessionToken for authenticated saves.
 
 ## Testing
 
@@ -149,7 +154,9 @@ The project uses Convex for all backend needs:
 - **users**: User accounts with email, name, avatar
 - **sessions**: Authentication sessions with tokens
 - **magicLinks**: Temporary magic link tokens for auth
-- **quizResults**: Completed quiz data with detailed answers
+- **questions**: Individual quiz questions with denormalized stats (attemptCount, correctCount)
+- **interactions**: User answer attempts with timing and accuracy tracking
+- **quizResults**: Completed quiz sessions with detailed answers and scores
 
 ### Authentication Flow
 1. User enters email

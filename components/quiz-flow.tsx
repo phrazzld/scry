@@ -30,10 +30,15 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
 
   const generateQuiz = async () => {
     try {
+      const sessionToken = localStorage.getItem('scry_session_token'); // Add this
       const response = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, difficulty }),
+        body: JSON.stringify({ 
+          topic, 
+          difficulty,
+          sessionToken, // Add this
+        }),
       })
 
       if (!response.ok) {
@@ -45,6 +50,7 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
       const simpleQuiz: SimpleQuiz = {
         topic,
         questions: data.questions,
+        questionIds: data.questionIds, // Add this
         currentIndex: 0,
         score: 0
       }
@@ -60,7 +66,7 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
     setFlowState('quiz')
   }
 
-  const handleQuizComplete = async (finalScore: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>) => {
+  const handleQuizComplete = async (finalScore: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => {
     if (quiz) {
       setQuiz({ ...quiz, score: finalScore })
       
@@ -78,8 +84,9 @@ export function QuizFlow({ topic, difficulty = 'medium' }: QuizFlowProps) {
                 difficulty,
                 score: finalScore,
                 totalQuestions: quiz.questions.length,
+                sessionId, // Add sessionId to the request
                 answers: answers.map((answer, index) => ({
-                  questionId: `q${index}`,
+                  questionId: quiz.questionIds?.[index] || `q${index}`,
                   question: quiz.questions[index].question,
                   type: quiz.questions[index].type,
                   userAnswer: answer.userAnswer,

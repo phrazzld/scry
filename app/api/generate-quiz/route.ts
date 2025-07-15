@@ -3,10 +3,15 @@ import { z } from 'zod'
 import { generateQuizWithAI } from '@/lib/ai-client'
 import type { SimpleQuestion } from '@/types/quiz'
 import { createRequestLogger, loggers } from '@/lib/logger'
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 const requestSchema = z.object({
   topic: z.string().min(3).max(500),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
+  sessionToken: z.string().optional(), // Add this line
 })
 
 export async function POST(request: NextRequest) {
@@ -40,7 +45,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { topic, difficulty } = validationResult.data
+    const { topic, difficulty, sessionToken } = validationResult.data
     
     logger.info({
       event: 'api.generate-quiz.params',
@@ -50,6 +55,31 @@ export async function POST(request: NextRequest) {
     
     // Generate questions using AI
     const questions: SimpleQuestion[] = await generateQuizWithAI(topic)
+    
+    // Save questions if user is authenticated
+    let savedQuestionIds: string[] = [];
+    if (sessionToken) {
+      try {
+        const result = await convex.mutation(api.questions.saveGeneratedQuestions, {
+          sessionToken,
+          topic,
+          difficulty,
+          questions,
+        });
+        savedQuestionIds = result.questionIds;
+        
+        logger.info({
+          event: 'api.generate-quiz.questions-saved',
+          count: result.count,
+          topic,
+        }, 'Questions saved to database');
+      } catch (error) {
+        logger.warn({
+          event: 'api.generate-quiz.save-error',
+          error: (error as Error).message,
+        }, 'Failed to save questions, continuing anyway');
+      }
+    }
     
     const duration = timer.end({
       topic,
@@ -68,7 +98,8 @@ export async function POST(request: NextRequest) {
       JSON.stringify({ 
         questions,
         topic,
-        difficulty
+        difficulty,
+        questionIds: savedQuestionIds, // Add this line
       }),
       { 
         status: 200, 

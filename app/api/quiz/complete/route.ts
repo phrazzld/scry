@@ -10,6 +10,7 @@ const requestSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']),
   score: z.number().int().min(0),
   totalQuestions: z.number().int().positive(),
+  sessionId: z.string().optional(), // Add sessionId for tracking interactions
   answers: z.array(z.object({
     questionId: z.string(),
     question: z.string(),

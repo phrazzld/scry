@@ -66,6 +66,7 @@ export default defineSchema({
     difficulty: v.string(),
     score: v.number(),
     totalQuestions: v.number(),
+    sessionId: v.optional(v.string()), // Add sessionId for linking with interactions
     answers: v.array(v.object({
       questionId: v.string(),
       question: v.string(),

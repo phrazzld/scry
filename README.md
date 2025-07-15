@@ -5,6 +5,8 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 ## Features
 
 - **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini
+- **Individual Question Tracking**: Every generated question is persisted and tracked independently
+- **Interaction Analytics**: Each answer attempt is recorded with timing and accuracy data
 - **Spaced Repetition Learning**: Optimized review scheduling using the ts-fsrs algorithm
 - **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
 - **Real-time Updates**: Built on Convex for instant data synchronization
@@ -262,6 +264,7 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 
 - **Framework**: Next.js 15 with App Router
 - **Backend**: Convex for database, authentication, and real-time features
+- **Database Model**: Individual question persistence with separate interactions tracking
 - **AI Integration**: Google Gemini via Vercel AI SDK
 - **Authentication**: Magic link email authentication with Convex Auth
 - **Styling**: Tailwind CSS v4 with shadcn/ui components
@@ -271,6 +274,8 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 
 ### AI Quiz Generation
 - Generates structured quizzes with 5 questions and 4 answer options
+- Questions are persisted individually upon generation (not just quiz results)
+- Each answer attempt is tracked with timing and accuracy data
 - Supports difficulty levels: easy, medium, hard
 - Uses JSON schema validation for consistent output
 - API endpoint: `/api/generate-quiz`
@@ -285,7 +290,15 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Built-in performance monitoring dashboard
 - Core Web Vitals tracking
 - Database query performance monitoring
+- Individual question and interaction analytics
 - Custom metrics API at `/api/performance`
+
+### Question & Interaction Tracking
+- Every generated question is stored independently
+- User interactions tracked with millisecond precision
+- Denormalized stats for efficient querying (attemptCount, correctCount)
+- Dashboard views for all questions and unattempted questions
+- Historical quiz results linked to individual interactions
 
 ## Troubleshooting
 

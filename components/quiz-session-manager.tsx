@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle } from 'lucide-react'
 import type { SimpleQuiz } from '@/types/quiz'
+import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 
 interface QuizSessionManagerProps {
   quiz: SimpleQuiz
-  onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>) => void
+  onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
 }
 
 export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps) {
@@ -18,6 +19,10 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   const [showFeedback, setShowFeedback] = useState(false)
   const [score, setScore] = useState(0)
   const [answers, setAnswers] = useState<Array<{ userAnswer: string; isCorrect: boolean }>>([])
+  
+  const { trackAnswer } = useQuizInteractions()
+  const [sessionId] = useState(() => Math.random().toString(36).substring(7))
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now())
   
   const currentQuestion = quiz.questions[currentIndex]
   const isLastQuestion = currentIndex === quiz.questions.length - 1
@@ -29,7 +34,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     setSelectedAnswer(answer)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedAnswer) return
     
     setShowFeedback(true)
@@ -42,17 +47,30 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     if (isCorrect) {
       setScore(score + 1)
     }
+
+    // Track interaction if we have question IDs
+    if (quiz.questionIds && quiz.questionIds[currentIndex]) {
+      const timeSpent = Date.now() - questionStartTime
+      await trackAnswer(
+        quiz.questionIds[currentIndex],
+        selectedAnswer,
+        isCorrect,
+        timeSpent,
+        sessionId
+      )
+    }
   }
 
   const handleNext = () => {
     if (isLastQuestion) {
       // Include the current answer in the final answers array
       const finalAnswers = [...answers]
-      onComplete(score, finalAnswers)
+      onComplete(score, finalAnswers, sessionId)
     } else {
       setCurrentIndex(currentIndex + 1)
       setSelectedAnswer('')
       setShowFeedback(false)
+      setQuestionStartTime(Date.now()) // Reset timer for next question
     }
   }
 
