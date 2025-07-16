@@ -1,6 +1,7 @@
 import { QuizHistoryRealtime } from '@/components/quiz-history-realtime'
 import { QuizStatsRealtime } from '@/components/quiz-stats-realtime'
 import { QuizQuestionsGrid } from '@/components/quiz-questions-grid'
+import { ReviewIndicator } from '@/components/review-indicator'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Clock, Brain } from 'lucide-react'
 
@@ -37,6 +38,7 @@ export default function DashboardPage() {
           
           {/* Sidebar - Stats and Activity */}
           <div className="space-y-6">
+            <ReviewIndicator />
             <QuizStatsRealtime />
           </div>
         </div>
