@@ -47,15 +47,17 @@ Generated from TASK.md on 2025-01-16
 ## Parallel Work Streams
 
 ### Stream A: Backend FSRS Integration
-- [ ] Update question creation to initialize FSRS fields
+- [x] Update question creation to initialize FSRS fields
   - Success criteria: New questions created with state="new" and proper FSRS defaults
   - Can start: After schema extension
   - Files: `convex/quiz.ts` (saveQuizQuestions mutation)
+  - ✅ Completed: Updated saveGeneratedQuestions in questions.ts to initialize all FSRS fields using initializeCard()
 
-- [ ] Modify recordInteraction to trigger FSRS scheduling
+- [x] Modify recordInteraction to trigger FSRS scheduling
   - Success criteria: Interaction with isCorrect automatically triggers appropriate FSRS scheduling
   - Dependencies: scheduleReview mutation exists
   - Files: `convex/questions.ts`
+  - ✅ Completed: Enhanced recordInteraction to include FSRS scheduling, returns nextReview time
 
 - [x] Implement automatic rating calculation logic
   - Success criteria: Maps isCorrect to FSRS rating (e.g., correct→Good, incorrect→Again), considers time spent in future
@@ -64,10 +66,11 @@ Generated from TASK.md on 2025-01-16
   - ✅ Completed: Already implemented in fsrs.ts as calculateRatingFromCorrectness function
 
 ### Stream B: Frontend Components
-- [ ] Create historical attempts display component
+- [x] Create historical attempts display component
   - Success criteria: Shows all attempts in scrollable list with date, correctness, time spent; handles many attempts gracefully
   - Can start: Immediately
   - Files: Create `components/question-history.tsx`
+  - ✅ Completed: Created component with expand/collapse, success rate, loading/empty states
 
 - [ ] Update answer submission flow for automatic scheduling
   - Success criteria: After answer submission, shows next review time without requiring user rating input
