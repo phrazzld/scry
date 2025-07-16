@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { setClientSessionCookie, removeClientSessionCookie, getSessionCookie } from '@/lib/auth-cookies'
 import { getClientEnvironment } from '@/lib/environment-client'
+import { safeStorage } from '@/lib/storage'
 
 const SESSION_TOKEN_KEY = 'scry_session_token'
 
@@ -52,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load session token from storage on mount
   useEffect(() => {
     // Try to get token from localStorage first, then cookies
-    const localToken = localStorage.getItem(SESSION_TOKEN_KEY)
+    const localToken = safeStorage.getItem(SESSION_TOKEN_KEY)
     const cookieToken = getSessionCookie()
     const token = localToken || cookieToken
     
@@ -60,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSessionToken(token)
       // Ensure both storage methods have the token
       if (!localToken && cookieToken) {
-        localStorage.setItem(SESSION_TOKEN_KEY, cookieToken)
+        safeStorage.setItem(SESSION_TOKEN_KEY, cookieToken)
       }
       if (!cookieToken && localToken) {
         setClientSessionCookie(localToken)
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await verifyMagicLinkMutation({ token })
       if (result.success && result.sessionToken) {
         // Store session token in both localStorage and cookies
-        localStorage.setItem(SESSION_TOKEN_KEY, result.sessionToken)
+        safeStorage.setItem(SESSION_TOKEN_KEY, result.sessionToken)
         setClientSessionCookie(result.sessionToken)
         setSessionToken(result.sessionToken)
         
@@ -138,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOutMutation({ sessionToken })
       
       // Clear session from both localStorage and cookies
-      localStorage.removeItem(SESSION_TOKEN_KEY)
+      safeStorage.removeItem(SESSION_TOKEN_KEY)
       removeClientSessionCookie()
       setSessionToken(null)
       
@@ -194,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (result.success) {
         // Clear session from both localStorage and cookies
-        localStorage.removeItem(SESSION_TOKEN_KEY)
+        safeStorage.removeItem(SESSION_TOKEN_KEY)
         removeClientSessionCookie()
         setSessionToken(null)
         

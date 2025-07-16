@@ -40,8 +40,13 @@ jobs:
           fi
 
           # Required for Convex deployments and TypeScript codegen
-          if [ -z "${{ secrets.CONVEX_DEPLOY_KEY }}" ]; then
-            missing_secrets+=("CONVEX_DEPLOY_KEY")
+          # Only require CONVEX_DEPLOY_KEY for deployment workflows
+          if [[ "${{ github.event_name }}" == "push" && 
+                ("${{ github.ref }}" == "refs/heads/main" || 
+                 "${{ github.ref }}" == "refs/heads/master") ]]; then
+            if [ -z "${{ secrets.CONVEX_DEPLOY_KEY }}" ]; then
+              missing_secrets+=("CONVEX_DEPLOY_KEY")
+            fi
           fi
 
           # Required for Next.js build
@@ -127,8 +132,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Generate Convex type definitions required for TypeScript compilation
-      # These files are gitignored but necessary for the build process
+      # These files are committed to the repo, but regenerate for internal workflows
+      # Skip for external contributors who don't have CONVEX_DEPLOY_KEY
       - name: Generate Convex Types
+        if: env.CONVEX_DEPLOY_KEY != ''
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex codegen
@@ -191,8 +198,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Generate Convex type definitions required for TypeScript compilation
-      # These files are gitignored but necessary for the build process
+      # These files are committed to the repo, but regenerate for internal workflows
+      # Skip for external contributors who don't have CONVEX_DEPLOY_KEY
       - name: Generate Convex Types
+        if: env.CONVEX_DEPLOY_KEY != ''
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex codegen
