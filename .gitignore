@@ -25,6 +25,7 @@
 # misc
 .DS_Store
 *.pem
+*.log
 
 # debug
 npm-debug.log*
@@ -47,8 +48,15 @@ yarn-error.log*
 next-env.d.ts
 
 /docs/leyline
+/thinktank_*/
 
 # Temporary files
 .nextauth-secret.tmp
 
-/lib/generated/prisma
+# Convex
+.convex/
+# convex/_generated/ - Now committed for preview deployments
+
+# Test coverage
+coverage/
+*.lcov

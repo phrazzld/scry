@@ -1,20 +1,22 @@
 # Scry
 
-An AI-powered quiz generation and learning application built with Next.js 15. Uses Google Gemini for intelligent content generation and implements spaced repetition algorithms for optimized learning.
+An AI-powered quiz generation and learning application built with Next.js 15 and Convex. Uses Google Gemini for intelligent content generation and implements spaced repetition algorithms for optimized learning.
 
 ## Features
 
-- **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini 2.5 Flash
+- **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini
+- **Individual Question Tracking**: Every generated question is persisted and tracked independently
+- **Interaction Analytics**: Each answer attempt is recorded with timing and accuracy data
 - **Spaced Repetition Learning**: Optimized review scheduling using the ts-fsrs algorithm
-- **Magic Link Authentication**: Secure, passwordless authentication with NextAuth
-- **Performance Monitoring**: Built-in monitoring and analytics dashboard
+- **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
+- **Real-time Updates**: Built on Convex for instant data synchronization
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
 
 ## Prerequisites
 
 - Node.js 18.0.0 or higher
 - pnpm 10.0.0 or higher
-- PostgreSQL database
+- Convex account (free tier available)
 - Google AI API key
 - Resend API key for email
 
@@ -28,24 +30,64 @@ cd scry
 pnpm install
 ```
 
-### 2. Environment Setup
+### 2. Convex Setup
+
+Scry uses Convex for the backend database and real-time features. You'll need to create a Convex account and project.
+
+#### Create Convex Account and Project
+
+1. **Sign up for Convex** (free tier available):
+   ```bash
+   # Visit https://convex.dev and create an account
+   # Or sign up via CLI
+   npx convex dev --new
+   ```
+
+2. **Initialize Convex in your project**:
+   ```bash
+   # Install Convex CLI globally (recommended)
+   npm install -g convex
+   
+   # Initialize Convex (follow prompts to create/link project)
+   npx convex dev
+   ```
+
+3. **Configure your Convex project**:
+   - Follow the CLI prompts to create a new project or link an existing one
+   - Choose your team/organization
+   - The CLI will automatically generate your `NEXT_PUBLIC_CONVEX_URL`
+
+#### Get Required Keys
+
+4. **Get your Convex Deployment Key** (for production deployments):
+   - Go to [Convex Dashboard](https://dashboard.convex.dev)
+   - Select your project
+   - Navigate to **Settings** → **URL and Deploy Key**
+   - Generate and copy your **production deploy key**
+   - For preview deployments, also generate a **preview deploy key**
+
+### 3. Environment Setup
 
 ```bash
 # Copy the environment template
 cp .env.example .env.local
 
 # Edit .env.local with your configuration
-# See "Environment Variables" section below for required values
+# Your NEXT_PUBLIC_CONVEX_URL should already be set from the Convex setup
+# Add the remaining required values (see "Environment Variables" section)
 
 # Validate your environment
 pnpm env:validate
 ```
 
-### 3. Development Server
+### 4. Development Server
 
 ```bash
-# Start development server with Turbopack
+# In terminal 1: Start Next.js development server
 pnpm dev
+
+# In terminal 2: Start Convex development server
+npx convex dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
@@ -57,19 +99,16 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation | `AIzaSy...` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host/db` |
-| `NEXTAUTH_SECRET` | NextAuth.js JWT signing secret | Generate with `openssl rand -base64 32` |
-| `RESEND_API_KEY` | Resend API key for emails | `re_...` |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://...convex.cloud` |
+| `CONVEX_DEPLOY_KEY` | Convex deploy key (for Vercel deployments) | `prod:...` |
+| `RESEND_API_KEY` | Resend API key for magic link emails | `re_...` |
 | `EMAIL_FROM` | From address for auth emails | `Scry <noreply@yourdomain.com>` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXTAUTH_URL` | Application base URL | Auto-detected (required in production) |
-| `KV_URL` | Redis/KV connection for rate limiting | None |
-| `KV_REST_API_URL` | KV REST API endpoint | None |
-| `KV_REST_API_TOKEN` | KV API authentication token | None |
+| `NEXT_PUBLIC_APP_URL` | Application base URL for magic links | Auto-detected |
 
 For detailed setup instructions, see [docs/environment-setup.md](docs/environment-setup.md).
 
@@ -115,25 +154,32 @@ pnpm assets:generate-all    # Generate all assets (verbose)
 
 ### Deployment Process
 
-1. **Link Project** (first time only):
+1. **Deploy Convex Backend**:
+   ```bash
+   npx convex deploy
+   ```
+
+2. **Link Vercel Project** (first time only):
    ```bash
    vercel link
    ```
 
-2. **Configure Environment Variables**:
+3. **Configure Environment Variables**:
    ```bash
    # Pull existing variables (if any)
    vercel env pull .env.local
    
    # Add required variables via Vercel Dashboard or CLI
    vercel env add GOOGLE_AI_API_KEY
-   vercel env add DATABASE_URL
-   vercel env add NEXTAUTH_SECRET
+   vercel env add NEXT_PUBLIC_CONVEX_URL
+   vercel env add CONVEX_DEPLOY_KEY
    vercel env add RESEND_API_KEY
    vercel env add EMAIL_FROM
    ```
+   
+   **Important**: Get your `CONVEX_DEPLOY_KEY` from the Convex Dashboard → Settings → Deploy Keys
 
-3. **Deploy**:
+4. **Deploy**:
    ```bash
    # Deploy to preview
    vercel
@@ -142,14 +188,53 @@ pnpm assets:generate-all    # Generate all assets (verbose)
    vercel --prod
    ```
 
-### Vercel KV Setup (Optional)
+### Convex + Vercel Integration
 
-For rate limiting features:
+This application uses a coordinated deployment strategy where Convex functions are deployed automatically as part of the Vercel build process.
 
-1. Visit [Vercel Dashboard](https://vercel.com/dashboard) → Storage → KV
-2. Create a new KV store named "scry-kv"
-3. Pull environment variables: `vercel env pull .env.local`
-4. The KV variables will be automatically added to your environment
+#### How It Works
+
+1. **Build Command Integration**: The `vercel.json` file configures Convex deployment as part of the build:
+   ```json
+   {
+     "buildCommand": "npx convex deploy --cmd 'pnpm build'"
+   }
+   ```
+
+2. **Automatic Deployment**: When you deploy to Vercel, it automatically:
+   - Deploys your Convex functions first
+   - Then builds and deploys your Next.js application
+   - Ensures both backend and frontend are synchronized
+
+#### Deployment Verification
+
+After deployment, verify everything is working:
+
+```bash
+# Check deployment status
+node scripts/verify-deployment-setup.cjs
+
+# Monitor Convex logs
+npx convex logs
+
+# Test the deployed application
+curl https://your-app.vercel.app/api/health
+```
+
+#### Troubleshooting Deployments
+
+If deployments fail:
+
+1. **Check Convex deployment first**:
+   ```bash
+   npx convex deploy --prod
+   ```
+
+2. **Verify environment variables** in Vercel dashboard
+3. **Check build logs** in Vercel deployment details
+4. **Review Convex logs** for backend errors: `npx convex logs`
+
+For detailed troubleshooting, see [docs/convex-deployment-fix.md](docs/convex-deployment-fix.md).
 
 ### Production Monitoring
 
@@ -178,23 +263,26 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 ## Architecture
 
 - **Framework**: Next.js 15 with App Router
-- **Database**: PostgreSQL with Prisma ORM
-- **AI Integration**: Google Gemini 2.5 Flash via Vercel AI SDK
-- **Authentication**: NextAuth with magic link email authentication
+- **Backend**: Convex for database, authentication, and real-time features
+- **Database Model**: Individual question persistence with separate interactions tracking
+- **AI Integration**: Google Gemini via Vercel AI SDK
+- **Authentication**: Magic link email authentication with Convex Auth
 - **Styling**: Tailwind CSS v4 with shadcn/ui components
-- **Caching**: Optional Vercel KV for rate limiting and session storage
+- **Email**: Resend for magic link delivery
 
 ## Key Features
 
 ### AI Quiz Generation
 - Generates structured quizzes with 5 questions and 4 answer options
+- Questions are persisted individually upon generation (not just quiz results)
+- Each answer attempt is tracked with timing and accuracy data
 - Supports difficulty levels: easy, medium, hard
 - Uses JSON schema validation for consistent output
 - API endpoint: `/api/generate-quiz`
 
 ### Authentication System
 - Magic link authentication via email
-- Session management with NextAuth
+- Session management with Convex Auth
 - Protected routes and API endpoints
 - Comprehensive error handling and logging
 
@@ -202,7 +290,15 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Built-in performance monitoring dashboard
 - Core Web Vitals tracking
 - Database query performance monitoring
+- Individual question and interaction analytics
 - Custom metrics API at `/api/performance`
+
+### Question & Interaction Tracking
+- Every generated question is stored independently
+- User interactions tracked with millisecond precision
+- Denormalized stats for efficient querying (attemptCount, correctCount)
+- Dashboard views for all questions and unattempted questions
+- Historical quiz results linked to individual interactions
 
 ## Troubleshooting
 
@@ -214,14 +310,24 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Check Node.js version compatibility
 
 **Authentication issues**:
-- Verify `NEXTAUTH_SECRET` is set and unique
-- Check email configuration (RESEND_API_KEY, EMAIL_FROM)
-- Ensure `NEXTAUTH_URL` is set correctly in production
+- Verify `RESEND_API_KEY` and `EMAIL_FROM` are configured correctly
+- Check magic link email delivery in your email provider
+- Ensure `NEXT_PUBLIC_APP_URL` is set correctly in production
+- Verify Convex auth mutations are deployed
 
-**Database connection**:
-- Verify `DATABASE_URL` format and connectivity
-- Check database permissions and network access
-- Run `pnpm prisma generate` if models have changed
+**Convex connection issues**:
+- Verify `NEXT_PUBLIC_CONVEX_URL` is correct from your Convex dashboard
+- Ensure Convex development server is running: `npx convex dev`
+- Check that Convex functions are deployed: `npx convex deploy`
+- Verify `CONVEX_DEPLOY_KEY` is set for production deployments
+- Run `npx convex logs` to check for backend errors
+- Ensure you're connected to the correct Convex project
+
+**Deployment issues**:
+- Check that both Convex and Vercel deployments succeed
+- Verify all environment variables are set in Vercel dashboard
+- Ensure `CONVEX_DEPLOY_KEY` is configured for both Production and Preview environments
+- Run the deployment verification script: `node scripts/verify-deployment-setup.cjs`
 
 ### Getting Help
 

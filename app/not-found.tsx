@@ -27,9 +27,9 @@ export default function NotFound() {
             </Link>
           </Button>
           <Button asChild variant="outline" className="flex-1">
-            <Link href="/review">
+            <Link href="/quizzes">
               <BookOpen className="h-4 w-4" />
-              Review Quizzes
+              My Quizzes
             </Link>
           </Button>
         </div>

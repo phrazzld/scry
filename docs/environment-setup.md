@@ -2,6 +2,9 @@
 
 This guide helps you configure environment variables for the Scry application across different environments.
 
+**Last Updated**: July 2025  
+**Tech Stack**: Next.js 15, Convex (backend + auth), Google Gemini AI, Resend (email)
+
 ## Quick Start
 
 1. **Copy the template**:
@@ -23,30 +26,139 @@ This guide helps you configure environment variables for the Scry application ac
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation | `AIzaSy...` | ✅ |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host/db` | ✅ |
-| `NEXTAUTH_SECRET` | NextAuth.js JWT signing secret | Generate with `openssl rand -base64 32` | ✅ |
-| `RESEND_API_KEY` | Resend API key for emails | `re_...` | ✅ |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://excited-penguin-123.convex.cloud` | ✅ |
+| `CONVEX_DEPLOY_KEY` | Convex deployment key (for builds) | `prod:abc123...` | ✅ (Vercel only) |
+
+### Email Configuration (Convex Environment)
+
+These are set in Convex dashboard, not `.env.local`:
+
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `RESEND_API_KEY` | Resend API key for magic link emails | `re_...` | ✅ |
 | `EMAIL_FROM` | From address for auth emails | `Scry <noreply@yourdomain.com>` | ✅ |
+| `NEXT_PUBLIC_APP_URL` | Application URL for magic links | `https://scry.vercel.app` | Optional |
 
-### Optional Configuration
+## Setting Environment Variables
 
-| Variable | Description | Default | Notes |
-|----------|-------------|---------|-------|
-| `NEXTAUTH_URL` | Application base URL | Auto-detected | Required in production |
-| `EMAIL_SERVER_HOST` | SMTP server hostname | `smtp.resend.com` | Uses Resend by default |
-| `EMAIL_SERVER_PORT` | SMTP server port | `587` | Standard SMTP port |
-| `EMAIL_SERVER_USER` | SMTP username | `resend` | Resend default |
-| `DATABASE_URL_UNPOOLED` | Direct DB connection | | For migrations |
+### Local Development (.env.local)
 
-### Vercel KV (Rate Limiting)
+```bash
+# Core required variables
+GOOGLE_AI_API_KEY=your-google-ai-api-key
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 
-| Variable | Description | Notes |
-|----------|-------------|-------|
-| `KV_URL` | Redis connection URL | All KV vars required together |
-| `KV_REST_API_URL` | REST API endpoint | or none at all |
-| `KV_REST_API_TOKEN` | API authentication token | |
+# Optional: Only needed if running builds locally
+CONVEX_DEPLOY_KEY=prod:your-deploy-key
+```
+
+### Convex Environment Variables
+
+Set these in Convex dashboard (not in `.env.local`):
+
+```bash
+# Set production environment variables
+npx convex env set RESEND_API_KEY "your-resend-api-key" --prod
+npx convex env set EMAIL_FROM "Scry <noreply@yourdomain.com>" --prod
+npx convex env set NEXT_PUBLIC_APP_URL "https://yourdomain.com" --prod
+
+# Verify they're set
+npx convex env list --prod
+```
+
+### Vercel Environment Variables
+
+Add these in Vercel dashboard → Settings → Environment Variables:
+
+1. **Production Environment**:
+   - `GOOGLE_AI_API_KEY`
+   - `NEXT_PUBLIC_CONVEX_URL`
+   - `CONVEX_DEPLOY_KEY`
+
+2. **Preview Environment** (Free Convex Tier):
+   - Same as production (our build script handles preview deployments safely)
 
 ## Environment-Specific Setup
+
+### Development
+
+1. **Start Convex dev server** (required for local development):
+   ```bash
+   npx convex dev
+   ```
+   This will:
+   - Connect to your Convex deployment
+   - Generate TypeScript types
+   - Watch for function changes
+   - Show the deployment URL
+
+2. **Start Next.js dev server** (in another terminal):
+   ```bash
+   pnpm dev
+   ```
+
+### Production
+
+1. **Deploy Convex functions**:
+   ```bash
+   npx convex deploy --prod
+   ```
+
+2. **Deploy to Vercel**:
+   ```bash
+   vercel --prod
+   ```
+
+## Getting Environment Values
+
+### Google AI API Key
+
+1. Go to https://makersuite.google.com/app/apikey
+2. Click "Create API Key"
+3. Copy the key (starts with `AIzaSy`)
+4. Optional: Add API restrictions for security
+
+### Convex Configuration
+
+1. **Create Convex account**: https://convex.dev
+2. **Run setup**:
+   ```bash
+   npx convex dev
+   ```
+3. **Get deployment URL**: Shown in terminal or Convex dashboard
+4. **Generate deploy key**: Dashboard → Settings → Deploy Keys
+
+### Resend API Key
+
+1. **Create account**: https://resend.com
+2. **Get API key**: Dashboard → API Keys
+3. **Create key**: Name it "Scry Production"
+4. **Set in Convex**: `npx convex env set RESEND_API_KEY "re_..." --prod`
+
+## Troubleshooting
+
+### "NEXT_PUBLIC_CONVEX_URL is not defined"
+- Ensure you've added it to `.env.local`
+- Check the URL format: `https://[deployment].convex.cloud`
+- Restart your dev server after adding
+
+### "Failed to send magic link email"
+- Verify RESEND_API_KEY is set in Convex: `npx convex env list --prod`
+- Check EMAIL_FROM format: `Name <email@domain.com>`
+- Ensure Resend account is verified
+
+### "Convex functions not updating"
+- Make sure `npx convex dev` is running
+- Check for TypeScript errors in convex/ directory
+- Try `npx convex deploy --prod` for production
+
+## Security Best Practices
+
+1. **Never commit `.env.local`** - It's in .gitignore by default
+2. **Use different API keys** for development and production
+3. **Rotate keys regularly** - Especially if exposed
+4. **Limit API key permissions** - Use minimum required access
+5. **Monitor usage** - Check dashboards for unusual activity
 
 ### Development
 

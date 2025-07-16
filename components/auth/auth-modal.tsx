@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { signIn } from 'next-auth/react'
+import { useAuth } from '@/contexts/auth-context'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,6 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuthPerformanceTracking } from '@/lib/auth-analytics'
 
 const emailFormSchema = z.object({
   email: z
@@ -38,6 +37,7 @@ type EmailFormValues = z.infer<typeof emailFormSchema>
 interface AuthModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  redirectTo?: string | null
 }
 
 export function AuthModal({ open, onOpenChange }: AuthModalProps) {
@@ -45,8 +45,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [emailSent, setEmailSent] = React.useState(false)
   const [sentEmail, setSentEmail] = React.useState('')
   
-  const { startTracking, markStep, completeTracking, trackModalOpen, trackModalClose } = useAuthPerformanceTracking()
-  
+  const { sendMagicLink } = useAuth()
   const form = useForm<EmailFormValues>({
     resolver: zodResolver(emailFormSchema),
     defaultValues: {
@@ -57,44 +56,35 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   // Track modal open/close and reset state
   React.useEffect(() => {
     if (open) {
-      trackModalOpen()
+      // Modal opened
     } else {
-      trackModalClose('user_action')
+      // Modal closed
       setEmailSent(false)
       setSentEmail('')
       form.reset()
     }
-  }, [open, form, trackModalOpen, trackModalClose])
+  }, [open, form])
 
   const handleSubmit = async (values: EmailFormValues) => {
     setIsLoading(true)
-    startTracking('email')
-    markStep('formSubmission')
     
     try {
-      const result = await signIn('email', {
-        email: values.email,
-        redirect: false,
-        callbackUrl: window.location.href
-      })
+      const result = await sendMagicLink(values.email)
       
-      if (result?.error) {
-        completeTracking(false, result.error)
-        // Handle specific email-related errors
-        if (result.error.includes('email') || result.error.includes('Email')) {
+      if (!result.success) {
+        // Handle email-related errors
+        if (result.error?.message?.includes('email') || result.error?.message?.includes('Email')) {
           form.setError('email', {
             type: 'manual',
-            message: result.error
+            message: result.error.message
           })
         } else {
           // Show general errors as toast
           toast.error('Authentication Error', {
-            description: result.error
+            description: result.error?.message || 'Failed to send magic link'
           })
         }
       } else {
-        markStep('emailSent')
-        completeTracking(true)
         // Success - show check your email message
         setEmailSent(true)
         setSentEmail(values.email)
@@ -102,7 +92,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     } catch (error) {
       // Import logger at the top level would be better, but for now inline logging
       console.error('Sign in error:', error) // Keep console for now since this is client-side
-      completeTracking(false, error instanceof Error ? error.message : 'Unknown error')
       // Show network or unexpected errors as toast
       toast.error('Something went wrong', {
         description: 'Please check your connection and try again.'
@@ -115,7 +104,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-testid="auth-modal">
         <DialogHeader>
           <DialogTitle>{emailSent ? 'Check your email' : 'Welcome to Scry'}</DialogTitle>
           <DialogDescription>

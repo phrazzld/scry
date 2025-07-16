@@ -10,7 +10,8 @@ const google = createGoogleGenerativeAI({
 
 const questionSchema = z.object({
   question: z.string(),
-  options: z.array(z.string()).length(4),
+  type: z.enum(['multiple-choice', 'true-false']).optional(),
+  options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
   explanation: z.string().optional(),
 })
@@ -20,10 +21,17 @@ const questionsSchema = z.object({
 })
 
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
-  const prompt = `Generate 10 multiple choice questions about "${topic}". 
-Each question should have 4 options with one correct answer.
-Make the questions educational and engaging.
-Include a brief explanation for each answer.`
+  const prompt = `Generate 10 quiz questions about "${topic}". 
+Create a mix of question types:
+- 7 multiple-choice questions (with 4 options each)
+- 3 true/false questions (with 2 options: "True" and "False")
+
+For each question:
+- Set "type" to either "multiple-choice" or "true-false"
+- For multiple-choice: provide 4 options with one correct answer
+- For true/false: provide exactly 2 options ["True", "False"] with the correct answer
+- Make questions educational and engaging
+- Include a brief explanation for each answer`
 
   try {
     const timer = loggers.time(`ai.quiz-generation.${topic}`, 'ai')
@@ -54,7 +62,14 @@ Include a brief explanation for each answer.`
       duration
     }, `Successfully generated ${object.questions.length} questions for ${topic}`)
 
-    return object.questions
+    // Validate and ensure all required properties are present
+    return object.questions.map((q): SimpleQuestion => ({
+      question: q.question || '',
+      type: q.type || 'multiple-choice',
+      options: q.options || [],
+      correctAnswer: q.correctAnswer || '',
+      explanation: q.explanation
+    }))
   } catch (error) {
     loggers.error(
       error as Error,
@@ -74,11 +89,21 @@ Include a brief explanation for each answer.`
     }, `Using fallback question for topic: ${topic}`)
 
     // Return some default questions as fallback
-    return [{
-      question: `What is ${topic}?`,
-      options: ['Option A', 'Option B', 'Option C', 'Option D'],
-      correctAnswer: 'Option A',
-      explanation: 'This is a placeholder question.'
-    }]
+    return [
+      {
+        question: `What is ${topic}?`,
+        type: 'multiple-choice' as const,
+        options: ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: 'Option A',
+        explanation: 'This is a placeholder multiple-choice question.'
+      },
+      {
+        question: `${topic} is an important subject to study.`,
+        type: 'true-false' as const,
+        options: ['True', 'False'],
+        correctAnswer: 'True',
+        explanation: 'This is a placeholder true/false question.'
+      }
+    ]
   }
 }

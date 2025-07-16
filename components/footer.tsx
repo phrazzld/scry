@@ -3,7 +3,7 @@ import { Github } from 'lucide-react'
 export function Footer() {
   return (
     <footer className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
-      <div className="px-8 md:px-16 py-4">
+      <div className="max-w-7xl mx-auto px-8 md:px-16 py-4">
         <a 
           href="https://github.com/phrazzld/scry" 
           target="_blank" 
