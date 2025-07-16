@@ -11,10 +11,9 @@ import { Input } from "@/components/ui/input"
 import type { Question } from "@/types/quiz"
 
 export function QuizQuestionsGrid() {
-  const { user } = useAuth()
+  const { user, sessionToken } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [loadedCount, setLoadedCount] = useState(30)
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
 
   // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {

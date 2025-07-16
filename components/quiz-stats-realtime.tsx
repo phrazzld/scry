@@ -7,8 +7,7 @@ import { api } from '@/convex/_generated/api'
 import { Loader2 } from 'lucide-react'
 
 export function QuizStatsRealtime() {
-  const { user } = useAuth()
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const { user, sessionToken } = useAuth()
   
   // Fetch quiz history to calculate stats
   const quizHistory = useQuery(api.quiz.getQuizHistory, {

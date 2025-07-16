@@ -10,8 +10,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 
 export function QuizHistoryRealtime() {
-  const { user } = useAuth()
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const { user, sessionToken } = useAuth()
   
   // Fetch quiz history from Convex
   const quizHistory = useQuery(api.quiz.getQuizHistory, {

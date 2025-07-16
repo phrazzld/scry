@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Calendar, Trophy, Target, LayoutGrid, List, Activity } from 'lucide-react'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
+import { useAuth } from '@/contexts/auth-context'
 
 type QuizResult = {
   id: string
@@ -136,7 +137,7 @@ function QuizTableLoadingSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 function InteractionStats({ sessionId }: { sessionId?: string }) {
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const { sessionToken } = useAuth()
   const stats = useQuery(
     api.questions.getQuizInteractionStats, 
     sessionId && sessionToken ? { sessionToken, sessionId } : "skip"
@@ -153,7 +154,7 @@ function InteractionStats({ sessionId }: { sessionId?: string }) {
 }
 
 function InteractionStatsInline({ sessionId }: { sessionId?: string }) {
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('scry_session_token') : null
+  const { sessionToken } = useAuth()
   const stats = useQuery(
     api.questions.getQuizInteractionStats, 
     sessionId && sessionToken ? { sessionToken, sessionId } : "skip"

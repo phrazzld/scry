@@ -18,7 +18,7 @@ interface QuizFlowProps {
 
 export function QuizFlow({ topic }: QuizFlowProps) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, sessionToken } = useAuth()
   const [flowState, setFlowState] = useState<QuizFlowState>('generating')
   const [quiz, setQuiz] = useState<SimpleQuiz | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,14 +29,13 @@ export function QuizFlow({ topic }: QuizFlowProps) {
 
   const generateQuiz = async () => {
     try {
-      const sessionToken = localStorage.getItem('scry_session_token'); // Add this
       const response = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           topic, 
           difficulty: 'medium',
-          sessionToken, // Add this
+          sessionToken,
         }),
       })
 
@@ -70,11 +69,9 @@ export function QuizFlow({ topic }: QuizFlowProps) {
       setQuiz({ ...quiz, score: finalScore })
       
       // Save quiz results if user is authenticated
-      if (user) {
+      if (user && sessionToken) {
         try {
-          const sessionToken = localStorage.getItem('scry_session_token')
-          if (sessionToken) {
-            const response = await fetch('/api/quiz/complete', {
+          const response = await fetch('/api/quiz/complete', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -101,7 +98,6 @@ export function QuizFlow({ topic }: QuizFlowProps) {
             } else {
               console.error('Failed to save quiz results')
             }
-          }
         } catch (error) {
           console.error('Error saving quiz results:', error)
         }

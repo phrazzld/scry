@@ -1,9 +1,11 @@
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useCallback } from "react";
+import { useAuth } from "@/contexts/auth-context";
 
 export function useQuizInteractions() {
   const recordInteraction = useMutation(api.questions.recordInteraction);
+  const { sessionToken } = useAuth();
   
   const trackAnswer = useCallback(async (
     questionId: string,
@@ -12,7 +14,6 @@ export function useQuizInteractions() {
     timeSpent?: number,
     sessionId?: string
   ) => {
-    const sessionToken = localStorage.getItem('scry_session_token');
     if (!sessionToken || !questionId) return;
     
     try {
@@ -27,7 +28,7 @@ export function useQuizInteractions() {
     } catch (error) {
       console.error('Failed to track interaction:', error);
     }
-  }, [recordInteraction]);
+  }, [recordInteraction, sessionToken]);
   
   return { trackAnswer };
 }

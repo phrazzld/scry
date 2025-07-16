@@ -21,6 +21,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   isAuthenticated: boolean
+  sessionToken: string | null
   sendMagicLink: (email: string) => Promise<{ success: boolean; error?: Error }>
   verifyMagicLink: (token: string) => Promise<{ success: boolean; error?: Error }>
   signOut: () => Promise<void>
@@ -218,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: user as User | null,
     isLoading: isActuallyLoading,
     isAuthenticated: !!user,
+    sessionToken,
     sendMagicLink,
     verifyMagicLink,
     signOut,
