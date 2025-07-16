@@ -18,7 +18,12 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
   const [score, setScore] = useState(0)
-  const [answers, setAnswers] = useState<Array<{ userAnswer: string; isCorrect: boolean }>>([])
+  const [answers, setAnswers] = useState<Array<{
+    questionId?: string
+    userAnswer: string
+    isCorrect: boolean
+    timeTaken?: number
+  }>>([])
   
   const { trackAnswer } = useQuizInteractions()
   const [sessionId] = useState(() => Math.random().toString(36).substring(7))
@@ -38,11 +43,17 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     if (!selectedAnswer) return
     
     setShowFeedback(true)
-    const newAnswer = {
-      userAnswer: selectedAnswer,
-      isCorrect: isCorrect
+    
+    // Add answer to array for non-last questions
+    if (!isLastQuestion) {
+      const newAnswer = {
+        questionId: quiz.questionIds?.[currentIndex],
+        userAnswer: selectedAnswer,
+        isCorrect: isCorrect,
+        timeTaken: Date.now() - questionStartTime
+      }
+      setAnswers([...answers, newAnswer])
     }
-    setAnswers([...answers, newAnswer])
     
     if (isCorrect) {
       setScore(score + 1)
@@ -63,8 +74,13 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
 
   const handleNext = () => {
     if (isLastQuestion) {
-      // Include the current answer in the final answers array
-      const finalAnswers = [...answers]
+      // Include the current answer in final results
+      const finalAnswers = [...answers, {
+        questionId: quiz.questionIds?.[currentIndex],
+        userAnswer: selectedAnswer,
+        isCorrect,
+        timeTaken: Date.now() - questionStartTime
+      }]
       onComplete(score, finalAnswers, sessionId)
     } else {
       setCurrentIndex(currentIndex + 1)

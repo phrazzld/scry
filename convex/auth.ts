@@ -212,6 +212,30 @@ export const getCurrentUser = query({
   },
 });
 
+export const validateSession = query({
+  args: {
+    sessionToken: v.string(),
+    environment: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .filter((q) => q.eq(q.field("environment"), args.environment))
+      .first();
+      
+    if (!session) {
+      return null;
+    }
+    
+    return {
+      userId: session.userId,
+      expiresAt: session.expiresAt,
+      isValid: session.expiresAt > Date.now()
+    };
+  },
+});
+
 export const signOut = mutation({
   args: { sessionToken: v.string() },
   handler: async (ctx, { sessionToken }) => {
