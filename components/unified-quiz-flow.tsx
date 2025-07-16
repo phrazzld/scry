@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { usePollingQuery } from "@/hooks/use-polling-query";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/contexts/auth-context";
 import { QuizSessionManager } from "@/components/quiz-session-manager";
@@ -42,15 +42,17 @@ export function UnifiedQuizFlow({
   const [reviewQuestionId, setReviewQuestionId] = useState<Id<"questions"> | null>(null);
   const [reviewInteractions, setReviewInteractions] = useState<Doc<"interactions">[]>([]);
 
-  // Queries
-  const nextReview = useQuery(
+  // Queries - use polling for time-sensitive review queries
+  const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    mode === "review" && sessionToken ? {} : "skip"
+    mode === "review" && sessionToken ? { sessionToken } : "skip",
+    30000 // Poll every 30 seconds for more responsive updates
   );
   
-  const dueCount = useQuery(
+  const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
-    mode === "review" && sessionToken ? {} : "skip"
+    mode === "review" && sessionToken ? { sessionToken } : "skip",
+    30000 // Poll every 30 seconds
   );
 
   // Effect to handle initial state based on mode

@@ -114,6 +114,7 @@ export const scheduleReview = mutation({
 export const getNextReview = query({
   args: {
     sessionToken: v.string(),
+    _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
   handler: async (ctx, args) => {
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
@@ -183,6 +184,7 @@ export const getNextReview = query({
 export const getDueCount = query({
   args: {
     sessionToken: v.string(),
+    _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
   handler: async (ctx, args) => {
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { usePollingQuery } from "@/hooks/use-polling-query";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/contexts/auth-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,10 @@ import Link from "next/link";
 
 export function ReviewIndicator() {
   const { sessionToken } = useAuth();
-  const dueCount = useQuery(
+  const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
-    sessionToken ? {} : "skip"
+    sessionToken ? { sessionToken } : "skip",
+    60000 // Poll every minute for dashboard
   );
 
   if (!sessionToken) {
