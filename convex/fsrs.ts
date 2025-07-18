@@ -56,19 +56,61 @@ export function cardToDb(card: Card): Partial<Doc<"questions">> {
 }
 
 /**
- * Calculate FSRS rating from answer correctness
- * Maps correct/incorrect to appropriate FSRS ratings
+ * Calculate FSRS rating from answer correctness using automatic rating approach
+ * 
+ * This function implements Scry's automatic rating system that maps binary
+ * correct/incorrect answers to FSRS ratings, eliminating the need for users
+ * to manually rate their confidence level.
+ * 
+ * @param isCorrect - Whether the user answered the question correctly
+ * @returns FSRS Grade (Rating) for scheduling calculation
+ * 
+ * Rating Rationale:
+ * - Correct → Rating.Good (3): Indicates successful recall with normal effort.
+ *   We use Good instead of Easy because without explicit user feedback,
+ *   we assume average difficulty of recall.
+ * 
+ * - Incorrect → Rating.Again (1): Indicates complete failure to recall.
+ *   This ensures the question is reviewed again soon (typically within minutes).
+ * 
+ * Benefits of this approach:
+ * 1. Simplified UX - Users only need to answer, not rate confidence
+ * 2. Consistent scheduling - Removes subjective bias from the algorithm
+ * 3. Mobile-friendly - Single tap to answer and move on
+ * 4. Faster reviews - No additional interaction after answering
+ * 
+ * Future enhancements could consider:
+ * - Time spent: Fast correct answers → Easy, slow → Good
+ * - Question difficulty: Adjust rating based on question's success rate
+ * - Partial credit: For multiple choice, close answers → Hard instead of Again
  */
 export function calculateRatingFromCorrectness(isCorrect: boolean): Grade {
-  // Simple mapping for now:
-  // Correct → Good (3) - normal difficulty recall
-  // Incorrect → Again (1) - failed to recall
-  // Future enhancement: use time spent to distinguish between Good/Easy or Hard/Again
   return isCorrect ? Rating.Good : Rating.Again;
 }
 
 /**
  * Schedule the next review for a question based on user's answer
+ * 
+ * This is the core integration point between user answers and the FSRS algorithm.
+ * It uses automatic rating calculation to determine scheduling without requiring
+ * explicit confidence ratings from users.
+ * 
+ * @param question - The question document from the database
+ * @param isCorrect - Whether the user answered correctly (binary)
+ * @param now - Current timestamp (defaults to now)
+ * @returns Updated FSRS card and database fields for persistence
+ * 
+ * The scheduling process:
+ * 1. Convert question from DB format to FSRS Card format
+ * 2. Automatically determine rating from correctness (Good or Again)
+ * 3. Apply FSRS algorithm to calculate next review time
+ * 4. Convert updated card back to DB format for storage
+ * 
+ * The FSRS algorithm considers:
+ * - Current card state (new/learning/review/relearning)
+ * - The automatic rating based on correctness
+ * - Previous review history (stability, difficulty, reps, lapses)
+ * - Configured parameters (maximum interval, fuzzing, etc.)
  */
 export function scheduleNextReview(
   question: Doc<"questions">,

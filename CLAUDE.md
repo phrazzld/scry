@@ -169,3 +169,265 @@ The project uses Convex for all backend needs:
 - All data access through Convex mutations/queries
 - Real-time subscriptions available
 - Type-safe from database to UI
+
+## Spaced Repetition System
+
+Scry implements a sophisticated spaced repetition system using the FSRS (Free Spaced Repetition Scheduler) algorithm:
+
+### Automatic Rating Approach
+
+The system automatically determines review ratings based on answer correctness, eliminating the need for manual user input:
+
+**Rating Mapping:**
+- **Correct Answer** → `Rating.Good` (3) - Indicates successful recall with normal difficulty
+- **Incorrect Answer** → `Rating.Again` (1) - Indicates failed recall, needs immediate review
+
+**Benefits of Automatic Rating:**
+1. **Simplified UX**: Users focus on answering questions, not rating their confidence
+2. **Consistent Scheduling**: Removes subjective bias from the spaced repetition algorithm
+3. **Faster Reviews**: No additional interaction required after answering
+4. **Mobile-Friendly**: Single-tap answers work perfectly on touch devices
+
+**Future Enhancements:**
+- Time-based rating: Fast correct answers could map to `Rating.Easy` (4)
+- Difficulty adjustment: Consistently easy/hard questions could adjust the FSRS difficulty parameter
+- Partial credit: Multiple-choice questions could use `Rating.Hard` (2) for close answers
+
+### FSRS Integration
+
+**Key Components:**
+- **convex/fsrs.ts**: Core FSRS utilities and rating calculation
+- **convex/spacedRepetition.ts**: Mutations and queries for review scheduling
+- **convex/questions.ts**: Integration with question recording
+
+**Scheduling Flow:**
+1. User answers a question (correct/incorrect)
+2. `recordInteraction` mutation is called with `isCorrect` flag
+3. `calculateRatingFromCorrectness` maps boolean to FSRS rating
+4. FSRS algorithm calculates next review time based on:
+   - Current card state (new/learning/review/relearning)
+   - Answer correctness (via automatic rating)
+   - Previous review history
+   - Stability and difficulty parameters
+5. Next review time is stored and displayed to user
+
+**Review Queue Prioritization:**
+- New questions: `retrievability = -1` (highest priority)
+- Due questions: `retrievability = 0 to 1` (lower = higher priority)
+- Future questions: Excluded from queue until due
+
+### Real-Time Updates
+
+The review queue uses a polling mechanism to handle time-based updates:
+- **usePollingQuery** hook adds timestamp parameter to force re-evaluation
+- Review page polls every 30 seconds for responsive updates
+- Dashboard indicator polls every 60 seconds
+- Questions automatically appear when they become due
+
+### Backend API Reference
+
+#### Mutations
+
+**`spacedRepetition.scheduleReview`**
+```typescript
+// Primary mutation for recording interactions with automatic FSRS scheduling
+scheduleReview({
+  sessionToken: string,
+  questionId: Id<"questions">,
+  userAnswer: string,
+  isCorrect: boolean,
+  timeSpent?: number,
+  sessionId?: string,
+}) => {
+  success: boolean,
+  nextReview: Date | null,
+  scheduledDays: number,
+  newState: "new" | "learning" | "review" | "relearning"
+}
+```
+
+**`questions.recordInteraction`** (Enhanced for FSRS)
+```typescript
+// Records interaction and triggers FSRS scheduling if user is authenticated
+recordInteraction({
+  questionId: Id<"questions">,
+  userAnswer: string,
+  isCorrect: boolean,
+  attemptedAt?: number,
+  timeSpent?: number,
+  sessionToken?: string,
+  sessionId?: string,
+}) => {
+  interactionId: Id<"interactions">,
+  nextReview?: Date,
+  scheduledDays?: number,
+  newState?: string
+}
+```
+
+#### Queries
+
+**`spacedRepetition.getNextReview`**
+```typescript
+// Returns the highest priority question for review based on FSRS retrievability
+getNextReview({
+  sessionToken: string,
+  _refreshTimestamp?: number, // For polling updates
+}) => {
+  question: Doc<"questions">,
+  interactions: Doc<"interactions">[],
+  attemptCount: number,
+  correctCount: number,
+  successRate: number | null
+} | null
+```
+
+**`spacedRepetition.getDueCount`**
+```typescript
+// Returns count of questions ready for review
+getDueCount({
+  sessionToken: string,
+  _refreshTimestamp?: number, // For polling updates
+}) => {
+  dueCount: number,     // Questions past their review time
+  newCount: number,     // Questions never reviewed
+  totalReviewable: number
+}
+```
+
+### Frontend Component Patterns
+
+#### Unified Quiz/Review Flow
+
+The `UnifiedQuizFlow` component demonstrates the pattern for dual-mode quiz/review interfaces:
+
+```typescript
+// Usage example
+<UnifiedQuizFlow 
+  mode="review"              // "quiz" | "review"
+  topic="JavaScript"         // For quiz mode
+  difficulty="medium"        // For quiz mode
+/>
+```
+
+Key patterns:
+- Single component handles both quiz generation and spaced repetition reviews
+- Mode switching determines data source (AI generation vs getNextReview query)
+- Review mode displays `QuestionHistory` component for each question
+- Automatic empty state handling when no reviews available
+
+#### Polling for Time-Based Updates
+
+The `usePollingQuery` hook pattern enables real-time updates for time-sensitive queries:
+
+```typescript
+// Usage in components
+const nextReview = usePollingQuery(
+  api.spacedRepetition.getNextReview,
+  sessionToken ? { sessionToken } : "skip",
+  30000 // Poll every 30 seconds
+);
+
+const dueCount = usePollingQuery(
+  api.spacedRepetition.getDueCount,
+  sessionToken ? { sessionToken } : "skip",
+  60000 // Poll every minute
+);
+```
+
+Pattern implementation:
+- Adds `_refreshTimestamp` parameter to force query re-evaluation
+- Configurable polling intervals based on use case
+- Automatic cleanup on unmount
+- TypeScript-safe with proper type inference
+
+#### Review Indicator Pattern
+
+The `ReviewIndicator` component shows due count with real-time updates:
+
+```typescript
+// Dashboard integration
+<ReviewIndicator className="mb-4" />
+
+// Pattern features:
+// - Shows due count badge
+// - Quick start button for immediate review
+// - Loading and error states
+// - Auto-updates via polling
+```
+
+#### Question History Display
+
+The `QuestionHistory` component pattern for showing previous attempts:
+
+```typescript
+<QuestionHistory 
+  interactions={interactions}  // Array of user interactions
+  className="mt-4"
+/>
+
+// Features:
+// - Expandable/collapsible for many attempts
+// - Success rate calculation
+// - Time spent per attempt
+// - Visual indicators for correct/incorrect
+```
+
+### Integration Patterns
+
+#### Answer Submission with Automatic Scheduling
+
+```typescript
+// In quiz session manager or similar component
+const { trackAnswer } = useQuizInteractions();
+
+const result = await trackAnswer({
+  questionId,
+  userAnswer,
+  isCorrect,
+  timeSpent
+});
+
+// Display next review time
+if (result?.nextReview) {
+  showReviewScheduled(result.nextReview, result.scheduledDays);
+}
+```
+
+#### Empty State Handling
+
+```typescript
+// Pattern for review queue empty states
+if (!nextReview && flowState === "empty") {
+  return <AllReviewsCompleteEmptyState />;
+}
+
+// Available empty state components:
+// - NoQuestionsEmptyState
+// - AllReviewsCompleteEmptyState
+// - ReviewsCompleteWithCount
+// - CustomEmptyState
+```
+
+### Database Schema Extensions
+
+Questions table includes FSRS fields:
+```typescript
+questions: {
+  // ... existing fields ...
+  
+  // FSRS scheduling fields
+  nextReview?: number,        // Timestamp of next review
+  stability?: number,         // Memory stability parameter
+  fsrsDifficulty?: number,    // Card difficulty (0-10)
+  elapsedDays?: number,       // Days since last review
+  scheduledDays?: number,     // Days until next review
+  reps?: number,              // Total review count
+  lapses?: number,            // Failed review count
+  state?: "new" | "learning" | "review" | "relearning",
+  lastReview?: number,        // Timestamp of last review
+}
+
+// Index for efficient review queries
+.index("by_user_next_review", ["userId", "nextReview"])
+```

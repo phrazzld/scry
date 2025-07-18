@@ -22,7 +22,20 @@ async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken:
 
 /**
  * Schedule next review for a question based on user's answer
- * Combines interaction recording with FSRS scheduling
+ * 
+ * This mutation is the primary integration point for Scry's automatic rating system.
+ * It combines interaction recording with FSRS scheduling using a simplified approach
+ * where users only indicate correct/incorrect rather than rating their confidence.
+ * 
+ * Automatic Rating Flow:
+ * 1. User answers question (correct/incorrect)
+ * 2. This mutation records the interaction
+ * 3. Automatically converts isCorrect to FSRS rating (Good/Again)
+ * 4. Calculates next review time using FSRS algorithm
+ * 5. Returns scheduling info for immediate display to user
+ * 
+ * This approach eliminates the traditional 4-button rating system (Again/Hard/Good/Easy)
+ * in favor of a streamlined binary choice, making reviews faster and more mobile-friendly.
  */
 export const scheduleReview = mutation({
   args: {

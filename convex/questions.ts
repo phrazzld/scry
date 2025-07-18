@@ -64,6 +64,21 @@ export const saveGeneratedQuestions = mutation({
   },
 });
 
+/**
+ * Record a user's interaction with a question and automatically schedule next review
+ * 
+ * This mutation integrates Scry's automatic rating system directly into the interaction
+ * recording process. When a user answers a question, we automatically:
+ * 1. Record the interaction with timing and correctness data
+ * 2. Update denormalized statistics on the question
+ * 3. Calculate and apply FSRS scheduling using automatic rating
+ * 
+ * The automatic rating approach means users never see traditional confidence buttons
+ * (Again/Hard/Good/Easy). Instead, the system infers the appropriate rating from
+ * whether they answered correctly or not.
+ * 
+ * @returns Scheduling information including next review time for immediate display
+ */
 export const recordInteraction = mutation({
   args: {
     sessionToken: v.string(),

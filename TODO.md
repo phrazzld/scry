@@ -535,15 +535,117 @@ Successfully created E2E tests for spaced repetition flow:
 
 ## Documentation & Cleanup
 
-- [ ] Document automatic rating approach
+- [x] Document automatic rating approach
   - Success criteria: Clear explanation of how correctness maps to FSRS ratings
   - Files: `CLAUDE.md`, code comments
+  - ✅ Completed: Added comprehensive documentation in CLAUDE.md and detailed code comments
 
-- [ ] Update CLAUDE.md with spaced repetition patterns
+## Task: Document automatic rating approach [x]
+### Complexity: SIMPLE
+### Started: 2025-01-17 18:48
+### Completed: 2025-01-17 18:55
+
+### Context Discovery
+- Read existing CLAUDE.md structure
+- Analyzed fsrs.ts implementation details
+- Identified key integration points in mutations
+
+### Execution Log
+[18:48] Started documentation task
+[18:50] Added comprehensive "Spaced Repetition System" section to CLAUDE.md
+  - Documented automatic rating mapping (Correct→Good, Incorrect→Again)
+  - Explained benefits of automatic approach
+  - Detailed scheduling flow and integration points
+  - Added real-time update mechanism documentation
+[18:52] Enhanced code comments in convex/fsrs.ts
+  - Expanded calculateRatingFromCorrectness with detailed rationale
+  - Added comprehensive documentation to scheduleNextReview
+  - Explained future enhancement possibilities
+[18:54] Updated mutation comments
+  - Added detailed comment to scheduleReview in spacedRepetition.ts
+  - Documented recordInteraction's role in automatic rating
+[18:55] Task completed successfully
+
+### Summary
+Successfully documented the automatic rating approach:
+- ✅ Added "Spaced Repetition System" section to CLAUDE.md
+- ✅ Documented rating mapping and benefits
+- ✅ Enhanced code comments with detailed explanations
+- ✅ Explained integration points and data flow
+- ✅ Included future enhancement possibilities
+
+- [x] Update CLAUDE.md with spaced repetition patterns
   - Success criteria: Document new mutations, queries, and component patterns
   - Files: `CLAUDE.md`
+  - ✅ Completed: Added comprehensive Backend API Reference, Frontend Component Patterns, and Integration Patterns sections
 
-- [ ] Add spaced repetition section to README
+## Task: Update CLAUDE.md with spaced repetition patterns [x]
+### Complexity: SIMPLE
+### Started: 2025-01-17 19:15
+### Completed: 2025-01-17 19:20
+
+### Context Discovery
+- CLAUDE.md already has a Spaced Repetition System section from previous task
+- Need to document specific mutations, queries, and component patterns
+- Should include code examples and integration patterns
+
+### Execution Log
+[19:15] Starting documentation update
+[19:17] Analyzed spacedRepetition.ts for all mutations and queries
+  - scheduleReview: Primary mutation with automatic rating
+  - getNextReview: Returns highest priority question
+  - getDueCount: Returns review queue counts
+[19:18] Reviewed component patterns
+  - UnifiedQuizFlow: Dual-mode quiz/review component
+  - usePollingQuery: Time-based update hook
+  - ReviewIndicator: Dashboard integration
+  - QuestionHistory: Previous attempts display
+[19:20] Added comprehensive documentation to CLAUDE.md
+  - Backend API Reference section with mutation/query signatures
+  - Frontend Component Patterns with usage examples
+  - Integration Patterns for common scenarios
+  - Database Schema Extensions documentation
+
+### Summary
+Successfully documented all spaced repetition patterns:
+- ✅ Added Backend API Reference with full signatures
+- ✅ Documented all component patterns with examples
+- ✅ Included integration patterns for developers
+- ✅ Added database schema documentation
+- ✅ Provided TypeScript code examples throughout
+
+- [x] Add spaced repetition section to README
   - Success criteria: Explain how the automatic review system works for users
   - Files: `README.md`
+  - ✅ Completed: Added comprehensive "Spaced Repetition Learning" section with user-friendly explanations
+
+## Task: Add spaced repetition section to README [x]
+### Complexity: SIMPLE
+### Started: 2025-01-17 19:25
+### Completed: 2025-01-17 19:28
+
+### Context Discovery
+- README.md needs user-facing documentation for spaced repetition
+- Should explain automatic review system in simple terms
+- Focus on benefits and how to use it
+
+### Execution Log
+[19:25] Reading README.md structure
+[19:26] Identified Key Features section as ideal location
+[19:27] Adding comprehensive spaced repetition subsection
+[19:28] Added detailed user-facing documentation covering:
+  - How the system works
+  - How to access reviews
+  - Benefits of automatic rating
+  - Scientific background (FSRS algorithm)
+  - Getting started guide
+
+### Summary
+Successfully added comprehensive spaced repetition documentation to README.md:
+- ✅ Explained automatic scheduling system in user-friendly terms
+- ✅ Documented how to access and use the review feature
+- ✅ Highlighted benefits of automatic rating vs traditional systems
+- ✅ Included scientific background on FSRS algorithm
+- ✅ Provided clear getting started steps
+- ✅ Maintained consistent formatting with rest of README
 
