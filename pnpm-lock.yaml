@@ -101,6 +101,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
+      ts-fsrs:
+        specifier: ^5.2.1
+        version: 5.2.1
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -3450,6 +3453,10 @@ packages:
     engines: {node: '>=18.12'}
     peerDependencies:
       typescript: '>=4.8.4'
+
+  ts-fsrs@5.2.1:
+    resolution: {integrity: sha512-gyMwhrn08AFTGAjjevsih5M8cVvJee7UNNUn8MRLpZxHHrGm8S/C7+C20s2M02EuM/Zu/RlYcPq66VNmHAOy4Q==}
+    engines: {node: '>=18.0.0'}
 
   tsconfig-paths@3.15.0:
     resolution: {integrity: sha512-2Ac2RgzDe/cn48GvOe3M+o82pEFewD3UPbyoUHHdKasHwJKjds4fLXWf/Ux5kATBKN20oaFGu+jbElp1pos0mg==}
@@ -6932,6 +6939,8 @@ snapshots:
   ts-api-utils@2.1.0(typescript@5.8.3):
     dependencies:
       typescript: 5.8.3
+
+  ts-fsrs@5.2.1: {}
 
   tsconfig-paths@3.15.0:
     dependencies:

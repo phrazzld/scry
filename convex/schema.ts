@@ -41,9 +41,25 @@ export default defineSchema({
     attemptCount: v.number(), // Default: 0
     correctCount: v.number(), // Default: 0
     lastAttemptedAt: v.optional(v.number()),
+    // FSRS spaced repetition fields
+    nextReview: v.optional(v.number()), // Timestamp of next review
+    stability: v.optional(v.number()),   // FSRS stability parameter
+    fsrsDifficulty: v.optional(v.number()), // FSRS difficulty (not quiz difficulty)
+    elapsedDays: v.optional(v.number()),
+    scheduledDays: v.optional(v.number()),
+    reps: v.optional(v.number()),
+    lapses: v.optional(v.number()),
+    state: v.optional(v.union(
+      v.literal("new"),
+      v.literal("learning"), 
+      v.literal("review"),
+      v.literal("relearning")
+    )),
+    lastReview: v.optional(v.number()),
   }).index("by_user", ["userId", "generatedAt"])
     .index("by_user_topic", ["userId", "topic", "generatedAt"])
-    .index("by_user_unattempted", ["userId", "attemptCount"]),
+    .index("by_user_unattempted", ["userId", "attemptCount"])
+    .index("by_user_next_review", ["userId", "nextReview"]),
 
   interactions: defineTable({
     userId: v.id("users"),

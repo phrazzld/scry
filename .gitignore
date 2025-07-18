@@ -47,6 +47,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# logs
+thinktank.log
+
 /docs/leyline
 /thinktank_*/
 

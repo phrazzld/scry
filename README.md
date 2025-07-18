@@ -300,6 +300,54 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Dashboard views for all questions and unattempted questions
 - Historical quiz results linked to individual interactions
 
+### Spaced Repetition Learning
+
+Scry uses an advanced spaced repetition system powered by the FSRS (Free Spaced Repetition Scheduler) algorithm to optimize your learning and retention.
+
+#### How It Works
+
+1. **Automatic Scheduling**: Every question you answer is automatically scheduled for review based on your performance
+2. **Smart Review Queue**: Questions appear for review at scientifically-optimized intervals to maximize retention
+3. **No Manual Rating**: Unlike traditional spaced repetition apps, Scry automatically determines review intervals based on whether you answered correctly or incorrectly
+4. **Real-time Updates**: Your review queue updates in real-time as questions become due
+
+#### Accessing Reviews
+
+- **Review Page**: Click "Review" in the navigation menu to access your review queue
+- **Dashboard Indicator**: See how many questions are due for review on your dashboard
+- **Quick Start**: Use the "Start Review" button on the dashboard to jump right in
+
+#### The Automatic Advantage
+
+Traditional spaced repetition systems require you to rate your confidence (e.g., "Again", "Hard", "Good", "Easy") after each answer. Scry simplifies this:
+
+- **Correct Answer** → Scheduled for review at a longer interval
+- **Incorrect Answer** → Scheduled for immediate or short-term review
+
+This approach:
+- **Saves Time**: No need to think about rating your confidence
+- **Reduces Bias**: Removes subjective self-assessment
+- **Mobile-Friendly**: Single-tap answers work perfectly on phones
+- **Faster Reviews**: Complete more reviews in less time
+
+#### The Science Behind It
+
+Scry uses the FSRS algorithm, which represents the current state-of-the-art in spaced repetition:
+
+- **Adaptive Intervals**: Review intervals automatically adjust based on your performance history
+- **Optimal Retention**: Maintains ~90% retention rate with minimal reviews
+- **Memory Modeling**: Tracks stability and difficulty for each question individually
+- **Efficient Learning**: Reduces total review time by 30-50% compared to traditional methods
+
+#### Getting Started with Reviews
+
+1. **Create Quizzes**: Generate quizzes on topics you want to learn
+2. **Answer Questions**: Complete quizzes at your own pace
+3. **Check Reviews**: Visit the Review page when questions become due
+4. **Stay Consistent**: Regular reviews lead to long-term retention
+
+The review indicator on your dashboard will show when questions are ready for review. Questions you've never seen before are prioritized, followed by overdue questions that need reinforcement.
+
 ## Troubleshooting
 
 ### Common Issues
