@@ -21,7 +21,7 @@ export function ReviewIndicator() {
   }
 
   const isLoading = dueCount === undefined;
-  const count = dueCount ?? 0;
+  const count = dueCount?.totalReviewable ?? 0;
 
   return (
     <Card className="w-full">

@@ -619,6 +619,49 @@ Successfully documented all spaced repetition patterns:
   - Files: `README.md`
   - ✅ Completed: Added comprehensive "Spaced Repetition Learning" section with user-friendly explanations
 
+## Production Bug Fixes & Polish
+
+- [x] Fix Convex Date type error in recordInteraction mutation return value
+  - Success criteria: No console errors when answering quiz questions
+  - Root cause: Convex doesn't support JavaScript Date objects; mutation returns `new Date(fsrsFields.nextReview)` which throws "Date is not a supported Convex type" error
+  - File: `convex/questions.ts` line 149
+  - Current code: `nextReview: fsrsFields.nextReview ? new Date(fsrsFields.nextReview) : null,`
+  - Fix: `nextReview: fsrsFields.nextReview || null,`
+  - Context: fsrsFields.nextReview is already a number (timestamp in milliseconds) from cardToDb()
+  - Frontend compatibility: quiz-session-manager.tsx line 207 already wraps value in `new Date()` so no breaking changes
+  - ✅ Completed: Fixed by returning timestamp directly without Date object wrapper
+
+- [x] Fix Convex Date type error in scheduleReview mutation return value (first instance)
+  - Success criteria: No console errors when initial FSRS scheduling occurs
+  - Root cause: Same as above - returning Date object instead of number
+  - File: `convex/spacedRepetition.ts` line 99
+  - Current code: `nextReview: scheduledFields.nextReview ? new Date(scheduledFields.nextReview) : null,`
+  - Fix: `nextReview: scheduledFields.nextReview || null,`
+  - Context: This handles the initial card scheduling case when question has no FSRS state
+  - ✅ Completed: Fixed by returning timestamp directly without Date object wrapper
+
+- [x] Fix Convex Date type error in scheduleReview mutation return value (second instance)
+  - Success criteria: No console errors when subsequent FSRS reviews are scheduled
+  - Root cause: Same as above - returning Date object instead of number
+  - File: `convex/spacedRepetition.ts` line 116
+  - Current code: `nextReview: scheduledFields.nextReview ? new Date(scheduledFields.nextReview) : null,`
+  - Fix: `nextReview: scheduledFields.nextReview || null,`
+  - Context: This handles subsequent review scheduling for questions with existing FSRS state
+  - ✅ Completed: Fixed by returning timestamp directly without Date object wrapper
+
+- [x] Verify spaced repetition scheduling still displays correctly after Date type fixes
+  - Success criteria: Next review times show correctly formatted dates/times in UI
+  - Test locations: 
+    - Quiz session manager purple card showing "Review in X days"
+    - Review indicator showing correct due count
+    - Console has no Date-related errors
+  - Verification steps:
+    1. Answer a quiz question and verify next review time displays
+    2. Check that review indicator updates correctly
+    3. Navigate to review page and complete a review
+    4. Confirm no console errors throughout flow
+  - ✅ Completed: Verified frontend correctly handles timestamp values, wraps in Date() for display, TypeScript compilation passes
+
 ## Task: Add spaced repetition section to README [x]
 ### Complexity: SIMPLE
 ### Started: 2025-01-17 19:25

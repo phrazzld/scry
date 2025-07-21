@@ -146,7 +146,7 @@ export const recordInteraction = mutation({
     
     return { 
       success: true,
-      nextReview: fsrsFields.nextReview ? new Date(fsrsFields.nextReview) : null,
+      nextReview: fsrsFields.nextReview || null,
       scheduledDays: fsrsFields.scheduledDays || 0,
       newState: fsrsFields.state || question.state || "new",
     };

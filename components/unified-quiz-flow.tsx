@@ -213,7 +213,7 @@ export function UnifiedQuizFlow({
           <CardDescription>
             {mode === "quiz" 
               ? `Topic: ${topic} | Difficulty: ${difficulty}`
-              : `${dueCount ?? 0} questions due for review`
+              : `${dueCount?.totalReviewable ?? 0} questions due for review`
             }
           </CardDescription>
         </CardHeader>
@@ -353,13 +353,13 @@ export function UnifiedQuizFlow({
           <CardContent>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                {dueCount && dueCount > 1 
-                  ? `You have ${dueCount - 1} more questions due for review.`
+                {dueCount && dueCount.totalReviewable > 1 
+                  ? `You have ${dueCount.totalReviewable - 1} more questions due for review.`
                   : "You're all caught up with your reviews!"
                 }
               </p>
               <div className="flex flex-col sm:flex-row gap-2">
-                {dueCount && dueCount > 1 && (
+                {dueCount && dueCount.totalReviewable > 1 && (
                   <Button 
                     onClick={startNextReview}
                     variant="default"
@@ -369,7 +369,7 @@ export function UnifiedQuizFlow({
                 )}
                 <Button 
                   onClick={() => router.push("/dashboard")}
-                  variant={dueCount && dueCount > 1 ? "outline" : "default"}
+                  variant={dueCount && dueCount.totalReviewable > 1 ? "outline" : "default"}
                 >
                   View Dashboard
                 </Button>

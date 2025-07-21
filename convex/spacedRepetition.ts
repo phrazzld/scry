@@ -96,7 +96,7 @@ export const scheduleReview = mutation({
       
       return {
         success: true,
-        nextReview: scheduledFields.nextReview ? new Date(scheduledFields.nextReview) : null,
+        nextReview: scheduledFields.nextReview || null,
         scheduledDays: scheduledFields.scheduledDays || 0,
         newState: scheduledFields.state || "new",
       };
@@ -113,7 +113,7 @@ export const scheduleReview = mutation({
     
     return {
       success: true,
-      nextReview: scheduledFields.nextReview ? new Date(scheduledFields.nextReview) : null,
+      nextReview: scheduledFields.nextReview || null,
       scheduledDays: scheduledFields.scheduledDays || 0,
       newState: scheduledFields.state || question.state || "new",
     };
