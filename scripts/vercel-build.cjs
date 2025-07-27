@@ -44,7 +44,13 @@ if (isProduction && hasDeployKey) {
   // Skip Convex deployment for preview environments
   console.log('⏭️  Skipping Convex deployment for preview environment');
   console.log('ℹ️  Preview will use production Convex backend');
-  console.log('   (via NEXT_PUBLIC_CONVEX_URL environment variable)\n');
+  console.log('   (via NEXT_PUBLIC_CONVEX_URL environment variable)');
+  console.log('');
+  console.log('⚠️  WARNING: Schema Mismatch Risk');
+  console.log('   If your branch has Convex schema changes, they won\'t be');
+  console.log('   deployed to preview. This may cause runtime errors.');
+  console.log('   To fix: Deploy to production Convex before testing in preview.');
+  console.log('');
 }
 
 // Generate Convex types (required for TypeScript compilation)

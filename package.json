@@ -40,6 +40,8 @@
     "env:example": "node scripts/validate-env.js --generate-example",
     "deploy:check": "node scripts/check-deployment-readiness.js",
     "deploy:check:preview": "node scripts/check-deployment-readiness.js --env=preview",
+    "convex:validate": "tsx scripts/validate-convex-deployment.ts",
+    "convex:validate:prod": "tsx scripts/validate-convex-deployment.ts --prod",
     "prepare": "husky"
   },
   "dependencies": {
