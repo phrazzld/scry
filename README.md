@@ -138,6 +138,12 @@ pnpm assets:generate-all    # Generate all assets (verbose)
 
 ## Deployment
 
+⚠️ **Important**: This project uses separate Convex instances:
+- Development: amicable-lobster-935 (local development)
+- Production: uncommon-axolotl-639 (Vercel deployments)
+
+Always deploy to production before merging schema changes!
+
 ### Prerequisites
 
 1. **Vercel CLI**: Install and authenticate

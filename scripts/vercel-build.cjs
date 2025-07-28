@@ -24,6 +24,14 @@ console.log(`  Branch: ${process.env.VERCEL_GIT_COMMIT_REF || 'unknown'}`);
 console.log(`  Convex Deploy Key: ${hasDeployKey ? '✅ Present' : '❌ Not set'}`);
 console.log('');
 
+// Log deployment start (telemetry)
+try {
+  console.log('📊 Logging deployment telemetry...');
+  execSync('node scripts/log-deployment.js --status started', { stdio: 'inherit' });
+} catch (error) {
+  console.warn('⚠️  Could not log deployment start (non-critical):', error.message);
+}
+
 // Handle Convex deployment
 if (isProduction && hasDeployKey) {
   console.log('🚀 Deploying Convex functions for production...');
@@ -102,8 +110,23 @@ console.log('🔨 Building Next.js application...');
 try {
   execSync('pnpm build', { stdio: 'inherit' });
   console.log('\n✅ Next.js build successful');
+  
+  // Log deployment success (telemetry)
+  try {
+    execSync('node scripts/log-deployment.js --status success', { stdio: 'inherit' });
+  } catch (error) {
+    console.warn('⚠️  Could not log deployment success (non-critical):', error.message);
+  }
 } catch (error) {
   console.error('\n❌ Next.js build failed');
+  
+  // Log deployment failure (telemetry)
+  try {
+    execSync(`node scripts/log-deployment.js --status failed --error "${error.message}"`, { stdio: 'inherit' });
+  } catch (telemetryError) {
+    console.warn('⚠️  Could not log deployment failure (non-critical):', telemetryError.message);
+  }
+  
   process.exit(1);
 }
 

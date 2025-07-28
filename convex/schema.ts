@@ -95,4 +95,27 @@ export default defineSchema({
     completedAt: v.number(),
   }).index("by_user", ["userId", "completedAt"])
     .index("by_user_topic", ["userId", "topic", "completedAt"]),
+
+  deployments: defineTable({
+    environment: v.string(), // 'development' | 'production' | 'preview'
+    deployedBy: v.optional(v.string()), // User email or system identifier
+    commitSha: v.optional(v.string()), // Git commit SHA
+    commitMessage: v.optional(v.string()), // Git commit message
+    branch: v.optional(v.string()), // Git branch name
+    deploymentType: v.string(), // 'manual' | 'ci' | 'scheduled'
+    status: v.string(), // 'started' | 'success' | 'failed'
+    schemaVersion: v.optional(v.string()), // Schema version identifier
+    functionCount: v.optional(v.number()), // Number of functions deployed
+    duration: v.optional(v.number()), // Deployment duration in ms
+    error: v.optional(v.string()), // Error message if failed
+    metadata: v.optional(v.object({
+      buildId: v.optional(v.string()),
+      vercelDeploymentId: v.optional(v.string()),
+      convexVersion: v.optional(v.string()),
+      nodeVersion: v.optional(v.string()),
+    })),
+    deployedAt: v.number(), // Timestamp
+  }).index("by_environment", ["environment", "deployedAt"])
+    .index("by_status", ["status", "deployedAt"])
+    .index("by_branch", ["branch", "deployedAt"]),
 });
