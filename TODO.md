@@ -1,3 +1,85 @@
+# TODO: CI Node Version Fix
+
+## Critical CI Infrastructure Issues
+
+- [x] **[CI FIX] Update Node version in convex-schema-check.yml workflow to v20**
+  - Context: CI runner uses Node v18.20.8 but vite@7.0.3 requires Node ^20.19.0 || >=22.12.0
+  - File: `.github/workflows/convex-schema-check.yml`
+  - Change: Update `node-version` in setup-node action from 18 to 20
+  - Success: CI workflow passes without Node version errors
+  - Why: Project dependencies require Node 20+
+  
+  ## Task: Update Node version in convex-schema-check.yml workflow to v20 [x]
+  ### Complexity: SIMPLE
+  ### Started: 2025-07-28 15:13
+  ### Completed: 2025-07-28 15:14
+  
+  ### Execution Log
+  [15:13] Starting task - updating CI workflow Node version
+  [15:13] Read convex-schema-check.yml to find current Node version setting
+  [15:14] Found node-version: '18' on line 39
+  [15:14] Updated to node-version: '20' to meet vite@7.0.3 requirements
+  
+  ### Summary
+  Successfully updated the Node version in the Convex Schema Check workflow from v18 to v20. This resolves the CI failure caused by vite@7.0.3 requiring Node ^20.19.0 || >=22.12.0.
+
+- [x] **[CI FIX] Audit all GitHub workflows for Node version consistency**
+  - Context: Multiple workflows may have inconsistent Node versions
+  - Files: All `.github/workflows/*.yml` files
+  - Check: Ensure all workflows use Node 20.x for consistency
+  - Success: All workflows use the same Node version
+  - Why: Prevents version mismatch issues across different CI jobs
+  
+  ## Task: Audit all GitHub workflows for Node version consistency [x]
+  ### Complexity: SIMPLE
+  ### Started: 2025-07-28 15:16
+  ### Completed: 2025-07-28 15:18
+  
+  ### Execution Log
+  [15:16] Starting audit of all GitHub workflow files
+  [15:16] Found 4 workflow files: ci.yml, claude-code-review.yml, claude.yml, convex-schema-check.yml
+  [15:17] Checking each file for Node version settings
+  [15:17] convex-schema-check.yml: Uses node-version: '20' ✅
+  [15:18] ci.yml: Uses NODE_VERSION: '20' environment variable ✅
+  [15:18] claude.yml: No Node.js setup (only runs Claude action) ✅
+  [15:18] claude-code-review.yml: No Node.js setup (only runs Claude action) ✅
+  
+  ### Summary
+  All GitHub workflows are consistent regarding Node.js version. The two workflows that use Node.js (convex-schema-check.yml and ci.yml) both use version 20. The Claude workflows don't set up Node.js as they only run the Claude Code action.
+
+- [x] **[CI FIX] Add explicit engines field to package.json for Node >=20.19.0**
+  - Context: Make Node version requirements explicit
+  - File: `package.json`
+  - Add: `"engines": { "node": ">=20.19.0" }`
+  - Success: Developers see clear error if using wrong Node version
+  - Why: Fail fast with clear requirements
+  
+  ## Task: Add explicit engines field to package.json for Node >=20.19.0 [x]
+  ### Complexity: SIMPLE
+  ### Started: 2025-07-28 15:20
+  ### Completed: 2025-07-28 15:21
+  
+  ### Execution Log
+  [15:20] Starting task - adding engines field to package.json
+  [15:20] Read package.json and found existing engines field with node: ">=18.0.0"
+  [15:21] Updated engines.node from ">=18.0.0" to ">=20.19.0"
+  
+  ### Summary
+  Successfully updated the engines field in package.json to require Node.js >=20.19.0. The package already had an engines field, so I just updated the Node version requirement from 18.0.0 to 20.19.0. This ensures developers and CI environments will get clear errors if they try to use an incompatible Node version.
+
+- [ ] **[CI FIX] Push changes and verify all CI checks pass**
+  - Context: Confirm the Node version update fixes CI
+  - Steps: Commit changes, push to branch, monitor CI status
+  - Success: All CI checks pass (Convex Schema Check, Claude Review, Vercel)
+  - Why: Verify the fix works before considering task complete
+
+- [ ] **[CI FIX] Document Node.js v20+ requirement in README prerequisites**
+  - Context: Update documentation to reflect Node version requirement
+  - File: `README.md`
+  - Location: Prerequisites section
+  - Success: README clearly states Node.js 20.0.0 or higher required
+  - Why: Helps new developers set up correct environment
+
 # TODO: Convex Environment Configuration Fix
 
 ## Critical Path: Production Deployment Sync
