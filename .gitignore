@@ -63,3 +63,4 @@ thinktank.log
 # Test coverage
 coverage/
 *.lcov
+tsconfig.tsbuildinfo
