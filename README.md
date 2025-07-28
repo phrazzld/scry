@@ -14,7 +14,7 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 
 ## Prerequisites
 
-- Node.js 18.0.0 or higher
+- Node.js 20.0.0 or higher
 - pnpm 10.0.0 or higher
 - Convex account (free tier available)
 - Google AI API key
