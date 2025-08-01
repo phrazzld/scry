@@ -1,5 +1,38 @@
 # Deployment Checklist
 
+## Quick Deployment Checklist for Schema Changes
+
+⚠️ **IMPORTANT**: Always follow this checklist when making Convex schema or function changes to prevent preview deployment failures.
+
+### Before Merging Any PR with Schema Changes:
+
+- [ ] Local tests passing
+  ```bash
+  pnpm test
+  ```
+- [ ] Deploy to dev Convex:
+  ```bash
+  pnpm convex:deploy:dev
+  ```
+- [ ] Deploy to prod Convex:
+  ```bash
+  pnpm convex:deploy:prod
+  ```
+- [ ] Regenerate types:
+  ```bash
+  pnpm convex:codegen:prod
+  ```
+- [ ] Commit generated types
+  ```bash
+  git add convex/_generated
+  git commit -m "chore: sync Convex types after production deployment"
+  ```
+- [ ] Test preview deployment
+  ```bash
+  git push origin your-branch
+  # Wait for Vercel preview URL and test it
+  ```
+
 ## Pre-Deployment Checks
 
 ### 1. Convex Deploy Key Setup ⚠️ REQUIRED

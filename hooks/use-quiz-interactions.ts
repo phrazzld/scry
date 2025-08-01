@@ -14,10 +14,10 @@ export function useQuizInteractions() {
     timeSpent?: number,
     sessionId?: string
   ) => {
-    if (!sessionToken || !questionId) return;
+    if (!sessionToken || !questionId) return null;
     
     try {
-      await recordInteraction({
+      const result = await recordInteraction({
         sessionToken,
         questionId,
         userAnswer,
@@ -25,8 +25,15 @@ export function useQuizInteractions() {
         timeSpent,
         sessionId,
       });
+      
+      return {
+        nextReview: result.nextReview,
+        scheduledDays: result.scheduledDays,
+        newState: result.newState,
+      };
     } catch (error) {
       console.error('Failed to track interaction:', error);
+      return null;
     }
   }, [recordInteraction, sessionToken]);
   

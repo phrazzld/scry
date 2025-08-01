@@ -14,10 +14,13 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as deployments from "../deployments.js";
 import type * as emailActions from "../emailActions.js";
+import type * as fsrs from "../fsrs.js";
 import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
 import type * as quiz from "../quiz.js";
+import type * as spacedRepetition from "../spacedRepetition.js";
 import type * as types from "../types.js";
 
 /**
@@ -30,10 +33,13 @@ import type * as types from "../types.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  deployments: typeof deployments;
   emailActions: typeof emailActions;
+  fsrs: typeof fsrs;
   migrations: typeof migrations;
   questions: typeof questions;
   quiz: typeof quiz;
+  spacedRepetition: typeof spacedRepetition;
   types: typeof types;
 }>;
 export declare const api: FilterApi<

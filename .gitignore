@@ -47,6 +47,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# logs
+thinktank.log
+
 /docs/leyline
 /thinktank_*/
 
@@ -60,3 +63,4 @@ next-env.d.ts
 # Test coverage
 coverage/
 *.lcov
+tsconfig.tsbuildinfo

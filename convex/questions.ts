@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+import { initializeCard, cardToDb, scheduleNextReview } from "./fsrs";
 
 // Helper to get authenticated user ID from session token
 async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken: string | undefined) {
@@ -35,6 +36,10 @@ export const saveGeneratedQuestions = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
     
+    // Initialize FSRS card for new questions
+    const initialCard = initializeCard();
+    const fsrsFields = cardToDb(initialCard);
+    
     const questionIds = await Promise.all(
       args.questions.map(q => 
         ctx.db.insert("questions", {
@@ -49,6 +54,8 @@ export const saveGeneratedQuestions = mutation({
           generatedAt: Date.now(),
           attemptCount: 0,
           correctCount: 0,
+          // Initialize FSRS fields with proper defaults
+          ...fsrsFields,
         })
       )
     );
@@ -57,6 +64,21 @@ export const saveGeneratedQuestions = mutation({
   },
 });
 
+/**
+ * Record a user's interaction with a question and automatically schedule next review
+ * 
+ * This mutation integrates Scry's automatic rating system directly into the interaction
+ * recording process. When a user answers a question, we automatically:
+ * 1. Record the interaction with timing and correctness data
+ * 2. Update denormalized statistics on the question
+ * 3. Calculate and apply FSRS scheduling using automatic rating
+ * 
+ * The automatic rating approach means users never see traditional confidence buttons
+ * (Again/Hard/Good/Easy). Instead, the system infers the appropriate rating from
+ * whether they answered correctly or not.
+ * 
+ * @returns Scheduling information including next review time for immediate display
+ */
 export const recordInteraction = mutation({
   args: {
     sessionToken: v.string(),
@@ -86,14 +108,48 @@ export const recordInteraction = mutation({
       context: args.sessionId ? { sessionId: args.sessionId } : undefined,
     });
     
-    // Update denormalized stats on question
-    await ctx.db.patch(args.questionId, {
+    // Prepare updated stats
+    const updatedStats = {
       attemptCount: question.attemptCount + 1,
       correctCount: question.correctCount + (args.isCorrect ? 1 : 0),
       lastAttemptedAt: Date.now(),
+    };
+    
+    // Calculate FSRS scheduling
+    const now = new Date();
+    let fsrsFields: Partial<typeof question> = {};
+    
+    // If this is the first interaction and question has no FSRS state, initialize it
+    if (!question.state) {
+      const initialCard = initializeCard();
+      const initialDbFields = cardToDb(initialCard);
+      
+      // Schedule the first review
+      const { dbFields: scheduledFields } = scheduleNextReview(
+        { ...question, ...initialDbFields },
+        args.isCorrect,
+        now
+      );
+      
+      fsrsFields = scheduledFields;
+    } else {
+      // For subsequent reviews, use existing FSRS state
+      const { dbFields: scheduledFields } = scheduleNextReview(question, args.isCorrect, now);
+      fsrsFields = scheduledFields;
+    }
+    
+    // Update question with both stats and FSRS fields
+    await ctx.db.patch(args.questionId, {
+      ...updatedStats,
+      ...fsrsFields,
     });
     
-    return { success: true };
+    return { 
+      success: true,
+      nextReview: fsrsFields.nextReview || null,
+      scheduledDays: fsrsFields.scheduledDays || 0,
+      newState: fsrsFields.state || question.state || "new",
+    };
   },
 });
 

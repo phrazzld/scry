@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { ArrowRight, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import type { SimpleQuiz } from '@/types/quiz'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 
@@ -24,6 +24,10 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     isCorrect: boolean
     timeTaken?: number
   }>>([])
+  const [nextReviewInfo, setNextReviewInfo] = useState<{
+    nextReview: Date | null
+    scheduledDays: number
+  } | null>(null)
   
   const { trackAnswer } = useQuizInteractions()
   const [sessionId] = useState(() => Math.random().toString(36).substring(7))
@@ -62,13 +66,20 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
     // Track interaction if we have question IDs
     if (quiz.questionIds && quiz.questionIds[currentIndex]) {
       const timeSpent = Date.now() - questionStartTime
-      await trackAnswer(
+      const reviewInfo = await trackAnswer(
         quiz.questionIds[currentIndex],
         selectedAnswer,
         isCorrect,
         timeSpent,
         sessionId
       )
+      
+      if (reviewInfo) {
+        setNextReviewInfo({
+          nextReview: reviewInfo.nextReview,
+          scheduledDays: reviewInfo.scheduledDays
+        })
+      }
     }
   }
 
@@ -86,6 +97,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
       setCurrentIndex(currentIndex + 1)
       setSelectedAnswer('')
       setShowFeedback(false)
+      setNextReviewInfo(null) // Clear review info for next question
       setQuestionStartTime(Date.now()) // Reset timer for next question
     }
   }
@@ -173,6 +185,34 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
             {showFeedback && currentQuestion.explanation && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-gray-700">{currentQuestion.explanation}</p>
+              </div>
+            )}
+            
+            {showFeedback && nextReviewInfo && nextReviewInfo.nextReview && (
+              <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-purple-600" />
+                  <p className="text-sm font-medium text-purple-900">
+                    Next Review Scheduled
+                  </p>
+                </div>
+                <p className="text-sm text-purple-700 mt-1">
+                  {nextReviewInfo.scheduledDays === 0 
+                    ? "Review again today"
+                    : nextReviewInfo.scheduledDays === 1 
+                    ? "Review tomorrow"
+                    : `Review in ${nextReviewInfo.scheduledDays} days`}
+                </p>
+                <p className="text-xs text-purple-600 mt-1">
+                  {new Date(nextReviewInfo.nextReview).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </p>
               </div>
             )}
 
