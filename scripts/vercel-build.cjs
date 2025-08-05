@@ -24,6 +24,14 @@ console.log(`  Branch: ${process.env.VERCEL_GIT_COMMIT_REF || 'unknown'}`);
 console.log(`  Convex Deploy Key: ${hasDeployKey ? '✅ Present' : '❌ Not set'}`);
 console.log('');
 
+// Log deployment start (telemetry)
+try {
+  console.log('📊 Logging deployment telemetry...');
+  execSync('node scripts/log-deployment.js --status started', { stdio: 'inherit' });
+} catch (error) {
+  console.warn('⚠️  Could not log deployment start (non-critical):', error.message);
+}
+
 // Handle Convex deployment
 if (isProduction && hasDeployKey) {
   console.log('🚀 Deploying Convex functions for production...');
@@ -44,7 +52,13 @@ if (isProduction && hasDeployKey) {
   // Skip Convex deployment for preview environments
   console.log('⏭️  Skipping Convex deployment for preview environment');
   console.log('ℹ️  Preview will use production Convex backend');
-  console.log('   (via NEXT_PUBLIC_CONVEX_URL environment variable)\n');
+  console.log('   (via NEXT_PUBLIC_CONVEX_URL environment variable)');
+  console.log('');
+  console.log('⚠️  WARNING: Schema Mismatch Risk');
+  console.log('   If your branch has Convex schema changes, they won\'t be');
+  console.log('   deployed to preview. This may cause runtime errors.');
+  console.log('   To fix: Deploy to production Convex before testing in preview.');
+  console.log('');
 }
 
 // Generate Convex types (required for TypeScript compilation)
@@ -96,8 +110,23 @@ console.log('🔨 Building Next.js application...');
 try {
   execSync('pnpm build', { stdio: 'inherit' });
   console.log('\n✅ Next.js build successful');
+  
+  // Log deployment success (telemetry)
+  try {
+    execSync('node scripts/log-deployment.js --status success', { stdio: 'inherit' });
+  } catch (error) {
+    console.warn('⚠️  Could not log deployment success (non-critical):', error.message);
+  }
 } catch (error) {
   console.error('\n❌ Next.js build failed');
+  
+  // Log deployment failure (telemetry)
+  try {
+    execSync(`node scripts/log-deployment.js --status failed --error "${error.message}"`, { stdio: 'inherit' });
+  } catch (telemetryError) {
+    console.warn('⚠️  Could not log deployment failure (non-critical):', telemetryError.message);
+  }
+  
   process.exit(1);
 }
 

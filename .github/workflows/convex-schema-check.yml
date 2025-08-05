@@ -1,0 +1,143 @@
+name: Convex Schema Check
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
+      - master
+    # Only run when Convex-related files change
+    paths:
+      - 'convex/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.env.example'
+
+jobs:
+  check-convex-schema:
+    name: Check Convex Schema Sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Set up environment
+        run: |
+          # Create minimal .env.local for validation
+          echo "NEXT_PUBLIC_CONVEX_URL_DEV=https://amicable-lobster-935.convex.cloud" >> .env.local
+          echo "NEXT_PUBLIC_CONVEX_URL_PROD=https://uncommon-axolotl-639.convex.cloud" >> .env.local
+          # Note: CONVEX_DEPLOY_KEY_PROD is not included for security
+      
+      - name: Run Convex validation
+        id: validate
+        continue-on-error: true
+        run: |
+          # Run validation and capture output
+          npx tsx scripts/validate-convex-deployment.ts --prod 2>&1 | tee validation-output.txt
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      
+      - name: Check Convex status
+        id: status
+        continue-on-error: true
+        run: |
+          # Run status check and capture output
+          node scripts/check-convex-status.js 2>&1 | tee status-output.txt
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+      
+      - name: Analyze results
+        id: analyze
+        run: |
+          # Check if either validation failed
+          if [ "${{ steps.validate.outputs.exit_code }}" != "0" ] || [ "${{ steps.status.outputs.exit_code }}" != "0" ]; then
+            echo "schema_mismatch=true" >> $GITHUB_OUTPUT
+            echo "## ⚠️ Convex Schema Check Failed" > comment.md
+            echo "" >> comment.md
+            echo "Schema mismatch detected between development and production Convex instances." >> comment.md
+            echo "" >> comment.md
+            
+            # Add validation output if it failed
+            if [ "${{ steps.validate.outputs.exit_code }}" != "0" ]; then
+              echo "### Validation Results" >> comment.md
+              echo '```' >> comment.md
+              tail -n 20 validation-output.txt >> comment.md
+              echo '```' >> comment.md
+              echo "" >> comment.md
+            fi
+            
+            # Add status output if it failed
+            if [ "${{ steps.status.outputs.exit_code }}" != "0" ]; then
+              echo "### Status Check Results" >> comment.md
+              echo '```' >> comment.md
+              tail -n 20 status-output.txt >> comment.md
+              echo '```' >> comment.md
+              echo "" >> comment.md
+            fi
+            
+            echo "### Required Actions" >> comment.md
+            echo "" >> comment.md
+            echo "1. Deploy your changes to production Convex before merging:" >> comment.md
+            echo '   ```bash' >> comment.md
+            echo '   pnpm convex:deploy:prod' >> comment.md
+            echo '   pnpm convex:codegen:prod' >> comment.md
+            echo '   git add convex/_generated' >> comment.md
+            echo '   git commit -m "chore: sync Convex types"' >> comment.md
+            echo '   git push' >> comment.md
+            echo '   ```' >> comment.md
+            echo "" >> comment.md
+            echo "2. Verify the deployment succeeded:" >> comment.md
+            echo '   ```bash' >> comment.md
+            echo '   pnpm convex:validate:prod' >> comment.md
+            echo '   ```' >> comment.md
+            echo "" >> comment.md
+            echo "See [Convex Deployment Guide](https://github.com/${{ github.repository }}/blob/${{ github.base_ref }}/docs/convex-deployment-guide.md) for detailed instructions." >> comment.md
+          else
+            echo "schema_mismatch=false" >> $GITHUB_OUTPUT
+            echo "## ✅ Convex Schema Check Passed" > comment.md
+            echo "" >> comment.md
+            echo "Development and production Convex instances are in sync." >> comment.md
+          fi
+      
+      - name: Find existing comment
+        if: always()
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Convex Schema Check'
+      
+      - name: Create or update comment
+        if: always()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: comment.md
+          edit-mode: replace
+      
+      - name: Fail if schema mismatch
+        if: steps.analyze.outputs.schema_mismatch == 'true'
+        run: |
+          echo "::error::Convex schema mismatch detected. Please deploy to production before merging."
+          exit 1

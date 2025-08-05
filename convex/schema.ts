@@ -41,9 +41,25 @@ export default defineSchema({
     attemptCount: v.number(), // Default: 0
     correctCount: v.number(), // Default: 0
     lastAttemptedAt: v.optional(v.number()),
+    // FSRS spaced repetition fields
+    nextReview: v.optional(v.number()), // Timestamp of next review
+    stability: v.optional(v.number()),   // FSRS stability parameter
+    fsrsDifficulty: v.optional(v.number()), // FSRS difficulty (not quiz difficulty)
+    elapsedDays: v.optional(v.number()),
+    scheduledDays: v.optional(v.number()),
+    reps: v.optional(v.number()),
+    lapses: v.optional(v.number()),
+    state: v.optional(v.union(
+      v.literal("new"),
+      v.literal("learning"), 
+      v.literal("review"),
+      v.literal("relearning")
+    )),
+    lastReview: v.optional(v.number()),
   }).index("by_user", ["userId", "generatedAt"])
     .index("by_user_topic", ["userId", "topic", "generatedAt"])
-    .index("by_user_unattempted", ["userId", "attemptCount"]),
+    .index("by_user_unattempted", ["userId", "attemptCount"])
+    .index("by_user_next_review", ["userId", "nextReview"]),
 
   interactions: defineTable({
     userId: v.id("users"),
@@ -79,4 +95,27 @@ export default defineSchema({
     completedAt: v.number(),
   }).index("by_user", ["userId", "completedAt"])
     .index("by_user_topic", ["userId", "topic", "completedAt"]),
+
+  deployments: defineTable({
+    environment: v.string(), // 'development' | 'production' | 'preview'
+    deployedBy: v.optional(v.string()), // User email or system identifier
+    commitSha: v.optional(v.string()), // Git commit SHA
+    commitMessage: v.optional(v.string()), // Git commit message
+    branch: v.optional(v.string()), // Git branch name
+    deploymentType: v.string(), // 'manual' | 'ci' | 'scheduled'
+    status: v.string(), // 'started' | 'success' | 'failed'
+    schemaVersion: v.optional(v.string()), // Schema version identifier
+    functionCount: v.optional(v.number()), // Number of functions deployed
+    duration: v.optional(v.number()), // Deployment duration in ms
+    error: v.optional(v.string()), // Error message if failed
+    metadata: v.optional(v.object({
+      buildId: v.optional(v.string()),
+      vercelDeploymentId: v.optional(v.string()),
+      convexVersion: v.optional(v.string()),
+      nodeVersion: v.optional(v.string()),
+    })),
+    deployedAt: v.number(), // Timestamp
+  }).index("by_environment", ["environment", "deployedAt"])
+    .index("by_status", ["status", "deployedAt"])
+    .index("by_branch", ["branch", "deployedAt"]),
 });

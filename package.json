@@ -5,7 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@10.12.1",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.19.0",
     "pnpm": ">=10.0.0"
   },
   "scripts": {
@@ -19,6 +19,9 @@
     "start": "next start",
     "lint": "next lint",
     "convex:deploy": "convex deploy",
+    "convex:deploy:dev": "npx convex deploy",
+    "convex:deploy:prod": "CONVEX_DEPLOY_KEY=\"$CONVEX_DEPLOY_KEY_PROD\" npx convex deploy",
+    "convex:codegen:prod": "CONVEX_DEPLOY_KEY=\"$CONVEX_DEPLOY_KEY_PROD\" npx convex codegen",
     "convex:init": "convex dev --once",
     "test": "vitest",
     "test:unit": "vitest",
@@ -40,6 +43,8 @@
     "env:example": "node scripts/validate-env.js --generate-example",
     "deploy:check": "node scripts/check-deployment-readiness.js",
     "deploy:check:preview": "node scripts/check-deployment-readiness.js --env=preview",
+    "convex:validate": "tsx scripts/validate-convex-deployment.ts",
+    "convex:validate:prod": "tsx scripts/validate-convex-deployment.ts --prod",
     "prepare": "husky"
   },
   "dependencies": {
@@ -74,6 +79,7 @@
     "resend": "^4.6.0",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
+    "ts-fsrs": "^5.2.1",
     "ws": "^8.18.3",
     "zod": "^3.25.67"
   },
