@@ -1,120 +1,143 @@
 # BACKLOG
 
-## P0: Foundation Shift — Ship Fast or Die
+## Critical Priority (CRITICAL) — Security & Quality Gates
 
-## P1: Core Features — Now 10x Easier
+**Security Vulnerabilities & Quality Failures**
+- [ ] [CRITICAL] [SECURITY] Replace Math.random() token generation with crypto.randomBytes() and hash session tokens | Effort: M | Risk: Session hijacking vulnerability | Automation: ESLint rules + pre-commit hooks
+- [ ] [CRITICAL] [SECURITY] Implement rate limiting for magic links (5/hr per email) and API endpoints (100/hr per IP) | Effort: L | Risk: DoS attacks, resource exhaustion | Automation: Monitoring alerts + auto-blocking
+- [ ] [CRITICAL] [SIMPLIFY] Break down UnifiedQuizFlow component (384 lines) into focused components | Effort: M | Quality: 10/10 | Target: <150 lines per component
 
-### Quiz Submission Pipeline
-- [ ] **Build submission API** [2 days]
-  * Problem: No way to save quiz results, scores lost on refresh
-  * Solution: Convex-based submission handler with validation
-  * Success: Every quiz attempt saved with full analytics
-  * Schema: Store answers, time spent, score calculation
+## High Priority (HIGH) — Code Health & Developer Experience
 
-### Dynamic Quiz Generation
-- [ ] **True/False Questions** [1 day]
-  * Problem: Only multiple choice supported
-  * Solution: Extend quiz schema, update AI prompts
-  * Success: Mix of question types in single quiz
-  * AI: Smarter prompts for better true/false questions
+### Security Hardening
+- [ ] [HIGH] [SECURITY] Add input sanitization for AI prompts with Zod schemas | Effort: M | Risk: Prompt injection attacks | Automation: ESLint validation rules
+- [ ] [HIGH] [SECURITY] Set up dependency vulnerability scanning (Dependabot + Snyk) | Effort: S | Risk: Supply chain attacks | Automation: Daily scans + auto-PRs
 
-- [ ] **Free Response with AI Grading** [3 days]
-  * Problem: No open-ended questions
-  * Solution: Rubric-based AI evaluation with retry logic
-  * Success: Students get detailed feedback on written answers
-  * Tech: Stream feedback as AI processes response
+### Testing Infrastructure Rollout (Incremental PRs)
+- [ ] [HIGH] [MAINTAIN] PR#1: Basic Vitest setup with 2-3 example tests | Effort: S | Impact: Foundation for all testing
+- [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage
+- [ ] [HIGH] [SECURITY] PR#3: Enable Dependabot security scanning | Effort: S | Impact: Automated vulnerability detection
+- [ ] [HIGH] [MAINTAIN] PR#4: React Testing Library setup with 2-3 component tests | Effort: S | Impact: Frontend testing foundation
+- [ ] [HIGH] [MAINTAIN] PR#5: Integration tests for 3 critical Convex functions | Effort: M | Impact: Backend confidence
+- [ ] [HIGH] [DX] PR#6: Pre-commit hooks for related tests only | Effort: S | Impact: Fast feedback loops
+- [ ] [MEDIUM] [MAINTAIN] Gradual coverage increase: 40% → 50% → 60% → 70% | Effort: L | Timeline: Over 4 sprints
 
-### Smart Study Features
-- [ ] **Context-Aware Generation** [1 week]
-  * Problem: Duplicate questions, no personalization
-  * Solution: Vector embeddings of past quizzes in Convex
-  * Success: Never see duplicate question, difficulty adapts
-  * Implementation: Embed on save, similarity search on generate
-
-- [ ] **Study Notifications** [2 days]
-  * Problem: Users forget to study
-  * Solution: Push notifications via Convex scheduled functions
-  * Success: 50% increase in daily active users
-  * Channels: Web push, email digests, mobile when ready
-
-## P2: Polish & Scale
-
-### Performance
-- [ ] **AI Response Caching** [2 days]
-  * Problem: Expensive AI calls for similar topics
-  * Solution: Convex-based semantic cache with fuzzy matching
-  * Success: 90% cache hit rate for popular topics
-  * Saves: $100s/month in AI costs
-
-- [ ] **Edge Deployment** [1 day]
-  * Problem: Single region deployment
-  * Solution: Deploy Convex functions globally
-  * Success: <100ms latency worldwide
-  * Bonus: Automatic failover
+### Code Quality & Simplification
+- [ ] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication
+- [ ] [HIGH] [ALIGN] Implement ESLint complexity rules (max-lines: 200, complexity: 10) | Effort: S | Quality: 9/10 | Enforcement: CI pipeline blocking
+- [ ] [HIGH] [MAINTAIN] Fix flaky E2E test infrastructure | Effort: M | Target: 100% reliability, <5% false positives | Automation: Auto-retry with alerts
 
 ### Developer Experience
-- [ ] **Hot Test Runner** [1 day]
-  * Problem: No watch mode for tests
-  * Solution: Vitest with hot reload
-  * Success: TDD actually feasible
-  * Config: Auto-run affected tests only
+- [ ] [HIGH] [DX] Complete pre-commit hooks with Prettier + type checking | Effort: S | Time saved: 3 hrs/week | Quality: Consistent code style
+- [ ] [HIGH] [DX] Fast test runner with watch mode (Vitest) | Effort: M | Time saved: 5 hrs/week | Quality: Enables TDD workflow
+- [ ] [HIGH] [DX] Zero-config development environment (Docker Compose) | Effort: L | Time saved: 4 hrs/week | Quality: Eliminates "5 services" problem
 
-- [ ] **Local Dev Stack** [2 days]
-  * Problem: Need 5 services running locally
-  * Solution: Docker Compose with health checks
-  * Success: `pnpm dev:up` and everything works
-  * Includes: Mock Convex, AI stubs, email capture
+### Performance Critical
+- [ ] [HIGH] [PERF] Implement semantic AI response caching | Effort: M | Target: 85% cache hits, 70% cost reduction | Measurement: API call metrics
+- [ ] [HIGH] [PERF] Optimize spaced repetition queries with composite indexing | Effort: L | Target: 75% query time reduction (<50ms) | Measurement: P95 response times
 
-### Security (After Migration)
-- [ ] **Rate Limiting 2.0** [1 day]
-  * Problem: No protection against abuse
-  * Solution: Convex built-in rate limiting
-  * Success: Automatic protection, no redis needed
-  * Limits: Per-user, per-IP, per-endpoint
+## Medium Priority (MEDIUM) — Features & Optimization
 
-- [ ] **Input Validation Framework** [2 days]
-  * Problem: Inconsistent validation, prompt injection risk
-  * Solution: Zod validation for all inputs
-  * Success: Impossible to process unvalidated data
-  * Coverage: 100% of user inputs validated
+### Core Features (from Original Backlog)
+- [ ] [MEDIUM] [FEATURE] Build quiz submission pipeline with Convex | Effort: M | Value: Essential for saving results | Quality: 7/10
+- [ ] [MEDIUM] [FEATURE] True/False question support | Effort: S | Value: Diversifies quiz types | Quality: 6/10
+- [ ] [MEDIUM] [FEATURE] Free response with AI grading | Effort: L | Value: Deeper learning assessment | Quality: 8/10
+- [ ] [MEDIUM] [FEATURE] Context-aware quiz generation with embeddings | Effort: L | Value: No duplicate questions | Quality: 8/10
+- [ ] [MEDIUM] [FEATURE] Study notifications via push/email | Effort: M | Value: Increases engagement | Quality: 6/10
 
-## P3: Future Vision
+### Quality Improvements
+- [ ] [MEDIUM] [MAINTAIN] Remove console.log pollution and implement structured logging | Effort: S | Target: Zero debug logs in production | Enforcement: ESLint rules
+- [ ] [MEDIUM] [SIMPLIFY] Consolidate duplicate UI patterns in quiz-history-views | Effort: S | Metrics: 305→220 lines | Enforcement: Component linter
+- [ ] [MEDIUM] [DX] Enhanced error messages with stack traces | Effort: M | Time saved: 3 hrs/week | Quality: Faster debugging
+- [ ] [MEDIUM] [PERF] Replace polling with WebSocket real-time updates | Effort: L | Target: 90% query reduction | Measurement: Database metrics
+- [ ] [MEDIUM] [PERF] Implement lazy loading and bundle splitting | Effort: M | Target: 40% bundle reduction (<200KB) | Measurement: Lighthouse scores
 
-### Game Changers
-- [ ] **AI Study Buddy** [2 weeks]
-  * Voice conversations about quiz topics
-  * Socratic method teaching
-  * Personalized explanations
+## Low Priority (LOW) — Future Enhancements
 
-- [ ] **Knowledge Graph Viz** [1 week]
-  * D3.js interactive learning map
-  * See connections between topics
-  * Identify knowledge gaps visually
+### Nice to Have Features
+- [ ] [LOW] [FEATURE] AI Study Buddy with voice conversations | Effort: XL | Value: Advanced learning experience
+- [ ] [LOW] [FEATURE] Knowledge graph visualization (D3.js) | Effort: L | Value: Visual learning paths
+- [ ] [LOW] [FEATURE] Multiplayer quiz battles | Effort: XL | Value: Social engagement
+- [ ] [LOW] [FEATURE] Universal content import (PDFs, URLs) | Effort: L | Value: Content flexibility
+- [ ] [LOW] [FEATURE] Mobile app with offline mode | Effort: XL | Value: Platform expansion
 
-- [ ] **Multiplayer Battles** [2 weeks]
-  * Real-time quiz competitions
-  * Leaderboards and achievements
-  * Study group formation
+### Optimization & Polish
+- [ ] [LOW] [PERF] Optimize FSRS with memoization | Effort: S | Target: 50% calculation speedup | Measurement: CPU profiling
+- [ ] [LOW] [DX] Advanced code quality metrics dashboard | Effort: L | Time saved: 1 hr/week | Quality: Proactive debt management
+- [ ] [LOW] [SIMPLIFY] Decompose large test files (fsrs.test.ts: 586 lines) | Effort: L | Metrics: <200 lines per file | Enforcement: Test file limits
 
-### Nice to Have
-- [ ] Universal content import (PDFs, URLs)
-- [ ] Mobile app with offline mode
-- [ ] Integration with Anki/Remnote
-- [ ] Webhook API for third-party tools
+## Quality Gates & Automation
 
-## Dropped/Reconsidered
+**Immediate Implementation:**
+- [ ] Pre-commit hooks: Prettier, ESLint, type checking, test coverage
+- [ ] CI/CD gates: Block on security vulnerabilities, coverage <80%, complexity violations
+- [ ] Automated dependency updates with security scanning
+- [ ] Performance budget enforcement (<200KB main bundle)
 
+**Monitoring & Metrics:**
+- [ ] Code coverage tracking with trend analysis
+- [ ] Bundle size monitoring with regression alerts
+- [ ] Query performance dashboards (P50/P95/P99)
+- [ ] Error rate tracking with categorization
+
+## Completed (Archive)
+
+### Recently Completed
+- ✅ [2024-01-15] Basic spaced repetition implementation
+- ✅ [2024-01-10] Magic link authentication setup
+- ✅ [2024-01-05] Initial AI quiz generation with Google Gemini
+
+### Dropped/Reconsidered
 - ~~Complex monitoring~~ → Convex handles this
-- ~~PostgreSQL optimizations~~ → Migrating away
+- ~~PostgreSQL optimizations~~ → Migrated to Convex
 - ~~Session caching~~ → Convex is fast enough
 - ~~Manual security headers~~ → Use framework defaults
 - ~~Component library optimization~~ → Keep it simple
+- ~~Leyline documentation empire~~ → Focus on code over documentation theology
+- ~~Multi-browser testing circus~~ → Test core functionality on Chrome/Safari only
+- ~~Deployments table tracking~~ → Vercel provides this already
 
 ---
 
-**Success Metrics:**
-- Ship new features 10x faster
-- 90% reduction in error handling code
-- Zero database configuration
-- Real-time everything by default
-- Happy developers = happy users
+## Grooming Summary [2025-08-05]
+
+### Items Added by Category
+- 5 security improvements (2 critical, 2 high, 1 medium)
+- 8 code quality improvements (complexity, coverage, maintainability)
+- 7 developer experience enhancements (quality gates, automation)
+- 6 simplification opportunities (measurable reduction targets)
+- 3 documentation improvements (inline to architectural)
+- 5 performance optimizations (with specific targets)
+
+### Quality Focus Metrics
+- Coverage targets: 1.21% current → 85% target for new code
+- Complexity reductions: 10+ functions identified for refactoring
+- Quality gates: 15+ automation opportunities identified
+- Technical debt: 20% overall codebase reduction possible
+- Bundle size: 40% reduction target (<200KB main bundle)
+
+### Key Themes Discovered
+- **Critical security vulnerabilities** in token generation and session management
+- **Severe test coverage crisis** at 1.21% with no frontend tests
+- **Component complexity violations** with 384-line god components
+- **Missing quality automation** despite having tools configured
+
+### Recommended Immediate Focus
+1. **Fix critical security vulnerabilities** (Math.random() token generation)
+2. **Implement rate limiting** to prevent abuse
+3. **Break down UnifiedQuizFlow** component for maintainability
+
+### Quality Enforcement Added
+- ESLint complexity rules (max-lines: 200, complexity: 10)
+- Pre-commit hooks with coverage enforcement
+- Automated dependency vulnerability scanning
+- Performance budget monitoring in CI/CD
+- Structured logging enforcement
+
+## Success Metrics
+
+- **Security**: Zero critical vulnerabilities in production
+- **Quality**: 85%+ test coverage on new code, <10 cyclomatic complexity
+- **Performance**: <100ms P95 response times, <200KB main bundle
+- **Developer Experience**: 50% reduction in debugging time
+- **Maintainability**: 20% codebase size reduction, 100% documented APIs
