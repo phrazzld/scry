@@ -84,12 +84,22 @@ Generated from TASK.md on 2025-08-27
 
 ### Stream B: Frontend CRUD Components
 
-- [ ] Create question edit modal component
+- [x] Create question edit modal component
   - Success criteria: Modal with form validation using React Hook Form + Zod
   - Can start: After CRUD mutations
   - Estimated complexity: SIMPLE
   - Implementation: shadcn/ui Dialog with form for topic and explanation fields only
   - Files: components/question-edit-modal.tsx
+  ```
+  Work Log:
+  - Created QuestionEditModal with React Hook Form + Zod validation
+  - Only question text, topic, and explanation are editable (preserves FSRS data)
+  - Shows read-only view of options and correct answer
+  - Proper error handling for unauthorized/deleted questions
+  - Loading states with disabled buttons during submission
+  - Form resets when modal closes or question changes
+  - Followed AuthModal pattern from existing codebase
+  ```
 
 - [ ] Add question action buttons (edit/delete)
   - Success criteria: Buttons appear only for question creator, include confirmation dialog
