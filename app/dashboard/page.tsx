@@ -1,5 +1,5 @@
-import { QuizHistoryRealtime } from '@/components/quiz-history-realtime'
-import { QuizStatsRealtime } from '@/components/quiz-stats-realtime'
+import { QuizHistoryRealtime } from '@/components/shared/quiz-history-realtime'
+import { QuizStatsRealtime } from '@/components/shared/quiz-stats-realtime'
 import { ReviewIndicator } from '@/components/review-indicator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

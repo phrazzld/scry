@@ -159,19 +159,44 @@ Generated from TASK.md on 2025-08-27
   - Removed tabs and detailed quiz/question grids from dashboard
   ```
 
-- [ ] Enhance quizzes page with detailed history
+- [x] Enhance quizzes page with detailed history
   - Success criteria: Comprehensive quiz history with search, filters, sorting
   - Dependencies: Dashboard restructure
   - Estimated complexity: SIMPLE
   - Implementation: Add search input, filter dropdowns, enhanced table view
   - Files: app/quizzes/page.tsx, components/quiz-history.tsx
+  ```
+  Work Log:
+  - Added real-time search by topic with icon positioning
+  - Implemented time filters: Today, Past Week, Month, 3 Months
+  - Added score filters: Excellent (80%+), Good (60-79%), Needs Practice (<60%)
+  - Created 6 sort options: Date (asc/desc), Score (asc/desc), Topic (A-Z/Z-A)
+  - Implemented card/table view toggle with LayoutGrid/List icons
+  - Used useMemo for efficient filtering and sorting
+  - Added result count display with active filter indicators
+  - Enhanced empty states with filter clearing option
+  - Installed shadcn Select component for time filtering
+  - Fixed Badge variants (default/secondary/destructive)
+  - Preserved pagination with Load More pattern
+  - All TypeScript and ESLint checks passing
+  ```
 
-- [ ] Extract shared components to reduce duplication
+- [x] Extract shared components to reduce duplication
   - Success criteria: QuizStatsRealtime and QuizHistoryRealtime reused, no duplicate code
   - Dependencies: Dashboard and quizzes pages complete
   - Estimated complexity: SIMPLE
   - Implementation: Move shared components to components/shared/
   - Files: components/shared/quiz-stats.tsx, components/shared/quiz-history.tsx
+  ```
+  Work Log:
+  - Created components/shared/ directory for better organization
+  - Moved quiz-stats-realtime.tsx and quiz-history-realtime.tsx to shared/
+  - Updated imports in app/dashboard/page.tsx
+  - Updated imports in app/quizzes/quiz-history-client.tsx
+  - Created barrel export file components/shared/index.ts
+  - All TypeScript and ESLint checks passing
+  - Components successfully reused with no duplication
+  ```
 
 ### Stream D: Mobile & Accessibility
 
