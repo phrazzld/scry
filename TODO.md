@@ -38,26 +38,49 @@ Generated from TASK.md on 2025-08-27
 
 ### Stream A: Backend CRUD Operations
 
-- [ ] Create Convex mutations for question management
+- [x] Create Convex mutations for question management
   - Success criteria: updateQuestion, softDeleteQuestion mutations with creator-only permissions
   - Can start: Immediately
   - Estimated complexity: MEDIUM
   - Implementation: Add deletedAt field, creator permission checks, soft delete logic
   - Files: convex/schema.ts, convex/questions.ts
+  ```
+  Work Log:
+  - Added deletedAt and updatedAt fields to questions schema
+  - Created updateQuestion mutation (only allows editing non-answer fields)
+  - Created softDeleteQuestion mutation with timestamp
+  - Added bonus restoreQuestion mutation for undo capability
+  - Updated getUserQuestions to filter deleted by default
+  - Updated spacedRepetition queries to exclude deleted questions
+  - All mutations follow existing auth patterns with creator-only permissions
+  ```
 
-- [ ] Add database migration for soft delete fields
+- [x] Add database migration for soft delete fields
   - Success criteria: questions table has deletedAt and isActive fields
   - Dependencies: Convex mutations
   - Estimated complexity: SIMPLE
   - Implementation: Update schema with optional deletedAt: v.optional(v.number())
   - Files: convex/schema.ts
+  ```
+  Work Log:
+  - Completed as part of mutations task
+  - Added deletedAt and updatedAt fields to schema
+  - Added by_user_active index for efficient filtering
+  ```
 
-- [ ] Update question queries to filter soft-deleted items
+- [x] Update question queries to filter soft-deleted items
   - Success criteria: Existing queries exclude soft-deleted questions by default
   - Dependencies: Database migration
   - Estimated complexity: SIMPLE
   - Implementation: Add filter for deletedAt === undefined in all question queries
   - Files: convex/questions.ts, convex/spacedRepetition.ts
+  ```
+  Work Log:
+  - Updated getUserQuestions query with includeDeleted option
+  - Updated getNextReview to filter deleted questions
+  - Updated getDueCount to exclude deleted from counts
+  - All queries now filter deletedAt by default
+  ```
 
 ### Stream B: Frontend CRUD Components
 

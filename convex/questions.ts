@@ -159,6 +159,7 @@ export const getUserQuestions = query({
     topic: v.optional(v.string()),
     onlyUnattempted: v.optional(v.boolean()),
     limit: v.optional(v.number()),
+    includeDeleted: v.optional(v.boolean()), // Option to include deleted questions
   },
   handler: async (ctx, args) => {
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
@@ -184,9 +185,14 @@ export const getUserQuestions = query({
         );
     }
     
-    const questions = await query
+    let questions = await query
       .order("desc")
       .take(args.limit || 50);
+    
+    // Filter out soft-deleted questions by default
+    if (!args.includeDeleted) {
+      questions = questions.filter(q => !q.deletedAt);
+    }
     
     return questions;
   },
@@ -217,6 +223,142 @@ export const getQuizInteractionStats = query({
       correctInteractions,
       uniqueQuestions,
       accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
+    };
+  },
+});
+
+/**
+ * Update a question (creator-only)
+ * 
+ * Allows the question creator to update question content, but preserves
+ * FSRS data and interaction history to maintain learning integrity.
+ */
+export const updateQuestion = mutation({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+    question: v.optional(v.string()),
+    topic: v.optional(v.string()),
+    explanation: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // 2. Verify ownership
+    const question = await ctx.db.get(args.questionId);
+    if (!question || question.userId !== userId) {
+      throw new Error("Question not found or unauthorized");
+    }
+    
+    // 3. Check if already deleted
+    if (question.deletedAt) {
+      throw new Error("Cannot update deleted question");
+    }
+    
+    // 4. Input validation
+    if (args.question !== undefined && args.question.trim().length === 0) {
+      throw new Error("Question cannot be empty");
+    }
+    
+    if (args.topic !== undefined && args.topic.trim().length === 0) {
+      throw new Error("Topic cannot be empty");
+    }
+    
+    // 5. Build update fields (only non-answer fields to preserve integrity)
+    const updateFields: Partial<typeof question> = {};
+    if (args.question !== undefined) updateFields.question = args.question;
+    if (args.topic !== undefined) updateFields.topic = args.topic;
+    if (args.explanation !== undefined) updateFields.explanation = args.explanation;
+    
+    // 6. Update with timestamp
+    await ctx.db.patch(args.questionId, {
+      ...updateFields,
+      updatedAt: Date.now(),
+    });
+    
+    return { 
+      success: true, 
+      questionId: args.questionId,
+      message: "Question updated successfully"
+    };
+  },
+});
+
+/**
+ * Soft delete a question (creator-only)
+ * 
+ * Marks the question as deleted but preserves it in the database
+ * to maintain FSRS history and enable potential restoration.
+ */
+export const softDeleteQuestion = mutation({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // 2. Verify ownership
+    const question = await ctx.db.get(args.questionId);
+    if (!question || question.userId !== userId) {
+      throw new Error("Question not found or unauthorized");
+    }
+    
+    // 3. Check if already deleted
+    if (question.deletedAt) {
+      throw new Error("Question is already deleted");
+    }
+    
+    // 4. Soft delete with timestamp
+    await ctx.db.patch(args.questionId, {
+      deletedAt: Date.now(),
+    });
+    
+    return { 
+      success: true, 
+      questionId: args.questionId,
+      message: "Question deleted successfully"
+    };
+  },
+});
+
+/**
+ * Restore a soft-deleted question (creator-only)
+ * 
+ * Allows users to undo a deletion within the recovery window.
+ */
+export const restoreQuestion = mutation({
+  args: {
+    sessionToken: v.string(),
+    questionId: v.id("questions"),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // 2. Verify ownership
+    const question = await ctx.db.get(args.questionId);
+    if (!question || question.userId !== userId) {
+      throw new Error("Question not found or unauthorized");
+    }
+    
+    // 3. Check if deleted
+    if (!question.deletedAt) {
+      throw new Error("Question is not deleted");
+    }
+    
+    // 4. Restore by removing deletedAt
+    await ctx.db.patch(args.questionId, {
+      deletedAt: undefined,
+      updatedAt: Date.now(),
+    });
+    
+    return { 
+      success: true, 
+      questionId: args.questionId,
+      message: "Question restored successfully"
     };
   },
 });

@@ -133,20 +133,26 @@ export const getNextReview = query({
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
     const now = new Date();
     
-    // First, try to get questions that are due for review
+    // First, try to get questions that are due for review (excluding deleted)
     const dueQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user_next_review", q => 
         q.eq("userId", userId)
          .lte("nextReview", now.getTime())
       )
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
       .take(100); // Get a batch to sort by retrievability
     
-    // Also get questions without nextReview (new questions)
+    // Also get questions without nextReview (new questions, excluding deleted)
     const newQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user", q => q.eq("userId", userId))
-      .filter(q => q.eq(q.field("nextReview"), undefined))
+      .filter(q => 
+        q.and(
+          q.eq(q.field("nextReview"), undefined),
+          q.eq(q.field("deletedAt"), undefined)
+        )
+      )
       .take(10);
     
     // Combine both sets
@@ -203,20 +209,26 @@ export const getDueCount = query({
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
     const now = Date.now();
     
-    // Count questions that are due
+    // Count questions that are due (excluding deleted)
     const dueQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user_next_review", q => 
         q.eq("userId", userId)
          .lte("nextReview", now)
       )
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
       .collect();
     
-    // Count new questions (no nextReview set)
+    // Count new questions (no nextReview set, excluding deleted)
     const newQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user", q => q.eq("userId", userId))
-      .filter(q => q.eq(q.field("nextReview"), undefined))
+      .filter(q => 
+        q.and(
+          q.eq(q.field("nextReview"), undefined),
+          q.eq(q.field("deletedAt"), undefined)
+        )
+      )
       .collect();
     
     return {
