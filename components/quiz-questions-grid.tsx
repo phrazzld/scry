@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { useQuery, useMutation } from "convex/react"
+import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { QuestionEditModal } from "./question-edit-modal"
-import { toast } from "sonner"
+import { useQuestionMutations } from "@/hooks/use-question-mutations"
 import type { Question } from "@/types/quiz"
 import { Id } from "@/convex/_generated/dataModel"
 
@@ -31,7 +31,8 @@ export function QuizQuestionsGrid() {
   const [deletingQuestion, setDeletingQuestion] = useState<Question | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   
-  const softDeleteQuestion = useMutation(api.questions.softDeleteQuestion)
+  // Use optimistic mutations hook
+  const { optimisticDelete, applyOptimisticChanges } = useQuestionMutations()
 
   // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {
@@ -84,43 +85,31 @@ export function QuizQuestionsGrid() {
   }
 
 
-  // Filter questions based on search query
+  // Apply optimistic updates and filter based on search query
+  const optimisticQuestions = applyOptimisticChanges(questions as Question[])
   const filteredQuestions = searchQuery
-    ? questions.filter((q: Question) => 
+    ? optimisticQuestions.filter((q) => 
         q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         q.topic.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : questions
+    : optimisticQuestions
 
   const handleLoadMore = () => {
     setLoadedCount(prev => prev + 30)
   }
 
   const handleDeleteQuestion = async () => {
-    if (!deletingQuestion || !sessionToken) return
+    if (!deletingQuestion) return
     
     setIsDeleting(true)
-    try {
-      await softDeleteQuestion({
-        sessionToken,
-        questionId: deletingQuestion._id as Id<'questions'>,
-      })
-      toast.success('Question deleted successfully')
-      setDeletingQuestion(null)
-    } catch (error) {
-      console.error('Failed to delete question:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete question'
-      
-      if (errorMessage.includes('unauthorized')) {
-        toast.error('You are not authorized to delete this question')
-      } else if (errorMessage.includes('already deleted')) {
-        toast.error('This question has already been deleted')
-      } else {
-        toast.error(errorMessage)
-      }
-    } finally {
-      setIsDeleting(false)
-    }
+    setDeletingQuestion(null) // Close dialog immediately for better UX
+    
+    // Optimistic delete handles all error cases and rollback
+    await optimisticDelete({
+      questionId: deletingQuestion._id as Id<'questions'>,
+    })
+    
+    setIsDeleting(false)
   }
 
   return (
@@ -139,7 +128,7 @@ export function QuizQuestionsGrid() {
 
       {/* Questions Grid */}
       <div className="grid grid-cols-1 gap-4">
-        {filteredQuestions.map((question: Question) => {
+        {filteredQuestions.map((question) => {
           const accuracy = question.attemptCount > 0 
             ? Math.round((question.correctCount / question.attemptCount) * 100)
             : null

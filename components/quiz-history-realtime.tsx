@@ -9,13 +9,18 @@ import { api } from '@/convex/_generated/api'
 import { formatDistanceToNow } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 
-export function QuizHistoryRealtime() {
+interface QuizHistoryRealtimeProps {
+  limit?: number
+  compact?: boolean
+}
+
+export function QuizHistoryRealtime({ limit = 10, compact = false }: QuizHistoryRealtimeProps = {}) {
   const { user, sessionToken } = useAuth()
   
   // Fetch quiz history from Convex
   const quizHistory = useQuery(api.quiz.getQuizHistory, {
     sessionToken: sessionToken || undefined,
-    limit: 10
+    limit
   })
   
   if (!user) {
@@ -71,36 +76,54 @@ export function QuizHistoryRealtime() {
   
   // Display quiz history
   return (
-    <div className="space-y-4">
+    <div className={compact ? "space-y-3" : "space-y-4"}>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {quizHistory.quizzes.map((quiz: any) => (
-        <Card key={quiz.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  {quiz.topic}
-                </h3>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <Trophy className="h-4 w-4" />
-                    Score: {quiz.score}/{quiz.totalQuestions} ({quiz.percentage}%)
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {formatDistanceToNow(new Date(quiz.completedAt), { addSuffix: true })}
-                  </span>
-                </div>
-              </div>
-              <div className={`text-2xl font-bold ${quiz.percentage >= 80 ? 'text-green-600' : quiz.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                {quiz.percentage}%
+        compact ? (
+          // Compact view for dashboard
+          <div key={quiz.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+            <div className="flex-1">
+              <div className="font-medium text-sm">{quiz.topic}</div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                <span>{quiz.score}/{quiz.totalQuestions}</span>
+                <span>•</span>
+                <span>{formatDistanceToNow(new Date(quiz.completedAt), { addSuffix: true })}</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <div className={`text-lg font-bold ${quiz.percentage >= 80 ? 'text-green-600' : quiz.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+              {quiz.percentage}%
+            </div>
+          </div>
+        ) : (
+          // Full view for detailed history
+          <Card key={quiz.id} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    {quiz.topic}
+                  </h3>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span className="flex items-center gap-1">
+                      <Trophy className="h-4 w-4" />
+                      Score: {quiz.score}/{quiz.totalQuestions} ({quiz.percentage}%)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      {formatDistanceToNow(new Date(quiz.completedAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                </div>
+                <div className={`text-2xl font-bold ${quiz.percentage >= 80 ? 'text-green-600' : quiz.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {quiz.percentage}%
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
       ))}
       
-      {quizHistory.hasMore && (
+      {!compact && quizHistory.hasMore && (
         <div className="text-center py-4">
           <p className="text-sm text-gray-500">Showing most recent {quizHistory.quizzes.length} quizzes</p>
         </div>

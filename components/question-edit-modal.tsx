@@ -4,11 +4,9 @@ import * as React from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
-import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useOptimisticEdit } from '@/hooks/use-question-mutations'
 
 import {
   Dialog,
@@ -29,7 +27,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/contexts/auth-context'
 
 // Schema for question edit form - only editable fields to preserve FSRS integrity
 const questionEditSchema = z.object({
@@ -71,8 +68,7 @@ export function QuestionEditModal({
   onSuccess 
 }: QuestionEditModalProps) {
   const [isLoading, setIsLoading] = React.useState(false)
-  const { sessionToken } = useAuth()
-  const updateQuestion = useMutation(api.questions.updateQuestion)
+  const { optimisticEdit } = useOptimisticEdit()
 
   const form = useForm<QuestionEditFormValues>({
     resolver: zodResolver(questionEditSchema),
@@ -95,45 +91,25 @@ export function QuestionEditModal({
   }, [open, question, form])
 
   const handleSubmit = async (values: QuestionEditFormValues) => {
-    if (!sessionToken) {
-      toast.error('You must be logged in to edit questions')
-      return
-    }
-
     setIsLoading(true)
-    try {
-      const result = await updateQuestion({
-        sessionToken,
-        questionId: question._id,
-        question: values.question,
-        topic: values.topic,
-        explanation: values.explanation || undefined,
-      })
+    
+    // Close modal immediately for optimistic UX
+    onOpenChange(false)
+    form.reset()
+    
+    // Optimistic edit handles all error cases and rollback
+    const result = await optimisticEdit({
+      questionId: question._id,
+      question: values.question,
+      topic: values.topic,
+      explanation: values.explanation || undefined,
+    })
 
-      if (result.success) {
-        toast.success('Question updated successfully')
-        onSuccess?.()
-        onOpenChange(false)
-        form.reset()
-      } else {
-        toast.error('Failed to update question')
-      }
-    } catch (error) {
-      console.error('Failed to update question:', error)
-      
-      // Handle specific error messages
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update question'
-      
-      if (errorMessage.includes('unauthorized')) {
-        toast.error('You are not authorized to edit this question')
-      } else if (errorMessage.includes('deleted')) {
-        toast.error('Cannot edit a deleted question')
-      } else {
-        toast.error(errorMessage)
-      }
-    } finally {
-      setIsLoading(false)
+    if (result.success) {
+      onSuccess?.()
     }
+    
+    setIsLoading(false)
   }
 
   const handleOpenChange = (newOpen: boolean) => {

@@ -118,21 +118,46 @@ Generated from TASK.md on 2025-08-27
   - Loading states during deletion with spinner
   ```
 
-- [ ] Implement optimistic UI updates for CRUD
+- [x] Implement optimistic UI updates for CRUD
   - Success criteria: Immediate UI feedback, automatic rollback on error
   - Dependencies: Question action buttons
   - Estimated complexity: SIMPLE
   - Implementation: Use Convex optimistic updates pattern with error handling
   - Files: hooks/use-question-mutations.ts
+  ```
+  Work Log:
+  - Created use-question-mutations.ts hook with optimistic edit/delete
+  - Global optimistic store persists across component re-renders
+  - Immediate UI feedback with automatic rollback on errors
+  - Updated quiz-questions-grid.tsx to use applyOptimisticChanges
+  - Modified question-edit-modal.tsx for optimistic edits
+  - Modal closes immediately for better perceived performance
+  - 500ms delay before clearing optimistic state to prevent flashing
+  - All error handling preserved with toast notifications
+  ```
 
 ### Stream C: Route Differentiation
 
-- [ ] Restructure dashboard page as overview hub
+- [x] Restructure dashboard page as overview hub
   - Success criteria: Shows review indicator, quick stats, recent activity, clear CTAs
   - Can start: After core layout components update
   - Estimated complexity: SIMPLE
   - Implementation: Focus on widgets and navigation, remove detailed quiz history
   - Files: app/dashboard/page.tsx, app/dashboard/dashboard-client.tsx
+  ```
+  Work Log:
+  - Added welcome header with description for better UX
+  - Created 4 quick action cards: Create Quiz, Start Review, Quiz History, My Questions
+  - Each action card has colored icon, title, description, and arrow indicator
+  - Restructured layout to prioritize stats and recent activity (limit 3 items)
+  - Added Learning Progress widget with weekly study patterns
+  - Kept Review Indicator in sidebar as primary CTA
+  - Added Study Tip widget for engagement
+  - Updated QuizHistoryRealtime to support limit and compact props
+  - Compact view shows minimal info for dashboard overview
+  - "View All" button links to full history page
+  - Removed tabs and detailed quiz/question grids from dashboard
+  ```
 
 - [ ] Enhance quizzes page with detailed history
   - Success criteria: Comprehensive quiz history with search, filters, sorting
