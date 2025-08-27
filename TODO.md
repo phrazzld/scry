@@ -101,12 +101,22 @@ Generated from TASK.md on 2025-08-27
   - Followed AuthModal pattern from existing codebase
   ```
 
-- [ ] Add question action buttons (edit/delete)
+- [x] Add question action buttons (edit/delete)
   - Success criteria: Buttons appear only for question creator, include confirmation dialog
   - Dependencies: Question edit modal
   - Estimated complexity: SIMPLE
   - Implementation: Conditional rendering based on userId match, AlertDialog for delete
   - Files: components/question-card.tsx, app/questions/page.tsx
+  ```
+  Work Log:
+  - Added edit/delete buttons to quiz-questions-grid.tsx
+  - Conditional rendering based on question.userId === user._id
+  - Integrated QuestionEditModal for editing
+  - Created AlertDialog for delete confirmation
+  - Shows question preview in delete dialog
+  - Proper error handling with toast notifications
+  - Loading states during deletion with spinner
+  ```
 
 - [ ] Implement optimistic UI updates for CRUD
   - Success criteria: Immediate UI feedback, automatic rollback on error

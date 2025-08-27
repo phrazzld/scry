@@ -1,19 +1,37 @@
 'use client'
 
 import { useState } from "react"
-import { useQuery } from "convex/react"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2, CheckCircle, Target, Trophy, Brain, Clock, Calendar, Search } from "lucide-react"
+import { Loader2, CheckCircle, Target, Trophy, Brain, Clock, Calendar, Search, Edit2, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { QuestionEditModal } from "./question-edit-modal"
+import { toast } from "sonner"
 import type { Question } from "@/types/quiz"
+import { Id } from "@/convex/_generated/dataModel"
 
 export function QuizQuestionsGrid() {
   const { user, sessionToken } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [loadedCount, setLoadedCount] = useState(30)
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
+  const [deletingQuestion, setDeletingQuestion] = useState<Question | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  const softDeleteQuestion = useMutation(api.questions.softDeleteQuestion)
 
   // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {
@@ -78,6 +96,33 @@ export function QuizQuestionsGrid() {
     setLoadedCount(prev => prev + 30)
   }
 
+  const handleDeleteQuestion = async () => {
+    if (!deletingQuestion || !sessionToken) return
+    
+    setIsDeleting(true)
+    try {
+      await softDeleteQuestion({
+        sessionToken,
+        questionId: deletingQuestion._id as Id<'questions'>,
+      })
+      toast.success('Question deleted successfully')
+      setDeletingQuestion(null)
+    } catch (error) {
+      console.error('Failed to delete question:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete question'
+      
+      if (errorMessage.includes('unauthorized')) {
+        toast.error('You are not authorized to delete this question')
+      } else if (errorMessage.includes('already deleted')) {
+        toast.error('This question has already been deleted')
+      } else {
+        toast.error(errorMessage)
+      }
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Search Bar */}
@@ -113,9 +158,34 @@ export function QuizQuestionsGrid() {
                       <span>{question.type === 'true-false' ? 'True/False' : 'Multiple Choice'}</span>
                     </div>
                   </div>
-                  {question.attemptCount > 0 && (
-                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
-                  )}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {question.attemptCount > 0 && (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
+                    {/* Only show action buttons for questions owned by current user */}
+                    {user && question.userId === (user.id as Id<"users">) && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingQuestion(question)}
+                          className="h-8 w-8 p-0"
+                          title="Edit question"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingQuestion(question)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          title="Delete question"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -189,6 +259,53 @@ export function QuizQuestionsGrid() {
           Showing {filteredQuestions.length} of {questions.length} questions
         </div>
       )}
+
+      {/* Edit Modal */}
+      {editingQuestion && (
+        <QuestionEditModal
+          open={!!editingQuestion}
+          onOpenChange={(open) => !open && setEditingQuestion(null)}
+          question={editingQuestion}
+          onSuccess={() => {
+            setEditingQuestion(null)
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingQuestion} onOpenChange={(open) => !open && setDeletingQuestion(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone, and all learning history for this question will be preserved but the question will no longer appear in reviews.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletingQuestion && (
+            <div className="my-4 p-3 bg-gray-50 rounded-md">
+              <p className="text-sm font-medium text-gray-900 mb-2">Question:</p>
+              <p className="text-sm text-gray-600">{deletingQuestion.question}</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteQuestion}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Question'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
