@@ -98,6 +98,19 @@
     -moz-osx-font-smoothing: grayscale;
   }
   
+  /* CSS Grid Layout System */
+  .layout-grid {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+  
+  .layout-grid > * {
+    /* Ensure grid children respect layout boundaries */
+    min-width: 0;
+  }
+  
   /* Typography hierarchy */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans);

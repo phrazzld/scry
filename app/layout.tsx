@@ -35,9 +35,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <ConditionalNavbar />
-          {children}
-          <Footer />
+          <div className="layout-grid">
+            <ConditionalNavbar />
+            <main>{children}</main>
+            <Footer />
+          </div>
           <Toaster />
           <Analytics />
           <SpeedInsights />

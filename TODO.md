@@ -1,175 +1,195 @@
-# Testing Infrastructure - PR #4 Feedback TODO
+# Scry UI/UX Quality of Life Improvements TODO
 
-Generated from PR #4 review feedback on 2025-01-08
+Generated from TASK.md on 2025-08-27
 
-## Immediate Fixes (Before Merge)
+## Critical Path Items (Must complete in order)
 
-- [x] Fix test determinism in format-review-time.test.ts ✅ COMPLETED
-  - Success criteria: Test uses fake timers instead of Date.now()
-  - Location: lib/format-review-time.test.ts:94
-  - Implementation: Use vi.useFakeTimers() for deterministic behavior
-  - Priority: MEDIUM (prevents CI flakiness)
-  - Reviewer: gemini-code-assist
-  - **Completed:** 2025-01-08
-  - **Result:** Fixed non-deterministic test by adding vi fake timers
-  - **Tests:** All 52 tests passing
-
-## Post-Merge Enhancements
-
-- [x] Improve CI test output visibility ✅ COMPLETED
-  - Success criteria: Verbose test output in CI logs
-  - Location: package.json test scripts or vitest.config.ts
-  - Implementation: Add --reporter=verbose to test commands
-  - Priority: LOW
-  - **Completed:** 2025-01-08
-  - **Result:** Added --reporter=verbose to test, test:unit, and test:coverage scripts
-  - **Tests:** All 52 tests passing with detailed output per test
-  - Reviewer: Claude
-  - Benefit: Better debugging of CI test failures
-
-## Completed Items (Archive)
-
-### Critical Path Items (Must complete in order)
-
-- [x] Verify existing test infrastructure runs correctly
-  - Success criteria: `pnpm test` executes without errors
+- [x] Implement CSS Grid layout system infrastructure
+  - Success criteria: Root layout using `grid-template-rows: auto 1fr auto`, no content overlap on any page
   - Dependencies: None
-  - Estimated complexity: SIMPLE
-  - Status: ✅ Tests already run (3 test files, 52 tests passing)
+  - Estimated complexity: MEDIUM
+  - Implementation: Replace fixed positioning with sticky, add consistent container classes
+  - Files: app/layout.tsx, app/globals.css
+  ```
+  Work Log:
+  - Added .layout-grid class with CSS Grid in globals.css
+  - Updated app/layout.tsx to wrap content in grid container
+  - Removed spacer div from ConditionalNavbar component
+  - Grid system now handles spacing automatically
+  - Server running on port 3002 - ready for next phase
+  ```
 
-- [x] Adjust vitest.config.ts coverage thresholds for initial setup
-  - Success criteria: Coverage check passes without blocking CI
-  - Dependencies: Test verification
+- [ ] Update core layout components to use new CSS Grid system
+  - Success criteria: Navbar and Footer use sticky positioning, content properly spaced
+  - Dependencies: CSS Grid layout system infrastructure
   - Estimated complexity: SIMPLE
-  - Current: 80% thresholds causing failures (actual: 1.21% lines)
-  - Action: Comment out thresholds or set to 0 temporarily
-
-- [x] Create first utility function test
-  - Success criteria: `lib/format-review-time.test.ts` passes with 100% coverage
-  - Dependencies: Config adjustment
-  - Estimated complexity: SIMPLE
-  - Target functions: `formatNextReviewTime()`, `describeReviewInterval()`
+  - Implementation: Update ConditionalNavbar, Footer components with new classes
+  - Files: components/navbar.tsx, components/footer.tsx, components/conditional-navbar.tsx
 
 ## Parallel Work Streams
 
-### Stream A: Test Scripts Verification
-- [x] Verify all test scripts work correctly
-  - Success criteria: Each script runs without errors
+### Stream A: Backend CRUD Operations
+
+- [ ] Create Convex mutations for question management
+  - Success criteria: updateQuestion, softDeleteQuestion mutations with creator-only permissions
   - Can start: Immediately
-  - Scripts to verify:
-    - `pnpm test` ✅ (works)
-    - `pnpm test:coverage` ✅ (works, no threshold failures now)
-    - `pnpm test:watch` ✅ (works in interactive mode)
-    - `pnpm test:ui` ⚠️ (needs @vitest/ui package - skip for now)
+  - Estimated complexity: MEDIUM
+  - Implementation: Add deletedAt field, creator permission checks, soft delete logic
+  - Files: convex/schema.ts, convex/questions.ts
 
-### Stream B: Documentation
-- [x] Add testing section to README.md
-  - Success criteria: Clear instructions for running tests
-  - Can start: After tests verified
-  - Content: Test commands, coverage viewing, watch mode usage
+- [ ] Add database migration for soft delete fields
+  - Success criteria: questions table has deletedAt and isActive fields
+  - Dependencies: Convex mutations
+  - Estimated complexity: SIMPLE
+  - Implementation: Update schema with optional deletedAt: v.optional(v.number())
+  - Files: convex/schema.ts
 
-## CI/CD Integration
+- [ ] Update question queries to filter soft-deleted items
+  - Success criteria: Existing queries exclude soft-deleted questions by default
+  - Dependencies: Database migration
+  - Estimated complexity: SIMPLE
+  - Implementation: Add filter for deletedAt === undefined in all question queries
+  - Files: convex/questions.ts, convex/spacedRepetition.ts
 
-- [x] Verify GitHub Actions runs tests
-  - Success criteria: CI workflow executes tests on PR
-  - Dependencies: Coverage thresholds adjusted
-  - File: `.github/workflows/ci.yml`
-  - Current status: Needs checking if tests run in CI
+### Stream B: Frontend CRUD Components
 
-- [x] Ensure coverage reports are generated in CI
-  - Success criteria: Coverage artifacts available in CI logs
-  - Dependencies: CI test execution working
-  - Note: Don't enforce thresholds yet
-  - ✅ Coverage step added to CI workflow (pnpm test:coverage --run)
+- [ ] Create question edit modal component
+  - Success criteria: Modal with form validation using React Hook Form + Zod
+  - Can start: After CRUD mutations
+  - Estimated complexity: SIMPLE
+  - Implementation: shadcn/ui Dialog with form for topic and explanation fields only
+  - Files: components/question-edit-modal.tsx
+
+- [ ] Add question action buttons (edit/delete)
+  - Success criteria: Buttons appear only for question creator, include confirmation dialog
+  - Dependencies: Question edit modal
+  - Estimated complexity: SIMPLE
+  - Implementation: Conditional rendering based on userId match, AlertDialog for delete
+  - Files: components/question-card.tsx, app/questions/page.tsx
+
+- [ ] Implement optimistic UI updates for CRUD
+  - Success criteria: Immediate UI feedback, automatic rollback on error
+  - Dependencies: Question action buttons
+  - Estimated complexity: SIMPLE
+  - Implementation: Use Convex optimistic updates pattern with error handling
+  - Files: hooks/use-question-mutations.ts
+
+### Stream C: Route Differentiation
+
+- [ ] Restructure dashboard page as overview hub
+  - Success criteria: Shows review indicator, quick stats, recent activity, clear CTAs
+  - Can start: After core layout components update
+  - Estimated complexity: SIMPLE
+  - Implementation: Focus on widgets and navigation, remove detailed quiz history
+  - Files: app/dashboard/page.tsx, app/dashboard/dashboard-client.tsx
+
+- [ ] Enhance quizzes page with detailed history
+  - Success criteria: Comprehensive quiz history with search, filters, sorting
+  - Dependencies: Dashboard restructure
+  - Estimated complexity: SIMPLE
+  - Implementation: Add search input, filter dropdowns, enhanced table view
+  - Files: app/quizzes/page.tsx, components/quiz-history.tsx
+
+- [ ] Extract shared components to reduce duplication
+  - Success criteria: QuizStatsRealtime and QuizHistoryRealtime reused, no duplicate code
+  - Dependencies: Dashboard and quizzes pages complete
+  - Estimated complexity: SIMPLE
+  - Implementation: Move shared components to components/shared/
+  - Files: components/shared/quiz-stats.tsx, components/shared/quiz-history.tsx
+
+### Stream D: Mobile & Accessibility
+
+- [ ] Test and fix mobile layout responsiveness
+  - Success criteria: No overlap or broken layouts on 320px-768px viewports
+  - Can start: After CSS Grid layout system
+  - Estimated complexity: SIMPLE
+  - Implementation: Test with browser dev tools, add responsive breakpoints
+  - Risk mitigation task
+
+- [ ] Ensure WCAG 2.1 AA compliance for CRUD interfaces
+  - Success criteria: All interactive elements keyboard accessible, proper ARIA labels
+  - Dependencies: All CRUD components complete
+  - Estimated complexity: SIMPLE
+  - Implementation: Add focus management, ARIA attributes, keyboard shortcuts
+  - Files: All new modal and button components
 
 ## Testing & Validation
 
-- [x] Run full test suite locally
-  - Success criteria: All tests pass, coverage report generates
-  - Commands to validate:
-    - `pnpm test --run`
-    - `pnpm test:coverage --run`
-    - `pnpm test:watch` (verify interactive mode)
+- [ ] Write unit tests for CRUD mutations
+  - Success criteria: 100% coverage of permission checks and soft delete logic
+  - Dependencies: CRUD mutations complete
+  - Test coverage: Permission validation, soft delete behavior, FSRS preservation
 
-- [x] Create PR and verify CI passes
-  - Success criteria: Green checkmark on PR
-  - Dependencies: All above tasks complete
-  - Validation: Tests run, no threshold failures
-  - ✅ PR #4 created: https://github.com/phrazzld/scry/pull/4
-  - ✅ All CI checks passing
+- [ ] Create integration tests for question lifecycle
+  - Success criteria: Test create → edit → delete → restore flow
+  - Dependencies: All CRUD implementation complete
+  - Test coverage: End-to-end user journey with Convex backend
+
+- [ ] Add E2E tests for layout and navigation
+  - Success criteria: Verify no content overlap, smooth navigation between routes
+  - Dependencies: Layout system and route differentiation complete
+  - Test coverage: Mobile viewports, footer positioning, route transitions
+
+- [ ] Performance validation
+  - Success criteria: CRUD operations <500ms, CLS score <0.1
+  - Dependencies: All implementation complete
+  - Metrics: Measure with Lighthouse, verify optimistic UI timing
 
 ## Documentation & Cleanup
 
-- [x] Update package.json if any scripts missing
-  - Success criteria: All standard test scripts present
-  - Current status: Scripts look complete
-  - Estimated complexity: SIMPLE
-  - ✅ No changes needed - all test scripts already present
+- [ ] Update README with CRUD capabilities
+  - Success criteria: Document question management features and permissions model
+  - Dependencies: CRUD implementation complete
+  - Content: User guide for editing/deleting questions
 
-- [x] Document test file patterns and conventions
-  - Success criteria: Clear guidance in README
-  - Location: README.md testing section
-  - Include: File naming (`.test.ts`), test location, coverage viewing
-  - ✅ Added comprehensive testing section to README
+- [ ] Document CSS Grid layout system
+  - Success criteria: Clear documentation of layout classes and responsive behavior
+  - Dependencies: Layout system complete
+  - Content: CSS architecture decisions, class naming conventions
+
+- [ ] Code review and refactoring pass
+  - Success criteria: No linting errors, follows existing patterns, clean git history
+  - Dependencies: All implementation complete
+  - Focus: Component composition, type safety, performance optimization
+
+## Risk Mitigation
+
+- [ ] Validate FSRS data integrity with soft delete
+  - Success criteria: Deleted questions don't affect spaced repetition scheduling
+  - Can start: Parallel with CRUD development
+  - Estimated complexity: SIMPLE
+  - Implementation: Test scheduling calculations with soft-deleted questions
+
+- [ ] Create rollback plan for layout changes
+  - Success criteria: Feature flag to toggle between old/new layout systems
+  - Can start: With layout implementation
+  - Estimated complexity: SIMPLE
+  - Implementation: Environment variable to control layout mode
+
+## Future Enhancements (BACKLOG.md candidates)
+
+- [ ] Question versioning with edit history tracking
+- [ ] Bulk operations for multiple question selection
+- [ ] Advanced search and filtering for questions
+- [ ] Keyboard shortcuts for power users
+- [ ] Export/import question sets
+- [ ] Collaborative question sharing between users
+- [ ] Undo/redo system for all CRUD operations
+- [ ] Virtual scrolling for large question lists
 
 ## Implementation Notes
 
-### Current State Analysis
-- ✅ Vitest already configured and working
-- ✅ 2 test files exist and pass (convex/fsrs.test.ts, convex/spacedRepetition.test.ts)
-- ✅ Test scripts already in package.json
-- ⚠️ Coverage thresholds too high (80%) for current codebase (1.21%)
-- ⚠️ No utility function tests yet
+**Total estimated time**: 26-32 hours (3.5-4 development days)
 
-### Files to Create/Modify
-1. `vitest.config.ts` - Adjust coverage thresholds
-2. `lib/format-review-time.test.ts` - New test file
-3. `README.md` - Add testing documentation
-4. `.github/workflows/ci.yml` - Verify test execution
+**Parallelization strategy**:
+- Backend CRUD can start immediately
+- Frontend components after mutations ready
+- Layout work independent of CRUD
+- Mobile testing throughout
 
-### Test Example Structure
-```typescript
-// lib/format-review-time.test.ts
-import { describe, it, expect } from 'vitest'
-import { formatNextReviewTime, describeReviewInterval } from './format-review-time'
-
-describe('formatNextReviewTime', () => {
-  it('should format time as "Now" for reviews due within 1 minute', () => {
-    const now = new Date('2025-01-08T10:00:00')
-    const nextReview = new Date('2025-01-08T10:00:30').getTime()
-    expect(formatNextReviewTime(nextReview, now)).toBe('Now')
-  })
-  
-  // Add more test cases for each time range
-})
-
-describe('describeReviewInterval', () => {
-  it('should describe intervals in human-readable format', () => {
-    expect(describeReviewInterval(0)).toBe('Later today')
-    expect(describeReviewInterval(1)).toBe('Tomorrow')
-    expect(describeReviewInterval(7)).toBe('In 1 week')
-  })
-})
-```
-
-## Success Metrics
-- [x] 2-3 test files running successfully (3 files, 52 tests)
-- [x] Coverage report generates (percentage not important yet)
-- [x] CI runs tests without failures
-- [x] Documentation clear for other developers
-- [x] No blocking thresholds preventing merges
-
-## Non-Goals (Explicitly Not Doing)
-- ❌ Setting high coverage thresholds
-- ❌ Component testing setup
-- ❌ API route testing
-- ❌ Complex mocking infrastructure
-- ❌ E2E test changes
-- ❌ Performance testing
-- ❌ Security scanning
-
-## Estimated Total Effort
-- Lines of code: ~100
-- Files touched: 4-5
-- Time estimate: 1-2 hours
-- PR size: Small (ideal for quick review)
+**Key success metrics**:
+- Zero content overlap issues
+- All CRUD operations under 500ms
+- 100% creator-only permission enforcement
+- CLS score below 0.1
+- Clear route differentiation achieved

@@ -11,11 +11,5 @@ export function ConditionalNavbar() {
     return null
   }
   
-  return (
-    <>
-      <Navbar />
-      {/* Add padding to account for fixed navbar height */}
-      <div className="h-[57px]" />
-    </>
-  )
+  return <Navbar />
 }
