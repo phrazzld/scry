@@ -167,9 +167,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: |
-          # Allow failure for now since no unit tests exist
-          pnpm test:unit || true
+        run: pnpm test --run
+        
+      - name: Generate coverage report
+        run: pnpm test:coverage --run
 
   build:
     name: Build

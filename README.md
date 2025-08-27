@@ -136,6 +136,70 @@ pnpm assets:generate        # Generate static assets
 pnpm assets:generate-all    # Generate all assets (verbose)
 ```
 
+## Testing
+
+The project uses Vitest for unit and integration testing, with Playwright for end-to-end tests.
+
+### Running Tests
+
+```bash
+# Run all unit tests
+pnpm test
+
+# Run tests in watch mode for development
+pnpm test:watch
+
+# Run tests with coverage report
+pnpm test:coverage
+
+# Run specific test file
+pnpm test lib/format-review-time.test.ts
+
+# Run E2E tests
+pnpm test:e2e
+```
+
+### Test Structure
+
+Tests are located alongside their source files using the `.test.ts` or `.test.tsx` suffix:
+
+```
+lib/
+  format-review-time.ts
+  format-review-time.test.ts
+components/
+  Button.tsx
+  Button.test.tsx
+convex/
+  fsrs.ts
+  fsrs.test.ts
+```
+
+### Coverage Reports
+
+After running `pnpm test:coverage`, coverage reports are available in:
+- **Terminal**: Summary displayed after test run
+- **HTML Report**: Open `coverage/index.html` in your browser for detailed coverage
+- **JSON**: `coverage/coverage-final.json` for CI integration
+
+Current coverage is intentionally low as we build up the test suite incrementally. Focus is on testing critical business logic first.
+
+### Writing Tests
+
+Example test structure:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { yourFunction } from './your-module'
+
+describe('yourFunction', () => {
+  it('should handle expected input', () => {
+    const result = yourFunction('input')
+    expect(result).toBe('expected output')
+  })
+})
+```
+
 ## Deployment
 
 ⚠️ **Important**: This project uses separate Convex instances:
