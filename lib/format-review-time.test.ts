@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { formatNextReviewTime, describeReviewInterval } from './format-review-time'
 
 describe('formatNextReviewTime', () => {
@@ -88,9 +88,11 @@ describe('formatNextReviewTime', () => {
   })
 
   it('should use current date when now parameter is not provided', () => {
-    const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000).getTime() // 2 hours from now
-    const result = formatNextReviewTime(futureDate)
-    expect(result).toMatch(/^In \d hour/)
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2025-01-08T10:00:00'))
+    const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000).getTime()
+    expect(formatNextReviewTime(futureDate)).toBe('In 2 hours')
+    vi.useRealTimers()
   })
 })
 

@@ -14,13 +14,27 @@
 - [ ] [HIGH] [SECURITY] Set up dependency vulnerability scanning (Dependabot + Snyk) | Effort: S | Risk: Supply chain attacks | Automation: Daily scans + auto-PRs
 
 ### Testing Infrastructure Rollout (Incremental PRs)
-- [ ] [HIGH] [MAINTAIN] PR#1: Basic Vitest setup with 2-3 example tests | Effort: S | Impact: Foundation for all testing
+- [x] [HIGH] [MAINTAIN] PR#1: Basic Vitest setup with 2-3 example tests | Effort: S | Impact: Foundation for all testing | ✅ Completed in PR#4
 - [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage
 - [ ] [HIGH] [SECURITY] PR#3: Enable Dependabot security scanning | Effort: S | Impact: Automated vulnerability detection
 - [ ] [HIGH] [MAINTAIN] PR#4: React Testing Library setup with 2-3 component tests | Effort: S | Impact: Frontend testing foundation
 - [ ] [HIGH] [MAINTAIN] PR#5: Integration tests for 3 critical Convex functions | Effort: M | Impact: Backend confidence
 - [ ] [HIGH] [DX] PR#6: Pre-commit hooks for related tests only | Effort: S | Impact: Fast feedback loops
 - [ ] [MEDIUM] [MAINTAIN] Gradual coverage increase: 40% → 50% → 60% → 70% | Effort: L | Timeline: Over 4 sprints
+
+### Testing Enhancements (From PR#4 Review)
+- [ ] [LOW] [DX] Create test utilities library | Effort: S | Source: PR#4 Claude review | Impact: Reusable test patterns
+  * Create lib/test-utils.ts with common testing helpers
+  * Mock date creators, format validators, assertion helpers
+  * Reduces duplication across test files
+- [ ] [LOW] [MAINTAIN] Organize test directory structure | Effort: S | Source: PR#4 Claude review | Impact: Better test organization
+  * Create __tests__/unit/, __tests__/integration/, __tests__/utils/ directories
+  * Move tests to appropriate directories based on type
+  * Improves test discoverability and maintenance
+- [ ] [LOW] [PERF] Add CI test result caching | Effort: S | Source: PR#4 Claude review | Impact: Faster CI runs
+  * Cache coverage/ directory in GitHub Actions
+  * Key by commit SHA for accurate results
+  * Reduces redundant test execution in CI
 
 ### Code Quality & Simplification
 - [ ] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication

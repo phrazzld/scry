@@ -1,14 +1,41 @@
-# Vitest Testing Foundation Implementation TODO
+# Testing Infrastructure - PR #4 Feedback TODO
 
-Generated from TASK.md on 2025-01-08
+Generated from PR #4 review feedback on 2025-01-08
 
-## Critical Path Items (Must complete in order)
+## Immediate Fixes (Before Merge)
 
-- [ ] Verify existing test infrastructure runs correctly
+- [x] Fix test determinism in format-review-time.test.ts ✅ COMPLETED
+  - Success criteria: Test uses fake timers instead of Date.now()
+  - Location: lib/format-review-time.test.ts:94
+  - Implementation: Use vi.useFakeTimers() for deterministic behavior
+  - Priority: MEDIUM (prevents CI flakiness)
+  - Reviewer: gemini-code-assist
+  - **Completed:** 2025-01-08
+  - **Result:** Fixed non-deterministic test by adding vi fake timers
+  - **Tests:** All 52 tests passing
+
+## Post-Merge Enhancements
+
+- [x] Improve CI test output visibility ✅ COMPLETED
+  - Success criteria: Verbose test output in CI logs
+  - Location: package.json test scripts or vitest.config.ts
+  - Implementation: Add --reporter=verbose to test commands
+  - Priority: LOW
+  - **Completed:** 2025-01-08
+  - **Result:** Added --reporter=verbose to test, test:unit, and test:coverage scripts
+  - **Tests:** All 52 tests passing with detailed output per test
+  - Reviewer: Claude
+  - Benefit: Better debugging of CI test failures
+
+## Completed Items (Archive)
+
+### Critical Path Items (Must complete in order)
+
+- [x] Verify existing test infrastructure runs correctly
   - Success criteria: `pnpm test` executes without errors
   - Dependencies: None
   - Estimated complexity: SIMPLE
-  - Status: ✅ Tests already run (2 test files, 32 tests passing)
+  - Status: ✅ Tests already run (3 test files, 52 tests passing)
 
 - [x] Adjust vitest.config.ts coverage thresholds for initial setup
   - Success criteria: Coverage check passes without blocking CI
@@ -49,10 +76,11 @@ Generated from TASK.md on 2025-01-08
   - File: `.github/workflows/ci.yml`
   - Current status: Needs checking if tests run in CI
 
-- [ ] Ensure coverage reports are generated in CI
+- [x] Ensure coverage reports are generated in CI
   - Success criteria: Coverage artifacts available in CI logs
   - Dependencies: CI test execution working
   - Note: Don't enforce thresholds yet
+  - ✅ Coverage step added to CI workflow (pnpm test:coverage --run)
 
 ## Testing & Validation
 
@@ -63,22 +91,26 @@ Generated from TASK.md on 2025-01-08
     - `pnpm test:coverage --run`
     - `pnpm test:watch` (verify interactive mode)
 
-- [ ] Create PR and verify CI passes
+- [x] Create PR and verify CI passes
   - Success criteria: Green checkmark on PR
   - Dependencies: All above tasks complete
   - Validation: Tests run, no threshold failures
+  - ✅ PR #4 created: https://github.com/phrazzld/scry/pull/4
+  - ✅ All CI checks passing
 
 ## Documentation & Cleanup
 
-- [ ] Update package.json if any scripts missing
+- [x] Update package.json if any scripts missing
   - Success criteria: All standard test scripts present
   - Current status: Scripts look complete
   - Estimated complexity: SIMPLE
+  - ✅ No changes needed - all test scripts already present
 
-- [ ] Document test file patterns and conventions
+- [x] Document test file patterns and conventions
   - Success criteria: Clear guidance in README
   - Location: README.md testing section
   - Include: File naming (`.test.ts`), test location, coverage viewing
+  - ✅ Added comprehensive testing section to README
 
 ## Implementation Notes
 
@@ -121,11 +153,11 @@ describe('describeReviewInterval', () => {
 ```
 
 ## Success Metrics
-- [ ] 2-3 test files running successfully
-- [ ] Coverage report generates (percentage not important yet)
-- [ ] CI runs tests without failures
-- [ ] Documentation clear for other developers
-- [ ] No blocking thresholds preventing merges
+- [x] 2-3 test files running successfully (3 files, 52 tests)
+- [x] Coverage report generates (percentage not important yet)
+- [x] CI runs tests without failures
+- [x] Documentation clear for other developers
+- [x] No blocking thresholds preventing merges
 
 ## Non-Goals (Explicitly Not Doing)
 - ❌ Setting high coverage thresholds
