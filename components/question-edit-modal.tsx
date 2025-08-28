@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { useLiveRegion } from '@/components/ui/live-region'
 import {
   Form,
   FormControl,
@@ -69,6 +70,9 @@ export function QuestionEditModal({
 }: QuestionEditModalProps) {
   const [isLoading, setIsLoading] = React.useState(false)
   const { optimisticEdit } = useOptimisticEdit()
+  
+  // Live region for accessibility announcements
+  const { announce, LiveRegionComponent } = useLiveRegion()
 
   const form = useForm<QuestionEditFormValues>({
     resolver: zodResolver(questionEditSchema),
@@ -106,7 +110,10 @@ export function QuestionEditModal({
     })
 
     if (result.success) {
+      announce('Question updated successfully', 'polite')
       onSuccess?.()
+    } else {
+      announce('Failed to update question. Please try again.', 'assertive')
     }
     
     setIsLoading(false)
@@ -249,6 +256,9 @@ export function QuestionEditModal({
           </form>
         </Form>
       </DialogContent>
+      
+      {/* Live region for screen reader announcements */}
+      {LiveRegionComponent}
     </Dialog>
   )
 }

@@ -202,24 +202,29 @@ export function QuizHistoryPageClient() {
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col gap-4 mb-6">
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <label htmlFor="quiz-history-search" className="sr-only">
+              Search quizzes by topic
+            </label>
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
             <Input
+              id="quiz-history-search"
               type="text"
               placeholder="Search quizzes by topic..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
+              aria-label="Search quizzes by topic"
             />
           </div>
           
           {/* Filter Controls */}
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
             {/* Time Filter */}
             <Select value={timeFilter} onValueChange={(value: string) => setTimeFilter(value as TimeFilter)}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px] min-w-[120px]">
                 <Calendar className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -235,7 +240,7 @@ export function QuizHistoryPageClient() {
             {/* Score Filter */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-[140px]">
+                <Button variant="outline" className="w-full sm:w-[140px] min-w-[120px]">
                   <Trophy className="h-4 w-4 mr-2" />
                   Score Filter
                 </Button>
@@ -255,7 +260,7 @@ export function QuizHistoryPageClient() {
             {/* Sort Options */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-[140px]">
+                <Button variant="outline" className="w-full sm:w-[140px] min-w-[120px]">
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Sort By
                 </Button>

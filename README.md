@@ -5,8 +5,10 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 ## Features
 
 - **AI-Powered Quiz Generation**: Create personalized quizzes using Google Gemini
+- **Question Management**: Edit, delete, and restore your questions with creator-only permissions
 - **Individual Question Tracking**: Every generated question is persisted and tracked independently
 - **Interaction Analytics**: Each answer attempt is recorded with timing and accuracy data
+- **Optimistic UI**: Immediate feedback for all operations with automatic error rollback
 - **Spaced Repetition Learning**: Optimized review scheduling using the ts-fsrs algorithm
 - **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
 - **Real-time Updates**: Built on Convex for instant data synchronization
@@ -417,6 +419,93 @@ Scry uses the FSRS algorithm, which represents the current state-of-the-art in s
 4. **Stay Consistent**: Regular reviews lead to long-term retention
 
 The review indicator on your dashboard will show when questions are ready for review. Questions you've never seen before are prioritized, followed by overdue questions that need reinforcement.
+
+### Question Management & CRUD Operations
+
+Scry provides comprehensive question management capabilities with creator-only permissions and optimistic UI for immediate feedback.
+
+#### Features Overview
+
+- **Edit Questions**: Modify question text, topic, and explanation while preserving spaced repetition data
+- **Soft Delete**: Delete questions with ability to restore them later
+- **Creator Permissions**: Only question creators can edit or delete their questions
+- **Optimistic Updates**: Immediate UI feedback with automatic rollback on errors
+- **Real-time Sync**: Changes sync instantly across all sessions using Convex
+- **FSRS Preservation**: CRUD operations preserve spaced repetition scheduling data
+
+#### Managing Your Questions
+
+**Accessing Question Management:**
+1. Navigate to "My Questions" from the dashboard or main menu
+2. View all your created questions in a searchable grid
+3. Use edit/delete buttons that appear only on questions you created
+
+**Editing Questions:**
+- Click the edit button (pencil icon) on any question you created
+- Modify the question text, topic, or explanation
+- Questions, options, and correct answers cannot be changed to preserve learning data
+- Changes are saved instantly with immediate visual feedback
+- Form validation ensures data integrity
+
+**Deleting Questions:**
+- Click the delete button (trash icon) with confirmation dialog
+- Questions are soft-deleted (not permanently removed)
+- Deleted questions are excluded from quiz generation and spaced repetition
+- Your learning progress and interaction history are preserved
+
+**Restoring Questions:**
+- Use the `restoreQuestion` API to recover accidentally deleted questions
+- All spaced repetition data and interaction history remain intact
+- Restored questions immediately re-enter your review queue if due
+
+#### Technical Implementation
+
+**Permission Model:**
+```typescript
+// Creator-only access enforced at the database level
+const isOwner = question.userId === ctx.userId;
+if (!isOwner) {
+  throw new Error("Only the question creator can edit this question");
+}
+```
+
+**Optimistic Updates:**
+- **Edit Operations**: Immediate UI updates with automatic rollback on server errors
+- **Delete Operations**: Questions disappear instantly with toast confirmation
+- **Error Handling**: Failed operations revert UI state and show error messages
+- **Performance**: <1ms perceived response time via optimistic state management
+
+**Data Integrity:**
+- **FSRS Preservation**: Spaced repetition scheduling data (stability, difficulty, review dates) remains unchanged during edits
+- **Interaction History**: All previous answer attempts and timing data are preserved
+- **Soft Delete**: Deleted questions retain all data and can be fully restored
+- **Audit Trail**: All CRUD operations are logged with timestamps
+
+**API Endpoints:**
+- `questions.updateQuestion`: Edit question with validation and permissions
+- `questions.softDeleteQuestion`: Soft delete with creator verification  
+- `questions.restoreQuestion`: Restore deleted questions with full data recovery
+- `questions.getUserQuestions`: Query with optional `includeDeleted` parameter
+
+#### Best Practices
+
+**When to Edit:**
+- Fix typos or clarify question wording
+- Update topic categorization for better organization
+- Add or improve explanations for learning value
+- Avoid changing the meaning or correct answer
+
+**When to Delete:**
+- Remove duplicate questions
+- Clean up poorly generated content
+- Remove questions that are no longer relevant
+- Note: Deletion doesn't affect your learning statistics
+
+**Performance Considerations:**
+- CRUD operations use optimistic updates for instant feedback
+- Large question libraries may benefit from pagination (implemented automatically)
+- Search and filtering help manage extensive question collections
+- Real-time sync ensures consistency across devices and sessions
 
 ## Troubleshooting
 

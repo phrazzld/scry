@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { QuestionEditModal } from "./question-edit-modal"
 import { useQuestionMutations } from "@/hooks/use-question-mutations"
+import { useLiveRegion } from "@/components/ui/live-region"
 import type { Question } from "@/types/quiz"
 import { Id } from "@/convex/_generated/dataModel"
 
@@ -33,6 +34,9 @@ export function QuizQuestionsGrid() {
   
   // Use optimistic mutations hook
   const { optimisticDelete, applyOptimisticChanges } = useQuestionMutations()
+  
+  // Live region for accessibility announcements
+  const { announce, LiveRegionComponent } = useLiveRegion()
 
   // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {
@@ -105,9 +109,15 @@ export function QuizQuestionsGrid() {
     setDeletingQuestion(null) // Close dialog immediately for better UX
     
     // Optimistic delete handles all error cases and rollback
-    await optimisticDelete({
+    const result = await optimisticDelete({
       questionId: deletingQuestion._id as Id<'questions'>,
     })
+    
+    if (result.success) {
+      announce('Question deleted successfully', 'polite')
+    } else {
+      announce('Failed to delete question. Please try again.', 'assertive')
+    }
     
     setIsDeleting(false)
   }
@@ -116,13 +126,18 @@ export function QuizQuestionsGrid() {
     <div className="space-y-6">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <label htmlFor="questions-search" className="sr-only">
+          Search questions by text or topic
+        </label>
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
         <Input
+          id="questions-search"
           type="text"
           placeholder="Search questions by text or topic..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
+          aria-label="Search questions by text or topic"
         />
       </div>
 
@@ -160,8 +175,10 @@ export function QuizQuestionsGrid() {
                           onClick={() => setEditingQuestion(question)}
                           className="h-8 w-8 p-0"
                           title="Edit question"
+                          aria-label={`Edit question: ${question.question}`}
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Edit2 className="h-4 w-4" aria-hidden="true" />
+                          <span className="sr-only">Edit question</span>
                         </Button>
                         <Button
                           variant="ghost"
@@ -169,8 +186,10 @@ export function QuizQuestionsGrid() {
                           onClick={() => setDeletingQuestion(question)}
                           className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
                           title="Delete question"
+                          aria-label={`Delete question: ${question.question}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          <span className="sr-only">Delete question</span>
                         </Button>
                       </>
                     )}
@@ -295,6 +314,9 @@ export function QuizQuestionsGrid() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Live region for screen reader announcements */}
+      {LiveRegionComponent}
     </div>
   )
 }
