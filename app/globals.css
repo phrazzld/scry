@@ -98,7 +98,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
   
-  /* CSS Grid Layout System */
+  /* CSS Grid Layout System (New) */
   .layout-grid {
     display: grid;
     grid-template-rows: auto 1fr auto;
@@ -109,6 +109,24 @@
   .layout-grid > * {
     /* Ensure grid children respect layout boundaries */
     min-width: 0;
+  }
+  
+  /* Legacy Layout System (Rollback) */
+  .layout-legacy {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+  
+  .layout-legacy > main {
+    flex: 1;
+    /* Add padding to account for fixed navbar when in legacy mode */
+    padding-top: 0; /* Spacer div handles this */
+  }
+  
+  .layout-legacy > footer {
+    margin-top: auto; /* Push footer to bottom */
   }
   
   /* Typography hierarchy */

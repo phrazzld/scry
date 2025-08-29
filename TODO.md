@@ -265,22 +265,26 @@ Generated from TASK.md on 2025-08-27
   - All tests passing (76/76 total), no regressions introduced
   ```
 
-- [ ] Create integration tests for question lifecycle
+- [x] Create integration tests for question lifecycle
   - Success criteria: Test create → edit → delete → restore flow
   - Dependencies: All CRUD implementation complete
   - Test coverage: End-to-end user journey with Convex backend
   ```
   Work Log:
-  - Created comprehensive integration test suite testing complete question lifecycle workflows
-  - Followed Leyline integration-first testing philosophy with real database simulation
-  - Built enhanced TestConvexDB with full CRUD operations and realistic query simulation
-  - Tested complete create → query → update → interact → delete → restore workflows
-  - Verified FSRS data preservation throughout entire lifecycle (9 FSRS fields maintained)
-  - Tested permission boundaries across all lifecycle operations with multi-user scenarios
-  - Validated batch operations and cross-question interactions with concurrent operations
-  - All 6 integration tests passing: complete workflow, FSRS preservation, permissions, isolation, batch ops, concurrency
-  - Test file: convex/questions.lifecycle.test.ts (700+ lines of end-to-end coverage)
-  - Covers authentication context simulation, database state management, multi-step validation
+  - Created comprehensive integration test suite for question lifecycle
+  - Built QuestionLifecycleSimulator class to simulate Convex backend operations
+  - Implemented 8 integration tests covering all lifecycle phases:
+    1. Complete create → edit → delete → restore workflow
+    2. FSRS data preservation throughout lifecycle
+    3. Creator-only permission enforcement
+    4. Invalid state transition prevention
+    5. Interaction tracking with stats updates
+    6. Interaction history preservation through delete/restore
+    7. Batch operations with multiple questions
+    8. Error handling for non-existent questions
+  - Test file: convex/questions.lifecycle.test.ts (300+ lines)
+  - All tests passing (84 total tests in project, up from 76)
+  - Validates permission boundaries, data integrity, and state management
   ```
 
 - [x] Add E2E tests for layout and navigation
@@ -413,17 +417,42 @@ Generated from TASK.md on 2025-08-27
 
 ## Risk Mitigation
 
-- [ ] Validate FSRS data integrity with soft delete
+- [x] Validate FSRS data integrity with soft delete
   - Success criteria: Deleted questions don't affect spaced repetition scheduling
   - Can start: Parallel with CRUD development
   - Estimated complexity: SIMPLE
   - Implementation: Test scheduling calculations with soft-deleted questions
+  ```
+  Work Log:
+  - Reviewed existing test coverage in convex/fsrs-soft-delete.test.ts (8 comprehensive tests)
+  - Verified all FSRS fields preserved during soft delete/restore operations
+  - Confirmed deleted questions are properly excluded from review queue
+  - Validated getDueCount and getNextReview queries filter deletedAt correctly
+  - Tested retrievability calculations remain valid through delete/restore cycles
+  - All 4 FSRS states (new/learning/review/relearning) handle deletion properly
+  - Edge cases covered: legacy questions without FSRS data, scheduling intervals
+  - All 76 tests passing including 8 FSRS soft delete integrity tests
+  - Success criteria fully met - existing test coverage is comprehensive
+  ```
 
-- [ ] Create rollback plan for layout changes
+- [x] Create rollback plan for layout changes
   - Success criteria: Feature flag to toggle between old/new layout systems
   - Can start: With layout implementation
   - Estimated complexity: SIMPLE
   - Implementation: Environment variable to control layout mode
+  ```
+  Work Log:
+  - Created lib/layout-mode.ts with feature flag utilities
+  - Environment variable: NEXT_PUBLIC_USE_LEGACY_LAYOUT=true to enable legacy layout
+  - Default behavior: CSS Grid layout (when env var absent or false)
+  - Updated layout.tsx to conditionally apply layout classes
+  - Updated navbar.tsx to use conditional positioning (fixed vs sticky)
+  - Added legacy layout styles to globals.css (flex-based fallback)
+  - Navbar spacer div only rendered in legacy mode to prevent content overlap
+  - All tests passing (76/76), TypeScript compilation clean, ESLint passing
+  - Build successful with both layout modes supported
+  - To enable rollback: Set NEXT_PUBLIC_USE_LEGACY_LAYOUT=true in .env.local or deployment
+  ```
 
 ## Future Enhancements (BACKLOG.md candidates)
 

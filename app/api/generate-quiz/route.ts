@@ -1,36 +1,86 @@
 import { NextRequest } from 'next/server'
-import { z } from 'zod'
 import { generateQuizWithAI } from '@/lib/ai-client'
 import type { SimpleQuestion } from '@/types/quiz'
 import { createRequestLogger, loggers } from '@/lib/logger'
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { 
+  sanitizedQuizRequestSchema, 
+  containsInjectionAttempt, 
+  logInjectionAttempt 
+} from '@/lib/prompt-sanitization';
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-const requestSchema = z.object({
-  topic: z.string().min(3).max(500),
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
-  sessionToken: z.string().optional(), // Add this line
-})
-
 export async function POST(request: NextRequest) {
+  const ipAddress = request.headers.get('x-forwarded-for') || 
+                    request.headers.get('x-real-ip') || 
+                    'unknown';
+  
   const logger = createRequestLogger('api', {
     method: request.method,
     url: request.url,
     headers: Object.fromEntries(request.headers.entries()),
-    ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    ip: ipAddress
   })
   
   const timer = loggers.time('api.generate-quiz', 'api')
   
   try {
+    // Check rate limit first
+    const rateLimitResult = await convex.mutation(api.rateLimit.checkApiRateLimit, {
+      ipAddress,
+      operation: 'quizGeneration',
+    });
+
+    if (!rateLimitResult.allowed) {
+      logger.warn({
+        event: 'api.generate-quiz.rate-limited',
+        ip: ipAddress,
+        attemptsUsed: rateLimitResult.attemptsUsed,
+        maxAttempts: rateLimitResult.maxAttempts,
+      }, 'Rate limit exceeded for quiz generation');
+
+      return new Response(
+        JSON.stringify({ 
+          error: rateLimitResult.errorMessage,
+          retryAfter: rateLimitResult.retryAfter,
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.retryAfter),
+          } 
+        }
+      );
+    }
+
     logger.info({
-      event: 'api.generate-quiz.start'
+      event: 'api.generate-quiz.start',
+      attemptsRemaining: rateLimitResult.attemptsRemaining,
     }, 'Starting quiz generation request')
 
     const body = await request.json()
-    const validationResult = requestSchema.safeParse(body)
+    
+    // Check for injection attempts before validation
+    if (body.topic && containsInjectionAttempt(body.topic)) {
+      logInjectionAttempt(body.topic, ipAddress, logger);
+      
+      // Rate limit injection attempts more aggressively
+      logger.warn({
+        event: 'api.generate-quiz.injection-blocked',
+        ip: ipAddress,
+        topic: body.topic?.substring(0, 100), // Log first 100 chars only
+      }, 'Prompt injection attempt blocked');
+      
+      return new Response(
+        JSON.stringify({ error: 'Invalid topic. Please use a different topic.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const validationResult = sanitizedQuizRequestSchema.safeParse(body)
     
     if (!validationResult.success) {
       logger.warn({
@@ -40,7 +90,7 @@ export async function POST(request: NextRequest) {
       }, 'Invalid request body for quiz generation')
       
       return new Response(
-        JSON.stringify({ error: 'Invalid topic' }),
+        JSON.stringify({ error: validationResult.error.issues[0]?.message || 'Invalid topic' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }

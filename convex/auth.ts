@@ -1,15 +1,18 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { enforceRateLimit } from "./rateLimit";
 
-// Helper to generate a secure random token
+// Helper to generate a cryptographically secure random token
 function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  // Use crypto.getRandomValues() for cryptographically secure random generation
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  
+  // Convert to base64url for a URL-safe token
+  // This creates a 43-character token from 32 random bytes
+  const base64 = btoa(String.fromCharCode(...array));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 export const sendMagicLink = mutation({
@@ -24,6 +27,9 @@ export const sendMagicLink = mutation({
     if (!emailRegex.test(email)) {
       throw new Error("Invalid email format");
     }
+
+    // Enforce rate limiting for magic link requests
+    await enforceRateLimit(ctx, email, "magicLink", true);
 
     // Check for existing unused magic links for this email
     const existingLink = await ctx.db

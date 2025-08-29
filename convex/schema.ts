@@ -122,4 +122,12 @@ export default defineSchema({
   }).index("by_environment", ["environment", "deployedAt"])
     .index("by_status", ["status", "deployedAt"])
     .index("by_branch", ["branch", "deployedAt"]),
+
+  rateLimits: defineTable({
+    identifier: v.string(), // Email address or IP address
+    operation: v.string(), // Type of operation (magicLink, quizGeneration, etc.)
+    timestamp: v.number(), // When the attempt was made
+    metadata: v.optional(v.any()), // Additional data about the attempt
+  }).index("by_identifier", ["identifier", "timestamp"])
+    .index("by_operation", ["operation", "timestamp"]),
 });
