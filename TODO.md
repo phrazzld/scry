@@ -35,10 +35,18 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
   - Files: convex/questions.ts
   - Action: Start from the most selective index (e.g., by_user_topic) and apply filter for attemptCount, or explicitly disallow combined filters
 
-- [ ] Improve pagination in getQuizHistory
+- [x] Improve pagination in getQuizHistory ✅ FIXED 2025-08-29
   - Why: Collecting all documents to compute total is O(n); will degrade with scale
   - Files: convex/quiz.ts
   - Action: Prefer cursor-based pagination by completedAt/_id; compute hasMore via one extra take; consider background counts if needed
+  ```
+  Work Log:
+  - Removed expensive .collect() operation that loaded all results into memory
+  - Implemented efficient hasMore check by fetching limit + 1 items
+  - Maintained backward compatibility with existing offset parameter
+  - Changed from O(n) to O(limit) complexity for pagination
+  - Frontend continues to work without any changes needed
+  ```
 
 - [x] Align topic length limits across app ✅ FIXED 2025-08-29
   - Why: Sanitization allows up to 200 chars; edit modal caps at 100, causing UX inconsistency
