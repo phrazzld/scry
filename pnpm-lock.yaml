@@ -114,9 +114,6 @@ importers:
         specifier: ^3.25.67
         version: 3.25.67
     devDependencies:
-      '@edge-runtime/vm':
-        specifier: ^5.0.0
-        version: 5.0.0
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.1
@@ -147,9 +144,6 @@ importers:
       concurrently:
         specifier: ^9.2.0
         version: 9.2.0
-      convex-test:
-        specifier: ^0.0.38
-        version: 0.0.38(convex@1.25.2(react@19.1.0))
       eslint:
         specifier: ^9
         version: 9.29.0(jiti@2.4.2)
@@ -2059,11 +2053,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  convex-test@0.0.38:
-    resolution: {integrity: sha512-1o/3GvUR9gMLjiqq7SxchI/0OYQaWwbQC4INmB1SNt1WLBjUgEM8+brgpqrZwJ+Vb1DdGZokCVeihwT5IPk49w==}
-    peerDependencies:
-      convex: ^1.16.4
-
   convex@1.25.2:
     resolution: {integrity: sha512-4r3Lsln9ceOOQ8OqQM13yQtZ6rXWcW1BCfqVkP7LXI8sovpbKzEn6CusT9bE2Rv3STqAHYu153adAj37pZm34A==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
@@ -3846,11 +3835,13 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@edge-runtime/primitives@6.0.0': {}
+  '@edge-runtime/primitives@6.0.0':
+    optional: true
 
   '@edge-runtime/vm@5.0.0':
     dependencies:
       '@edge-runtime/primitives': 6.0.0
+    optional: true
 
   '@emnapi/core@1.4.3':
     dependencies:
@@ -5406,10 +5397,6 @@ snapshots:
       supports-color: 8.1.1
       tree-kill: 1.2.2
       yargs: 17.7.2
-
-  convex-test@0.0.38(convex@1.25.2(react@19.1.0)):
-    dependencies:
-      convex: 1.25.2(react@19.1.0)
 
   convex@1.25.2(react@19.1.0):
     dependencies:
