@@ -47,7 +47,7 @@
   * Spin up `convex dev` in CI to enable mutation/permission E2E tests
   * Add smoke tests for `updateQuestion`, `softDeleteQuestion`, `restoreQuestion`
 ### Code Quality & Simplification
-- [ ] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication
+- [x] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication | ✅ Fixed 2025-08-29: Extracted to convex/lib/auth.ts
 - [ ] [HIGH] [ALIGN] Implement ESLint complexity rules (max-lines: 200, complexity: 10) | Effort: S | Quality: 9/10 | Enforcement: CI pipeline blocking
 - [ ] [HIGH] [MAINTAIN] Fix flaky E2E test infrastructure | Effort: M | Target: 100% reliability, <5% false positives | Automation: Auto-retry with alerts
 
@@ -74,13 +74,32 @@
 - [ ] [MEDIUM] [FEATURE] Context-aware quiz generation with embeddings | Effort: L | Value: No duplicate questions | Quality: 8/10
 - [ ] [MEDIUM] [FEATURE] Study notifications via push/email | Effort: M | Value: Increases engagement | Quality: 6/10
 
-### Quality Improvements
-- [ ] [MEDIUM] [MAINTAIN] Remove console.log pollution and implement structured logging | Effort: S | Target: Zero debug logs in production | Enforcement: ESLint rules
+### Quality Improvements  
+- [ ] [MEDIUM] [MAINTAIN] Schedule periodic cleanup of rate limit entries | Effort: S | Source: PR#5 Review | Impact: Prevent unbounded table growth
+  * cleanupExpiredRateLimits exists but is not scheduled
+  * Add cron/scheduler job to run cleanup daily/hourly
+  * Files: convex/rateLimit.ts
+- [ ] [MEDIUM] [MAINTAIN] Remove console.log pollution and implement structured logging | Effort: S | Target: Zero debug logs in production | Enforcement: ESLint rules | Source: PR#5 Review
+  * Replace console.log/console.error in Convex functions with structured logger
+  * Files: convex/auth.ts, convex/emailActions.ts, convex/migrations.ts
+  * Use lib/logger.ts context loggers with NODE_ENV checks
+- [ ] [MEDIUM] [ACCURACY] Correct AI fallback logging to match returned question count | Effort: S | Source: PR#5 Review
+  * Log mentions fallbackQuestionCount: 1, but two fallback questions are returned
+  * Files: lib/ai-client.ts
+- [ ] [MEDIUM] [TEST] Add focused tests for edge cases | Effort: S | Source: PR#5 Review | Impact: Better test coverage
+  * Add tests for bracket/parenthesis replacement in sanitization
+  * Add boundary cases for retryAfter calculations in rate limiting
+  * Files: lib/prompt-sanitization.test.ts, new rate limit tests
 - [ ] [MEDIUM] [SIMPLIFY] Consolidate duplicate UI patterns in quiz-history-views | Effort: S | Metrics: 305→220 lines | Enforcement: Component linter
 - [ ] [MEDIUM] [DX] Enhanced error messages with stack traces | Effort: M | Time saved: 3 hrs/week | Quality: Faster debugging
 - [ ] [MEDIUM] [PERF] Replace polling with WebSocket real-time updates | Effort: L | Target: 90% query reduction | Measurement: Database metrics
+- [ ] [MEDIUM] [PERF] Improve pagination in getQuizHistory | Effort: M | Source: PR#5 Review | Impact: Better scalability
+  * Collecting all documents to compute total is O(n)
+  * Prefer cursor-based pagination by completedAt/_id
+  * Compute hasMore via one extra take
+  * Files: convex/quiz.ts
 - [ ] [LOW] [DOCS] Align README claims with implementation or add minimal audit logging | Effort: S | Clarity: Avoid mismatched expectations
-  * If we keep “Audit Trail” in README, add lightweight logging in mutations
+  * If we keep "Audit Trail" in README, add lightweight logging in mutations
   * Otherwise, update README to remove the claim
 - [ ] [MEDIUM] [PERF] Implement lazy loading and bundle splitting | Effort: M | Target: 40% bundle reduction (<200KB) | Measurement: Lighthouse scores
 

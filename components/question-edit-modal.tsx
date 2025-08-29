@@ -38,7 +38,7 @@ const questionEditSchema = z.object({
   topic: z
     .string()
     .min(1, 'Topic is required')
-    .max(100, 'Topic must be less than 100 characters'),
+    .max(200, 'Topic must be less than 200 characters'),
   explanation: z
     .string()
     .max(1000, 'Explanation must be less than 1000 characters')

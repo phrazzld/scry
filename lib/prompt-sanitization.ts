@@ -98,10 +98,10 @@ export function sanitizeTopic(topic: string): string {
   sanitized = sanitized.replace(/<%.*?%>/g, '');
   
   // Remove URLs to prevent external content injection
-  sanitized = sanitized.replace(/https?:\/\/[^\s]+/g, '[URL removed]');
+  sanitized = sanitized.replace(/https?:\/\/[^\s]+/g, '(URL removed)');
   
   // Remove email addresses
-  sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[email removed]');
+  sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '(email removed)');
   
   // Escape quotes to prevent breaking out of strings
   sanitized = sanitized.replace(/["']/g, '');

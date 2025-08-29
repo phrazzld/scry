@@ -147,10 +147,10 @@ export const getUserQuestions = query({
   handler: async (ctx, args) => {
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
     
-    let query = ctx.db
-      .query("questions")
-      .withIndex("by_user", q => q.eq("userId", userId));
+    // Choose the most selective index based on filters provided
+    let query;
     
+    // If topic is specified, use the topic index (most selective)
     if (args.topic) {
       const topic = args.topic;
       query = ctx.db
@@ -159,18 +159,30 @@ export const getUserQuestions = query({
           q.eq("userId", userId).eq("topic", topic)
         );
     }
-    
-    if (args.onlyUnattempted) {
+    // If only unattempted filter is specified, use that index
+    else if (args.onlyUnattempted) {
       query = ctx.db
         .query("questions")
         .withIndex("by_user_unattempted", q => 
           q.eq("userId", userId).eq("attemptCount", 0)
         );
     }
+    // Otherwise use the basic user index
+    else {
+      query = ctx.db
+        .query("questions")
+        .withIndex("by_user", q => q.eq("userId", userId));
+    }
     
     let questions = await query
       .order("desc")
       .take(args.limit || 50);
+    
+    // Apply additional filters in memory
+    // If topic index was used but unattempted filter also requested, apply it here
+    if (args.topic && args.onlyUnattempted) {
+      questions = questions.filter(q => q.attemptCount === 0);
+    }
     
     // Filter out soft-deleted questions by default
     if (!args.includeDeleted) {

@@ -13,14 +13,23 @@ import {
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function POST(request: NextRequest) {
-  const ipAddress = request.headers.get('x-forwarded-for') || 
-                    request.headers.get('x-real-ip') || 
-                    'unknown';
+  // Extract client IP properly - x-forwarded-for can contain multiple IPs
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const ipAddress = forwardedFor 
+    ? forwardedFor.split(',')[0].trim() // Get first IP from comma-separated list
+    : request.headers.get('x-real-ip') || 
+      request.headers.get('cf-connecting-ip') || // Cloudflare
+      'unknown';
   
   const logger = createRequestLogger('api', {
     method: request.method,
     url: request.url,
-    headers: Object.fromEntries(request.headers.entries()),
+    // Only log safe headers, not sensitive ones like cookies or authorization
+    headers: {
+      'user-agent': request.headers.get('user-agent') || undefined,
+      'content-type': request.headers.get('content-type') || undefined,
+      'accept': request.headers.get('accept') || undefined,
+    },
     ip: ipAddress
   })
   

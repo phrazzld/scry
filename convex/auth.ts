@@ -11,7 +11,8 @@ function generateToken(): string {
   
   // Convert to base64url for a URL-safe token
   // This creates a 43-character token from 32 random bytes
-  const base64 = btoa(String.fromCharCode(...array));
+  // Use Buffer.from() instead of btoa() for Node.js compatibility
+  const base64 = Buffer.from(array).toString('base64');
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 

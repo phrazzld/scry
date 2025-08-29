@@ -2,6 +2,72 @@
 
 Generated from TASK.md on 2025-08-27
 
+## Code Review Follow-ups (2025-08-29)
+
+The following items synthesize the rigorous code review of the ui-ux-quality-improvements branch. They are grouped by priority and reference concrete files to change.
+
+### Critical
+
+- [ ] Replace btoa-based token generation in Convex auth with Node-safe base64url
+  - Why: btoa is not available in Convex/Node runtimes and will throw
+  - Files: convex/auth.ts
+  - Action: Use Buffer.from(bytes).toString('base64') and convert to base64url (replace +/ and trim =)
+
+- [ ] Stop logging raw request headers in generate-quiz API
+  - Why: Avoid accidental logging of cookies/authorization; rely on structured serializers or pass a safe subset
+  - Files: app/api/generate-quiz/route.ts
+  - Action: Only log user-agent/content-type/accept or omit headers entirely
+
+- [ ] Improve client IP extraction for rate limiting
+  - Why: x-forwarded-for can contain multiple IPs; current fallback to 'unknown' degrades bucket quality
+  - Files: app/api/generate-quiz/route.ts
+  - Action: Use first IP from x-forwarded-for, fallback to x-real-ip or request.ip; trim/validate
+
+### High
+
+- [ ] Resolve prompt sanitization whitelist vs replacement token mismatch
+  - Why: sanitizedTopicSchema forbids [ ] but sanitizeTopic inserts "[URL removed]"/"[email removed]"
+  - Files: lib/prompt-sanitization.ts, lib/prompt-sanitization.test.ts
+  - Action: Either add [] to allowed chars, or use parentheses tokens, or remove entirely; update tests accordingly
+
+- [ ] Combine filters correctly in getUserQuestions
+  - Why: Reassigning query for topic and onlyUnattempted overwrites earlier constraints
+  - Files: convex/questions.ts
+  - Action: Start from the most selective index (e.g., by_user_topic) and apply filter for attemptCount, or explicitly disallow combined filters
+
+- [ ] Improve pagination in getQuizHistory
+  - Why: Collecting all documents to compute total is O(n); will degrade with scale
+  - Files: convex/quiz.ts
+  - Action: Prefer cursor-based pagination by completedAt/_id; compute hasMore via one extra take; consider background counts if needed
+
+- [ ] Align topic length limits across app
+  - Why: Sanitization allows up to 200 chars; edit modal caps at 100, causing UX inconsistency
+  - Files: lib/prompt-sanitization.ts, components/question-edit-modal.tsx
+  - Action: Pick a single max (100 or 200) and apply consistently (schemas, UI validation)
+
+### Medium
+
+- [ ] Schedule periodic cleanup of rate limit entries
+  - Why: cleanupExpiredRateLimits exists but is not scheduled; table may grow unbounded
+  - Files: convex/rateLimit.ts, Convex scheduler configuration
+  - Action: Add a cron/scheduler job to run cleanup daily/hourly
+
+- [ ] Replace console.log/console.error in Convex functions with structured logger
+  - Why: Consistent production logging and redaction
+  - Files: convex/auth.ts, convex/emailActions.ts, convex/migrations.ts (status logs)
+  - Action: Use lib/logger.ts context loggers; guard noisy logs with NODE_ENV checks where appropriate
+
+- [ ] Correct AI fallback logging to match returned question count
+  - Why: Log mentions fallbackQuestionCount: 1, but two fallback questions are returned
+  - Files: lib/ai-client.ts
+  - Action: Update log metadata/message to reflect 2 fallback questions or adjust fallback set
+
+- [ ] Add focused tests for edge cases
+  - Why: Solidify guarantees around sanitization and rate-limit edges
+  - Files: lib/prompt-sanitization.test.ts, new tests for rate limit window boundaries
+  - Action: Add tests for bracket/parenthesis replacement, and boundary cases for retryAfter calculations
+
+
 ## Critical Path Items (Must complete in order)
 
 - [x] Implement CSS Grid layout system infrastructure
@@ -506,4 +572,3 @@ Summary of changes and follow-ups from code review of ui-ux-quality-improvements
 - Validation and docs
   - Mirror client-side min/max validation in Convex mutations for question/topic/explanation.
   - README mentions an “Audit Trail” for CRUD; either add lightweight logging to mutations or update the docs text.
-
