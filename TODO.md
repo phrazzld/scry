@@ -8,29 +8,29 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
 
 ### Critical
 
-- [ ] Replace btoa-based token generation in Convex auth with Node-safe base64url
+- [x] Replace btoa-based token generation in Convex auth with Node-safe base64url ✅ FIXED 2025-08-29
   - Why: btoa is not available in Convex/Node runtimes and will throw
   - Files: convex/auth.ts
   - Action: Use Buffer.from(bytes).toString('base64') and convert to base64url (replace +/ and trim =)
 
-- [ ] Stop logging raw request headers in generate-quiz API
+- [x] Stop logging raw request headers in generate-quiz API ✅ FIXED 2025-08-29
   - Why: Avoid accidental logging of cookies/authorization; rely on structured serializers or pass a safe subset
   - Files: app/api/generate-quiz/route.ts
   - Action: Only log user-agent/content-type/accept or omit headers entirely
 
-- [ ] Improve client IP extraction for rate limiting
+- [x] Improve client IP extraction for rate limiting ✅ FIXED 2025-08-29
   - Why: x-forwarded-for can contain multiple IPs; current fallback to 'unknown' degrades bucket quality
   - Files: app/api/generate-quiz/route.ts
   - Action: Use first IP from x-forwarded-for, fallback to x-real-ip or request.ip; trim/validate
 
 ### High
 
-- [ ] Resolve prompt sanitization whitelist vs replacement token mismatch
+- [x] Resolve prompt sanitization whitelist vs replacement token mismatch ✅ FIXED 2025-08-29
   - Why: sanitizedTopicSchema forbids [ ] but sanitizeTopic inserts "[URL removed]"/"[email removed]"
   - Files: lib/prompt-sanitization.ts, lib/prompt-sanitization.test.ts
   - Action: Either add [] to allowed chars, or use parentheses tokens, or remove entirely; update tests accordingly
 
-- [ ] Combine filters correctly in getUserQuestions
+- [x] Combine filters correctly in getUserQuestions ✅ FIXED 2025-08-29
   - Why: Reassigning query for topic and onlyUnattempted overwrites earlier constraints
   - Files: convex/questions.ts
   - Action: Start from the most selective index (e.g., by_user_topic) and apply filter for attemptCount, or explicitly disallow combined filters
@@ -40,9 +40,9 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
   - Files: convex/quiz.ts
   - Action: Prefer cursor-based pagination by completedAt/_id; compute hasMore via one extra take; consider background counts if needed
 
-- [ ] Align topic length limits across app
+- [x] Align topic length limits across app ✅ FIXED 2025-08-29
   - Why: Sanitization allows up to 200 chars; edit modal caps at 100, causing UX inconsistency
-  - Files: lib/prompt-sanitization.ts, components/question-edit-modal.tsx
+  - Files: lib/prompt-sanitization.ts, components/question-edit-modal.tsx, components/topic-input.tsx
   - Action: Pick a single max (100 or 200) and apply consistently (schemas, UI validation)
 
 ### Medium
