@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { GenericMutationCtx } from "convex/server";
 import { DataModel } from "./_generated/dataModel";
 
@@ -197,10 +197,10 @@ export const getRateLimitStatus = query({
 });
 
 /**
- * Mutation to clean up expired rate limit entries
- * Can be scheduled to run periodically
+ * Internal mutation to clean up expired rate limit entries
+ * Scheduled to run hourly via cron job
  */
-export const cleanupExpiredRateLimits = mutation({
+export const cleanupExpiredRateLimits = internalMutation({
   args: {},
   handler: async (ctx) => {
     const maxWindowMs = Math.max(

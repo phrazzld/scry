@@ -55,10 +55,18 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
 
 ### Medium
 
-- [ ] Schedule periodic cleanup of rate limit entries
+- [x] Schedule periodic cleanup of rate limit entries ✅ FIXED 2025-08-29
   - Why: cleanupExpiredRateLimits exists but is not scheduled; table may grow unbounded
   - Files: convex/rateLimit.ts, Convex scheduler configuration
   - Action: Add a cron/scheduler job to run cleanup daily/hourly
+  ```
+  Work Log:
+  - Created convex/cron.ts with hourly scheduled cleanup
+  - Converted cleanupExpiredRateLimits to internalMutation for cron access
+  - Runs at the top of every hour (minute 0)
+  - Cleans entries older than 2x the max window time
+  - Prevents unbounded table growth automatically
+  ```
 
 - [ ] Replace console.log/console.error in Convex functions with structured logger
   - Why: Consistent production logging and redaction
