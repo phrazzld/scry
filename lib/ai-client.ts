@@ -81,8 +81,8 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
     aiLogger.warn({
       event: 'ai.quiz-generation.fallback',
       topic: sanitizedTopic,
-      fallbackQuestionCount: 1
-    }, `Using fallback question for topic: ${sanitizedTopic}`)
+      fallbackQuestionCount: 2
+    }, `Using fallback questions for topic: ${sanitizedTopic}`)
 
     // Return some default questions as fallback
     return [

@@ -73,10 +73,16 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
   - Files: convex/auth.ts, convex/emailActions.ts, convex/migrations.ts (status logs)
   - Action: Use lib/logger.ts context loggers; guard noisy logs with NODE_ENV checks where appropriate
 
-- [ ] Correct AI fallback logging to match returned question count
+- [x] Correct AI fallback logging to match returned question count ✅ FIXED 2025-08-29
   - Why: Log mentions fallbackQuestionCount: 1, but two fallback questions are returned
   - Files: lib/ai-client.ts
   - Action: Update log metadata/message to reflect 2 fallback questions or adjust fallback set
+  ```
+  Work Log:
+  - Updated fallbackQuestionCount from 1 to 2 in log metadata
+  - Changed log message from "Using fallback question" to "Using fallback questions" (plural)
+  - Simple fix to align logging with actual behavior (returns 2 questions)
+  ```
 
 - [ ] Add focused tests for edge cases
   - Why: Solidify guarantees around sanitization and rate-limit edges
