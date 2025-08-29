@@ -344,8 +344,7 @@ export function QuizHistoryPageClient() {
             {viewMode === 'cards' ? (
               /* Card View */
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {filteredAndSortedQuizzes.map((quiz: any) => (
+                {filteredAndSortedQuizzes.map((quiz) => (
                   <Card key={quiz.id} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
@@ -411,8 +410,7 @@ export function QuizHistoryPageClient() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {filteredAndSortedQuizzes.map((quiz: any) => (
+                    {filteredAndSortedQuizzes.map((quiz) => (
                       <TableRow key={quiz.id}>
                         <TableCell className="font-medium">{quiz.topic}</TableCell>
                         <TableCell>

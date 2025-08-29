@@ -1,24 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { scheduleNextReview, getRetrievability, initializeCard, cardToDb } from "./fsrs";
-
-// Helper to get authenticated user ID from session token
-async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken: string | undefined) {
-  if (!sessionToken) {
-    throw new Error("Authentication required");
-  }
-
-  const session = await ctx.db
-    .query("sessions")
-    .withIndex("by_token", (q) => q.eq("token", sessionToken))
-    .first();
-
-  if (!session || session.expiresAt < Date.now()) {
-    throw new Error("Invalid or expired session");
-  }
-
-  return session.userId;
-}
+import { getAuthenticatedUserId } from "./lib/auth";
 
 /**
  * Schedule next review for a question based on user's answer

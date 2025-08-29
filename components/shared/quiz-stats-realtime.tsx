@@ -6,6 +6,17 @@ import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Loader2 } from 'lucide-react'
 
+interface QuizHistoryItem {
+  id: string
+  topic: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  score: number
+  totalQuestions: number
+  percentage: number
+  completedAt: number
+  sessionId?: string
+}
+
 export function QuizStatsRealtime() {
   const { user, sessionToken } = useAuth()
   
@@ -38,13 +49,10 @@ export function QuizStatsRealtime() {
   // Calculate statistics from quiz history
   const quizzes = quizHistory?.quizzes || []
   const totalQuizzes = quizzes.length
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const totalQuestions = quizzes.reduce((sum: number, quiz: any) => sum + quiz.totalQuestions, 0)
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const totalScore = quizzes.reduce((sum: number, quiz: any) => sum + quiz.score, 0)
+  const totalQuestions = quizzes.reduce((sum: number, quiz: QuizHistoryItem) => sum + quiz.totalQuestions, 0)
+  const totalScore = quizzes.reduce((sum: number, quiz: QuizHistoryItem) => sum + quiz.score, 0)
   const averageScore = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0
-  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  const uniqueTopics = new Set(quizzes.map((q: any) => q.topic)).size
+  const uniqueTopics = new Set(quizzes.map((q: QuizHistoryItem) => q.topic)).size
   
   return (
     <Card>

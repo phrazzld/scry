@@ -9,6 +9,17 @@ import { api } from '@/convex/_generated/api'
 import { formatDistanceToNow } from 'date-fns'
 import { Loader2 } from 'lucide-react'
 
+interface QuizHistoryItem {
+  id: string
+  topic: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  score: number
+  totalQuestions: number
+  percentage: number
+  completedAt: number
+  sessionId?: string
+}
+
 interface QuizHistoryRealtimeProps {
   limit?: number
   compact?: boolean
@@ -77,8 +88,7 @@ export function QuizHistoryRealtime({ limit = 10, compact = false }: QuizHistory
   // Display quiz history
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {quizHistory.quizzes.map((quiz: any) => (
+      {quizHistory.quizzes.map((quiz: QuizHistoryItem) => (
         compact ? (
           // Compact view for dashboard
           <div key={quiz.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">

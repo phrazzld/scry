@@ -22,6 +22,10 @@
 - [ ] [HIGH] [DX] PR#6: Pre-commit hooks for related tests only | Effort: S | Impact: Fast feedback loops
 - [ ] [MEDIUM] [MAINTAIN] Gradual coverage increase: 40% → 50% → 60% → 70% | Effort: L | Timeline: Over 4 sprints
 
+- [ ] [HIGH] [MAINTAIN] PR#5a: Fix test runtime environment (pin Node LTS and Rollup/Vitest) | Effort: S | Impact: Unblocks CI tests
+  * Use Node 20.x or 22.x in CI and local dev (engines already require >=20.19)
+  * Pin Rollup/Vitest/Vite to versions compatible with LTS Node; avoid optional native binary resolution issues
+  * Verify vitest runs cleanly: pnpm test should pass on LTS
 ### Testing Enhancements (From PR#4 Review)
 - [ ] [LOW] [DX] Create test utilities library | Effort: S | Source: PR#4 Claude review | Impact: Reusable test patterns
   * Create lib/test-utils.ts with common testing helpers
@@ -34,8 +38,14 @@
 - [ ] [LOW] [PERF] Add CI test result caching | Effort: S | Source: PR#4 Claude review | Impact: Faster CI runs
   * Cache coverage/ directory in GitHub Actions
   * Key by commit SHA for accurate results
+- [ ] [HIGH] [DATA] Use server-side filtering for soft-deleted questions in queries | Effort: S | Impact: Correctness & perf
+  * Update questions.getUserQuestions to filter deletedAt === undefined before `.take()`
+  * Either leverage new `by_user_active` index or remove it if unused
   * Reduces redundant test execution in CI
 
+- [ ] [HIGH] [DX] CI job: run Convex for integration tests | Effort: M | Impact: Realistic backend tests
+  * Spin up `convex dev` in CI to enable mutation/permission E2E tests
+  * Add smoke tests for `updateQuestion`, `softDeleteQuestion`, `restoreQuestion`
 ### Code Quality & Simplification
 - [ ] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication
 - [ ] [HIGH] [ALIGN] Implement ESLint complexity rules (max-lines: 200, complexity: 10) | Effort: S | Quality: 9/10 | Enforcement: CI pipeline blocking
@@ -50,6 +60,11 @@
 - [ ] [HIGH] [PERF] Implement semantic AI response caching | Effort: M | Target: 85% cache hits, 70% cost reduction | Measurement: API call metrics
 - [ ] [HIGH] [PERF] Optimize spaced repetition queries with composite indexing | Effort: L | Target: 75% query time reduction (<50ms) | Measurement: P95 response times
 
+- [ ] [MEDIUM] [UX] “Recently deleted” view with restore action on My Questions | Effort: M | Value: Completes soft delete UX
+  * Add filter toggle to include deleted items and provide Restore button
+  * Surface `questions.restoreQuestion` mutation in UI
+- [ ] [MEDIUM] [VALIDATION] Mirror client-side validation on server for questions | Effort: S | Quality: Data integrity
+  * Enforce min/max lengths for question/topic/explanation in Convex mutations
 ## Medium Priority (MEDIUM) — Features & Optimization
 
 ### Core Features (from Original Backlog)
@@ -64,6 +79,9 @@
 - [ ] [MEDIUM] [SIMPLIFY] Consolidate duplicate UI patterns in quiz-history-views | Effort: S | Metrics: 305→220 lines | Enforcement: Component linter
 - [ ] [MEDIUM] [DX] Enhanced error messages with stack traces | Effort: M | Time saved: 3 hrs/week | Quality: Faster debugging
 - [ ] [MEDIUM] [PERF] Replace polling with WebSocket real-time updates | Effort: L | Target: 90% query reduction | Measurement: Database metrics
+- [ ] [LOW] [DOCS] Align README claims with implementation or add minimal audit logging | Effort: S | Clarity: Avoid mismatched expectations
+  * If we keep “Audit Trail” in README, add lightweight logging in mutations
+  * Otherwise, update README to remove the claim
 - [ ] [MEDIUM] [PERF] Implement lazy loading and bundle splitting | Effort: M | Target: 40% bundle reduction (<200KB) | Measurement: Lighthouse scores
 
 ## Low Priority (LOW) — Future Enhancements
