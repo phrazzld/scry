@@ -20,12 +20,12 @@ describe('Prompt Sanitization', () => {
     });
 
     it('should remove URLs', () => {
-      expect(sanitizeTopic('Visit https://evil.com for answers')).toBe('Visit [URL removed] for answers');
-      expect(sanitizeTopic('http://example.com JavaScript')).toBe('[URL removed] JavaScript');
+      expect(sanitizeTopic('Visit https://evil.com for answers')).toBe('Visit (URL removed) for answers');
+      expect(sanitizeTopic('http://example.com JavaScript')).toBe('(URL removed) JavaScript');
     });
 
     it('should remove email addresses', () => {
-      expect(sanitizeTopic('Contact hacker@evil.com for help')).toBe('Contact [email removed] for help');
+      expect(sanitizeTopic('Contact hacker@evil.com for help')).toBe('Contact (email removed) for help');
     });
 
     it('should remove special characters and escape sequences', () => {
@@ -112,6 +112,133 @@ describe('Prompt Sanitization', () => {
     it('should reject topics with invalid characters', () => {
       const result = sanitizedTopicSchema.safeParse('Math@#$%^');
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Edge Cases - Bracket and Parenthesis Replacement', () => {
+    it('should handle parentheses in normal topics correctly', () => {
+      // Parentheses are allowed in TOPIC_ALLOWED_CHARS
+      expect(sanitizeTopic('Math (advanced)')).toBe('Math (advanced)');
+      expect(sanitizeTopic('Functions (JavaScript)')).toBe('Functions (JavaScript)');
+      expect(sanitizeTopic('(Introduction) to Physics')).toBe('(Introduction) to Physics');
+    });
+
+    it('should not allow square brackets as they are not in allowed chars', () => {
+      // Square brackets are NOT in TOPIC_ALLOWED_CHARS regex
+      const result = sanitizedTopicSchema.safeParse('Array[0] indexing');
+      expect(result.success).toBe(false);
+      
+      const result2 = sanitizedTopicSchema.safeParse('Math [advanced]');
+      expect(result2.success).toBe(false);
+    });
+
+    it('should use parentheses not brackets for URL and email removal', () => {
+      // Verify the replacement text uses parentheses, not brackets
+      expect(sanitizeTopic('Visit https://example.com')).toBe('Visit (URL removed)');
+      expect(sanitizeTopic('Contact user@example.com')).toBe('Contact (email removed)');
+      
+      // Not [URL removed] or [email removed] which would fail validation
+      expect(sanitizeTopic('https://evil.com')).not.toContain('[');
+      expect(sanitizeTopic('hacker@evil.com')).not.toContain('[');
+    });
+
+    it('should handle nested and unmatched parentheses', () => {
+      expect(sanitizeTopic('((nested))')).toBe('((nested))');
+      expect(sanitizeTopic('(a(b(c)d)e)')).toBe('(a(b(c)d)e)');
+      expect(sanitizeTopic('unmatched)')).toBe('unmatched)');
+      expect(sanitizeTopic('(unclosed')).toBe('(unclosed');
+      expect(sanitizeTopic(')reverse(')).toBe(')reverse(');
+    });
+
+    it('should handle edge cases with empty and special inputs', () => {
+      expect(sanitizeTopic('')).toBe('');
+      expect(sanitizeTopic('   ')).toBe('');
+      expect(sanitizeTopic('()')).toBe('()');
+      expect(sanitizeTopic('()()())')).toBe('()()())');
+    });
+
+    it('should validate that sanitized output passes schema validation', () => {
+      // This tests the complete flow: sanitize then validate
+      const urlTopic = 'Learn JavaScript at https://example.com';
+      const sanitized = sanitizeTopic(urlTopic);
+      expect(sanitized).toBe('Learn JavaScript at (URL removed)');
+      
+      // The sanitized version should pass validation
+      const result = sanitizedTopicSchema.safeParse(sanitized);
+      expect(result.success).toBe(true);
+      
+      // Email case
+      const emailTopic = 'Contact teacher@school.edu for help';
+      const sanitizedEmail = sanitizeTopic(emailTopic);
+      expect(sanitizedEmail).toBe('Contact (email removed) for help');
+      
+      const emailResult = sanitizedTopicSchema.safeParse(sanitizedEmail);
+      expect(emailResult.success).toBe(true);
+    });
+
+    it('should handle mixed brackets and parentheses patterns', () => {
+      // Since brackets aren't allowed, test that topics with them are rejected
+      const mixed1 = sanitizedTopicSchema.safeParse('Math [section] (advanced)');
+      expect(mixed1.success).toBe(false);
+      
+      const mixed2 = sanitizedTopicSchema.safeParse('[{nested}]');
+      expect(mixed2.success).toBe(false);
+      
+      // But parentheses with other allowed chars should work
+      const valid = sanitizedTopicSchema.safeParse('Math (section 1) - Advanced');
+      expect(valid.success).toBe(true);
+    });
+  });
+
+  describe('Edge Cases - Length Boundaries', () => {
+    it('should handle exact length boundaries', () => {
+      // Exactly at max length (200)
+      const exactly200 = 'a'.repeat(200);
+      const sanitized200 = sanitizeTopic(exactly200);
+      expect(sanitized200.length).toBe(200);
+      
+      // One over max length
+      const over200 = 'a'.repeat(201);
+      const sanitizedOver = sanitizeTopic(over200);
+      expect(sanitizedOver.length).toBe(200);
+      
+      // Exactly at min length (3)
+      const result3 = sanitizedTopicSchema.safeParse('abc');
+      expect(result3.success).toBe(true);
+      
+      // One under min length (2)
+      const result2 = sanitizedTopicSchema.safeParse('ab');
+      expect(result2.success).toBe(false);
+    });
+
+    it('should handle length with special character removal', () => {
+      // Script tags and their content are removed entirely
+      const willBeTooShort = '<script>ab</script>cd';
+      const sanitized = sanitizeTopic(willBeTooShort);
+      expect(sanitized).toBe('cd');
+      
+      const result = sanitizedTopicSchema.safeParse(willBeTooShort);
+      expect(result.success).toBe(false); // Too short after sanitization
+    });
+  });
+
+  describe('Edge Cases - Special Character Sequences', () => {
+    it('should handle consecutive punctuation correctly', () => {
+      expect(sanitizeTopic('What???')).toBe('What?');
+      expect(sanitizeTopic('Stop!!!')).toBe('Stop!');
+      expect(sanitizeTopic('Really...???')).toBe('Really?'); // Last punctuation in sequence kept
+      expect(sanitizeTopic('Mixed!?!?!?')).toBe('Mixed?'); // Last punctuation in sequence kept
+    });
+
+    it('should handle whitespace edge cases', () => {
+      expect(sanitizeTopic('\n\n\nTopic\n\n\n')).toBe('Topic');
+      expect(sanitizeTopic('\tTabbed\tTopic\t')).toBe('Tabbed Topic');
+      expect(sanitizeTopic('Multiple    spaces    between')).toBe('Multiple spaces between');
+    });
+
+    it('should handle control characters', () => {
+      expect(sanitizeTopic('Topic\x00with\x1Fcontrol\x7Fchars')).toBe('Topicwithcontrolchars');
+      expect(sanitizeTopic('\x00\x01\x02Valid Topic\x7F\x9F')).toBe('Valid Topic');
     });
   });
 });
