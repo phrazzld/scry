@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { enforceRateLimit } from "./rateLimit";
+import { createLogger } from "./lib/logger";
 
 // Helper to generate a cryptographically secure random token
 function generateToken(): string {
@@ -64,15 +65,22 @@ export const sendMagicLink = mutation({
     const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
 
     // Schedule the email action to run asynchronously
-    console.log('[MUTATION] About to schedule email action for:', email);
+    const authLogger = createLogger({ module: 'auth', function: 'sendMagicLink' });
+    authLogger.debug('Scheduling email action', { event: 'email.schedule.start', email });
     try {
       const scheduledId = await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
         email,
         magicLinkUrl,
       });
-      console.log('[MUTATION] Successfully scheduled email action with ID:', scheduledId);
+      authLogger.info('Email action scheduled successfully', { 
+        event: 'email.schedule.success', 
+        scheduledId 
+      });
     } catch (error) {
-      console.error('[MUTATION] Failed to schedule email action:', error);
+      authLogger.error('Failed to schedule email action', error, { 
+        event: 'email.schedule.error',
+        email 
+      });
       throw error;
     }
 
@@ -189,18 +197,32 @@ export const getCurrentUser = query({
     // 3. Development sessions only work in development
     // 4. Legacy sessions (no environment) only work in development
     
+    const sessionLogger = createLogger({ module: 'auth', function: 'getCurrentUser' });
+    
     if (currentEnv === 'production' && sessionEnv !== 'production') {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
     
     if (currentEnv.startsWith('preview') && !sessionEnv.startsWith('preview')) {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
     
     if (currentEnv === 'development' && sessionEnv !== 'development') {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
 

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, internalMutation } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
+import { createLogger } from "./lib/logger";
 
 // Migration status tracking
 export const getMigrationStatus = mutation({
@@ -9,10 +10,12 @@ export const getMigrationStatus = mutation({
   },
   handler: async (ctx, args) => {
     // TODO: Add admin authentication check
-    // For now, log the request for audit purposes
-    console.log('Migration status requested', { 
-      sessionToken: args.sessionToken.substring(0, 8) + '...', 
-      timestamp: new Date().toISOString() 
+    const migrationLogger = createLogger({ module: 'migrations', function: 'getMigrationStatus' });
+    
+    // Log the request for audit purposes
+    migrationLogger.info('Migration status requested', { 
+      event: 'migration.status.request',
+      sessionTokenPrefix: args.sessionToken.substring(0, 8) + '...'
     });
     
     // Future: Use ctx to query migration progress

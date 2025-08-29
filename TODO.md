@@ -68,10 +68,18 @@ The following items synthesize the rigorous code review of the ui-ux-quality-imp
   - Prevents unbounded table growth automatically
   ```
 
-- [ ] Replace console.log/console.error in Convex functions with structured logger
+- [x] Replace console.log/console.error in Convex functions with structured logger ✅ FIXED 2025-08-29
   - Why: Consistent production logging and redaction
   - Files: convex/auth.ts, convex/emailActions.ts, convex/migrations.ts (status logs)
   - Action: Use lib/logger.ts context loggers; guard noisy logs with NODE_ENV checks where appropriate
+  ```
+  Work Log:
+  - Created convex/lib/logger.ts with Convex-compatible structured logger
+  - Replaced all console.log/error/warn calls in auth.ts, emailActions.ts, migrations.ts
+  - Logger includes automatic NODE_ENV checks (debug only in development)
+  - Structured JSON output with event names and contextual metadata
+  - Error objects properly serialized with stack traces
+  ```
 
 - [x] Correct AI fallback logging to match returned question count ✅ FIXED 2025-08-29
   - Why: Log mentions fallbackQuestionCount: 1, but two fallback questions are returned
