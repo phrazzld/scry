@@ -10,10 +10,13 @@ function generateToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   
-  // Convert to base64url for a URL-safe token
+  // Convert to base64 using browser-compatible approach
+  // Convex runs in a V8 isolate (like browsers), not Node.js
+  const binaryString = Array.from(array, byte => String.fromCharCode(byte)).join('');
+  const base64 = btoa(binaryString);
+  
+  // Convert to base64url format (URL-safe)
   // This creates a 43-character token from 32 random bytes
-  // Use Buffer.from() instead of btoa() for Node.js compatibility
-  const base64 = Buffer.from(array).toString('base64');
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
