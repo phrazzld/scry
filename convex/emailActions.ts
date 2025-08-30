@@ -1,7 +1,7 @@
- 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { Resend } from "resend";
+import { createLogger } from "./lib/logger";
 
 // This action is internal - only called via scheduler from mutations
 export const sendMagicLinkEmail = internalAction({
@@ -10,24 +10,37 @@ export const sendMagicLinkEmail = internalAction({
     magicLinkUrl: v.string(),
   },
   handler: async (ctx, { email, magicLinkUrl }) => {
-    console.log('[EMAIL_ACTION] Starting sendMagicLinkEmail', { email, timestamp: Date.now() });
+    const emailLogger = createLogger({ module: 'emailActions', function: 'sendMagicLinkEmail' });
+    
+    emailLogger.debug('Starting email send', { 
+      event: 'email.send.start', 
+      email 
+    });
+    
     // Initialize Resend with API key
     const resendApiKey = process.env.RESEND_API_KEY;
-    console.log('[EMAIL_ACTION] Env vars:', { 
+    emailLogger.debug('Environment configuration', { 
+      event: 'email.config.check',
       hasResendKey: !!resendApiKey, 
-      hasEmailFrom: !!process.env.EMAIL_FROM,
-      resendKeyPrefix: resendApiKey ? resendApiKey.substring(0, 7) : 'none'
+      hasEmailFrom: !!process.env.EMAIL_FROM
     });
     
     if (!resendApiKey) {
-      console.log(`[DEV] Magic link for ${email}: ${magicLinkUrl}`);
+      emailLogger.info('Development mode - magic link logged', { 
+        event: 'email.dev.mode',
+        email,
+        magicLinkUrl 
+      });
       return { success: true, devMode: true };
     }
 
-    console.log('[EMAIL_ACTION] Initializing Resend client');
     const resend = new Resend(resendApiKey);
     const emailFrom = process.env.EMAIL_FROM || 'Scry <noreply@scry.app>';
-    console.log('[EMAIL_ACTION] Email configuration:', { from: emailFrom, to: email });
+    emailLogger.debug('Email client initialized', { 
+      event: 'email.client.init',
+      from: emailFrom, 
+      to: email 
+    });
 
     try {
       const result = await resend.emails.send({
@@ -52,11 +65,10 @@ export const sendMagicLinkEmail = internalAction({
         `,
       });
 
-      console.log('[EMAIL_ACTION] Email sent successfully', { 
+      emailLogger.info('Email sent successfully', { 
+        event: 'email.send.success',
         emailId: result.data?.id,
-        to: email,
-        timestamp: Date.now(),
-        result: result
+        to: email
       });
 
       return { 
@@ -64,19 +76,10 @@ export const sendMagicLinkEmail = internalAction({
         emailId: result.data?.id 
       };
     } catch (error) {
-      console.error('[EMAIL_ACTION] Failed to send email:', error);
-      
-      // Log detailed error information
-      if (error instanceof Error) {
-        console.error('[EMAIL_ACTION] Error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack,
-          fullError: JSON.stringify(error, null, 2)
-        });
-      } else {
-        console.error('[EMAIL_ACTION] Unknown error type:', typeof error, error);
-      }
+      emailLogger.error('Failed to send email', error, {
+        event: 'email.send.error',
+        email
+      });
 
       // Don't throw - we don't want to fail the mutation
       // Just log and return failure

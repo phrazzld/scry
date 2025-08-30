@@ -64,3 +64,5 @@ thinktank.log
 coverage/
 *.lcov
 tsconfig.tsbuildinfo
+test-results/
+playwright-report/

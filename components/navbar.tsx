@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { Button } from '@/components/ui/button'
+import { getNavbarClassName } from '@/lib/layout-mode'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +24,8 @@ export function Navbar() {
   
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto py-4 flex items-center justify-between">
+      <nav className={`${getNavbarClassName()} bg-white border-b border-gray-200`}>
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="text-2xl md:text-3xl font-bold tracking-tight text-black hover:text-black border-b-0 transition-none">
             Scry.
           </Link>

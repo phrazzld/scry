@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     // Global test settings
     globals: true,
+    
+    // Standard node environment for all tests
     environment: 'node',
 
     // Coverage configuration

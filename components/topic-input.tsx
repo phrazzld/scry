@@ -20,7 +20,7 @@ const topicFormSchema = z.object({
   topic: z
     .string()
     .min(3, 'Topic must be at least 3 characters long')
-    .max(500, 'Topic must be less than 500 characters')
+    .max(200, 'Topic must be less than 200 characters')
     .trim()
 })
 

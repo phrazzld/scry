@@ -6,14 +6,37 @@ import { api } from "@/convex/_generated/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
-import { Loader2, CheckCircle, Target, Trophy, Brain, Clock, Calendar, Search } from "lucide-react"
+import { Loader2, CheckCircle, Target, Trophy, Brain, Clock, Calendar, Search, Edit2, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { QuestionEditModal } from "./question-edit-modal"
+import { useQuestionMutations } from "@/hooks/use-question-mutations"
+import { useLiveRegion } from "@/components/ui/live-region"
 import type { Question } from "@/types/quiz"
+import { Id } from "@/convex/_generated/dataModel"
 
 export function QuizQuestionsGrid() {
   const { user, sessionToken } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [loadedCount, setLoadedCount] = useState(30)
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
+  const [deletingQuestion, setDeletingQuestion] = useState<Question | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Use optimistic mutations hook
+  const { optimisticDelete, applyOptimisticChanges } = useQuestionMutations()
+  
+  // Live region for accessibility announcements
+  const { announce, LiveRegionComponent } = useLiveRegion()
 
   // Fetch all user's questions
   const questions = useQuery(api.questions.getUserQuestions, {
@@ -66,35 +89,61 @@ export function QuizQuestionsGrid() {
   }
 
 
-  // Filter questions based on search query
+  // Apply optimistic updates and filter based on search query
+  const optimisticQuestions = applyOptimisticChanges(questions as Question[])
   const filteredQuestions = searchQuery
-    ? questions.filter((q: Question) => 
+    ? optimisticQuestions.filter((q) => 
         q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
         q.topic.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : questions
+    : optimisticQuestions
 
   const handleLoadMore = () => {
     setLoadedCount(prev => prev + 30)
+  }
+
+  const handleDeleteQuestion = async () => {
+    if (!deletingQuestion) return
+    
+    setIsDeleting(true)
+    setDeletingQuestion(null) // Close dialog immediately for better UX
+    
+    // Optimistic delete handles all error cases and rollback
+    const result = await optimisticDelete({
+      questionId: deletingQuestion._id as Id<'questions'>,
+    })
+    
+    if (result.success) {
+      announce('Question deleted successfully', 'polite')
+    } else {
+      announce('Failed to delete question. Please try again.', 'assertive')
+    }
+    
+    setIsDeleting(false)
   }
 
   return (
     <div className="space-y-6">
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <label htmlFor="questions-search" className="sr-only">
+          Search questions by text or topic
+        </label>
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
         <Input
+          id="questions-search"
           type="text"
           placeholder="Search questions by text or topic..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
+          aria-label="Search questions by text or topic"
         />
       </div>
 
       {/* Questions Grid */}
       <div className="grid grid-cols-1 gap-4">
-        {filteredQuestions.map((question: Question) => {
+        {filteredQuestions.map((question) => {
           const accuracy = question.attemptCount > 0 
             ? Math.round((question.correctCount / question.attemptCount) * 100)
             : null
@@ -113,9 +162,38 @@ export function QuizQuestionsGrid() {
                       <span>{question.type === 'true-false' ? 'True/False' : 'Multiple Choice'}</span>
                     </div>
                   </div>
-                  {question.attemptCount > 0 && (
-                    <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-1" />
-                  )}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {question.attemptCount > 0 && (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    )}
+                    {/* Only show action buttons for questions owned by current user */}
+                    {user && question.userId === (user.id as Id<"users">) && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingQuestion(question)}
+                          className="h-8 w-8 p-0"
+                          title="Edit question"
+                          aria-label={`Edit question: ${question.question}`}
+                        >
+                          <Edit2 className="h-4 w-4" aria-hidden="true" />
+                          <span className="sr-only">Edit question</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingQuestion(question)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          title="Delete question"
+                          aria-label={`Delete question: ${question.question}`}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          <span className="sr-only">Delete question</span>
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -189,6 +267,56 @@ export function QuizQuestionsGrid() {
           Showing {filteredQuestions.length} of {questions.length} questions
         </div>
       )}
+
+      {/* Edit Modal */}
+      {editingQuestion && (
+        <QuestionEditModal
+          open={!!editingQuestion}
+          onOpenChange={(open) => !open && setEditingQuestion(null)}
+          question={editingQuestion}
+          onSuccess={() => {
+            setEditingQuestion(null)
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingQuestion} onOpenChange={(open) => !open && setDeletingQuestion(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone, and all learning history for this question will be preserved but the question will no longer appear in reviews.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletingQuestion && (
+            <div className="my-4 p-3 bg-gray-50 rounded-md">
+              <p className="text-sm font-medium text-gray-900 mb-2">Question:</p>
+              <p className="text-sm text-gray-600">{deletingQuestion.question}</p>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteQuestion}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Question'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Live region for screen reader announcements */}
+      {LiveRegionComponent}
     </div>
   )
 }

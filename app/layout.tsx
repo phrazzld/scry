@@ -23,6 +23,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { Providers } from './providers'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
+import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
 
 export default function RootLayout({
   children,
@@ -35,9 +36,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <ConditionalNavbar />
-          {children}
-          <Footer />
+          <div className={getLayoutClassName()}>
+            <ConditionalNavbar />
+            {needsNavbarSpacer() && <div className="h-16" />}
+            <main>{children}</main>
+            <Footer />
+          </div>
           <Toaster />
           <Analytics />
           <SpeedInsights />
