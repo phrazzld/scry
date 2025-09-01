@@ -13,6 +13,7 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 - **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
 - **Real-time Updates**: Built on Convex for instant data synchronization
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
+- **Keyboard Shortcuts**: Power user shortcuts for efficient navigation and review
 
 ## Prerequisites
 
@@ -506,6 +507,50 @@ if (!isOwner) {
 - Large question libraries may benefit from pagination (implemented automatically)
 - Search and filtering help manage extensive question collections
 - Real-time sync ensures consistency across devices and sessions
+
+### Keyboard Shortcuts
+
+Scry includes comprehensive keyboard shortcuts for power users to navigate and review efficiently.
+
+#### Global Shortcuts (Available Everywhere)
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `?` | Show Help | Display keyboard shortcuts reference |
+| `h` | Home | Navigate to home/review page |
+| `Ctrl+S` | Settings | Open settings page |
+| `n` | New Questions | Focus topic input for generation |
+| `Esc` | Close/Cancel | Close modals or cancel editing |
+
+#### Review Mode Shortcuts
+
+| Shortcut | Action | Description |
+|----------|--------|-------------|
+| `1-4` | Select Answer | Choose answer option by number |
+| `Enter` | Submit/Next | Submit answer or go to next question |
+| `Space` | Next Question | Advance when showing feedback |
+| `→` | Next Question | Alternative next navigation |
+| `e` | Edit Question | Open edit mode for current question |
+| `d` or `Delete` | Delete Question | Remove current question |
+| `Ctrl+Z` | Undo | Undo last action (when available) |
+| `s` | Skip Question | Mark as difficult and skip |
+| `x` | Toggle Explanation | Show/hide answer explanation |
+
+#### Visual Indicators
+
+- **Keyboard Icon**: A pulsing keyboard icon appears in the bottom-right corner
+- **Help Modal**: Press `?` at any time to see all available shortcuts
+- **Context Awareness**: Shortcuts adapt based on current state (answering vs feedback)
+
+#### Power User Tips
+
+1. **Speed Review**: Use number keys for answers and Enter to submit rapidly
+2. **Keyboard-Only Navigation**: Complete entire review sessions without touching the mouse
+3. **Quick Edits**: Press `e` to instantly edit questions inline
+4. **Efficient Skipping**: Use `s` to mark difficult questions for later review
+5. **Modal Management**: Escape key consistently closes any open modal
+
+The keyboard shortcuts system is designed to make reviewing fast and efficient, especially for users who prefer keyboard navigation over mouse interactions.
 
 ## Troubleshooting
 

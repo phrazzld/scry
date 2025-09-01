@@ -16,6 +16,9 @@ import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
 import { toast } from "sonner";
 import { AuthModal } from "@/components/auth";
+import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
+import { KeyboardIndicator } from "@/components/keyboard-indicator";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -234,39 +237,45 @@ export function ReviewFlow() {
     }
   }, [sessionToken, deleteQuestion, restoreQuestion, router]);
   
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't handle shortcuts if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
+  // Enhanced keyboard shortcuts for power users
+  const { showHelp, setShowHelp, shortcuts } = useReviewShortcuts({
+    onSelectAnswer: (index) => {
+      if (currentQuestion?.question.options[index]) {
+        setSelectedAnswer(currentQuestion.question.options[index]);
       }
-      
-      if (showingFeedback) {
-        // When showing feedback, Enter or Space advances to next question
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          advanceToNext();
-        }
-      } else {
-        // When answering, number keys select options
-        if (e.key >= '1' && e.key <= '4') {
-          const index = parseInt(e.key) - 1;
-          if (currentQuestion?.question.options[index]) {
-            setSelectedAnswer(currentQuestion.question.options[index]);
-          }
-        }
-        // Enter submits the answer if one is selected
-        if (e.key === 'Enter' && selectedAnswer && !isAnswering) {
-          e.preventDefault();
-          handleSubmit();
-        }
+    },
+    onSubmit: handleSubmit,
+    onNext: advanceToNext,
+    onEdit: () => {
+      if (currentQuestion && !isEditing) {
+        setIsEditing(true);
+      }
+    },
+    onDelete: () => {
+      if (currentQuestion) {
+        handleDelete(currentQuestion.question._id);
+      }
+    },
+    onUndo: () => {
+      // Implement undo logic if there's a recent deletion
+      toast.info('Undo not available');
+    },
+    showingFeedback,
+    isAnswering,
+    canSubmit: !!selectedAnswer,
+  });
+  
+  // Listen for escape key to cancel editing
+  useEffect(() => {
+    const handleEscape = () => {
+      if (isEditing) {
+        setIsEditing(false);
       }
     };
     
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showingFeedback, selectedAnswer, currentQuestion, handleSubmit, advanceToNext, isAnswering]);
+    window.addEventListener('escape-pressed', handleEscape);
+    return () => window.removeEventListener('escape-pressed', handleEscape);
+  }, [isEditing]);
   
   
   // Loading state
@@ -513,6 +522,16 @@ export function ReviewFlow() {
           </CardContent>
         </Card>
       )}
+      
+      {/* Keyboard shortcuts help modal */}
+      <KeyboardShortcutsHelp
+        open={showHelp}
+        onOpenChange={setShowHelp}
+        shortcuts={shortcuts}
+      />
+      
+      {/* Keyboard indicator - shows shortcuts are available */}
+      <KeyboardIndicator onClick={() => setShowHelp(true)} />
     </div>
   );
 }
