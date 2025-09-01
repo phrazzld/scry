@@ -357,3 +357,151 @@ export const restoreQuestion = mutation({
     };
   },
 });
+
+// Mutation to prepare for generating related questions
+export const prepareRelatedGeneration = mutation({
+  args: {
+    baseQuestionId: v.id("questions"),
+    sessionToken: v.string(),
+    count: v.optional(v.number()), // Default to 3 related questions
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // Get the base question
+    const baseQuestion = await ctx.db.get(args.baseQuestionId);
+    
+    if (!baseQuestion) {
+      throw new Error("Question not found");
+    }
+    
+    // Verify ownership
+    if (baseQuestion.userId !== userId) {
+      throw new Error("Unauthorized: You can only generate related questions for your own questions");
+    }
+    
+    // Check if question is deleted
+    if (baseQuestion.deletedAt) {
+      throw new Error("Cannot generate related questions for deleted questions");
+    }
+    
+    // Return the base question data needed for AI generation
+    return {
+      success: true,
+      baseQuestion: {
+        id: baseQuestion._id,
+        topic: baseQuestion.topic,
+        difficulty: baseQuestion.difficulty,
+        question: baseQuestion.question,
+        type: baseQuestion.type,
+        correctAnswer: baseQuestion.correctAnswer,
+        explanation: baseQuestion.explanation,
+      },
+      requestedCount: args.count || 3,
+    };
+  },
+});
+
+// Mutation to save related questions after AI generation
+export const saveRelatedQuestions = mutation({
+  args: {
+    sessionToken: v.string(),
+    baseQuestionId: v.id("questions"),
+    relatedQuestions: v.array(v.object({
+      question: v.string(),
+      type: v.optional(v.union(v.literal('multiple-choice'), v.literal('true-false'))),
+      options: v.array(v.string()),
+      correctAnswer: v.string(),
+      explanation: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // Get the base question for topic and difficulty
+    const baseQuestion = await ctx.db.get(args.baseQuestionId);
+    
+    if (!baseQuestion) {
+      throw new Error("Base question not found");
+    }
+    
+    // Verify ownership
+    if (baseQuestion.userId !== userId) {
+      throw new Error("Unauthorized: You can only save related questions for your own questions");
+    }
+    
+    // Initialize FSRS card for new questions
+    const initialCard = initializeCard();
+    const fsrsFields = cardToDb(initialCard);
+    
+    // Save all related questions with same topic and difficulty as base
+    const questionIds = await Promise.all(
+      args.relatedQuestions.map(q => 
+        ctx.db.insert("questions", {
+          userId,
+          topic: baseQuestion.topic,
+          difficulty: baseQuestion.difficulty,
+          question: q.question,
+          type: q.type || 'multiple-choice',
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          generatedAt: Date.now(),
+          attemptCount: 0,
+          correctCount: 0,
+          // Initialize FSRS fields
+          ...fsrsFields,
+        })
+      )
+    );
+    
+    return { 
+      success: true,
+      questionIds, 
+      count: questionIds.length,
+      message: `Generated ${questionIds.length} related questions`
+    };
+  },
+});
+
+// Query to get user's recent topics for quick generation
+export const getRecentTopics = query({
+  args: {
+    sessionToken: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    
+    // Query user's recent questions (not deleted)
+    const recentQuestions = await ctx.db
+      .query("questions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .order("desc") // Most recent first
+      .take(100); // Get enough to find unique topics
+    
+    // Filter out deleted questions and extract unique topics
+    const topicCounts = new Map<string, number>();
+    
+    for (const question of recentQuestions) {
+      // Skip deleted questions
+      if (question.deletedAt) continue;
+      
+      // Skip questions without topics
+      if (!question.topic) continue;
+      
+      // Count occurrences of each topic
+      const count = topicCounts.get(question.topic) || 0;
+      topicCounts.set(question.topic, count + 1);
+    }
+    
+    // Convert to array, sort by frequency (most used topics first), then take limit
+    const topics = Array.from(topicCounts.entries())
+      .sort(([, a], [, b]) => b - a) // Sort by count descending
+      .slice(0, args.limit || 5) // Take top 5 by default
+      .map(([topic]) => topic); // Extract just the topic names
+    
+    return topics;
+  },
+});

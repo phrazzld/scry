@@ -11,9 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { QuestionHistory } from "@/components/question-history";
 import { AllReviewsCompleteEmptyState, NoQuestionsEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Target } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2, Plus } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
+import { toast } from "sonner";
+import { AuthModal } from "@/components/auth";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -40,6 +42,12 @@ export function ReviewFlow() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [sessionStats, setSessionStats] = useState({ completed: 0 });
+  const [isEditing, setIsEditing] = useState(false);
+  const [isMutating, setIsMutating] = useState(false); // General mutation loading state
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  // Track deleted questions for undo functionality
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
   // Queries with polling for real-time updates
   const currentReview = usePollingQuery(
@@ -63,6 +71,9 @@ export function ReviewFlow() {
   
   // Mutations
   const scheduleReview = useMutation(api.spacedRepetition.scheduleReview);
+  const updateQuestion = useMutation(api.questions.updateQuestion);
+  const deleteQuestion = useMutation(api.questions.softDeleteQuestion);
+  const restoreQuestion = useMutation(api.questions.restoreQuestion);
   
   // Set initial question
   useEffect(() => {
@@ -123,25 +134,160 @@ export function ReviewFlow() {
       
     } catch (error) {
       console.error("Failed to submit review:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit review";
+      toast.error("Unable to save your answer", {
+        description: errorMessage
+      });
     } finally {
       setIsAnswering(false);
     }
   }, [currentQuestion, selectedAnswer, sessionToken, isAnswering, questionStartTime, scheduleReview]);
   
+  // Handle delete with undo
+  const handleDelete = useCallback(async (questionId: string) => {
+    if (!sessionToken) return;
+    
+    setIsMutating(true);
+    
+    try {
+      // Mark as deleted in local state
+      setDeletedQuestions(prev => new Set(prev).add(questionId));
+      
+      // Perform soft delete
+      await deleteQuestion({ 
+        questionId,
+        sessionToken 
+      });
+      
+      // Set up auto-remove from deleted set after 5 seconds
+      const undoTimeoutRef = { current: null as NodeJS.Timeout | null };
+      
+      // Show toast with undo button
+      toast("Question deleted", {
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              // Restore the question
+              await restoreQuestion({
+                questionId,
+                sessionToken
+              });
+              
+              // Remove from deleted set
+              setDeletedQuestions(prev => {
+                const next = new Set(prev);
+                next.delete(questionId);
+                return next;
+              });
+              
+              // Refresh to show restored question
+              router.refresh();
+              
+              // Clear the timeout
+              if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+            } catch (error) {
+              console.error("Failed to restore question:", error);
+              toast.error("Unable to restore question");
+            }
+          }
+        },
+        onAutoClose: () => {
+          // Remove from deleted set when toast expires
+          setDeletedQuestions(prev => {
+            const next = new Set(prev);
+            next.delete(questionId);
+            return next;
+          });
+        }
+      });
+      
+      // Set timeout to match toast duration
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedQuestions(prev => {
+          const next = new Set(prev);
+          next.delete(questionId);
+          return next;
+        });
+      }, 5000);
+      
+      // Move to next question
+      router.refresh();
+      
+    } catch (error) {
+      console.error("Failed to delete question:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete question";
+      
+      // Remove from local deleted state since operation failed
+      setDeletedQuestions(prev => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+      
+      toast.error("Unable to delete question", {
+        description: errorMessage
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  }, [sessionToken, deleteQuestion, restoreQuestion, router]);
+  
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't handle shortcuts if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (showingFeedback) {
+        // When showing feedback, Enter or Space advances to next question
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          advanceToNext();
+        }
+      } else {
+        // When answering, number keys select options
+        if (e.key >= '1' && e.key <= '4') {
+          const index = parseInt(e.key) - 1;
+          if (currentQuestion?.question.options[index]) {
+            setSelectedAnswer(currentQuestion.question.options[index]);
+          }
+        }
+        // Enter submits the answer if one is selected
+        if (e.key === 'Enter' && selectedAnswer && !isAnswering) {
+          e.preventDefault();
+          handleSubmit();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showingFeedback, selectedAnswer, currentQuestion, handleSubmit, advanceToNext, isAnswering]);
+  
   
   // Loading state
   if (!sessionToken) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-12 pb-8">
-          <div className="text-center">
-            <p className="text-muted-foreground">Please sign in to access reviews</p>
-            <Button onClick={() => router.push("/auth/signin")} className="mt-4">
-              Sign In
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardContent className="pt-12 pb-8">
+            <div className="text-center">
+              <p className="text-muted-foreground">Please sign in to access reviews</p>
+              <Button onClick={() => setAuthModalOpen(true)} className="mt-4">
+                Sign In
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <AuthModal
+          open={authModalOpen}
+          onOpenChange={setAuthModalOpen}
+        />
+      </>
     );
   }
   
@@ -202,9 +348,71 @@ export function ReviewFlow() {
       
       {/* Question card */}
       {currentQuestion && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{currentQuestion.question.question}</CardTitle>
+        <Card className="group">
+          <CardHeader className="flex items-start justify-between">
+            <div className="flex-1">
+              {isEditing ? (
+              <input
+                defaultValue={currentQuestion.question.question}
+                onBlur={async (e) => {
+                  const newText = e.target.value.trim();
+                  if (newText && newText !== currentQuestion.question.question) {
+                    setIsMutating(true);
+                    try {
+                      await updateQuestion({
+                        questionId: currentQuestion.question._id,
+                        question: newText,
+                        sessionToken: sessionToken || ""
+                      });
+                      toast.success("Question updated");
+                    } catch (error) {
+                      console.error("Failed to update question:", error);
+                      const errorMessage = error instanceof Error ? error.message : "Failed to update question";
+                      toast.error("Unable to update question", {
+                        description: errorMessage
+                      });
+                      // Reset the input value on error
+                      e.target.value = currentQuestion.question.question;
+                    } finally {
+                      setIsMutating(false);
+                    }
+                  }
+                  setIsEditing(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                  if (e.key === 'Escape') {
+                    e.currentTarget.value = currentQuestion.question.question;
+                    setIsEditing(false);
+                  }
+                }}
+                autoFocus
+                className="text-xl font-medium w-full bg-transparent border-b-2 border-primary outline-none px-1"
+              />
+            ) : (
+              <CardTitle className="text-xl">{currentQuestion.question.question}</CardTitle>
+            )}
+            </div>
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => setIsEditing(true)}
+                disabled={isMutating || isEditing}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Edit question"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(currentQuestion.question._id)}
+                disabled={isMutating}
+                className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Delete question"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Answer options */}
@@ -252,6 +460,19 @@ export function ReviewFlow() {
                 </button>
               ))}
             </div>
+            
+            {/* Generate Similar button */}
+            <button
+              onClick={async () => {
+                // TODO: Implement generateRelated functionality
+                toast("Generating similar questions coming soon!");
+              }}
+              disabled={isMutating || isAnswering}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors mt-2 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-3 w-3" />
+              Generate 5 similar questions
+            </button>
             
             {/* Feedback display */}
             {showingFeedback && feedback && (

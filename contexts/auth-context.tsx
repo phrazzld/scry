@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (fromPath) {
           router.push(fromPath)
         } else {
-          router.push('/dashboard')
+          router.push('/')
         }
         return { success: true }
       }

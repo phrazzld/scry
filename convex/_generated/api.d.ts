@@ -14,10 +14,12 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as auth from "../auth.js";
+import type * as cron from "../cron.js";
 import type * as deployments from "../deployments.js";
 import type * as emailActions from "../emailActions.js";
 import type * as fsrs from "../fsrs.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_logger from "../lib/logger.js";
 import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
 import type * as quiz from "../quiz.js";
@@ -35,10 +37,12 @@ import type * as types from "../types.js";
  */
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  cron: typeof cron;
   deployments: typeof deployments;
   emailActions: typeof emailActions;
   fsrs: typeof fsrs;
   "lib/auth": typeof lib_auth;
+  "lib/logger": typeof lib_logger;
   migrations: typeof migrations;
   questions: typeof questions;
   quiz: typeof quiz;

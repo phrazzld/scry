@@ -4,10 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeleteAccountDialog } from '@/components/delete-account-dialog'
-import { ProfileForm } from '@/components/profile-form'
-import { User, Shield } from 'lucide-react'
 
 export function SettingsPageClient() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -49,23 +46,7 @@ export function SettingsPageClient() {
           </p>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Security
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="space-y-6">
-            <ProfileForm />
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-6">
+        <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Security Settings</CardTitle>
@@ -111,9 +92,7 @@ export function SettingsPageClient() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-        </Tabs>
+        </div>
       </div>
     </div>
   )
