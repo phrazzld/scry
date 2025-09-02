@@ -20,17 +20,42 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
 ): FunctionReturnType<Query> | undefined {
   // Use a timestamp to force query re-evaluation
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
+  // Track document visibility to pause polling when tab is hidden
+  const [isVisible, setIsVisible] = useState(typeof document !== 'undefined' ? !document.hidden : true);
+  
+  // Listen for visibility changes
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    
+    const handleVisibilityChange = () => {
+      setIsVisible(!document.hidden);
+      console.log('Visibility changed:', !document.hidden ? 'visible' : 'hidden');
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
   
   // Set up polling interval
   useEffect(() => {
     if (args === "skip") return;
     
-    const interval = setInterval(() => {
-      setRefreshTimestamp(Date.now());
-    }, intervalMs);
+    let interval: NodeJS.Timeout;
     
-    return () => clearInterval(interval);
-  }, [args === "skip", intervalMs]);
+    // Only set up interval if document is visible
+    if (isVisible) {
+      interval = setInterval(() => {
+        // Only update timestamp if document is still visible
+        if (!document.hidden) {
+          setRefreshTimestamp(Date.now());
+        }
+      }, intervalMs);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [args === "skip", intervalMs, isVisible]);
   
   // Add the refresh timestamp to the query args
   const queryArgs = args === "skip" 

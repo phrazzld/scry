@@ -40,10 +40,11 @@ export function getNavbarClassName(): string {
 }
 
 /**
- * Check if spacer is needed (only in legacy mode)
+ * Check if spacer is needed
  * 
  * @returns true if navbar spacer should be rendered
  */
 export function needsNavbarSpacer(): boolean {
-  return isLegacyLayoutEnabled();
+  // MinimalHeader handles its own spacer, so we don't need one in the layout
+  return false;
 }

@@ -235,6 +235,8 @@ export const updateQuestion = mutation({
     question: v.optional(v.string()),
     topic: v.optional(v.string()),
     explanation: v.optional(v.string()),
+    options: v.optional(v.array(v.string())),
+    correctAnswer: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // 1. Authenticate user
@@ -260,11 +262,43 @@ export const updateQuestion = mutation({
       throw new Error("Topic cannot be empty");
     }
     
-    // 5. Build update fields (only non-answer fields to preserve integrity)
+    if (args.options !== undefined) {
+      if (args.options.length < 2) {
+        throw new Error("At least 2 answer options are required");
+      }
+      if (args.options.length > 6) {
+        throw new Error("Maximum 6 answer options allowed");
+      }
+      if (args.options.some(opt => !opt.trim())) {
+        throw new Error("All answer options must have text");
+      }
+    }
+    
+    if (args.correctAnswer !== undefined && args.correctAnswer.trim().length === 0) {
+      throw new Error("Correct answer cannot be empty");
+    }
+    
+    // If updating options, ensure correctAnswer is still valid
+    if (args.options !== undefined && args.correctAnswer === undefined) {
+      if (!args.options.includes(question.correctAnswer)) {
+        throw new Error("Current correct answer must be included in new options");
+      }
+    }
+    
+    // If updating both, ensure correctAnswer is in options
+    if (args.options !== undefined && args.correctAnswer !== undefined) {
+      if (!args.options.includes(args.correctAnswer)) {
+        throw new Error("Correct answer must be one of the options");
+      }
+    }
+    
+    // 5. Build update fields
     const updateFields: Partial<typeof question> = {};
     if (args.question !== undefined) updateFields.question = args.question;
     if (args.topic !== undefined) updateFields.topic = args.topic;
     if (args.explanation !== undefined) updateFields.explanation = args.explanation;
+    if (args.options !== undefined) updateFields.options = args.options;
+    if (args.correctAnswer !== undefined) updateFields.correctAnswer = args.correctAnswer;
     
     // 6. Update with timestamp
     await ctx.db.patch(args.questionId, {

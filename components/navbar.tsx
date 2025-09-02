@@ -19,7 +19,7 @@ export function Navbar() {
   return (
     <>
       <nav className={`${getNavbarClassName()} bg-white/80 backdrop-blur-sm border-b border-gray-100`}>
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-2 flex items-center justify-between">
           <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-gray-700 hover:text-black border-b-0 transition-colors">
             Scry.
           </Link>

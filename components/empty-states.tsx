@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Target, BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
+import { toast } from "sonner";
 
 interface EmptyStateProps {
   className?: string;
@@ -13,7 +13,6 @@ interface EmptyStateProps {
 export function NoQuestionsEmptyState() {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const router = useRouter();
   const { sessionToken } = useAuth();
   
   // Hardcoded recent topics for now (TODO: fetch from backend)
@@ -43,7 +42,7 @@ export function NoQuestionsEmptyState() {
       });
       
       if (response.ok) {
-        router.refresh(); // Reload to show new questions
+        toast.success("Questions generated! They'll appear shortly.");
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);
@@ -68,7 +67,7 @@ export function NoQuestionsEmptyState() {
       });
       
       if (response.ok) {
-        router.refresh(); // Reload to show new questions
+        toast.success("Questions generated! They'll appear shortly.");
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);

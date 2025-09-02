@@ -2,13 +2,14 @@
 
 import { usePathname } from 'next/navigation'
 import { Navbar } from './navbar'
+import { MinimalHeader } from './minimal-header'
 
 export function ConditionalNavbar() {
   const pathname = usePathname()
   
-  // Don't show navbar on homepage
+  // Show minimal header on homepage, full navbar elsewhere
   if (pathname === '/') {
-    return null
+    return <MinimalHeader />
   }
   
   return <Navbar />

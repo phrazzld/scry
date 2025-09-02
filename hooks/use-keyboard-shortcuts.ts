@@ -44,17 +44,11 @@ export function useKeyboardShortcuts(
       context: 'global',
     },
     {
-      key: 'n',
+      key: 'g',
       description: 'Generate new questions',
       action: () => {
-        // Focus the topic input if on empty state
-        const input = document.querySelector('input[placeholder*="Quantum"]') as HTMLInputElement;
-        if (input) {
-          input.focus();
-        } else {
-          toast.info('No questions available. Redirecting to generate...');
-          router.push('/');
-        }
+        // Dispatch event to open generation modal
+        window.dispatchEvent(new CustomEvent('open-generation-modal'));
       },
       context: 'global',
     },

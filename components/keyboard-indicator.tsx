@@ -14,7 +14,7 @@ export function KeyboardIndicator({ onClick, className = '' }: KeyboardIndicator
       variant="ghost"
       size="icon"
       onClick={onClick}
-      className={`fixed bottom-4 right-4 z-50 bg-background/80 backdrop-blur-sm hover:bg-background/90 group ${className}`}
+      className={`relative bg-background/80 backdrop-blur-sm hover:bg-background/90 group ${className}`}
       aria-label="Keyboard shortcuts (press ? for help)"
       title="Press ? for keyboard shortcuts"
     >

@@ -19,6 +19,7 @@ import { AuthModal } from "@/components/auth";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { KeyboardIndicator } from "@/components/keyboard-indicator";
+import { EditQuestionModal } from "@/components/edit-question-modal";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -45,7 +46,7 @@ export function ReviewFlow() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [sessionStats, setSessionStats] = useState({ completed: 0 });
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false); // General mutation loading state
   const [authModalOpen, setAuthModalOpen] = useState(false);
   // Track deleted questions for undo functionality
@@ -215,9 +216,6 @@ export function ReviewFlow() {
         });
       }, 5000);
       
-      // Move to next question
-      router.refresh();
-      
     } catch (error) {
       console.error("Failed to delete question:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to delete question";
@@ -247,8 +245,8 @@ export function ReviewFlow() {
     onSubmit: handleSubmit,
     onNext: advanceToNext,
     onEdit: () => {
-      if (currentQuestion && !isEditing) {
-        setIsEditing(true);
+      if (currentQuestion) {
+        setIsEditModalOpen(true);
       }
     },
     onDelete: () => {
@@ -265,17 +263,31 @@ export function ReviewFlow() {
     canSubmit: !!selectedAnswer,
   });
   
-  // Listen for escape key to cancel editing
-  useEffect(() => {
-    const handleEscape = () => {
-      if (isEditing) {
-        setIsEditing(false);
-      }
-    };
+  // Handle saving edits from modal
+  const handleEditSave = useCallback(async (updates: {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+  }) => {
+    if (!sessionToken || !currentQuestion) return;
     
-    window.addEventListener('escape-pressed', handleEscape);
-    return () => window.removeEventListener('escape-pressed', handleEscape);
-  }, [isEditing]);
+    await updateQuestion({
+      sessionToken,
+      questionId: currentQuestion.question._id,
+      question: updates.question,
+      options: updates.options,
+      correctAnswer: updates.correctAnswer
+    });
+    
+    // Update local state to reflect changes
+    setCurrentQuestion({
+      ...currentQuestion,
+      question: {
+        ...currentQuestion.question,
+        ...updates
+      }
+    });
+  }, [sessionToken, currentQuestion, updateQuestion]);
   
   
   // Loading state
@@ -322,7 +334,7 @@ export function ReviewFlow() {
   
   // Review interface
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-2xl mx-auto space-y-4 pt-20">
       {/* Progress header */}
       <Card>
         <CardHeader className="pb-3">
@@ -331,11 +343,14 @@ export function ReviewFlow() {
               <Target className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">Review Session</CardTitle>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {sessionStats.completed} completed
-              {dueCount && dueCount.totalReviewable > 0 && (
-                <span> • {dueCount.totalReviewable} remaining</span>
-              )}
+            <div className="flex items-center gap-3">
+              <div className="text-sm text-muted-foreground">
+                {sessionStats.completed} completed
+                {dueCount && dueCount.totalReviewable > 0 && (
+                  <span> • {dueCount.totalReviewable} remaining</span>
+                )}
+              </div>
+              <KeyboardIndicator onClick={() => setShowHelp(true)} />
             </div>
           </div>
           {dueCount && dueCount.totalReviewable > 0 && (
@@ -359,55 +374,11 @@ export function ReviewFlow() {
       {currentQuestion && (
         <Card className="group">
           <CardHeader className="flex items-start justify-between">
-            <div className="flex-1">
-              {isEditing ? (
-              <input
-                defaultValue={currentQuestion.question.question}
-                onBlur={async (e) => {
-                  const newText = e.target.value.trim();
-                  if (newText && newText !== currentQuestion.question.question) {
-                    setIsMutating(true);
-                    try {
-                      await updateQuestion({
-                        questionId: currentQuestion.question._id,
-                        question: newText,
-                        sessionToken: sessionToken || ""
-                      });
-                      toast.success("Question updated");
-                    } catch (error) {
-                      console.error("Failed to update question:", error);
-                      const errorMessage = error instanceof Error ? error.message : "Failed to update question";
-                      toast.error("Unable to update question", {
-                        description: errorMessage
-                      });
-                      // Reset the input value on error
-                      e.target.value = currentQuestion.question.question;
-                    } finally {
-                      setIsMutating(false);
-                    }
-                  }
-                  setIsEditing(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  }
-                  if (e.key === 'Escape') {
-                    e.currentTarget.value = currentQuestion.question.question;
-                    setIsEditing(false);
-                  }
-                }}
-                autoFocus
-                className="text-xl font-medium w-full bg-transparent border-b-2 border-primary outline-none px-1"
-              />
-            ) : (
-              <CardTitle className="text-xl">{currentQuestion.question.question}</CardTitle>
-            )}
-            </div>
+            <CardTitle className="text-xl flex-1">{currentQuestion.question.question}</CardTitle>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
-                onClick={() => setIsEditing(true)}
-                disabled={isMutating || isEditing}
+                onClick={() => setIsEditModalOpen(true)}
+                disabled={isMutating}
                 className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Edit question"
               >
@@ -523,6 +494,16 @@ export function ReviewFlow() {
         </Card>
       )}
       
+      {/* Edit question modal */}
+      {currentQuestion && (
+        <EditQuestionModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          question={currentQuestion.question}
+          onSave={handleEditSave}
+        />
+      )}
+      
       {/* Keyboard shortcuts help modal */}
       <KeyboardShortcutsHelp
         open={showHelp}
@@ -530,8 +511,6 @@ export function ReviewFlow() {
         shortcuts={shortcuts}
       />
       
-      {/* Keyboard indicator - shows shortcuts are available */}
-      <KeyboardIndicator onClick={() => setShowHelp(true)} />
     </div>
   );
 }

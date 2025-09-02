@@ -17,12 +17,18 @@
 - **Input Focus Detection for Keyboard Shortcuts**: Check `e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement` to prevent conflicts when typing
 - **preventDefault() for System Keys**: Use `e.preventDefault()` for keys like Space and Enter to prevent default browser behavior (page scroll, form submission)
 - **Comprehensive useEffect Dependencies for Keyboard Events**: Include all state variables used in handlers (`showingFeedback`, `selectedAnswer`, `isAnswering`) to prevent stale closure bugs
+- **Dialog-Based Modal Pattern**: Use shadcn/ui Dialog primitive for consistent modal behavior - follow existing patterns like AuthModal for new modals
+- **Custom Event Pattern for Keyboard Shortcuts**: Dispatch custom events (`new CustomEvent('openGenerateModal')`) to decouple keyboard shortcuts from component hierarchy - prevents prop drilling
+- **Inline UI Over Floating Elements**: Keyboard indicators and controls work better inline within existing cards rather than floating overlays - improves discoverability
+- **Progressive Modal Implementation**: Build modal with textarea input, context checkbox, and form submission - use existing form validation patterns
 
 ## Anti-patterns Found
 
 - **Expensive .collect() for Total Count**: getQuizHistory calls `.collect()` just to get total count, which is O(n) and will degrade with scale
 - **Manual Pagination via Array.slice()**: Taking `limit + offset` items then slicing is inefficient for large offsets
 - **Raw console.log in Convex Functions**: Unstructured logging makes production debugging difficult - migrate to structured logger
+- **Floating Action Buttons (FAB)**: Floating UI elements create discoverability issues - inline buttons in headers are more discoverable
+- **Component Prop Drilling for Global Actions**: Using props to pass keyboard shortcut handlers down component trees creates coupling - custom events are cleaner
 
 ## Performance Optimizations
 
@@ -39,6 +45,8 @@
 - **Generate Related Questions Architecture**: Specification suggested internalAction in Convex → Adapted to existing pattern of Convex mutations + Next.js API routes for AI calls - maintains separation of concerns and security boundaries
 - **Map vs Set for Topic Extraction**: Specification suggested Set for uniqueness → Chose Map for frequency counting - enables better UX through frequency-based sorting
 - **Thorough Cleanup vs Quick Fixes**: Hypersimplicity Overhaul Phase was comprehensive and time-intensive → Result: validation phase became trivial with zero issues found - upfront thoroughness eliminates downstream debugging
+- **Custom Events vs Prop Drilling for Global Shortcuts**: Keyboard shortcuts dispatch custom events rather than passing handlers through props - eliminates coupling and scales better
+- **Header Button vs Floating Action Button**: Integrated Generate button in MinimalHeader rather than floating overlay - better discoverability and follows existing UI patterns
 
 ## Quick Wins Identified
 
@@ -47,6 +55,8 @@
 - **Systematic Logger Migration**: Find-replace console calls with structured logger - 10-minute task with major observability gains
 - **Specification Adaptation Over Blind Implementation**: Reading existing patterns first leads to better solutions that fit the codebase architecture
 - **UI-Driven Keyboard Mapping**: When UI already shows number indicators (1-4), keyboard shortcuts become obvious and intuitive to implement
+- **Following Existing Modal Patterns**: Using AuthModal as template for GenerateModal speeds development and ensures consistency
+- **Component Cleanup with Import Scanning**: Removing unused components by checking imports prevents dangling references and build issues
 
 ## Accessibility & UX Patterns
 
@@ -54,6 +64,7 @@
 - **Progressive Keyboard Enhancement**: Start with mouse/touch UI, add keyboard as enhancement without changing visual design
 - **Context-Sensitive Keyboard Behavior**: Same keys (Enter/Space) perform different actions based on application state - reduces cognitive load
 - **Safe Event Handler Dependencies**: Always include all state variables used in keyboard handlers in useEffect dependencies to prevent race conditions
+- **Global Keyboard Shortcuts Pattern**: Single-key shortcuts like 'G' for generate work well for frequently used actions - similar to Gmail shortcuts
 
 ## Convex-Specific Patterns
 
@@ -91,6 +102,7 @@
 - **Quick Topic Extraction Efficiency**: Simple query optimization completed in 5 minutes vs 10 minute estimate - pattern-scout analysis speeds implementation
 - **Keyboard Shortcuts Implementation Speed**: Expected 10-15 minutes, completed in ~8 minutes - existing UI number indicators made keyboard mapping obvious
 - **Validation Phase Speed with Clean Architecture**: Expected 15-20 minutes for cleanup validation, completed in 3 minutes - when deletions are done properly, validation becomes trivial
+- **Modal Implementation with Existing Patterns**: Complex UI component creation (unified modal) takes ~30 minutes when following existing patterns and doing progressive implementation
 
 ## Anti-patterns in Testing
 
@@ -104,6 +116,7 @@
 - **Target Type Checking for Keyboard Events**: Use `instanceof` checks rather than generic event filtering for precise input detection
 - **Window-Level Event Handling**: Global keyboard shortcuts should use `window.addEventListener('keydown')` rather than component-level handlers
 - **Race Condition Prevention**: Include processing state (`isAnswering`) in event handler conditions to prevent double-submission
+- **Custom Event Decoupling**: Use `CustomEvent` with specific names ('openGenerateModal') to trigger global actions without component dependencies
 
 ## Code Cleanup & Validation Patterns
 
@@ -113,3 +126,18 @@
 - **Architectural Separation Enables Safe Deletion**: Well-separated concerns allow major component removal without breaking core functionality
 - **Test Suite Isolation**: Test suites that don't depend on UI component structure remain stable during refactoring
 - **Build Tools as Validation Safety Net**: Modern build tools (Next.js, TypeScript, ESLint) provide excellent coverage for catching integration issues
+
+## UI Component Design Patterns
+
+- **Modal State Management**: Use React Hook Form for modal form state with proper validation and TypeScript types
+- **Icon Integration**: Sparkles icon from Lucide React provides visual context for AI generation features
+- **Textarea Responsive Design**: Use `resize-none` and appropriate sizing for consistent modal interfaces
+- **Context Checkbox Pattern**: Optional context inclusion via checkbox for user control over AI input data
+- **Form Submission Flow**: Handle form submission with proper loading states and error handling
+
+## Progressive Enhancement Patterns
+
+- **Keyboard Shortcuts as Enhancement**: Add global shortcuts without changing mouse/touch interaction patterns
+- **Inline Indicators**: Place keyboard shortcuts indicators directly in UI where they're relevant rather than in separate help areas
+- **Event-Driven Architecture**: Custom events allow adding global behaviors without refactoring existing component structure
+- **Graceful Fallback**: UI works fully without keyboard shortcuts - shortcuts are pure enhancement
