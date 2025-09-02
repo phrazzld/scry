@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { AuthModal } from "@/components/auth";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
-import { KeyboardIndicator } from "@/components/keyboard-indicator";
 import { EditQuestionModal } from "@/components/edit-question-modal";
 
 interface ReviewQuestion {
@@ -343,14 +342,11 @@ export function ReviewFlow() {
               <Target className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">Review Session</CardTitle>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-muted-foreground">
-                {sessionStats.completed} completed
-                {dueCount && dueCount.totalReviewable > 0 && (
-                  <span> • {dueCount.totalReviewable} remaining</span>
-                )}
-              </div>
-              <KeyboardIndicator onClick={() => setShowHelp(true)} />
+            <div className="text-sm text-muted-foreground">
+              {sessionStats.completed} completed
+              {dueCount && dueCount.totalReviewable > 0 && (
+                <span> • {dueCount.totalReviewable} remaining</span>
+              )}
             </div>
           </div>
           {dueCount && dueCount.totalReviewable > 0 && (
