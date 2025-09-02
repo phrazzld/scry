@@ -459,11 +459,23 @@ These tasks address critical UX issues discovered during testing: page refreshes
   - Reset currentQuestion to undefined when modal closes
   - Ensures fresh state for next generation
 
-- [ ] **Test unified flow** - Full integration
+- [x] **Test unified flow** - Full integration
   - Header button: Opens modal without context
   - "Generate similar" button: Opens modal WITH context
   - Keyboard shortcut 'g': Works from anywhere
   - Context checkbox only appears when appropriate
+  ```
+  Work Log:
+  - Passed event.detail.currentQuestion through custom event
+  - MinimalHeader extracts context and passes to modal
+  - Context cleared when modal closes (set to undefined)
+  - Removed toast and TODO comment from ReviewFlow
+  - Only disabled during mutations (not during answering)
+  - TypeScript compilation passes
+  - ESLint no warnings
+  - Production build successful
+  - Hypersimple solution: ONE modal, ONE event, context flows naturally
+  ```
 
 ## Critical Path Items (Must complete in order)
 

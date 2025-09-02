@@ -32,19 +32,25 @@ export function GenerationModal({
   
   const { sessionToken } = useAuth()
 
-  // Reset state when modal closes
+  // Reset state when modal closes, or set smart defaults when opening with context
   React.useEffect(() => {
     if (!open) {
       // Clear prompt when modal closes
       setPrompt('')
       setUseCurrentContext(false)
     } else {
+      // If we have a current question context, set smart defaults
+      if (currentQuestion) {
+        setUseCurrentContext(true)
+        setPrompt('Generate 5 similar questions')
+      }
+      
       // Auto-focus on open
       setTimeout(() => {
         textareaRef.current?.focus()
       }, 0)
     }
-  }, [open])
+  }, [open, currentQuestion])
 
   // Auto-resize textarea as content grows
   React.useEffect(() => {

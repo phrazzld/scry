@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { QuestionHistory } from "@/components/question-history";
 import { AllReviewsCompleteEmptyState, NoQuestionsEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
 import { toast } from "sonner";
@@ -85,6 +85,14 @@ export function ReviewFlow() {
       setQuestionStartTime(Date.now());
     }
   }, [currentReview, currentQuestion, showingFeedback]);
+  
+  // Broadcast current question for generation context
+  useEffect(() => {
+    const event = new CustomEvent('review-question-changed', { 
+      detail: { question: currentQuestion?.question || null }
+    });
+    window.dispatchEvent(event);
+  }, [currentQuestion]);
   
   // Pre-fetch next question
   useEffect(() => {
@@ -436,20 +444,6 @@ export function ReviewFlow() {
                 </button>
               ))}
             </div>
-            
-            {/* Generate Similar button */}
-            <button
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-generation-modal', { 
-                  detail: { currentQuestion: currentQuestion?.question }
-                }));
-              }}
-              disabled={isMutating}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors mt-2 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus className="h-3 w-3" />
-              Generate 5 similar questions
-            </button>
             
             {/* Feedback display */}
             {showingFeedback && feedback && (

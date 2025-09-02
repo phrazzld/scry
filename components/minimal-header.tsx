@@ -14,6 +14,7 @@ export function MinimalHeader() {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
+  const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const dropdownRef = useRef<HTMLDivElement>(null)
   
   const { user, isLoading, signOut } = useAuth()
@@ -30,19 +31,30 @@ export function MinimalHeader() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
   
+  // Listen for review question changes
+  useEffect(() => {
+    const handleReviewQuestionChanged = (event: Event) => {
+      const customEvent = event as CustomEvent
+      setReviewQuestion(customEvent.detail?.question || undefined)
+    }
+    
+    window.addEventListener('review-question-changed', handleReviewQuestionChanged)
+    return () => window.removeEventListener('review-question-changed', handleReviewQuestionChanged)
+  }, [])
+  
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
     const handleOpenGenerationModal = (event: Event) => {
       if (user) {
         const customEvent = event as CustomEvent
-        setCurrentQuestion(customEvent.detail?.currentQuestion || undefined)
+        setCurrentQuestion(customEvent.detail?.currentQuestion || reviewQuestion)
         setGenerateOpen(true)
       }
     }
     
     window.addEventListener('open-generation-modal', handleOpenGenerationModal)
     return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal)
-  }, [user])
+  }, [user, reviewQuestion])
   
   return (
     <>
@@ -60,7 +72,10 @@ export function MinimalHeader() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setGenerateOpen(true)}
+                onClick={() => {
+                  setCurrentQuestion(reviewQuestion)
+                  setGenerateOpen(true)
+                }}
                 className="relative"
                 title="Generate questions (G)"
               >
