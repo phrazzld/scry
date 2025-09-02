@@ -7,11 +7,13 @@ import { AuthModal } from '@/components/auth/auth-modal'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Settings, LogOut, User, Sparkles } from 'lucide-react'
+import type { Doc } from '@/convex/_generated/dataModel'
 
 export function MinimalHeader() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const dropdownRef = useRef<HTMLDivElement>(null)
   
   const { user, isLoading, signOut } = useAuth()
@@ -30,8 +32,10 @@ export function MinimalHeader() {
   
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
-    const handleOpenGenerationModal = () => {
+    const handleOpenGenerationModal = (event: Event) => {
       if (user) {
+        const customEvent = event as CustomEvent
+        setCurrentQuestion(customEvent.detail?.currentQuestion || undefined)
         setGenerateOpen(true)
       }
     }
@@ -128,7 +132,13 @@ export function MinimalHeader() {
       
       <GenerationModal
         open={generateOpen}
-        onOpenChange={setGenerateOpen}
+        onOpenChange={(open) => {
+          setGenerateOpen(open)
+          if (!open) {
+            setCurrentQuestion(undefined) // Clear context when modal closes
+          }
+        }}
+        currentQuestion={currentQuestion}
       />
     </>
   )

@@ -442,6 +442,29 @@ These tasks address critical UX issues discovered during testing: page refreshes
   - Mobile: Everything responsive
   - Run: `pnpm lint && npx tsc --noEmit`
 
+### Consolidate Generation Flow with Event Context
+
+- [x] **Pass question through event from ReviewFlow** - components/review-flow.tsx ~line 442
+  - Replace button onClick with event dispatch including currentQuestion
+  - Remove toast("Generating similar questions coming soon!")
+  - Remove TODO comment
+  - Keep disabled during mutations only
+
+- [x] **Update MinimalHeader to receive context** - components/minimal-header.tsx ~line 33
+  - Add currentQuestion state: `const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)`
+  - Update event listener to extract context from event.detail
+  - Pass currentQuestion to GenerationModal prop
+
+- [x] **Clear context when modal closes** - components/minimal-header.tsx
+  - Reset currentQuestion to undefined when modal closes
+  - Ensures fresh state for next generation
+
+- [ ] **Test unified flow** - Full integration
+  - Header button: Opens modal without context
+  - "Generate similar" button: Opens modal WITH context
+  - Keyboard shortcut 'g': Works from anywhere
+  - Context checkbox only appears when appropriate
+
 ## Critical Path Items (Must complete in order)
 
 - [x] Implement CSS Grid layout system infrastructure

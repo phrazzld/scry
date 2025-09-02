@@ -439,11 +439,12 @@ export function ReviewFlow() {
             
             {/* Generate Similar button */}
             <button
-              onClick={async () => {
-                // TODO: Implement generateRelated functionality
-                toast("Generating similar questions coming soon!");
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-generation-modal', { 
+                  detail: { currentQuestion: currentQuestion?.question }
+                }));
               }}
-              disabled={isMutating || isAnswering}
+              disabled={isMutating}
               className="text-xs text-gray-400 hover:text-gray-600 transition-colors mt-2 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="h-3 w-3" />
