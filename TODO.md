@@ -14,6 +14,154 @@ Generated from TASK.md on 2025-08-27
   4. **Admin merge** if urgent (safe since all real checks pass)
 - **Verification**: CodeQL overall status shows green after resolution
 
+## CI/CD Simplification (2025-09-03) 🎯
+
+_"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
+
+### Phase 1: Delete Complexity (30 minutes)
+
+- [x] Delete `.github/workflows/security.yml` - Redundant, slows CI by 90+ seconds ✅
+  - Run: `git rm .github/workflows/security.yml`
+  - Why: Duplicates dependency-review.yml functionality, adds no value
+  - Verification: CI still runs after deletion
+
+- [ ] Delete `.github/workflows/dependency-review.yml` - Will merge into main CI
+  - Run: `git rm .github/workflows/dependency-review.yml`
+  - Why: Can run `pnpm audit` in 2 seconds vs 30 second workflow overhead
+  - Verification: No workflow errors in Actions tab
+
+- [ ] Delete `.github/workflows/claude-code-review.yml` - Nice-to-have, not essential
+  - Run: `git rm .github/workflows/claude-code-review.yml`  
+  - Why: AI reviews are luxury, not necessity. Adds 2+ minutes to every PR
+  - Verification: PRs still mergeable
+
+- [ ] Delete CodeQL workflow references from `.github/workflows/ci.yml`
+  - Remove: Any CodeQL setup/analysis steps if present
+  - Why: Flaky, slow (3+ minutes), false positives. Move to weekly cron if needed
+  - Verification: CI passes without CodeQL steps
+
+### Phase 2: Single Workflow (45 minutes)
+
+- [ ] Create simplified `.github/workflows/ci.yml` with max 120 lines
+  ```yaml
+  name: CI
+  on: [push, pull_request]
+  env:
+    NODE_VERSION: '20'
+    PNPM_VERSION: '10.12.1'
+  jobs:
+    ci:
+      runs-on: ubuntu-latest
+      timeout-minutes: 5  # Fail fast if stuck
+      steps:
+        # Setup (20 seconds)
+        - uses: actions/checkout@v4
+        - uses: pnpm/action-setup@v2
+          with:
+            version: ${{ env.PNPM_VERSION }}
+        - uses: actions/setup-node@v4
+          with:
+            node-version: ${{ env.NODE_VERSION }}
+            cache: 'pnpm'
+        # Install (30 seconds)
+        - run: pnpm install --frozen-lockfile
+        # Quality checks in parallel (40 seconds)
+        - run: |
+            pnpm lint &
+            pnpm tsc --noEmit &
+            pnpm audit --audit-level=critical &
+            wait
+        # Test with coverage (30 seconds)
+        - run: pnpm test --run --coverage.enabled --coverage.thresholds.lines=60
+        # Build (40 seconds)
+        - run: pnpm build
+          env:
+            NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+        # Deploy if main (30 seconds)
+        - if: github.ref == 'refs/heads/main'
+          run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+  ```
+  - File: `.github/workflows/ci.yml`
+  - Verification: Entire CI runs in <3 minutes
+
+- [ ] Remove 500+ lines of retry logic from current `ci.yml`
+  - Delete: All `nick-fields/retry@v3` usage
+  - Delete: All retry_wait_seconds, max_attempts, on_retry_command blocks
+  - Why: Retries mask real problems. Fix root causes instead
+  - Verification: Workflow is <150 lines total
+
+- [ ] Remove elaborate secret validation job
+  - Delete: Entire `validate-secrets` job (lines 14-83)
+  - Why: If secrets missing, deploy will fail with clear error. No pre-validation needed
+  - Verification: CI starts immediately, no 30-second validation delay
+
+### Phase 3: Streamline Tests (20 minutes)
+
+- [ ] Set simple coverage threshold in `package.json`
+  ```json
+  "test": "vitest --run --coverage.enabled --coverage.thresholds.lines=60"
+  ```
+  - File: `package.json` line 26
+  - Why: 60% coverage is pragmatic. 100% is masturbation
+  - Verification: `pnpm test` enforces coverage
+
+- [ ] Delete flaky E2E tests from CI (keep for local only)
+  - Remove: Any playwright test steps from workflows
+  - Why: E2E tests flaky in CI, valuable locally. Run manually before releases
+  - Verification: CI passes consistently without random failures
+
+- [ ] Consolidate test commands in package.json
+  - Keep only: `test`, `test:watch`, `test:coverage`
+  - Delete: `test:unit`, `test:ui`, redundant test scripts
+  - File: `package.json` lines 26-35
+  - Verification: `pnpm test` runs all tests with coverage
+
+### Phase 4: Speed Optimizations (15 minutes)
+
+- [ ] Use Vercel's native GitHub integration
+  - Delete: All manual `vercel deploy` commands from CI
+  - Enable: Vercel GitHub app at vercel.com/[team]/[project]/settings/git
+  - Why: Vercel handles deploys better than custom scripts
+  - Verification: PRs get preview URLs automatically from Vercel bot
+
+- [ ] Parallelize independent checks with `&` and `wait`
+  - Change sequential runs to: `pnpm lint & pnpm tsc & wait`
+  - File: New `.github/workflows/ci.yml`
+  - Why: Run in 40 seconds instead of 2 minutes
+  - Verification: All commands run, CI time drops by 50%+
+
+- [ ] Add `timeout-minutes: 5` to all jobs
+  - Why: Fail fast if something hangs. 5 minutes is generous
+  - File: `.github/workflows/ci.yml` under each job
+  - Verification: Stuck jobs abort at 5 minutes
+
+### Phase 5: Simplify Local Hooks (10 minutes)
+
+- [ ] Simplify pre-push hook to just `pnpm build`
+  - File: `.husky/pre-push`
+  - Current: Complex checks. New: Just `pnpm build`
+  - Why: Build catches 99% of issues. Fast enough to not annoy
+  - Verification: Git push runs build, takes <45 seconds
+
+- [ ] Remove test running from lint-staged
+  - File: `package.json` lines 113-115
+  - Delete: `"**/*.{test,spec}.{js,ts}": ["vitest related --run"]`
+  - Why: Tests on every commit is overkill. Run before push only
+  - Verification: Commits are fast, only lint+typecheck run
+
+### Verification Checklist
+
+- [ ] Full CI runs in <3 minutes (currently ~8 minutes)
+- [ ] Single workflow file <150 lines (currently 500+ lines across 6 files)
+- [ ] No transient failures in 10 consecutive runs
+- [ ] PRs get automatic preview URLs from Vercel
+- [ ] Developers don't curse the CI
+
+### Success Metrics
+- **Before**: 6 workflows, 1000+ lines, 8+ minute runs, flaky
+- **After**: 1 workflow, <150 lines, <3 minute runs, reliable
+- **Time saved**: 5 minutes per PR × 20 PRs/week = 100 minutes/week saved
+
 ## CI Infrastructure Fixes (2025-09-02) ✅ COMPLETED
 
 These CI infrastructure issues were blocking PR #5 from merging. All were configuration issues, not code problems.
