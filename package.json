@@ -23,7 +23,7 @@
     "convex:deploy:prod": "CONVEX_DEPLOY_KEY=\"$CONVEX_DEPLOY_KEY_PROD\" npx convex deploy",
     "convex:codegen:prod": "CONVEX_DEPLOY_KEY=\"$CONVEX_DEPLOY_KEY_PROD\" npx convex codegen",
     "convex:init": "convex dev --once",
-    "test": "vitest --reporter=verbose",
+    "test": "vitest --run --coverage.enabled --coverage.thresholds.lines=60",
     "test:unit": "vitest --reporter=verbose",
     "test:coverage": "vitest --coverage --reporter=verbose",
     "test:ui": "vitest --ui",

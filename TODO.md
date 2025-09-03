@@ -110,13 +110,19 @@ _"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
 
 ### Phase 3: Streamline Tests (20 minutes)
 
-- [ ] Set simple coverage threshold in `package.json`
+- [x] Set simple coverage threshold in `package.json` ✅
   ```json
   "test": "vitest --run --coverage.enabled --coverage.thresholds.lines=60"
   ```
   - File: `package.json` line 26
   - Why: 60% coverage is pragmatic. 100% is masturbation
   - Verification: `pnpm test` enforces coverage
+  ```
+  Work Log:
+  - Updated test script to enforce 60% line coverage
+  - Current coverage is 2.82%, so tests fail as expected
+  - Coverage enforcement is now active and working
+  ```
 
 - [ ] Delete flaky E2E tests from CI (keep for local only)
   - Remove: Any playwright test steps from workflows
