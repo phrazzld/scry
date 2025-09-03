@@ -25,7 +25,7 @@ _"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
   - Why: Duplicates dependency-review.yml functionality, adds no value
   - Verification: CI still runs after deletion
 
-- [ ] Delete `.github/workflows/dependency-review.yml` - Will merge into main CI
+- [x] Delete `.github/workflows/dependency-review.yml` - Will merge into main CI ✅
   - Run: `git rm .github/workflows/dependency-review.yml`
   - Why: Can run `pnpm audit` in 2 seconds vs 30 second workflow overhead
   - Verification: No workflow errors in Actions tab
