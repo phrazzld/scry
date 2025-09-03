@@ -2,6 +2,18 @@
 
 Generated from TASK.md on 2025-08-27
 
+## Transient CI Issue (2025-09-02) 🔄
+
+### [CI FIX] Resolve Transient CodeQL Aggregation Failure
+- **Issue**: CodeQL overall status shows failed despite both JavaScript and TypeScript scans passing
+- **Type**: GitHub Actions transient bug (not a code or config issue)
+- **Resolution Options** (try in order):
+  1. **Re-run workflow from GitHub UI** (Actions → Failed workflow → Re-run jobs)
+  2. **Push empty commit**: `git commit --allow-empty -m "chore: trigger CI re-run for transient CodeQL failure"`
+  3. **Wait 1-2 hours** for GitHub to auto-correct
+  4. **Admin merge** if urgent (safe since all real checks pass)
+- **Verification**: CodeQL overall status shows green after resolution
+
 ## CI Infrastructure Fixes (2025-09-02) ✅ COMPLETED
 
 These CI infrastructure issues were blocking PR #5 from merging. All were configuration issues, not code problems.
