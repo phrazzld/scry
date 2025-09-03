@@ -35,10 +35,17 @@ _"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
   - Why: Claude reviews provide intelligent feedback worth the 2 minutes
   - Verification: PRs get AI-powered code review
 
-- [ ] Delete CodeQL workflow references from `.github/workflows/ci.yml`
+- [x] Delete CodeQL workflow references from `.github/workflows/ci.yml` ✅
   - Remove: Any CodeQL setup/analysis steps if present
   - Why: Flaky, slow (3+ minutes), false positives. Move to weekly cron if needed
   - Verification: CI passes without CodeQL steps
+  ```
+  Work Log:
+  - Searched ci.yml for CodeQL references - none found
+  - No separate CodeQL workflow files exist
+  - CodeQL must be running via GitHub's default security features
+  - Nothing to remove from workflows
+  ```
 
 ### Phase 2: Single Workflow (45 minutes)
 
