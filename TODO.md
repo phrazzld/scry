@@ -2,6 +2,45 @@
 
 Generated from TASK.md on 2025-08-27
 
+## CI Infrastructure Fixes (2025-09-02) 🚨 URGENT
+
+These CI infrastructure issues are blocking PR #5 from merging. All are configuration issues, not code problems.
+
+### [CI FIX] Fix Dependency Review Workflow Configuration
+- **File**: `.github/workflows/dependency-review.yml`
+- **Issue**: Cannot specify both `allow-licenses` and `deny-licenses` parameters
+- **Fix**: Remove lines 33 (allow-licenses parameter) - keep only deny-licenses for simplicity
+- **Verification**: Workflow should run without "cannot specify both" error
+
+### [CI FIX] Update pnpm Version in All Workflows
+- **Files**: `.github/workflows/security.yml`
+- **Issue**: Workflows use pnpm v8 but project requires pnpm >=10.0.0
+- **Fix**: Change all `version: 8` to `version: 10.12.1` in pnpm/action-setup steps
+- **Lines to update**:
+  - security.yml line 33: Change to `version: 10.12.1`
+  - security.yml line 109: Change to `version: 10.12.1`
+- **Verification**: pnpm install should not show version incompatibility error
+
+### [CI FIX] Fix Step Ordering in Security Workflow
+- **File**: `.github/workflows/security.yml`
+- **Issue**: Node.js setup tries to cache pnpm before pnpm is installed
+- **Fix Option 1**: Move "Install pnpm" step before "Setup Node.js" step
+- **Fix Option 2**: Remove `cache: 'pnpm'` from Node.js setup steps
+- **Affected jobs**: dependency-check (line 24-28), license-check (line 101-105)
+- **Verification**: Jobs should find pnpm executable without errors
+
+### [CI FIX] Create Workflow Documentation
+- **File**: Create `.github/workflows/README.md`
+- **Purpose**: Document CI setup requirements to prevent future issues
+- **Content**: Include pnpm version requirements, step ordering notes, and parameter constraints
+- **Verification**: Team members understand CI configuration requirements
+
+### [CI FIX] Add Workflow Validation
+- **File**: `.husky/pre-commit` or create new validation script
+- **Purpose**: Validate GitHub Actions workflow syntax before commit
+- **Implementation**: Use `actionlint` or similar tool to check workflow files
+- **Verification**: Invalid workflow configurations are caught before push
+
 ## Code Review Follow-ups (2025-08-29)
 
 The following items synthesize the rigorous code review of the ui-ux-quality-improvements branch. They are grouped by priority and reference concrete files to change.

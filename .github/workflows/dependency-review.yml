@@ -29,9 +29,7 @@ jobs:
           warn-on-severity: moderate
           # Check both runtime and development dependencies
           scope: runtime, development
-          # Allow licenses compatible with MIT
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, CC0-1.0, Unlicense
-          # Deny problematic licenses
+          # Deny problematic licenses (removed allow-licenses to fix conflict)
           deny-licenses: GPL-3.0, AGPL-3.0, LGPL-3.0, MPL-2.0
           # Comment on PR with results
           comment-summary-in-pr: always
