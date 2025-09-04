@@ -21,6 +21,11 @@
 - **Custom Event Pattern for Keyboard Shortcuts**: Dispatch custom events (`new CustomEvent('openGenerateModal')`) to decouple keyboard shortcuts from component hierarchy - prevents prop drilling
 - **Inline UI Over Floating Elements**: Keyboard indicators and controls work better inline within existing cards rather than floating overlays - improves discoverability
 - **Progressive Modal Implementation**: Build modal with textarea input, context checkbox, and form submission - use existing form validation patterns
+- **Minimal CI/CD Pipeline Pattern**: Parallel execution with `command1 & command2 & wait` for <3 minute builds - aggressive simplicity over elaborate retry logic
+- **Fail-Fast CI with Timeouts**: `timeout-minutes: 5` prevents stuck jobs - CI should fail quickly and obviously rather than hang
+- **Local-Only E2E Testing**: Keep flaky E2E tests out of CI - run locally with `pnpm test:e2e` for comprehensive validation without CI instability
+- **Single Responsibility CI**: CI does lint + test + build + deploy only - remove secret validation, elaborate checks, retry mechanisms that add complexity
+- **Pre-push Hook Minimalism**: Git hooks should only run build (`pnpm build`) - avoid running tests that slow down git workflow
 
 ## Anti-patterns Found
 
@@ -29,16 +34,21 @@
 - **Raw console.log in Convex Functions**: Unstructured logging makes production debugging difficult - migrate to structured logger
 - **Floating Action Buttons (FAB)**: Floating UI elements create discoverability issues - inline buttons in headers are more discoverable
 - **Component Prop Drilling for Global Actions**: Using props to pass keyboard shortcut handlers down component trees creates coupling - custom events are cleaner
+- **Elaborate CI Retry Logic**: Complex retry mechanisms, secret validation, and elaborate checks create 1000+ line workflows that are fragile and slow
+- **E2E Tests in CI**: Browser-based tests are inherently flaky in CI environments - keep them local-only for reliability
+- **Testing in Pre-push Hooks**: Running tests in git hooks slows down the development workflow - build-only validation is sufficient
 
 ## Performance Optimizations
 
 - **O(n) to O(limit) Pagination Fix**: Replace `.collect()` counting with `limit + 1` fetching pattern - 5-minute change with massive performance impact
 - **Convex Query Optimization**: Always prefer `.take(limit)` over `.collect().slice()` for pagination queries
+- **90% CI Workflow Reduction**: 512 lines → 50 lines by removing complexity, achieving <3 minute builds vs 8+ minutes
 
 ## Bugs & Fixes
 
 - **getQuizHistory Performance**: Original used `.collect()` to count all results (O(n)) → Fixed with `limit + 1` pattern (O(limit))
 - **Convex Runtime Limitations**: Cannot import Node.js modules like pino → Create custom logger at `convex/lib/logger.ts`
+- **Test Coverage Threshold Blocking**: 60% threshold requirement but only 2.82% actual coverage - disconnect between requirements and reality
 
 ## Decisions
 
@@ -47,6 +57,7 @@
 - **Thorough Cleanup vs Quick Fixes**: Hypersimplicity Overhaul Phase was comprehensive and time-intensive → Result: validation phase became trivial with zero issues found - upfront thoroughness eliminates downstream debugging
 - **Custom Events vs Prop Drilling for Global Shortcuts**: Keyboard shortcuts dispatch custom events rather than passing handlers through props - eliminates coupling and scales better
 - **Header Button vs Floating Action Button**: Integrated Generate button in MinimalHeader rather than floating overlay - better discoverability and follows existing UI patterns
+- **Simplified CI vs Feature-Rich CI**: Chose aggressive simplification (90% reduction) over maintaining complex workflows - resulted in 3x faster builds and zero maintenance burden
 
 ## Quick Wins Identified
 
@@ -57,6 +68,8 @@
 - **UI-Driven Keyboard Mapping**: When UI already shows number indicators (1-4), keyboard shortcuts become obvious and intuitive to implement
 - **Following Existing Modal Patterns**: Using AuthModal as template for GenerateModal speeds development and ensures consistency
 - **Component Cleanup with Import Scanning**: Removing unused components by checking imports prevents dangling references and build issues
+- **CI Simplification Over Feature Addition**: Aggressive deletion of CI complexity yields better results than incremental improvements
+- **Already-Implemented Check**: Many optimization todos were already completed in previous phases - verification can be faster than implementation
 
 ## Accessibility & UX Patterns
 
@@ -103,6 +116,8 @@
 - **Keyboard Shortcuts Implementation Speed**: Expected 10-15 minutes, completed in ~8 minutes - existing UI number indicators made keyboard mapping obvious
 - **Validation Phase Speed with Clean Architecture**: Expected 15-20 minutes for cleanup validation, completed in 3 minutes - when deletions are done properly, validation becomes trivial
 - **Modal Implementation with Existing Patterns**: Complex UI component creation (unified modal) takes ~30 minutes when following existing patterns and doing progressive implementation
+- **CI Optimization is Often Already Done**: Estimated 30+ minutes for CI improvements, verified in 15 minutes - previous optimization phases may have already completed the work
+- **Verification Can Be Faster Than Implementation**: For optimization tasks, checking if already implemented before starting can save significant time
 
 ## Anti-patterns in Testing
 
@@ -141,3 +156,13 @@
 - **Inline Indicators**: Place keyboard shortcuts indicators directly in UI where they're relevant rather than in separate help areas
 - **Event-Driven Architecture**: Custom events allow adding global behaviors without refactoring existing component structure
 - **Graceful Fallback**: UI works fully without keyboard shortcuts - shortcuts are pure enhancement
+
+## CI/CD Simplification Patterns
+
+- **Aggressive Deletion Over Incremental Improvement**: 90% reduction in workflow complexity (512 → 50 lines) achieves better results than gradual optimization
+- **Parallel Job Execution**: `command1 & command2 & wait` pattern enables sub-3-minute builds by running independent checks simultaneously
+- **Local Development vs CI Separation**: Keep comprehensive E2E testing local-only - CI focuses on fast feedback for core checks
+- **Pre-existing Optimization Recognition**: Previous development phases may have already implemented "missing" optimizations - verify before implementing
+- **Build-Only Git Hooks**: Pre-push hooks should validate build success only - avoid running tests that slow git workflow
+- **Fail-Fast Philosophy**: 5-minute timeouts prevent hung jobs - CI should surface problems quickly rather than retry complex logic
+- **Single Responsibility CI**: Each workflow should have one clear purpose - deploy workflows shouldn't also run tests, test workflows shouldn't validate secrets

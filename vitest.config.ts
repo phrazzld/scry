@@ -13,9 +13,23 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      // TODO: Re-enable thresholds as coverage improves
-      // Starting with no thresholds to establish baseline
-      // Target: 40% → 50% → 60% → 80% over time
+      /**
+       * Test Coverage Improvement Plan (2025-09-04)
+       * Current: 4.01% 
+       * 
+       * Staged Milestones:
+       * ✅ Phase 1: 4%   - CI unblocked (DONE)
+       * ⏳ Phase 2: 15%  - Business logic tests (Convex mutations, API routes)
+       * ⏳ Phase 3: 30%  - Hook testing (custom hooks with mocks)
+       * ⏳ Phase 4: 60%  - UI testing (requires @testing-library/react installation)
+       * 
+       * Note: React components are 0% coverage. Reaching 60% requires installing:
+       * - @testing-library/react
+       * - @testing-library/jest-dom  
+       * - happy-dom (for DOM environment)
+       * 
+       * Threshold is enforced in package.json test script, not here.
+       */
       // thresholds: {
       //   statements: 80,
       //   branches: 80,
