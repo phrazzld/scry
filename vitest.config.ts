@@ -6,8 +6,11 @@ export default defineConfig({
     // Global test settings
     globals: true,
     
-    // Standard node environment for all tests
-    environment: 'node',
+    // Use happy-dom for React component/hook testing
+    environment: 'happy-dom',
+    
+    // Setup file for React Testing Library
+    setupFiles: ['./vitest.setup.ts'],
 
     // Coverage configuration
     coverage: {
