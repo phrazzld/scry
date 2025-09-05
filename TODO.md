@@ -272,9 +272,33 @@ _"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
   - Main blocker: React context testing with complex provider hierarchies
   ```
 
+#### Test Type Safety Fixes (PRIORITY)
+
+- [x] Fix TypeScript/ESLint issues in test files ✅
+  - 95 ESLint errors (mostly `any` types in mocks)
+  - Files affected:
+    * contexts/auth-context.test.tsx (39 errors)
+    * hooks/use-keyboard-shortcuts.test.ts (14 errors)
+    * hooks/use-polling-query.test.ts (25 errors)
+    * hooks/use-question-mutations.test.ts (7 errors)
+    * hooks/use-quiz-interactions.test.ts (14 errors)
+    * vitest.setup.ts (1 error)
+  - Properly type all mocks and test utilities
+  - Consider creating test helper types for common mock patterns
+  ```
+  Work Log:
+  - Fixed import path issue in auth-context.test.tsx (was using relative instead of alias)
+  - Added missing afterEach import in use-quiz-interactions.test.ts
+  - Replaced global object usage with type-safe callback stores in use-keyboard-shortcuts.test.ts
+  - Removed incorrect 'id' property from SimpleQuestion mock data in route.test.ts
+  - Fixed test that was referencing non-existent PUT/DELETE exports
+  - Removed duplicate auth-context.test.tsx file from hooks directory
+  - All TypeScript and ESLint checks now passing
+  ```
+
 #### Stage 3: React Component Testing (Target: 60%)
 
-- [ ] Install React Testing Library dependencies
+- [x] Install React Testing Library dependencies ✅
   - Command: `pnpm add -D @testing-library/react @testing-library/jest-dom happy-dom`
   - Update vitest.config.ts for DOM environment
   - Estimated setup time: 30 minutes

@@ -20,6 +20,18 @@ const eslintConfig = [
       "dist/**/*",
       "build/**/*"
     ]
+  },
+  {
+    // Override for test files
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unsafe-function-type": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { 
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_"
+      }]
+    }
   }
 ];
 
