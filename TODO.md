@@ -329,11 +329,21 @@ _"Simplicity is prerequisite for reliability" - Edsger Dijkstra_
 
 ### Phase 4: Speed Optimizations (15 minutes)
 
-- [ ] Use Vercel's native GitHub integration
+- [x] Use Vercel's native GitHub integration ✅
   - Delete: All manual `vercel deploy` commands from CI
   - Enable: Vercel GitHub app at vercel.com/[team]/[project]/settings/git
   - Why: Vercel handles deploys better than custom scripts
   - Verification: PRs get preview URLs automatically from Vercel bot
+  ```
+  Work Log:
+  - Found manual Vercel deployment in .github/workflows/ci.yml lines 45-51
+  - Removed entire deployment step including:
+    • npx vercel --prod command
+    • VERCEL_TOKEN secret reference
+    • VERCEL_ORG_ID and VERCEL_PROJECT_ID environment variables
+  - CI workflow now only builds and tests, leaving deployment to Vercel's GitHub integration
+  - User needs to enable Vercel GitHub app in project settings for automatic deployments
+  ```
 
 - [x] Parallelize independent checks with `&` and `wait` ✅
   - Change sequential runs to: `pnpm lint & pnpm tsc & wait`
