@@ -24,6 +24,7 @@
     "convex:codegen:prod": "CONVEX_DEPLOY_KEY=\"$CONVEX_DEPLOY_KEY_PROD\" npx convex codegen",
     "convex:init": "convex dev --once",
     "test": "vitest --run --coverage.enabled --coverage.thresholds.lines=4",
+    "test:ci": "vitest --run --coverage.enabled --coverage.thresholds.lines=60",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage --reporter=verbose",
     "assets:test": "node scripts/create-test-assets.js",

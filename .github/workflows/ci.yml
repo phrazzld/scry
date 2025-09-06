@@ -32,9 +32,9 @@ jobs:
           wait
       
       # Test with coverage (30 seconds)
-      # Note: pnpm test already includes --run and --coverage.enabled flags
+      # Note: Using test:ci script with 60% coverage threshold for CI
       - name: Run tests with coverage
-        run: pnpm test --coverage.thresholds.lines=60
+        run: pnpm test:ci
       
       # Build (40 seconds)
       - name: Build application
