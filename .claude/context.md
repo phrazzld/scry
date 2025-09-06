@@ -28,6 +28,8 @@
 - **Pre-push Hook Minimalism**: Git hooks should only run build (`pnpm build`) - avoid running tests that slow down git workflow
 - **Next.js API Route Testing Pattern**: Use vitest with `vi.mock()` for mocking dependencies (AI client, Convex), Request/Response objects for HTTP simulation, structured test scenarios covering validation, rate limiting, error handling, and success paths
 - **Pattern-Scout Test Discovery**: Use `ast-grep` or `glob **/*.test.ts` to systematically find existing test files before assuming tests need creation - comprehensive test suites often exist without being immediately visible in file structure
+- **Native Platform Integration Over Custom Deployment**: Use Vercel's GitHub integration instead of manual CI deployment - cleaner separation of concerns, fewer secrets to manage
+- **Platform-Specific Deployment Patterns**: Vercel for frontend, Convex for backend - each platform has native integration that's more reliable than custom CI deployment
 
 ## Anti-patterns Found
 
@@ -41,6 +43,7 @@
 - **Testing in Pre-push Hooks**: Running tests in git hooks slows down the development workflow - build-only validation is sufficient
 - **Unit Testing Runtime Code with Simulators**: Using simulator patterns to test business logic creates valuable tests but doesn't increase line coverage since the actual runtime code (Convex mutations) is never executed
 - **Module-Level External Client Instantiation**: Creating external clients (ConvexHttpClient) at module level makes testing difficult - dependency injection at function level is more testable
+- **Manual Deployment in CI**: Custom deployment steps when platform provides native GitHub integration - more complex and requires secret management
 
 ## Performance Optimizations
 
@@ -66,6 +69,7 @@
 - **Simplified CI vs Feature-Rich CI**: Chose aggressive simplification (90% reduction) over maintaining complex workflows - resulted in 3x faster builds and zero maintenance burden
 - **Simulator Testing vs Integration Testing**: Prioritized comprehensive business logic validation over coverage metrics - simulator pattern tests critical validation rules, permission checks, and FSRS integration without Convex runtime overhead
 - **API Route Testing: Work Around vs Refactor for Testability**: Module-level ConvexHttpClient instantiation blocks testing - decided to accept testing limitations rather than refactor for dependency injection since API route logic is straightforward and covered by integration testing
+- **Native Platform Integration vs Custom Deployment**: Chose Vercel's GitHub integration over manual CI deployment - eliminates need for deployment secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID), reduces CI complexity, cleaner separation of concerns
 
 ## Quick Wins Identified
 
@@ -81,6 +85,7 @@
 - **Business Logic Testing Speed**: Creating 21 comprehensive mutation tests completed in ~10 minutes using simulator pattern - significantly faster than setting up integration test infrastructure
 - **Test Discovery via Pattern Scout**: Using ast-grep/global search to find existing test files prevents duplicate work - comprehensive test suites (586+319 lines) can exist without being obvious from directory structure
 - **Verification Before Implementation**: Checking for existing comprehensive test coverage first can save hours of redundant work
+- **Simple Deployment Cleanup**: Removing manual CI deployment is straightforward - identify deployment step, remove 7 lines, cleanup unused secrets
 
 ## Accessibility & UX Patterns
 
@@ -133,6 +138,7 @@
 - **API Route Testing Blocked by Architecture**: Comprehensive API route testing estimated ~25 minutes but blocked after ~25 minutes by module-level dependency instantiation - architectural choices can make testing impossible without refactoring
 - **Test Discovery Speed vs Creation Speed**: Finding existing comprehensive tests (586+319 lines) took ~5 minutes vs estimated hours of test creation - systematic search is dramatically faster than redundant implementation
 - **React Hook Testing Infrastructure Speed vs Implementation**: React Testing Library setup completes in ~5 minutes (faster than expected) but achieving passing tests for complex serverless hooks takes significantly longer (~15+ minutes) due to mocking complexity - infrastructure setup is fast, full implementation is slow
+- **Simple Deployment Cleanup is Ultra-Fast**: CI deployment removal task completed in 3 minutes vs 15 minute estimate (5x faster) - straightforward deletions are often trivial when architecture is clean
 
 ## Anti-patterns in Testing
 
@@ -182,6 +188,7 @@
 - **Build-Only Git Hooks**: Pre-push hooks should validate build success only - avoid running tests that slow git workflow
 - **Fail-Fast Philosophy**: 5-minute timeouts prevent hung jobs - CI should surface problems quickly rather than retry complex logic
 - **Single Responsibility CI**: Each workflow should have one clear purpose - deploy workflows shouldn't also run tests, test workflows shouldn't validate secrets
+- **Platform Native Integration**: Use platform-provided deployment integrations (Vercel GitHub app) instead of custom CI deployment steps
 
 ## Convex Mutation Testing Patterns
 
@@ -302,3 +309,12 @@
 - **Integration Test Preference**: For hooks that wrap external services, prefer integration tests that exercise the full service interaction rather than mocked unit tests
 - **Realistic Coverage Expectations**: Set coverage expectations that account for serverless architecture constraints where some code paths require full framework context to test effectively
 - **Test Infrastructure Investment**: Invest in React Testing Library setup for hook interface documentation value, but don't over-invest in complex mocking for marginal coverage gains
+
+## Deployment Architecture Patterns
+
+- **Platform-Native vs Custom Deployment**: Use native platform integrations (Vercel GitHub app, Convex dashboard deployment) instead of custom CI deployment steps - more reliable and fewer secrets to manage
+- **Separation of Build vs Deploy Concerns**: CI handles validation (build/test/lint), platform handles deployment - cleaner separation reduces complexity
+- **Manual Platform Configuration Steps**: Some deployment setup requires manual steps outside code changes (enabling GitHub apps, configuring webhooks) - document these clearly
+- **Secret Management Reduction**: Native platform integrations eliminate need for deployment secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID) in CI environment
+- **Build Validation vs Deployment Separation**: CI focuses on code quality validation, deployment platforms handle the actual deployment - each tool does what it's optimized for
+- **Quick Deployment Cleanup Wins**: Removing unnecessary manual deployment steps from CI can be completed in minutes and immediately reduces complexity
