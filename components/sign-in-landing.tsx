@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -14,8 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, CheckCircle, Sparkles, Brain, Target, Zap } from 'lucide-react'
+import { Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
 const emailFormSchema = z.object({
@@ -31,6 +30,11 @@ export function SignInLanding() {
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [sentEmail, setSentEmail] = useState('')
+  const [isVisible, setIsVisible] = useState({
+    wordmark: false,
+    headlines: false,
+    form: false
+  })
   
   const { sendMagicLink } = useAuth()
   const form = useForm<EmailFormValues>({
@@ -39,6 +43,33 @@ export function SignInLanding() {
       email: ''
     }
   })
+
+  useEffect(() => {
+    // Trigger fade-in sequence
+    setIsVisible(prev => ({ ...prev, wordmark: true }))
+    
+    const timer1 = setTimeout(() => {
+      setIsVisible(prev => ({ ...prev, headlines: true }))
+    }, 200)
+    
+    const timer2 = setTimeout(() => {
+      setIsVisible(prev => ({ ...prev, form: true }))
+    }, 400)
+    
+    // Auto-focus email input after fade-in completes
+    const timer3 = setTimeout(() => {
+      const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement
+      if (emailInput) {
+        emailInput.focus()
+      }
+    }, 600)
+    
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+      clearTimeout(timer3)
+    }
+  }, [])
 
   async function onSubmit(data: EmailFormValues) {
     try {
@@ -55,165 +86,105 @@ export function SignInLanding() {
     }
   }
 
-  const handleResend = () => {
-    if (sentEmail) {
-      form.setValue('email', sentEmail)
-      form.handleSubmit(onSubmit)()
-    }
-  }
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 pt-20">
-      {/* Hero Section */}
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo and Tagline */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-            Scry
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] p-5 md:p-4 gradient-bg">
+      {/* Left column - wordmark */}
+      <div className="hidden md:block">
+        <span className={`text-xs tracking-[0.2em] text-gray-600 font-mono transition-opacity duration-500 ${isVisible.wordmark ? 'opacity-100' : 'opacity-0'}`}>
+          SCRY
+        </span>
+      </div>
+      
+      {/* Middle column - content */}
+      <div className="space-y-8">
+        {/* Headlines */}
+        <div className={`text-center space-y-2 transition-opacity duration-500 ${isVisible.headlines ? 'opacity-100' : 'opacity-0'}`}>
+          <h1 className="font-serif text-3xl md:text-5xl leading-none">
+            Master any topic.
           </h1>
-          <p className="text-lg text-gray-600">
-            Master any topic with AI-powered spaced repetition
+          <h2 className="font-serif text-3xl md:text-5xl leading-none">
+            Remember everything.
+          </h2>
+          <p className="text-sm text-gray-600 mt-4">
+            AI-powered spaced repetition
           </p>
         </div>
 
-        {/* Features */}
-        <div className="grid gap-4 text-sm">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 p-1.5 rounded-lg bg-blue-50 text-blue-600">
-              <Brain className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Smart Learning</p>
-              <p className="text-gray-600">AI generates personalized quiz questions from any topic</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 p-1.5 rounded-lg bg-green-50 text-green-600">
-              <Target className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Spaced Repetition</p>
-              <p className="text-gray-600">Review at optimal intervals for long-term retention</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 p-1.5 rounded-lg bg-purple-50 text-purple-600">
-              <Zap className="h-4 w-4" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Quick Sessions</p>
-              <p className="text-gray-600">Learn efficiently with bite-sized review sessions</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Sign In Card */}
-        <Card className="border-gray-200">
-          <CardContent className="p-6">
-            {!emailSent ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    Get started
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    Enter your email to receive a magic sign-in link
-                  </p>
-                </div>
-
-                <Form {...form}>
+        {/* Sign In Form */}
+        <div className={`transition-opacity duration-500 ${isVisible.form ? 'opacity-100' : 'opacity-0'}`}>
+          {!emailSent ? (
+            <div className="space-y-4">
+              <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input
-                              type="email"
-                              placeholder="name@example.com"
-                              disabled={isLoading}
-                              className="h-11"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full h-11"
-                      size="lg"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Sending magic link...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Send magic link
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex flex-col md:flex-row gap-4 md:items-start">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="name@example.com"
+                                disabled={isLoading}
+                                className="border-0 border-b border-gray-300 bg-transparent px-0 py-3 text-lg min-h-[44px] focus:border-gray-900 focus:border-b-2 focus:outline-none focus:ring-0"
+                                enterKeyHint="go"
+                                aria-label="Email address"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="submit"
+                        disabled={isLoading}
+                        className="md:mt-3 min-h-[44px]"
+                        size="default"
+                        aria-label="Send magic link"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Send
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Send magic link
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-lg">Check your email</p>
+                <p className="font-mono text-gray-600">{sentEmail}</p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-medium text-gray-900">
-                      Check your email
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      We sent a magic link to <span className="font-medium">{sentEmail}</span>
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Click the link in the email to sign in. You can close this tab.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEmailSent(false)
-                      setSentEmail('')
-                      form.reset()
-                    }}
-                    className="flex-1"
-                  >
-                    Try different email
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleResend}
-                    disabled={isLoading}
-                    className="flex-1"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      'Resend link'
-                    )}
-                  </Button>
-                </div>
+              <div>
+                <button
+                  onClick={() => {
+                    setEmailSent(false)
+                    setSentEmail('')
+                    form.reset()
+                  }}
+                  className="text-sm text-gray-600 underline hover:text-gray-900 transition-colors"
+                >
+                  Use different email
+                </button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-gray-500">
-          By signing in, you agree to our terms of service and privacy policy
-        </p>
+            </div>
+          )}
+        </div>
       </div>
+      
+      {/* Right column - empty */}
+      <div className="hidden md:block"></div>
     </div>
   )
 }

@@ -316,12 +316,28 @@
     animation: shimmer 2s infinite;
   }
   
+  /* Gradient background animation */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  .gradient-bg {
+    background: linear-gradient(-45deg, #f0f0f0, #ffffff, #f8f8f8, #ffffff);
+    background-size: 400% 400%;
+    animation: gradient-shift 20s ease infinite;
+  }
+  
   @media (prefers-reduced-motion: reduce) {
     .animate-shimmer {
       animation: none;
     }
     
     .animate-pulse {
+      animation: none;
+    }
+    
+    .gradient-bg {
       animation: none;
     }
   }
