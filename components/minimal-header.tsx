@@ -3,14 +3,12 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { AuthModal } from '@/components/auth/auth-modal'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Settings, LogOut, User, Sparkles } from 'lucide-react'
 import type { Doc } from '@/convex/_generated/dataModel'
 
 export function MinimalHeader() {
-  const [authModalOpen, setAuthModalOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
@@ -128,22 +126,10 @@ export function MinimalHeader() {
                   </div>
                 )}
               </div>
-            ) : (
-              <button
-                onClick={() => setAuthModalOpen(true)}
-                className="px-4 py-1.5 text-sm font-medium text-gray-700 hover:text-black transition-colors"
-              >
-                Sign in
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
       </header>
-      
-      <AuthModal 
-        open={authModalOpen} 
-        onOpenChange={setAuthModalOpen} 
-      />
       
       <GenerationModal
         open={generateOpen}

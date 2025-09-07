@@ -15,10 +15,10 @@ import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-re
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
 import { toast } from "sonner";
-import { AuthModal } from "@/components/auth";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { EditQuestionModal } from "@/components/edit-question-modal";
+import { SignInLanding } from "@/components/sign-in-landing";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -47,7 +47,6 @@ export function ReviewFlow() {
   const [sessionStats, setSessionStats] = useState({ completed: 0 });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false); // General mutation loading state
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   // Track deleted questions for undo functionality
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
@@ -299,24 +298,7 @@ export function ReviewFlow() {
   
   // Loading state
   if (!sessionToken) {
-    return (
-      <>
-        <Card className="w-full max-w-2xl mx-auto">
-          <CardContent className="pt-12 pb-8">
-            <div className="text-center">
-              <p className="text-muted-foreground">Please sign in to access reviews</p>
-              <Button onClick={() => setAuthModalOpen(true)} className="mt-4">
-                Sign In
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        <AuthModal
-          open={authModalOpen}
-          onOpenChange={setAuthModalOpen}
-        />
-      </>
-    );
+    return <SignInLanding />;
   }
   
   if (currentReview === undefined) {
