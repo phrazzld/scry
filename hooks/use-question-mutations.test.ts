@@ -21,6 +21,15 @@ vi.mock('@/contexts/auth-context', () => ({
   useAuth: vi.fn(() => ({ sessionToken: 'mock-token' })),
 }));
 
+vi.mock('@/convex/_generated/api', () => ({
+  api: {
+    questions: {
+      updateQuestion: { _functionPath: 'questions:updateQuestion' },
+      softDeleteQuestion: { _functionPath: 'questions:softDeleteQuestion' },
+    },
+  },
+}));
+
 import { useMutation } from 'convex/react';
 
 describe('useQuestionMutations', () => {
@@ -31,13 +40,15 @@ describe('useQuestionMutations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock mutations
-    mockUpdateQuestion = vi.fn();
-    mockDeleteQuestion = vi.fn();
+    // Mock mutations with default success responses
+    mockUpdateQuestion = vi.fn().mockResolvedValue({ success: true });
+    mockDeleteQuestion = vi.fn().mockResolvedValue({ success: true });
     
     (useMutation as any).mockImplementation((mutation: any) => {
-      if (mutation._name === 'updateQuestion') return mockUpdateQuestion;
-      if (mutation._name === 'deleteQuestion') return mockDeleteQuestion;
+      // Check the function path to determine which mock to return
+      const functionPath = mutation?._functionPath || '';
+      if (functionPath === 'questions:updateQuestion') return mockUpdateQuestion;
+      if (functionPath === 'questions:softDeleteQuestion') return mockDeleteQuestion;
       return vi.fn();
     });
     
@@ -88,14 +99,16 @@ describe('useQuestionMutations', () => {
       });
       
       expect(mockUpdateQuestion).toHaveBeenCalledWith({
-        id: mockQuestion._id,
         sessionToken: 'mock-token',
-        updates,
+        questionId: mockQuestion._id,
+        question: updates.question,
+        topic: updates.topic,
+        explanation: updates.explanation,
       });
     });
 
     it('should rollback on mutation failure', async () => {
-      mockUpdateQuestion.mockRejectedValue(new Error('Update failed'));
+      mockUpdateQuestion.mockRejectedValue(new Error('Failed to update question'));
       
       const { result } = renderHook(() => useQuestionMutations());
       
@@ -108,7 +121,7 @@ describe('useQuestionMutations', () => {
       });
       
       await waitFor(() => {
-        // Error toast should be shown on failure
+        // Error toast should be shown on failure - the hook shows the error message directly
         expect(toast.error).toHaveBeenCalledWith('Failed to update question');
       });
     });
@@ -157,13 +170,13 @@ describe('useQuestionMutations', () => {
       });
       
       expect(mockDeleteQuestion).toHaveBeenCalledWith({
-        id: mockQuestion._id,
+        questionId: mockQuestion._id,
         sessionToken: 'mock-token',
       });
     });
 
     it('should show error toast on deletion failure', async () => {
-      mockDeleteQuestion.mockRejectedValue(new Error('Delete failed'));
+      mockDeleteQuestion.mockRejectedValue(new Error('Failed to delete question'));
       
       const { result } = renderHook(() => useQuestionMutations());
       

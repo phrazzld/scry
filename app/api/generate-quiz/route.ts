@@ -10,7 +10,26 @@ import {
   logInjectionAttempt 
 } from '@/lib/prompt-sanitization';
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Lazy-load ConvexHttpClient to allow proper mocking in tests
+let convex: ConvexHttpClient | null = null;
+function getConvexClient() {
+  if (!convex) {
+    convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+  }
+  return convex;
+}
+
+// For testing purposes - allows resetting between tests
+if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+  const g = globalThis as typeof globalThis & {
+    __resetConvexClient?: () => void;
+    __getConvexClient?: typeof getConvexClient;
+  };
+  g.__resetConvexClient = () => {
+    convex = null;
+  };
+  g.__getConvexClient = getConvexClient;
+}
 
 export async function POST(request: NextRequest) {
   // Extract client IP properly - x-forwarded-for can contain multiple IPs
@@ -37,7 +56,7 @@ export async function POST(request: NextRequest) {
   
   try {
     // Check rate limit first
-    const rateLimitResult = await convex.mutation(api.rateLimit.checkApiRateLimit, {
+    const rateLimitResult = await getConvexClient().mutation(api.rateLimit.checkApiRateLimit, {
       ipAddress,
       operation: 'quizGeneration',
     });
@@ -54,6 +73,8 @@ export async function POST(request: NextRequest) {
         JSON.stringify({ 
           error: rateLimitResult.errorMessage,
           retryAfter: rateLimitResult.retryAfter,
+          limit: rateLimitResult.maxAttempts,
+          windowMs: rateLimitResult.windowMs,
         }),
         { 
           status: 429, 
@@ -70,7 +91,33 @@ export async function POST(request: NextRequest) {
       attemptsRemaining: rateLimitResult.attemptsRemaining,
     }, 'Starting quiz generation request')
 
-    const body = await request.json()
+    let body;
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      logger.warn({
+        event: 'api.generate-quiz.json-parse-error',
+        error: (parseError as Error).message,
+      }, 'Failed to parse request body')
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid JSON in request body',
+          details: { message: 'Request body must be valid JSON' }
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (!body) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Request body is required',
+          details: { message: 'Request must include a JSON body' }
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
     
     // Check for injection attempts before validation
     if (body.topic && containsInjectionAttempt(body.topic)) {
@@ -99,7 +146,10 @@ export async function POST(request: NextRequest) {
       }, 'Invalid request body for quiz generation')
       
       return new Response(
-        JSON.stringify({ error: validationResult.error.issues[0]?.message || 'Invalid topic' }),
+        JSON.stringify({ 
+          error: `Validation error: ${validationResult.error.issues[0]?.message || 'Invalid topic'}`,
+          details: validationResult.error.issues
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -115,15 +165,22 @@ export async function POST(request: NextRequest) {
     // Generate questions using AI
     const questions: SimpleQuestion[] = await generateQuizWithAI(topic)
     
+    // Add IDs to questions for frontend tracking
+    const questionsWithIds = questions.map((q, index) => ({
+      ...q,
+      id: index + 1
+    }))
+    
     // Save questions if user is authenticated
     let savedQuestionIds: string[] = [];
+    let saveError: string | undefined;
     if (sessionToken) {
       try {
-        const result = await convex.mutation(api.questions.saveGeneratedQuestions, {
+        const result = await getConvexClient().mutation(api.questions.saveGeneratedQuestions, {
           sessionToken,
           topic,
           difficulty,
-          questions,
+          questions: questionsWithIds,
         });
         savedQuestionIds = result.questionIds;
         
@@ -133,9 +190,10 @@ export async function POST(request: NextRequest) {
           topic,
         }, 'Questions saved to database');
       } catch (error) {
+        saveError = (error as Error).message;
         logger.warn({
           event: 'api.generate-quiz.save-error',
-          error: (error as Error).message,
+          error: saveError,
         }, 'Failed to save questions, continuing anyway');
       }
     }
@@ -153,13 +211,26 @@ export async function POST(request: NextRequest) {
       questionCount: questions.length
     })
     
+    const responseData: Record<string, number | string | boolean | SimpleQuestion[] | string[] | undefined> = { 
+      questions: questionsWithIds,
+      topic,
+      difficulty,
+      saved: savedQuestionIds.length > 0,
+    };
+    
+    // Only include savedCount if there were saved questions
+    if (savedQuestionIds.length > 0) {
+      responseData.savedCount = savedQuestionIds.length;
+      responseData.questionIds = savedQuestionIds; // Keep for backward compatibility
+    }
+    
+    // Include save error if one occurred
+    if (saveError) {
+      responseData.saveError = saveError;
+    }
+    
     return new Response(
-      JSON.stringify({ 
-        questions,
-        topic,
-        difficulty,
-        questionIds: savedQuestionIds, // Add this line
-      }),
+      JSON.stringify(responseData),
       { 
         status: 200, 
         headers: { 'Content-Type': 'application/json' }
@@ -186,7 +257,7 @@ export async function POST(request: NextRequest) {
     })
     
     return new Response(
-      JSON.stringify({ error: 'Failed to generate quiz' }),
+      JSON.stringify({ error: 'Quiz generation failed. Please try again.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }

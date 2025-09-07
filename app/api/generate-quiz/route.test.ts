@@ -48,6 +48,13 @@ import { generateQuizWithAI } from '@/lib/ai-client'
 import { ConvexHttpClient } from 'convex/browser'
 import { POST } from './route'
 
+// Access test helpers from global
+const resetConvexClient = () => {
+  if ((globalThis as any).__resetConvexClient) {
+    (globalThis as any).__resetConvexClient();
+  }
+}
+
 describe('/api/generate-quiz', () => {
   let mockConvexMutation: ReturnType<typeof vi.fn>
   
@@ -59,6 +66,7 @@ describe('/api/generate-quiz', () => {
   
   beforeEach(() => {
     vi.clearAllMocks()
+    resetConvexClient() // Reset the lazy-loaded client between tests
     
     // Setup default mock behavior
     mockConvexMutation = vi.fn()
@@ -85,7 +93,7 @@ describe('/api/generate-quiz', () => {
       }
       if (api._functionPath === 'questions:saveGeneratedQuestions') {
         return Promise.resolve({ 
-          savedIds: ['q1', 'q2'],
+          questionIds: ['q1', 'q2'],
           count: 2
         })
       }
@@ -208,7 +216,8 @@ describe('/api/generate-quiz', () => {
           return Promise.resolve({
             allowed: false,
             attemptsUsed: 10,
-            limit: 10,
+            maxAttempts: 10,
+            errorMessage: 'Rate limit exceeded',
             windowMs: 60000,
             retryAfter: 45
           })

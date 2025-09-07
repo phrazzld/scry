@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { usePollingQuery } from './use-polling-query';
 
 // Mock convex/react
@@ -74,14 +74,14 @@ describe('usePollingQuery', () => {
     const initialCall = (useQuery as any).mock.calls[0][1];
     const initialTimestamp = initialCall._refreshTimestamp;
     
-    // Advance timer by interval
-    vi.advanceTimersByTime(intervalMs);
-    
-    // Wait for re-render
-    await waitFor(() => {
-      const latestCall = (useQuery as any).mock.calls.at(-1)[1];
-      expect(latestCall._refreshTimestamp).toBeGreaterThan(initialTimestamp);
+    // Advance timer by interval within act
+    await act(async () => {
+      vi.advanceTimersByTime(intervalMs);
     });
+    
+    // Check that timestamp was updated
+    const latestCall = (useQuery as any).mock.calls.at(-1)[1];
+    expect(latestCall._refreshTimestamp).toBeGreaterThan(initialTimestamp);
   });
 
   it('should use default interval of 60 seconds when not specified', () => {
@@ -133,33 +133,45 @@ describe('usePollingQuery', () => {
     
     (useQuery as any).mockReturnValue({ data: 'test' });
     
-    const { rerender } = renderHook(() => 
+    renderHook(() => 
       usePollingQuery(mockQuery, mockArgs, intervalMs)
     );
     
     // Hide document
-    Object.defineProperty(document, 'hidden', { value: true });
-    const hiddenEvent = new Event('visibilitychange');
-    document.dispatchEvent(hiddenEvent);
+    await act(async () => {
+      Object.defineProperty(document, 'hidden', { value: true });
+      const hiddenEvent = new Event('visibilitychange');
+      document.dispatchEvent(hiddenEvent);
+    });
     
-    // Wait a bit
-    vi.advanceTimersByTime(intervalMs * 2);
+    // Visibility change might trigger a re-render
+    const callCountAfterHide = (useQuery as any).mock.calls.length;
+    
+    // Wait a bit while hidden (should not poll)
+    await act(async () => {
+      vi.advanceTimersByTime(intervalMs * 2);
+    });
+    
+    // Should not have polled while hidden
+    expect((useQuery as any).mock.calls.length).toBe(callCountAfterHide);
     
     // Show document
-    Object.defineProperty(document, 'hidden', { value: false });
-    const visibleEvent = new Event('visibilitychange');
-    document.dispatchEvent(visibleEvent);
-    
-    // Force re-render
-    rerender();
-    
-    // Advance timer
-    vi.advanceTimersByTime(intervalMs);
-    
-    // Should have resumed polling
-    await waitFor(() => {
-      expect((useQuery as any).mock.calls.length).toBeGreaterThan(1);
+    await act(async () => {
+      Object.defineProperty(document, 'hidden', { value: false });
+      const visibleEvent = new Event('visibilitychange');
+      document.dispatchEvent(visibleEvent);
     });
+    
+    // Get call count after showing (visibility change may trigger re-render)
+    const callCountAfterShow = (useQuery as any).mock.calls.length;
+    
+    // Advance timer - polling should resume
+    await act(async () => {
+      vi.advanceTimersByTime(intervalMs);
+    });
+    
+    // Should have resumed polling and made at least one new call
+    expect((useQuery as any).mock.calls.length).toBeGreaterThan(callCountAfterShow);
   });
 
   it('should clean up interval on unmount', () => {
