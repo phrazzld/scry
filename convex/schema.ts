@@ -56,10 +56,14 @@ export default defineSchema({
       v.literal("relearning")
     )),
     lastReview: v.optional(v.number()),
+    // Soft delete and update tracking
+    deletedAt: v.optional(v.number()), // For soft delete
+    updatedAt: v.optional(v.number()), // Track last update time
   }).index("by_user", ["userId", "generatedAt"])
     .index("by_user_topic", ["userId", "topic", "generatedAt"])
     .index("by_user_unattempted", ["userId", "attemptCount"])
-    .index("by_user_next_review", ["userId", "nextReview"]),
+    .index("by_user_next_review", ["userId", "nextReview"])
+    .index("by_user_active", ["userId", "deletedAt"]), // For filtering deleted questions
 
   interactions: defineTable({
     userId: v.id("users"),
@@ -118,4 +122,12 @@ export default defineSchema({
   }).index("by_environment", ["environment", "deployedAt"])
     .index("by_status", ["status", "deployedAt"])
     .index("by_branch", ["branch", "deployedAt"]),
+
+  rateLimits: defineTable({
+    identifier: v.string(), // Email address or IP address
+    operation: v.string(), // Type of operation (magicLink, quizGeneration, etc.)
+    timestamp: v.number(), // When the attempt was made
+    metadata: v.optional(v.any()), // Additional data about the attempt
+  }).index("by_identifier", ["identifier", "timestamp"])
+    .index("by_operation", ["operation", "timestamp"]),
 });

@@ -1,15 +1,23 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { enforceRateLimit } from "./rateLimit";
+import { createLogger } from "./lib/logger";
 
-// Helper to generate a secure random token
+// Helper to generate a cryptographically secure random token
 function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  // Use crypto.getRandomValues() for cryptographically secure random generation
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  
+  // Convert to base64 using browser-compatible approach
+  // Convex runs in a V8 isolate (like browsers), not Node.js
+  const binaryString = Array.from(array, byte => String.fromCharCode(byte)).join('');
+  const base64 = btoa(binaryString);
+  
+  // Convert to base64url format (URL-safe)
+  // This creates a 43-character token from 32 random bytes
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 export const sendMagicLink = mutation({
@@ -24,6 +32,9 @@ export const sendMagicLink = mutation({
     if (!emailRegex.test(email)) {
       throw new Error("Invalid email format");
     }
+
+    // Enforce rate limiting for magic link requests
+    await enforceRateLimit(ctx, email, "magicLink", true);
 
     // Check for existing unused magic links for this email
     const existingLink = await ctx.db
@@ -57,15 +68,22 @@ export const sendMagicLink = mutation({
     const magicLinkUrl = `${baseUrl}/auth/verify?token=${token}`;
 
     // Schedule the email action to run asynchronously
-    console.log('[MUTATION] About to schedule email action for:', email);
+    const authLogger = createLogger({ module: 'auth', function: 'sendMagicLink' });
+    authLogger.debug('Scheduling email action', { event: 'email.schedule.start', email });
     try {
       const scheduledId = await ctx.scheduler.runAfter(0, internal.emailActions.sendMagicLinkEmail, {
         email,
         magicLinkUrl,
       });
-      console.log('[MUTATION] Successfully scheduled email action with ID:', scheduledId);
+      authLogger.info('Email action scheduled successfully', { 
+        event: 'email.schedule.success', 
+        scheduledId 
+      });
     } catch (error) {
-      console.error('[MUTATION] Failed to schedule email action:', error);
+      authLogger.error('Failed to schedule email action', error, { 
+        event: 'email.schedule.error',
+        email 
+      });
       throw error;
     }
 
@@ -182,18 +200,32 @@ export const getCurrentUser = query({
     // 3. Development sessions only work in development
     // 4. Legacy sessions (no environment) only work in development
     
+    const sessionLogger = createLogger({ module: 'auth', function: 'getCurrentUser' });
+    
     if (currentEnv === 'production' && sessionEnv !== 'production') {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
     
     if (currentEnv.startsWith('preview') && !sessionEnv.startsWith('preview')) {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
     
     if (currentEnv === 'development' && sessionEnv !== 'development') {
-      console.warn(`Session environment mismatch: session=${sessionEnv}, current=${currentEnv}`);
+      sessionLogger.warn('Session environment mismatch', {
+        event: 'session.env.mismatch',
+        sessionEnv,
+        currentEnv
+      });
       return null;
     }
 

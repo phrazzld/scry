@@ -1,29 +1,119 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Brain, Target, BookOpen, Plus, ArrowRight } from "lucide-react";
+import { Target, BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { useState, FormEvent } from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { toast } from "sonner";
 
 interface EmptyStateProps {
   className?: string;
 }
 
-export function NoQuestionsEmptyState({ className }: EmptyStateProps) {
+export function NoQuestionsEmptyState() {
+  const [topic, setTopic] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { sessionToken } = useAuth();
+  
+  // Hardcoded recent topics for now (TODO: fetch from backend)
+  const recentTopics = [
+    "JavaScript closures",
+    "React hooks",
+    "TypeScript generics",
+    "Linear algebra",
+    "French verbs"
+  ];
+  
+  const handleGenerate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!topic.trim() || isGenerating) return;
+    
+    setIsGenerating(true);
+    
+    try {
+      const response = await fetch('/api/generate-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          topic: topic.trim(), 
+          difficulty: 'medium',
+          sessionToken 
+        })
+      });
+      
+      if (response.ok) {
+        toast.success("Questions generated! They'll appear shortly.");
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  const handleQuickGenerate = async (quickTopic: string) => {
+    setTopic(quickTopic);
+    setIsGenerating(true);
+    
+    try {
+      const response = await fetch('/api/generate-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          topic: quickTopic, 
+          difficulty: 'medium',
+          sessionToken 
+        })
+      });
+      
+      if (response.ok) {
+        toast.success("Questions generated! They'll appear shortly.");
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
   return (
-    <Card className={`text-center py-12 ${className || ""}`}>
-      <CardContent>
-        <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No questions yet</h3>
-        <p className="text-gray-600 mb-4">
-          Generate some quizzes to see your questions here.
-        </p>
-        <Button asChild>
-          <Link href="/create">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Quiz
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <div className="max-w-xl mx-auto p-8">
+      <h1 className="text-2xl font-bold mb-4">What do you want to learn?</h1>
+      <form onSubmit={handleGenerate} className="space-y-4">
+        <input
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Quantum computing, French verbs, Linear algebra..."
+          className="w-full p-3 text-lg border rounded-lg"
+          autoFocus
+        />
+        <button 
+          type="submit"
+          disabled={!topic || isGenerating}
+          className="w-full p-3 bg-black text-white rounded-lg disabled:opacity-50"
+        >
+          {isGenerating ? 'Generating...' : 'Generate 5 Questions'}
+        </button>
+      </form>
+      
+      {recentTopics.length > 0 && (
+        <div className="mt-6">
+          <p className="text-sm text-gray-500 mb-2">Recent topics:</p>
+          <div className="flex flex-wrap gap-2">
+            {recentTopics.map(topic => (
+              <button
+                key={topic}
+                onClick={() => handleQuickGenerate(topic)}
+                disabled={isGenerating}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm disabled:opacity-50"
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -42,22 +132,8 @@ export function AllReviewsCompleteEmptyState({ className }: EmptyStateProps) {
       <CardContent>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Your next review will be available soon. In the meantime, you can:
+            Your next review will be available soon. Check back later!
           </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button asChild variant="default">
-              <Link href="/create">
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Quiz
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/dashboard">
-                <BookOpen className="h-4 w-4 mr-2" />
-                View Dashboard
-              </Link>
-            </Button>
-          </div>
         </div>
       </CardContent>
     </Card>
@@ -110,18 +186,13 @@ export function ReviewsCompleteWithCount({
               : "You're all caught up with your reviews!"
             }
           </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            {remainingCount > 0 && onNextReview && (
+          {remainingCount > 0 && onNextReview && (
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button onClick={onNextReview} variant="default">
                 Next Review
               </Button>
-            )}
-            <Button asChild variant={remainingCount > 0 ? "outline" : "default"}>
-              <Link href="/dashboard">
-                View Dashboard
-              </Link>
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

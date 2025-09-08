@@ -1,23 +1,6 @@
-import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-
-// Helper to get authenticated user ID from session token
-async function getAuthenticatedUserId(ctx: QueryCtx | MutationCtx, sessionToken: string | undefined) {
-  if (!sessionToken) {
-    throw new Error("Authentication required");
-  }
-
-  const session = await ctx.db
-    .query("sessions")
-    .withIndex("by_token", (q) => q.eq("token", sessionToken))
-    .first();
-
-  if (!session || session.expiresAt < Date.now()) {
-    throw new Error("Invalid or expired session");
-  }
-
-  return session.userId;
-}
+import { getAuthenticatedUserId } from "./lib/auth";
 
 export const completeQuiz = mutation({
   args: {
@@ -88,23 +71,29 @@ export const getQuizHistory = query({
     const limit = args.limit || 10;
     const offset = args.offset || 0;
 
-    // Get total count
-    const allQuizzes = await ctx.db
-      .query("quizResults")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    
-    const total = allQuizzes.length;
-
-    // Get paginated results
+    // Efficient pagination: fetch limit + 1 to determine if there are more results
+    // This avoids the expensive .collect() operation that loads all results
+    const requestLimit = limit + offset + 1;
     const quizzes = await ctx.db
       .query("quizResults")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(limit + offset);
+      .take(requestLimit);
 
-    // Manual pagination since Convex doesn't have skip
-    const paginatedQuizzes = quizzes.slice(offset, offset + limit);
+    // Apply offset if provided (for backward compatibility)
+    // Note: offset-based pagination is less efficient than cursor-based
+    const offsetQuizzes = offset > 0 ? quizzes.slice(offset) : quizzes;
+    
+    // Check if we have more items than requested limit
+    const hasMore = offsetQuizzes.length > limit;
+    
+    // Return only the requested number of items
+    const paginatedQuizzes = offsetQuizzes.slice(0, limit);
+
+    // For backward compatibility, we still return a total count
+    // But we estimate it as at least the number of items we've seen
+    // This avoids the expensive .collect() operation
+    const minTotal = offset + paginatedQuizzes.length + (hasMore ? 1 : 0);
 
     return {
       quizzes: paginatedQuizzes.map((quiz) => ({
@@ -117,8 +106,8 @@ export const getQuizHistory = query({
         completedAt: quiz.completedAt,
         sessionId: quiz.sessionId, // Include sessionId for interaction lookup
       })),
-      total,
-      hasMore: offset + limit < total,
+      total: minTotal,  // Estimated minimum total to avoid expensive count
+      hasMore,
     };
   },
 });

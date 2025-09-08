@@ -11,9 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { QuestionHistory } from "@/components/question-history";
 import { AllReviewsCompleteEmptyState, NoQuestionsEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Target } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
+import { toast } from "sonner";
+import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
+import { EditQuestionModal } from "@/components/edit-question-modal";
+import { SignInLanding } from "@/components/sign-in-landing";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -40,6 +45,11 @@ export function ReviewFlow() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [sessionStats, setSessionStats] = useState({ completed: 0 });
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMutating, setIsMutating] = useState(false); // General mutation loading state
+  // Track deleted questions for undo functionality
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
   // Queries with polling for real-time updates
   const currentReview = usePollingQuery(
@@ -63,6 +73,9 @@ export function ReviewFlow() {
   
   // Mutations
   const scheduleReview = useMutation(api.spacedRepetition.scheduleReview);
+  const updateQuestion = useMutation(api.questions.updateQuestion);
+  const deleteQuestion = useMutation(api.questions.softDeleteQuestion);
+  const restoreQuestion = useMutation(api.questions.restoreQuestion);
   
   // Set initial question
   useEffect(() => {
@@ -71,6 +84,14 @@ export function ReviewFlow() {
       setQuestionStartTime(Date.now());
     }
   }, [currentReview, currentQuestion, showingFeedback]);
+  
+  // Broadcast current question for generation context
+  useEffect(() => {
+    const event = new CustomEvent('review-question-changed', { 
+      detail: { question: currentQuestion?.question || null }
+    });
+    window.dispatchEvent(event);
+  }, [currentQuestion]);
   
   // Pre-fetch next question
   useEffect(() => {
@@ -123,26 +144,161 @@ export function ReviewFlow() {
       
     } catch (error) {
       console.error("Failed to submit review:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to submit review";
+      toast.error("Unable to save your answer", {
+        description: errorMessage
+      });
     } finally {
       setIsAnswering(false);
     }
   }, [currentQuestion, selectedAnswer, sessionToken, isAnswering, questionStartTime, scheduleReview]);
   
+  // Handle delete with undo
+  const handleDelete = useCallback(async (questionId: string) => {
+    if (!sessionToken) return;
+    
+    setIsMutating(true);
+    
+    try {
+      // Mark as deleted in local state
+      setDeletedQuestions(prev => new Set(prev).add(questionId));
+      
+      // Perform soft delete
+      await deleteQuestion({ 
+        questionId,
+        sessionToken 
+      });
+      
+      // Set up auto-remove from deleted set after 5 seconds
+      const undoTimeoutRef = { current: null as NodeJS.Timeout | null };
+      
+      // Show toast with undo button
+      toast("Question deleted", {
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              // Restore the question
+              await restoreQuestion({
+                questionId,
+                sessionToken
+              });
+              
+              // Remove from deleted set
+              setDeletedQuestions(prev => {
+                const next = new Set(prev);
+                next.delete(questionId);
+                return next;
+              });
+              
+              // Refresh to show restored question
+              router.refresh();
+              
+              // Clear the timeout
+              if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+            } catch (error) {
+              console.error("Failed to restore question:", error);
+              toast.error("Unable to restore question");
+            }
+          }
+        },
+        onAutoClose: () => {
+          // Remove from deleted set when toast expires
+          setDeletedQuestions(prev => {
+            const next = new Set(prev);
+            next.delete(questionId);
+            return next;
+          });
+        }
+      });
+      
+      // Set timeout to match toast duration
+      undoTimeoutRef.current = setTimeout(() => {
+        setDeletedQuestions(prev => {
+          const next = new Set(prev);
+          next.delete(questionId);
+          return next;
+        });
+      }, 5000);
+      
+    } catch (error) {
+      console.error("Failed to delete question:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete question";
+      
+      // Remove from local deleted state since operation failed
+      setDeletedQuestions(prev => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+      
+      toast.error("Unable to delete question", {
+        description: errorMessage
+      });
+    } finally {
+      setIsMutating(false);
+    }
+  }, [sessionToken, deleteQuestion, restoreQuestion, router]);
+  
+  // Enhanced keyboard shortcuts for power users
+  const { showHelp, setShowHelp, shortcuts } = useReviewShortcuts({
+    onSelectAnswer: (index) => {
+      if (currentQuestion?.question.options[index]) {
+        setSelectedAnswer(currentQuestion.question.options[index]);
+      }
+    },
+    onSubmit: handleSubmit,
+    onNext: advanceToNext,
+    onEdit: () => {
+      if (currentQuestion) {
+        setIsEditModalOpen(true);
+      }
+    },
+    onDelete: () => {
+      if (currentQuestion) {
+        handleDelete(currentQuestion.question._id);
+      }
+    },
+    onUndo: () => {
+      // Implement undo logic if there's a recent deletion
+      toast.info('Undo not available');
+    },
+    showingFeedback,
+    isAnswering,
+    canSubmit: !!selectedAnswer,
+  });
+  
+  // Handle saving edits from modal
+  const handleEditSave = useCallback(async (updates: {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+  }) => {
+    if (!sessionToken || !currentQuestion) return;
+    
+    await updateQuestion({
+      sessionToken,
+      questionId: currentQuestion.question._id,
+      question: updates.question,
+      options: updates.options,
+      correctAnswer: updates.correctAnswer
+    });
+    
+    // Update local state to reflect changes
+    setCurrentQuestion({
+      ...currentQuestion,
+      question: {
+        ...currentQuestion.question,
+        ...updates
+      }
+    });
+  }, [sessionToken, currentQuestion, updateQuestion]);
+  
   
   // Loading state
   if (!sessionToken) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-12 pb-8">
-          <div className="text-center">
-            <p className="text-muted-foreground">Please sign in to access reviews</p>
-            <Button onClick={() => router.push("/auth/signin")} className="mt-4">
-              Sign In
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <SignInLanding />;
   }
   
   if (currentReview === undefined) {
@@ -167,7 +323,7 @@ export function ReviewFlow() {
   
   // Review interface
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-2xl mx-auto space-y-4 pt-20">
       {/* Progress header */}
       <Card>
         <CardHeader className="pb-3">
@@ -202,9 +358,27 @@ export function ReviewFlow() {
       
       {/* Question card */}
       {currentQuestion && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{currentQuestion.question.question}</CardTitle>
+        <Card className="group">
+          <CardHeader className="flex items-start justify-between">
+            <CardTitle className="text-xl flex-1">{currentQuestion.question.question}</CardTitle>
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                disabled={isMutating}
+                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Edit question"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(currentQuestion.question._id)}
+                disabled={isMutating}
+                className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Delete question"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Answer options */}
@@ -292,6 +466,24 @@ export function ReviewFlow() {
           </CardContent>
         </Card>
       )}
+      
+      {/* Edit question modal */}
+      {currentQuestion && (
+        <EditQuestionModal
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+          question={currentQuestion.question}
+          onSave={handleEditSave}
+        />
+      )}
+      
+      {/* Keyboard shortcuts help modal */}
+      <KeyboardShortcutsHelp
+        open={showHelp}
+        onOpenChange={setShowHelp}
+        shortcuts={shortcuts}
+      />
+      
     </div>
   );
 }

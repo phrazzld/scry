@@ -14,6 +14,10 @@
 /coverage
 /test-results/
 /playwright-report/
+*.test.ts.skip
+*.test.js.skip
+*.test.tsx.skip
+*.test.jsx.skip
 
 # next.js
 /.next/
@@ -64,3 +68,6 @@ thinktank.log
 coverage/
 *.lcov
 tsconfig.tsbuildinfo
+test-results/
+playwright-report/
+.playwright-mcp/
