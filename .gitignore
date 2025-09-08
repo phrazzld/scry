@@ -70,3 +70,4 @@ coverage/
 tsconfig.tsbuildinfo
 test-results/
 playwright-report/
+.playwright-mcp/

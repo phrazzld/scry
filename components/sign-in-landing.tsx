@@ -1,83 +1,36 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { useAuth } from '@/contexts/auth-context'
-import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
-const emailFormSchema = z.object({
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .email('Please enter a valid email address')
-})
-
-type EmailFormValues = z.infer<typeof emailFormSchema>
-
 export function SignInLanding() {
+  const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [sentEmail, setSentEmail] = useState('')
-  const [isVisible, setIsVisible] = useState({
-    wordmark: false,
-    headlines: false,
-    form: false
-  })
+  const [mounted, setMounted] = useState(false)
   
   const { sendMagicLink } = useAuth()
-  const form = useForm<EmailFormValues>({
-    resolver: zodResolver(emailFormSchema),
-    defaultValues: {
-      email: ''
-    }
-  })
 
   useEffect(() => {
-    // Trigger fade-in sequence
-    setIsVisible(prev => ({ ...prev, wordmark: true }))
-    
-    const timer1 = setTimeout(() => {
-      setIsVisible(prev => ({ ...prev, headlines: true }))
-    }, 200)
-    
-    const timer2 = setTimeout(() => {
-      setIsVisible(prev => ({ ...prev, form: true }))
-    }, 400)
-    
-    // Auto-focus email input after fade-in completes
-    const timer3 = setTimeout(() => {
-      const emailInput = document.querySelector('input[type="email"]') as HTMLInputElement
-      if (emailInput) {
-        emailInput.focus()
-      }
-    }, 600)
-    
-    return () => {
-      clearTimeout(timer1)
-      clearTimeout(timer2)
-      clearTimeout(timer3)
-    }
+    setMounted(true)
   }, [])
 
-  async function onSubmit(data: EmailFormValues) {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    
+    // Basic email validation
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address')
+      return
+    }
+    
     try {
       setIsLoading(true)
-      await sendMagicLink(data.email)
-      setSentEmail(data.email)
+      await sendMagicLink(email)
+      setSentEmail(email)
       setEmailSent(true)
-      toast.success('Magic link sent! Check your email.')
     } catch (error) {
       console.error('Failed to send magic link:', error)
       toast.error('Failed to send magic link. Please try again.')
@@ -87,104 +40,155 @@ export function SignInLanding() {
   }
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] p-5 md:p-4 gradient-bg">
-      {/* Left column - wordmark */}
-      <div className="hidden md:block">
-        <span className={`text-xs tracking-[0.2em] text-gray-600 font-mono transition-opacity duration-500 ${isVisible.wordmark ? 'opacity-100' : 'opacity-0'}`}>
-          SCRY
-        </span>
-      </div>
-      
-      {/* Middle column - content */}
-      <div className="space-y-8">
-        {/* Headlines */}
-        <div className={`text-center space-y-2 transition-opacity duration-500 ${isVisible.headlines ? 'opacity-100' : 'opacity-0'}`}>
-          <h1 className="font-serif text-3xl md:text-5xl leading-none">
-            Master any topic.
-          </h1>
-          <h2 className="font-serif text-3xl md:text-5xl leading-none">
-            Remember everything.
-          </h2>
-          <p className="text-sm text-gray-600 mt-4">
-            AI-powered spaced repetition
-          </p>
-        </div>
-
-        {/* Sign In Form */}
-        <div className={`transition-opacity duration-500 ${isVisible.form ? 'opacity-100' : 'opacity-0'}`}>
+    <div 
+      style={{
+        minHeight: '100vh',
+        backgroundColor: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        opacity: mounted ? 1 : 0,
+        transition: 'opacity 0.4s ease-in-out'
+      }}
+    >
+      <div style={{ width: '100%', maxWidth: '1200px' }}>
+        <div style={{ maxWidth: '800px' }}>
           {!emailSent ? (
-            <div className="space-y-4">
-              <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4 md:items-start">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input
-                                type="email"
-                                placeholder="name@example.com"
-                                disabled={isLoading}
-                                className="border-0 border-b border-gray-300 bg-transparent px-0 py-3 text-lg min-h-[44px] focus:border-gray-900 focus:border-b-2 focus:outline-none focus:ring-0"
-                                enterKeyHint="go"
-                                aria-label="Email address"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="submit"
-                        disabled={isLoading}
-                        className="md:mt-3 min-h-[44px]"
-                        size="default"
-                        aria-label="Send magic link"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Send
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Send magic link
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-            </div>
+            <>
+              <h1 
+                style={{
+                  fontSize: '96px',
+                  fontWeight: '700',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#000000',
+                  margin: '0 0 24px 0',
+                  letterSpacing: '-0.04em',
+                  lineHeight: '1'
+                }}
+              >
+                Scry<span style={{ opacity: 0.7 }}>.</span>
+              </h1>
+              
+              <p 
+                style={{
+                  fontSize: '20px',
+                  fontWeight: '300',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#737373',
+                  margin: '0 0 80px 0',
+                  lineHeight: '1.4'
+                }}
+              >
+                Remember everything.
+              </p>
+              
+              <form onSubmit={handleSubmit}>
+                <div style={{ maxWidth: '500px' }}>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    disabled={isLoading}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      border: '1px solid #e5e5e5',
+                      borderRadius: '6px',
+                      padding: '16px 20px',
+                      fontSize: '18px',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      outline: 'none',
+                      backgroundColor: '#ffffff',
+                      color: '#000000',
+                      opacity: isLoading ? 0.5 : 1,
+                      cursor: isLoading ? 'not-allowed' : 'text',
+                      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                      boxShadow: 'none'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#737373'
+                      e.target.style.boxShadow = '0 0 0 3px rgba(115, 115, 115, 0.1)'
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e5e5'
+                      e.target.style.boxShadow = 'none'
+                    }}
+                  />
+                  <p
+                    style={{
+                      fontSize: '14px',
+                      fontFamily: 'system-ui, -apple-system, sans-serif',
+                      color: '#737373',
+                      margin: '8px 0 0 0'
+                    }}
+                  >
+                    Enter your email and we&apos;ll send you a magic link
+                  </p>
+                </div>
+              </form>
+            </>
           ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-lg">Check your email</p>
-                <p className="font-mono text-gray-600">{sentEmail}</p>
-              </div>
-              <div>
-                <button
-                  onClick={() => {
-                    setEmailSent(false)
-                    setSentEmail('')
-                    form.reset()
-                  }}
-                  className="text-sm text-gray-600 underline hover:text-gray-900 transition-colors"
-                >
-                  Use different email
-                </button>
-              </div>
+            <div style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.3s ease-in-out' }}>
+              <h1 
+                style={{
+                  fontSize: '96px',
+                  fontWeight: '700',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#000000',
+                  margin: '0 0 48px 0',
+                  letterSpacing: '-0.04em',
+                  lineHeight: '1'
+                }}
+              >
+                Scry<span style={{ opacity: 0.7 }}>.</span>
+              </h1>
+              
+              <p 
+                style={{
+                  fontSize: '20px',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#000000',
+                  margin: '0 0 8px 0',
+                  fontWeight: '500'
+                }}
+              >
+                Check your inbox
+              </p>
+              <p 
+                style={{
+                  fontSize: '16px',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#525252',
+                  margin: '0 0 24px 0'
+                }}
+              >
+                We sent a magic link to {sentEmail}
+              </p>
+              <button
+                onClick={() => {
+                  setEmailSent(false)
+                  setSentEmail('')
+                  setEmail('')
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontFamily: 'system-ui, -apple-system, sans-serif',
+                  color: '#737373',
+                  cursor: 'pointer',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Use a different email
+              </button>
             </div>
           )}
         </div>
       </div>
-      
-      {/* Right column - empty */}
-      <div className="hidden md:block"></div>
     </div>
   )
 }
