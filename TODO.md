@@ -76,7 +76,7 @@ Generated from TASK.md on 2025-01-09
   - Estimated complexity: SIMPLE
   - Files: components/minimal-header.tsx
 
-## Phase 2: Smart Scheduling (Week 1)
+## Phase 2: Smart Scheduling (COMPLETE)
 
 ### Advanced Queue Management
 - [x] Implement freshness decay algorithm
@@ -85,11 +85,9 @@ Generated from TASK.md on 2025-01-09
   - Estimated complexity: MEDIUM
   - Files: convex/spacedRepetition.ts
 
-- [ ] Add intelligent interleaving to prevent topic fatigue
-  - Success criteria: Max 3 consecutive new questions before injecting review
-  - Dependencies: Core queue priority system
-  - Estimated complexity: COMPLEX
-  - Files: convex/spacedRepetition.ts
+- [x] ~~Add intelligent interleaving~~ REMOVED - Violates Pure FSRS
+  - **Removed**: This was a comfort feature that corrupts the algorithm
+  - FSRS already determines optimal order; artificial interleaving breaks memory science
 
 - [ ] Create progress bar segments for new vs due
   - Success criteria: Visual distinction between new and review items

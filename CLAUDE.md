@@ -127,6 +127,45 @@ When implementing features:
 - Follow existing component patterns in the codebase
 - Maintain consistency with the minimal, clean UI design
 
+## Core Principles: Hypersimplicity and Pure Memory Science
+
+### The Hypersimple Truth
+
+Scry implements **Pure FSRS** without comfort features or artificial limits. We respect memory science absolutely:
+
+```typescript
+// NEVER do this - comfort features corrupt the algorithm
+if (dueToday > dailyLimit) postpone(excess)  // ❌ Wrong
+if (consecutiveNew >= 3) injectReview()       // ❌ Wrong
+
+// ALWAYS do this - pure algorithm
+if (isDue) reviewNow()                        // ✅ Correct
+return questions.sort(by: fsrsPriority)[0]    // ✅ Correct
+```
+
+### Non-Negotiable Rules
+
+1. **No Daily Limits**: If 300 cards are due, show 300 cards. The forgetting curve doesn't care about comfort.
+2. **No Artificial Interleaving**: Don't inject reviews to "break up" new questions. Trust FSRS.
+3. **No Comfort Features**: Every attempt to make it "easier" makes it worse.
+4. **Natural Feedback Loops**: If someone generates 50 questions, they face 50 new questions. This teaches sustainable habits.
+5. **Brutal Honesty**: Show real counts, real progress, real learning debt.
+
+### Why This Matters
+
+- **Memory science is precise**: The Ebbinghaus forgetting curve has optimal timing. Any deviation reduces effectiveness.
+- **Comfort features are lies**: They make users feel better while learning worse.
+- **Natural consequences teach**: Overwhelming yourself with generations? You'll learn to generate sustainably.
+- **Simplicity scales**: No complex logic means no bugs, no confusion, no maintenance burden.
+
+### Implementation Checklist
+
+Before implementing ANY queue/scheduling feature, ask:
+- Does this respect raw FSRS calculations? If no, **don't do it**.
+- Does this add comfort at the expense of learning? If yes, **don't do it**.
+- Does this add complexity to "improve" the experience? If yes, **don't do it**.
+- Is this the simplest possible solution? If no, **simplify it**.
+
 ## AI Integration
 
 The quiz generation system:
@@ -172,7 +211,7 @@ The project uses Convex for all backend needs:
 
 ## Spaced Repetition System
 
-Scry implements a sophisticated spaced repetition system using the FSRS (Free Spaced Repetition Scheduler) algorithm:
+Scry implements **Pure FSRS** (Free Spaced Repetition Scheduler) without modifications or comfort features:
 
 ### Automatic Rating Approach
 

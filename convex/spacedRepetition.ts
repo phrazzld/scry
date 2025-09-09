@@ -199,7 +199,7 @@ export const getNextReview = query({
     // Sort by retrievability (lower = higher priority)
     questionsWithPriority.sort((a, b) => a.retrievability - b.retrievability);
     
-    // Return the highest priority question
+    // Return the highest priority question - Pure FSRS, no tricks
     const nextQuestion = questionsWithPriority[0].question;
     
     // Get interaction history for this question
