@@ -70,7 +70,7 @@ Generated from TASK.md on 2025-01-09
   - Estimated complexity: SIMPLE
   - Files: components/review-flow.tsx:342-347
 
-- [ ] Add review button pulse animation after generation
+- [x] Add review button pulse animation after generation
   - Success criteria: Review button briefly pulses when new questions added
   - Dependencies: Event dispatch implementation
   - Estimated complexity: SIMPLE
