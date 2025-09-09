@@ -89,7 +89,7 @@ Generated from TASK.md on 2025-01-09
   - **Removed**: This was a comfort feature that corrupts the algorithm
   - FSRS already determines optimal order; artificial interleaving breaks memory science
 
-- [ ] Create progress bar segments for new vs due
+- [x] Create progress bar segments for new vs due
   - Success criteria: Visual distinction between new and review items
   - Dependencies: Visual indicators
   - Estimated complexity: MEDIUM
