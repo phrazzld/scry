@@ -108,10 +108,8 @@ Generated from TASK.md on 2025-01-09
   - Dependencies: Freshness decay implementation
   - Estimated complexity: SIMPLE
 
-- [ ] Test interleaving algorithm
-  - Success criteria: Never more than 3 consecutive new questions
-  - Dependencies: Interleaving implementation
-  - Estimated complexity: SIMPLE
+- [x] ~~Test interleaving algorithm~~ REMOVED
+  - **Removed**: No interleaving to test since we removed the feature
 
 ### Integration Tests
 - [ ] Test generation → queue update → UI flow
@@ -137,12 +135,12 @@ Generated from TASK.md on 2025-01-09
 
 ## Documentation & Cleanup
 
-- [ ] Document FSRS priority algorithm in code comments
+- [x] Document FSRS priority algorithm in code comments
   - Success criteria: Clear explanation of retrievability scoring
   - Dependencies: Core implementation complete
   - Estimated complexity: SIMPLE
 
-- [ ] Update CLAUDE.md with new queue behavior
+- [x] Update CLAUDE.md with new queue behavior
   - Success criteria: Spaced repetition section reflects pure FSRS approach
   - Dependencies: Implementation complete
   - Estimated complexity: SIMPLE

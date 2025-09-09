@@ -1,3 +1,39 @@
+/**
+ * Spaced Repetition System - Pure FSRS Implementation
+ * 
+ * This module implements the Free Spaced Repetition Scheduler (FSRS) algorithm
+ * without modifications or comfort features. The system respects memory science
+ * absolutely - no daily limits, no artificial interleaving, no comfort features.
+ * 
+ * Queue Priority System (lower number = higher priority):
+ * 
+ * 1. Ultra-fresh new questions (< 1 hour old): -2.0 to -1.37
+ *    - Highest priority for immediate encoding into memory
+ *    - Exponentially decays toward standard new priority
+ * 
+ * 2. Fresh new questions (1-24 hours old): -1.37 to -1.0  
+ *    - Still prioritized but with diminishing boost
+ *    - Prevents stale new questions from blocking reviews
+ * 
+ * 3. Standard new questions (> 24 hours old): -1.0
+ *    - Regular FSRS new card priority
+ *    - Must be learned before reviews
+ * 
+ * 4. Due review questions: 0.0 to 1.0
+ *    - Based on FSRS retrievability calculation
+ *    - Lower retrievability = higher priority
+ *    - 0.0 = completely forgotten, needs immediate review
+ *    - 1.0 = perfect recall, can wait
+ * 
+ * Key Principles:
+ * - The forgetting curve doesn't care about comfort
+ * - If 300 cards are due, show 300 cards
+ * - Natural consequences teach sustainable habits
+ * - Every "improvement" that adds comfort reduces effectiveness
+ * 
+ * @module spacedRepetition
+ */
+
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { scheduleNextReview, getRetrievability, initializeCard, cardToDb } from "./fsrs";
@@ -150,7 +186,14 @@ export const scheduleReview = mutation({
 
 /**
  * Get the next question to review based on FSRS retrievability
- * Returns the highest priority question (lowest retrievability or new)
+ * 
+ * This query implements Pure FSRS queue prioritization:
+ * 1. Fetches all due reviews and new questions
+ * 2. Calculates priority score for each (see calculateRetrievabilityScore)
+ * 3. Returns the highest priority question (lowest score)
+ * 
+ * No daily limits, no artificial ordering - just pure memory science.
+ * The question that most needs review appears first, always.
  */
 export const getNextReview = query({
   args: {
@@ -226,6 +269,12 @@ export const getNextReview = query({
 
 /**
  * Get count of questions due for review
+ * 
+ * Returns the REAL count - no limits, no filtering, no comfort.
+ * This is your actual learning debt:
+ * - newCount: Questions never reviewed (highest priority)
+ * - dueCount: Questions past their optimal review time
+ * - totalReviewable: The truth about what needs review
  */
 export const getDueCount = query({
   args: {
