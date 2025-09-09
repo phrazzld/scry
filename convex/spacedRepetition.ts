@@ -2,6 +2,29 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { scheduleNextReview, getRetrievability, initializeCard, cardToDb } from "./fsrs";
 import { getAuthenticatedUserId } from "./lib/auth";
+import { Doc } from "./_generated/dataModel";
+
+/**
+ * Calculate enhanced retrievability score for queue prioritization
+ * 
+ * Implements Pure FSRS with fresh question priority:
+ * - Ultra-fresh questions (< 1 hour old): -2 (highest priority)
+ * - Regular new questions: -1 (high priority) 
+ * - Reviewed questions: 0-1 (based on FSRS calculation)
+ * 
+ * This ensures newly generated questions appear immediately in the review queue,
+ * respecting the FSRS principle that new cards always precede reviews.
+ */
+function calculateRetrievabilityScore(question: Doc<"questions">, now: Date = new Date()): number {
+  if (question.nextReview === undefined) {
+    // New question - check if ultra-fresh
+    const hoursSinceCreation = (now.getTime() - question._creationTime) / 3600000;
+    return hoursSinceCreation < 1 ? -2 : -1;
+  }
+  
+  // Reviewed question - use standard FSRS retrievability (0-1)
+  return getRetrievability(question, now);
+}
 
 /**
  * Schedule next review for a question based on user's answer
@@ -145,11 +168,10 @@ export const getNextReview = query({
       return null; // No questions to review
     }
     
-    // For new questions (no nextReview), assign lowest retrievability (highest priority)
-    // For due questions, calculate actual retrievability
+    // Calculate retrievability score for each question
     const questionsWithPriority = allCandidates.map(q => ({
       question: q,
-      retrievability: q.nextReview === undefined ? -1 : getRetrievability(q, now),
+      retrievability: calculateRetrievabilityScore(q, now),
     }));
     
     // Sort by retrievability (lower = higher priority)

@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/contexts/auth-context";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { QuestionHistory } from "@/components/question-history";
@@ -51,24 +52,28 @@ export function ReviewFlow() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
+  // Dynamic polling intervals for real-time updates after generation
+  const [currentReviewPollInterval, setCurrentReviewPollInterval] = useState(30000);
+  const [dueCountPollInterval, setDueCountPollInterval] = useState(30000);
+  
   // Queries with polling for real-time updates
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+    currentReviewPollInterval
   );
   
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
     sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+    dueCountPollInterval
   );
   
   // Pre-fetch next review when we have a current question
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     currentQuestion && sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+    currentReviewPollInterval
   );
   
   // Mutations
@@ -92,6 +97,26 @@ export function ReviewFlow() {
     });
     window.dispatchEvent(event);
   }, [currentQuestion]);
+  
+  // Listen for generation events and trigger aggressive polling
+  useEffect(() => {
+    const handleQuestionsGenerated = () => {
+      // Set aggressive polling for 5 seconds
+      setCurrentReviewPollInterval(1000);
+      setDueCountPollInterval(1000);
+      
+      // Return to normal polling after 5 seconds
+      const timeout = setTimeout(() => {
+        setCurrentReviewPollInterval(30000);
+        setDueCountPollInterval(30000);
+      }, 5000);
+      
+      return () => clearTimeout(timeout);
+    };
+    
+    window.addEventListener('questions-generated', handleQuestionsGenerated);
+    return () => window.removeEventListener('questions-generated', handleQuestionsGenerated);
+  }, []);
   
   // Pre-fetch next question
   useEffect(() => {
@@ -333,17 +358,24 @@ export function ReviewFlow() {
               <CardTitle className="text-lg">Review Session</CardTitle>
             </div>
             <div className="text-sm text-muted-foreground">
-              {sessionStats.completed} completed
+              {sessionStats.completed} reviewed
               {dueCount && dueCount.totalReviewable > 0 && (
-                <span> • {dueCount.totalReviewable} remaining</span>
+                <span className="font-medium"> • {dueCount.totalReviewable} total due</span>
               )}
             </div>
           </div>
           {dueCount && dueCount.totalReviewable > 0 && (
-            <Progress 
-              value={(sessionStats.completed / (sessionStats.completed + dueCount.totalReviewable)) * 100} 
-              className="h-2 mt-2"
-            />
+            <div className="space-y-2">
+              <Progress 
+                value={(sessionStats.completed / (sessionStats.completed + dueCount.totalReviewable)) * 100} 
+                className="h-2 mt-2"
+              />
+              {dueCount.totalReviewable > 100 && (
+                <p className="text-xs text-muted-foreground">
+                  This is your real learning debt. Each review matters.
+                </p>
+              )}
+            </div>
           )}
         </CardHeader>
       </Card>
@@ -360,7 +392,14 @@ export function ReviewFlow() {
       {currentQuestion && (
         <Card className="group">
           <CardHeader className="flex items-start justify-between">
-            <CardTitle className="text-xl flex-1">{currentQuestion.question.question}</CardTitle>
+            <CardTitle className="text-xl flex-1">
+              {currentQuestion.question.question}
+              {currentQuestion.question._creationTime > Date.now() - 3600000 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  New
+                </Badge>
+              )}
+            </CardTitle>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button 
                 onClick={() => setIsEditModalOpen(true)}

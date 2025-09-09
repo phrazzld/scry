@@ -109,7 +109,21 @@ export function GenerationModal({
         throw new Error(error || 'Failed to generate questions')
       }
 
-      toast.success('Questions generated successfully!')
+      const result = await response.json()
+      const count = result.savedCount || result.questions?.length || 0
+      const topic = result.topic || finalPrompt
+      
+      // Enhanced toast with count and topic
+      toast.success(`✓ ${count} questions generated`, {
+        description: topic,
+        duration: 4000,
+      })
+      
+      // Dispatch event for UI coordination
+      window.dispatchEvent(new CustomEvent('questions-generated', {
+        detail: { count, topic }
+      }))
+      
       onOpenChange(false) // Close modal on success
     } catch (error) {
       console.error('Generation error:', error)

@@ -1,22 +1,9 @@
 # BACKLOG
 
-## Critical Priority (CRITICAL) — Security & Quality Gates
-
-**Security Vulnerabilities & Quality Failures**
-- [x] [CRITICAL] [SECURITY] Replace Math.random() token generation with crypto.randomBytes() and hash session tokens | Effort: M | Risk: Session hijacking vulnerability | Automation: ESLint rules + pre-commit hooks | ✅ Fixed 2025-08-29: Replaced Math.random() with crypto.getRandomValues() for cryptographically secure token generation
-- [x] [CRITICAL] [SECURITY] Implement rate limiting for magic links (5/hr per email) and API endpoints (100/hr per IP) | Effort: L | Risk: DoS attacks, resource exhaustion | Automation: Monitoring alerts + auto-blocking | ✅ Fixed 2025-08-29: Implemented database-backed rate limiting with configurable limits
-- [x] [CRITICAL] [SIMPLIFY] Break down UnifiedQuizFlow component (384 lines) into focused components | Effort: M | Quality: 10/10 | Target: <150 lines per component | ✅ Fixed 2025-08-29: Refactored into 8 focused components, each <115 lines
-
 ## High Priority (HIGH) — Code Health & Developer Experience
 
-### Security Hardening
-- [x] [HIGH] [SECURITY] Add input sanitization for AI prompts with Zod schemas | Effort: M | Risk: Prompt injection attacks | Automation: ESLint validation rules | ✅ Fixed 2025-08-29: Implemented comprehensive prompt sanitization with injection detection
-- [x] [HIGH] [SECURITY] Set up dependency vulnerability scanning (Dependabot + Snyk) | Effort: S | Risk: Supply chain attacks | Automation: Daily scans + auto-PRs | ✅ Fixed 2025-08-29: Configured Dependabot for daily npm scans, security workflows with CodeQL, and dependency review automation
-
 ### Testing Infrastructure Rollout (Incremental PRs)
-- [x] [HIGH] [MAINTAIN] PR#1: Basic Vitest setup with 2-3 example tests | Effort: S | Impact: Foundation for all testing | ✅ Completed in PR#4
 - [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage
-- [x] [HIGH] [SECURITY] PR#3: Enable Dependabot security scanning | Effort: S | Impact: Automated vulnerability detection | ✅ Completed 2025-08-29: Included in dependency vulnerability scanning setup
 - [ ] [HIGH] [MAINTAIN] PR#4: React Testing Library setup with 2-3 component tests | Effort: S | Impact: Frontend testing foundation
 - [ ] [HIGH] [MAINTAIN] PR#5: Integration tests for 3 critical Convex functions | Effort: M | Impact: Backend confidence
 - [ ] [HIGH] [DX] PR#6: Pre-commit hooks for related tests only | Effort: S | Impact: Fast feedback loops
@@ -26,6 +13,7 @@
   * Use Node 20.x or 22.x in CI and local dev (engines already require >=20.19)
   * Pin Rollup/Vitest/Vite to versions compatible with LTS Node; avoid optional native binary resolution issues
   * Verify vitest runs cleanly: pnpm test should pass on LTS
+
 ### Testing Enhancements (From PR#4 Review)
 - [ ] [LOW] [DX] Create test utilities library | Effort: S | Source: PR#4 Claude review | Impact: Reusable test patterns
   * Create lib/test-utils.ts with common testing helpers
@@ -47,7 +35,6 @@
   * Spin up `convex dev` in CI to enable mutation/permission E2E tests
   * Add smoke tests for `updateQuestion`, `softDeleteQuestion`, `restoreQuestion`
 ### Code Quality & Simplification
-- [x] [HIGH] [SIMPLIFY] Extract duplicate `getAuthenticatedUserId` helper (13 duplicates) | Effort: S | Metrics: 39 lines reduction | Enforcement: ESLint rule banning duplication | ✅ Fixed 2025-08-29: Extracted to convex/lib/auth.ts
 - [ ] [HIGH] [ALIGN] Implement ESLint complexity rules (max-lines: 200, complexity: 10) | Effort: S | Quality: 9/10 | Enforcement: CI pipeline blocking
 - [ ] [HIGH] [MAINTAIN] Fix flaky E2E test infrastructure | Effort: M | Target: 100% reliability, <5% false positives | Automation: Auto-retry with alerts
 
@@ -74,7 +61,7 @@
 - [ ] [MEDIUM] [FEATURE] Context-aware quiz generation with embeddings | Effort: L | Value: No duplicate questions | Quality: 8/10
 - [ ] [MEDIUM] [FEATURE] Study notifications via push/email | Effort: M | Value: Increases engagement | Quality: 6/10
 
-### Quality Improvements  
+### Quality Improvements
 - [ ] [MEDIUM] [MAINTAIN] Schedule periodic cleanup of rate limit entries | Effort: S | Source: PR#5 Review | Impact: Prevent unbounded table growth
   * cleanupExpiredRateLimits exists but is not scheduled
   * Add cron/scheduler job to run cleanup daily/hourly
@@ -138,57 +125,3 @@
 - ✅ [2024-01-10] Magic link authentication setup
 - ✅ [2024-01-05] Initial AI quiz generation with Google Gemini
 
-### Dropped/Reconsidered
-- ~~Complex monitoring~~ → Convex handles this
-- ~~PostgreSQL optimizations~~ → Migrated to Convex
-- ~~Session caching~~ → Convex is fast enough
-- ~~Manual security headers~~ → Use framework defaults
-- ~~Component library optimization~~ → Keep it simple
-- ~~Leyline documentation empire~~ → Focus on code over documentation theology
-- ~~Multi-browser testing circus~~ → Test core functionality on Chrome/Safari only
-- ~~Deployments table tracking~~ → Vercel provides this already
-
----
-
-## Grooming Summary [2025-08-05]
-
-### Items Added by Category
-- 5 security improvements (2 critical, 2 high, 1 medium)
-- 8 code quality improvements (complexity, coverage, maintainability)
-- 7 developer experience enhancements (quality gates, automation)
-- 6 simplification opportunities (measurable reduction targets)
-- 3 documentation improvements (inline to architectural)
-- 5 performance optimizations (with specific targets)
-
-### Quality Focus Metrics
-- Coverage targets: 1.21% current → 85% target for new code
-- Complexity reductions: 10+ functions identified for refactoring
-- Quality gates: 15+ automation opportunities identified
-- Technical debt: 20% overall codebase reduction possible
-- Bundle size: 40% reduction target (<200KB main bundle)
-
-### Key Themes Discovered
-- **Critical security vulnerabilities** in token generation and session management
-- **Severe test coverage crisis** at 1.21% with no frontend tests
-- **Component complexity violations** with 384-line god components
-- **Missing quality automation** despite having tools configured
-
-### Recommended Immediate Focus
-1. **Fix critical security vulnerabilities** (Math.random() token generation)
-2. **Implement rate limiting** to prevent abuse
-3. **Break down UnifiedQuizFlow** component for maintainability
-
-### Quality Enforcement Added
-- ESLint complexity rules (max-lines: 200, complexity: 10)
-- Pre-commit hooks with coverage enforcement
-- Automated dependency vulnerability scanning
-- Performance budget monitoring in CI/CD
-- Structured logging enforcement
-
-## Success Metrics
-
-- **Security**: Zero critical vulnerabilities in production
-- **Quality**: 85%+ test coverage on new code, <10 cyclomatic complexity
-- **Performance**: <100ms P95 response times, <200KB main bundle
-- **Developer Experience**: 50% reduction in debugging time
-- **Maintainability**: 20% codebase size reduction, 100% documented APIs
