@@ -79,7 +79,7 @@ Generated from TASK.md on 2025-01-09
 ## Phase 2: Smart Scheduling (Week 1)
 
 ### Advanced Queue Management
-- [ ] Implement freshness decay algorithm
+- [x] Implement freshness decay algorithm
   - Success criteria: Exponential decay over 24 hours affects priority
   - Dependencies: Core queue priority system
   - Estimated complexity: MEDIUM

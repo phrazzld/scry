@@ -5,21 +5,43 @@ import { getAuthenticatedUserId } from "./lib/auth";
 import { Doc } from "./_generated/dataModel";
 
 /**
+ * Calculate freshness priority with exponential decay over 24 hours
+ * 
+ * @param hoursSinceCreation - Hours since the question was created
+ * @returns A priority boost from 0 to 1 (1 = maximum freshness)
+ */
+function calculateFreshnessDecay(hoursSinceCreation: number): number {
+  // Exponential decay with 24-hour half-life
+  // At 0 hours: 1.0 (maximum freshness)
+  // At 24 hours: ~0.37 (e^-1)
+  // At 48 hours: ~0.14 (e^-2)
+  // After 72 hours: effectively 0
+  return Math.exp(-hoursSinceCreation / 24);
+}
+
+/**
  * Calculate enhanced retrievability score for queue prioritization
  * 
- * Implements Pure FSRS with fresh question priority:
- * - Ultra-fresh questions (< 1 hour old): -2 (highest priority)
- * - Regular new questions: -1 (high priority) 
+ * Implements Pure FSRS with fresh question priority and exponential decay:
+ * - Ultra-fresh questions (0-24 hours): -2 to -1 with exponential decay
+ * - Regular new questions (>24 hours): -1 (standard new priority)
  * - Reviewed questions: 0-1 (based on FSRS calculation)
  * 
- * This ensures newly generated questions appear immediately in the review queue,
- * respecting the FSRS principle that new cards always precede reviews.
+ * The freshness decay ensures newly generated questions get immediate priority
+ * but gradually lose that boost over 24 hours, preventing stale new questions
+ * from indefinitely blocking important reviews.
  */
 function calculateRetrievabilityScore(question: Doc<"questions">, now: Date = new Date()): number {
   if (question.nextReview === undefined) {
-    // New question - check if ultra-fresh
+    // New question - apply freshness decay
     const hoursSinceCreation = (now.getTime() - question._creationTime) / 3600000;
-    return hoursSinceCreation < 1 ? -2 : -1;
+    
+    // Calculate freshness boost (1.0 at creation, decays to ~0 after 72 hours)
+    const freshnessBoost = calculateFreshnessDecay(hoursSinceCreation);
+    
+    // Map freshness to priority range: -2 (ultra-fresh) to -1 (standard new)
+    // freshnessBoost of 1.0 gives -2, freshnessBoost of 0 gives -1
+    return -1 - freshnessBoost;
   }
   
   // Reviewed question - use standard FSRS retrievability (0-1)
