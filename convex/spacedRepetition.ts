@@ -48,8 +48,13 @@ export { calculateFreshnessDecay, calculateRetrievabilityScore };
  * 
  * @param hoursSinceCreation - Hours since the question was created
  * @returns A priority boost from 0 to 1 (1 = maximum freshness)
+ * @throws Error if hoursSinceCreation is negative
  */
 function calculateFreshnessDecay(hoursSinceCreation: number): number {
+  if (hoursSinceCreation < 0) {
+    throw new Error('Hours since creation cannot be negative');
+  }
+  
   // Exponential decay with 24-hour half-life
   // At 0 hours: 1.0 (maximum freshness)
   // At 24 hours: ~0.37 (e^-1)

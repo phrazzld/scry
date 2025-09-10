@@ -635,6 +635,18 @@ describe('Retrievability Scoring Functions', () => {
       expect(decay90min).toBeGreaterThan(0.93);
       expect(decay90min).toBeLessThan(0.98);
     });
+
+    it('should throw error for negative hours input', () => {
+      expect(() => calculateFreshnessDecay(-1)).toThrow('Hours since creation cannot be negative');
+      expect(() => calculateFreshnessDecay(-0.5)).toThrow('Hours since creation cannot be negative');
+      expect(() => calculateFreshnessDecay(-24)).toThrow('Hours since creation cannot be negative');
+      expect(() => calculateFreshnessDecay(-100)).toThrow('Hours since creation cannot be negative');
+    });
+
+    it('should handle edge case of exactly 0 hours', () => {
+      const decay = calculateFreshnessDecay(0);
+      expect(decay).toBe(1.0);
+    });
   });
 
   describe('calculateRetrievabilityScore', () => {
@@ -724,6 +736,63 @@ describe('Retrievability Scoring Functions', () => {
         scores.forEach(score => {
           expect(score).toBeGreaterThanOrEqual(-2);
           expect(score).toBeLessThanOrEqual(-1);
+        });
+      });
+
+      it('should strictly enforce priority range boundaries for new questions', () => {
+        // Test absolute boundaries at various ages
+        const testCases = [
+          { hours: 0, expectedMin: -2, expectedMax: -1.999 }, // Ultra-fresh
+          { hours: 0.001, expectedMin: -2, expectedMax: -1.99 }, // Nearly fresh
+          { hours: 1, expectedMin: -1.97, expectedMax: -1.95 }, // 1 hour old
+          { hours: 6, expectedMin: -1.8, expectedMax: -1.7 }, // 6 hours old
+          { hours: 12, expectedMin: -1.65, expectedMax: -1.55 }, // 12 hours old
+          { hours: 24, expectedMin: -1.4, expectedMax: -1.3 }, // 24 hours old
+          { hours: 48, expectedMin: -1.2, expectedMax: -1.1 }, // 48 hours old
+          { hours: 72, expectedMin: -1.1, expectedMax: -1.0 }, // 72 hours old
+          { hours: 96, expectedMin: -1.02, expectedMax: -1.0 }, // 96 hours old
+          { hours: 120, expectedMin: -1.01, expectedMax: -1.0 }, // 120 hours old
+        ];
+        
+        testCases.forEach(({ hours, expectedMin, expectedMax }) => {
+          const question = createMockQuestion({
+            _creationTime: now.getTime() - hours * 3600000,
+            nextReview: undefined
+          });
+          
+          const score = calculateRetrievabilityScore(question, now);
+          
+          // Strict boundaries: must be within -2 to -1
+          expect(score).toBeGreaterThanOrEqual(-2);
+          expect(score).toBeLessThanOrEqual(-1);
+          
+          // More specific range for each age
+          expect(score).toBeGreaterThanOrEqual(expectedMin);
+          expect(score).toBeLessThanOrEqual(expectedMax);
+        });
+      });
+
+      it('should never exceed -2 or -1 boundaries regardless of input', () => {
+        // Test extreme cases
+        const extremeCases = [
+          0, // Brand new
+          0.0001, // Milliseconds old
+          Number.EPSILON, // Smallest positive number
+          1000000, // Very old (millions of hours)
+          Number.MAX_SAFE_INTEGER / 3600000, // Maximum safe hours
+        ];
+        
+        extremeCases.forEach(hours => {
+          const question = createMockQuestion({
+            _creationTime: now.getTime() - hours * 3600000,
+            nextReview: undefined
+          });
+          
+          const score = calculateRetrievabilityScore(question, now);
+          
+          // Absolute boundaries that must never be violated
+          expect(score).toBeGreaterThanOrEqual(-2.0);
+          expect(score).toBeLessThanOrEqual(-1.0);
         });
       });
     });
