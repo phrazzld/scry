@@ -1,6 +1,7 @@
 # Pure FSRS with Fresh Question Priority - Implementation TODO
 
 Generated from TASK.md on 2025-01-09
+Updated with Code Review Feedback on 2025-01-10
 
 ## Critical Path Items (Must complete in order)
 
@@ -260,3 +261,37 @@ After investigation, we discovered that Convex ALREADY provides WebSocket-based 
 - Phase 2 builds on Phase 1 but isn't blocking initial release
 - Performance optimization can happen after functional implementation
 - Risk mitigation should be addressed during implementation, not after
+
+## Code Review Feedback - Remaining Items
+
+### HIGH PRIORITY (Should address before final merge)
+
+- [ ] **Optimize getDueCount query for scalability**
+  - Location: `convex/spacedRepetition.ts` (getDueCount query)
+  - Issue: Query fetches all full documents using `.collect()` just to count them
+  - Impact: O(N) memory/CPU usage, will cause performance issues for users with 1000+ questions
+  - Fix: Use pagination with `.take()` and accumulate count, or implement denormalized counters
+  - Estimated complexity: MEDIUM
+
+### MEDIUM PRIORITY (Can be follow-up PRs)
+
+- [ ] **Fix "New" badge to use server time**
+  - Location: `components/review-flow.tsx:455`
+  - Issue: Badge logic compares server timestamp to client's `Date.now()`
+  - Impact: Users with incorrect system clocks see wrong behavior
+  - Fix: Have `getNextReview` return server's current time, use that for comparison
+  - Estimated complexity: SIMPLE
+
+- [ ] **Update E2E test for real-time validation**
+  - Location: `tests/e2e/spaced-repetition.local.test.ts:204-260`
+  - Issue: Test uses `await reviewPage.reload()` which bypasses WebSocket validation
+  - Impact: Critical failures in Convex reactivity layer would go undetected
+  - Fix: Remove `reload()`, use Playwright's auto-waiting assertions
+  - Estimated complexity: SIMPLE
+
+### COMPLETED (Fixed in recent commits)
+
+- [x] ~~Handle clock skew gracefully~~ - Fixed: Returns 1.0 for negative hours
+- [x] ~~Remove broken E2E test~~ - Fixed: Deleted obsolete dynamic polling test
+- [x] ~~Fix division by zero in progress bar~~ - Fixed: Added guard clause for total === 0
+- [x] ~~Update tests for graceful error handling~~ - Fixed: Tests now expect 1.0 for negative input
