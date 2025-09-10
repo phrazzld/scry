@@ -409,54 +409,8 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     console.log('   - Questions were accessible without delay');
   });
 
-  test('dynamic polling interval changes', async ({ page }) => {
-    // Test that polling intervals change from 1s to 30s after generation
-    
-    // 1. Navigate to review page
-    await page.goto(`${BASE_URL}/review`);
-    await waitForConvexQuery(page);
-    
-    // 2. Open network tab monitoring (mock implementation)
-    const networkRequests: number[] = [];
-    let lastRequestTime = Date.now();
-    
-    // Monitor Convex query requests
-    page.on('request', request => {
-      if (request.url().includes('convex') && request.url().includes('getNextReview')) {
-        const now = Date.now();
-        const timeSinceLastRequest = now - lastRequestTime;
-        networkRequests.push(timeSinceLastRequest);
-        lastRequestTime = now;
-      }
-    });
-    
-    // 3. Trigger question generation event (simulate)
-    await page.evaluate(() => {
-      window.dispatchEvent(new CustomEvent('questions-generated', {
-        detail: { count: 5, topic: 'Test Topic' }
-      }));
-    });
-    
-    // 4. Wait 6 seconds to observe polling pattern
-    await page.waitForTimeout(6000);
-    
-    // 5. Analyze polling intervals
-    // First 5 seconds should have ~1s intervals (aggressive)
-    const firstFiveSeconds = networkRequests.filter((_, i) => i < 5);
-    const afterFiveSeconds = networkRequests.filter((_, i) => i >= 5);
-    
-    // Verify aggressive polling (approximately 1 second intervals)
-    firstFiveSeconds.forEach(interval => {
-      expect(interval).toBeGreaterThanOrEqual(900);  // Allow some variance
-      expect(interval).toBeLessThanOrEqual(1500);
-    });
-    
-    // Verify return to normal polling (approximately 30 second intervals)
-    // Note: In 6 seconds we won't see the full 30s interval, but we can verify
-    // that polling has stopped being aggressive
-    if (afterFiveSeconds.length > 0) {
-      const lastInterval = afterFiveSeconds[afterFiveSeconds.length - 1];
-      expect(lastInterval).toBeGreaterThan(2000); // Should be moving toward 30s
-    }
-  });
+  // Test removed: 'dynamic polling interval changes' test is obsolete
+  // The feature was intentionally removed in favor of Convex's built-in
+  // real-time reactivity. Aggressive polling is no longer needed as
+  // Convex automatically pushes updates via WebSockets.
 });

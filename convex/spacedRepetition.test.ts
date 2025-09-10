@@ -636,11 +636,15 @@ describe('Retrievability Scoring Functions', () => {
       expect(decay90min).toBeLessThan(0.98);
     });
 
-    it('should throw error for negative hours input', () => {
-      expect(() => calculateFreshnessDecay(-1)).toThrow('Hours since creation cannot be negative');
-      expect(() => calculateFreshnessDecay(-0.5)).toThrow('Hours since creation cannot be negative');
-      expect(() => calculateFreshnessDecay(-24)).toThrow('Hours since creation cannot be negative');
-      expect(() => calculateFreshnessDecay(-100)).toThrow('Hours since creation cannot be negative');
+    it('should gracefully handle negative hours (clock skew) by returning maximum freshness', () => {
+      // When client/server times are misaligned, treat as maximum freshness
+      expect(calculateFreshnessDecay(-1)).toBe(1.0);
+      expect(calculateFreshnessDecay(-0.5)).toBe(1.0);
+      expect(calculateFreshnessDecay(-24)).toBe(1.0);
+      expect(calculateFreshnessDecay(-100)).toBe(1.0);
+      
+      // This prevents crashes while still giving new questions appropriate priority
+      expect(calculateFreshnessDecay(-0.001)).toBe(1.0);
     });
 
     it('should handle edge case of exactly 0 hours', () => {

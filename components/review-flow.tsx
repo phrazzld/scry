@@ -372,6 +372,12 @@ export function ReviewFlow() {
                 {/* Calculate segment widths */}
                 {(() => {
                   const total = sessionStats.completed + dueCount.totalReviewable;
+                  
+                  // Handle edge case where total is 0 (no completed, no due)
+                  if (total === 0) {
+                    return <div className="flex h-full" />;
+                  }
+                  
                   const completedPercent = (sessionStats.completed / total) * 100;
                   const newPercent = (dueCount.newCount / total) * 100;
                   const duePercent = (dueCount.dueCount / total) * 100;
