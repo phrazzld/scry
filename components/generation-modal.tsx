@@ -20,6 +20,19 @@ interface GenerationModalProps {
   currentQuestion?: Doc<"questions">
 }
 
+/**
+ * Modal component for generating new quiz questions using AI
+ * 
+ * Features:
+ * - AI-powered question generation from custom prompts
+ * - Context-aware generation based on current question
+ * - Success toast with question count and topic
+ * - Event dispatch for real-time UI updates
+ * 
+ * @param open - Whether the modal is open
+ * @param onOpenChange - Callback to handle modal open/close state changes
+ * @param currentQuestion - Optional current question for context-aware generation
+ */
 export function GenerationModal({ 
   open, 
   onOpenChange, 
@@ -119,10 +132,7 @@ export function GenerationModal({
         duration: 4000,
       })
       
-      // Dispatch event for UI coordination
-      window.dispatchEvent(new CustomEvent('questions-generated', {
-        detail: { count, topic }
-      }))
+      // No need for custom events - Convex handles real-time updates automatically!
       
       onOpenChange(false) // Close modal on success
     } catch (error) {

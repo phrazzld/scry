@@ -46,6 +46,15 @@
 ### Performance Critical
 - [ ] [HIGH] [PERF] Implement semantic AI response caching | Effort: M | Target: 85% cache hits, 70% cost reduction | Measurement: API call metrics
 - [ ] [HIGH] [PERF] Optimize spaced repetition queries with composite indexing | Effort: L | Target: 75% query time reduction (<50ms) | Measurement: P95 response times
+- [ ] [LOW] [PERF] Optimize time-based query updates | Effort: M | Target: Eliminate unnecessary polling | Source: Convex investigation
+  * Current: Using _refreshTimestamp hack to force query re-evaluation for time-based conditions
+  * Solution 1: Create Convex scheduled function that updates a "currentTime" field periodically
+  * Solution 2: Calculate next due time and set single timeout instead of constant polling
+  * Note: Convex already provides WebSocket-based real-time updates for data changes
+- [ ] [LOW] [PERF] Add monitoring for time-based polling overhead | Effort: S | Target: < 0.1% CPU usage | Source: Convex investigation
+  * Reduced polling to 60-second intervals for time-based updates only
+  * Data changes (new questions) handled automatically by Convex reactivity
+  * Monitor battery impact on mobile devices with long review sessions
 
 - [ ] [MEDIUM] [UX] “Recently deleted” view with restore action on My Questions | Effort: M | Value: Completes soft delete UX
   * Add filter toggle to include deleted items and provide Restore button
@@ -79,7 +88,6 @@
   * Files: lib/prompt-sanitization.test.ts, new rate limit tests
 - [ ] [MEDIUM] [SIMPLIFY] Consolidate duplicate UI patterns in quiz-history-views | Effort: S | Metrics: 305→220 lines | Enforcement: Component linter
 - [ ] [MEDIUM] [DX] Enhanced error messages with stack traces | Effort: M | Time saved: 3 hrs/week | Quality: Faster debugging
-- [ ] [MEDIUM] [PERF] Replace polling with WebSocket real-time updates | Effort: L | Target: 90% query reduction | Measurement: Database metrics
 - [ ] [MEDIUM] [PERF] Improve pagination in getQuizHistory | Effort: M | Source: PR#5 Review | Impact: Better scalability
   * Collecting all documents to compute total is O(n)
   * Prefer cursor-based pagination by completedAt/_id

@@ -98,12 +98,12 @@ Generated from TASK.md on 2025-01-09
 ## Testing & Validation
 
 ### Unit Tests
-- [ ] Test retrievability scoring function
+- [x] Test retrievability scoring function
   - Success criteria: Correct scores for new/fresh/reviewed questions
   - Dependencies: Core queue priority system
   - Estimated complexity: SIMPLE
 
-- [ ] Test freshness decay calculation
+- [x] Test freshness decay calculation
   - Success criteria: Exponential decay verified over 24-hour window
   - Dependencies: Freshness decay implementation
   - Estimated complexity: SIMPLE
@@ -112,23 +112,23 @@ Generated from TASK.md on 2025-01-09
   - **Removed**: No interleaving to test since we removed the feature
 
 ### Integration Tests
-- [ ] Test generation → queue update → UI flow
+- [x] Test generation → queue update → UI flow
   - Success criteria: Generated questions appear in review within 2 seconds
   - Dependencies: All Stream A, B, C items
   - Estimated complexity: MEDIUM
 
-- [ ] Test polling interval changes
+- [x] Test polling interval changes
   - Success criteria: Aggressive polling activates and deactivates correctly
   - Dependencies: Dynamic polling implementation
   - Estimated complexity: SIMPLE
 
 ### End-to-End Tests
-- [ ] Complete generation and immediate review flow
+- [x] Complete generation and immediate review flow
   - Success criteria: User can generate and immediately review new questions
   - Dependencies: All Phase 1 items
   - Estimated complexity: MEDIUM
 
-- [ ] Verify no daily limits enforcement
+- [x] Verify no daily limits enforcement
   - Success criteria: 100+ due items all appear in queue
   - Dependencies: Core queue priority system
   - Estimated complexity: SIMPLE
@@ -145,7 +145,7 @@ Generated from TASK.md on 2025-01-09
   - Dependencies: Implementation complete
   - Estimated complexity: SIMPLE
 
-- [ ] Add JSDoc comments to new/modified functions
+- [x] Add JSDoc comments to new/modified functions
   - Success criteria: All public functions documented
   - Dependencies: Implementation complete
   - Estimated complexity: SIMPLE
@@ -172,6 +172,56 @@ Generated from TASK.md on 2025-01-09
 - [ ] Redis queue for 10k+ question scaling
 - [ ] User-specific learning velocity tracking
 - [ ] Adaptive freshness windows per user
+
+## PR #16 Review Feedback Actions (UPDATED)
+
+### Convex Real-Time Discovery
+After investigation, we discovered that Convex ALREADY provides WebSocket-based real-time updates automatically!
+- Removed unnecessary custom event system and aggressive polling
+- Kept minimal polling (60s) only for time-based conditions (questions becoming due)
+- New questions now appear instantly via Convex reactivity (truly < 1 second)
+
+### Test Coverage Gaps (HIGH PRIORITY)
+- [ ] Add comprehensive tests for calculateFreshnessDecay() function
+  - Success criteria: Test returns 1.0 at 0 hours, ~0.37 at 24 hours, ~0.14 at 48 hours
+  - File: convex/spacedRepetition.test.ts
+  - Implementation:
+    ```typescript
+    describe('calculateFreshnessDecay', () => {
+      it('should return 1.0 for newly created questions', () => {
+        expect(calculateFreshnessDecay(0)).toBe(1.0);
+      });
+      it('should decay to ~0.37 after 24 hours', () => {
+        expect(calculateFreshnessDecay(24)).toBeCloseTo(0.37, 2);
+      });
+      it('should handle negative input gracefully', () => {
+        expect(calculateFreshnessDecay(-1)).toBeGreaterThan(1.0);
+      });
+    });
+    ```
+  - Estimated complexity: SIMPLE
+
+- [ ] Add tests for fresh question priority range validation
+  - Success criteria: Verify questions get -2 to -1 priority based on age
+  - File: convex/spacedRepetition.test.ts
+  - Test cases: 0 hours → -2, 12 hours → ~-1.7, 24 hours → ~-1.37, 72+ hours → ~-1
+  - Estimated complexity: SIMPLE
+
+### Code Hardening (LOW PRIORITY)
+- [ ] Add input validation to calculateFreshnessDecay()
+  - Success criteria: Handle negative hours gracefully (return Math.exp(hoursSinceCreation / 24) for negative values)
+  - File: convex/spacedRepetition.ts:52
+  - Implementation: Add guard clause `if (hoursSinceCreation < 0) return Math.exp(hoursSinceCreation / 24);`
+  - Estimated complexity: SIMPLE
+
+- [ ] Namespace custom events for better isolation
+  - Success criteria: Change 'questions-generated' to 'scry:questions-generated'
+  - Files: 
+    - components/generation-modal.tsx:144
+    - components/review-flow.tsx:96
+    - components/minimal-header.tsx:45
+  - Prevents potential conflicts with other scripts
+  - Estimated complexity: SIMPLE
 
 ## Risk Mitigation
 

@@ -13,7 +13,6 @@ export function MinimalHeader() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-  const [isPulsing, setIsPulsing] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   
   const { user, isLoading, signOut } = useAuth()
@@ -55,23 +54,8 @@ export function MinimalHeader() {
     return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal)
   }, [user, reviewQuestion])
   
-  // Listen for questions generated event to trigger pulse animation
-  useEffect(() => {
-    const handleQuestionsGenerated = () => {
-      // Trigger pulse animation
-      setIsPulsing(true)
-      
-      // Remove pulse animation after 3 seconds
-      const timeout = setTimeout(() => {
-        setIsPulsing(false)
-      }, 3000)
-      
-      return () => clearTimeout(timeout)
-    }
-    
-    window.addEventListener('questions-generated', handleQuestionsGenerated)
-    return () => window.removeEventListener('questions-generated', handleQuestionsGenerated)
-  }, [])
+  // Pulse animation could be triggered by watching dueCount changes via Convex
+  // For now, removing the manual event system
   
   return (
     <>
@@ -93,16 +77,10 @@ export function MinimalHeader() {
                   setCurrentQuestion(reviewQuestion)
                   setGenerateOpen(true)
                 }}
-                className={`relative ${
-                  isPulsing ? 'animate-pulse ring-2 ring-primary ring-offset-2' : ''
-                }`}
                 title="Generate questions (G)"
               >
                 <Sparkles className="h-4 w-4" />
                 <span className="sr-only">Generate questions</span>
-                {isPulsing && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full animate-ping" />
-                )}
               </Button>
             )}
             

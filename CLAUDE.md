@@ -209,6 +209,31 @@ The project uses Convex for all backend needs:
 - Real-time subscriptions available
 - Type-safe from database to UI
 
+## Real-Time Updates with Convex
+
+**Important Discovery**: Convex provides automatic real-time updates via WebSockets out of the box!
+
+### How Convex Reactivity Works
+- **Automatic Updates**: When data changes in the database, all subscribed queries automatically re-run
+- **No Polling Needed**: New questions appear instantly when inserted (< 100ms typically)
+- **WebSocket-Based**: Convex uses WebSockets under the hood for push-based updates
+- **Dependency Tracking**: Convex tracks what data each query reads and updates when it changes
+
+### Our Implementation
+- **Removed**: Custom event system (`questions-generated` events) - not needed!
+- **Removed**: Aggressive 1-second polling after generation - Convex handles this!
+- **Kept**: Minimal 60-second polling for time-based conditions only
+  - Questions becoming "due" as time passes requires periodic checks
+  - The condition `.lte("nextReview", now.getTime())` depends on current time
+  - Future optimization: Use Convex scheduled functions to eliminate this too
+
+### Key Insight
+We were treating Convex like a traditional database that needs polling, when it's actually a **reactive database** that pushes updates automatically. This means:
+- New questions appear instantly after generation
+- No manual refresh needed
+- No custom events needed
+- Significantly reduced server load
+
 ## Spaced Repetition System
 
 Scry implements **Pure FSRS** (Free Spaced Repetition Scheduler) without modifications or comfort features:

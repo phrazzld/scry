@@ -34,6 +34,24 @@ interface ReviewFeedback {
   scheduledDays: number;
 }
 
+/**
+ * Main review flow component for spaced repetition learning
+ * 
+ * Implements Pure FSRS queue prioritization with:
+ * - Real-time polling for newly generated questions
+ * - Dynamic polling intervals (1s aggressive → 30s normal)
+ * - Fresh question priority with exponential decay
+ * - No daily limits or comfort features
+ * 
+ * Features:
+ * - Automatic question prioritization based on FSRS algorithm
+ * - Question history tracking with success rates
+ * - Question editing and deletion capabilities
+ * - Segmented progress bar showing new vs due questions
+ * - Keyboard shortcuts for navigation
+ * 
+ * @returns Review interface with question cards and progress tracking
+ */
 export function ReviewFlow() {
   const router = useRouter();
   const { sessionToken } = useAuth();
@@ -51,28 +69,29 @@ export function ReviewFlow() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
-  // Dynamic polling intervals for real-time updates after generation
-  const [currentReviewPollInterval, setCurrentReviewPollInterval] = useState(30000);
-  const [dueCountPollInterval, setDueCountPollInterval] = useState(30000);
+  // Minimal polling for time-based updates only (questions becoming due over time)
+  // Convex handles data changes automatically via real-time subscriptions
+  const timeBasedPollInterval = 60000; // 1 minute for time-based checks
   
-  // Queries with polling for real-time updates
+  // Queries with minimal polling for time-based updates
+  // New questions will appear automatically via Convex reactivity
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     sessionToken ? { sessionToken } : "skip",
-    currentReviewPollInterval
+    timeBasedPollInterval
   );
   
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
     sessionToken ? { sessionToken } : "skip",
-    dueCountPollInterval
+    timeBasedPollInterval
   );
   
   // Pre-fetch next review when we have a current question
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     currentQuestion && sessionToken ? { sessionToken } : "skip",
-    currentReviewPollInterval
+    timeBasedPollInterval
   );
   
   // Mutations
@@ -97,25 +116,8 @@ export function ReviewFlow() {
     window.dispatchEvent(event);
   }, [currentQuestion]);
   
-  // Listen for generation events and trigger aggressive polling
-  useEffect(() => {
-    const handleQuestionsGenerated = () => {
-      // Set aggressive polling for 5 seconds
-      setCurrentReviewPollInterval(1000);
-      setDueCountPollInterval(1000);
-      
-      // Return to normal polling after 5 seconds
-      const timeout = setTimeout(() => {
-        setCurrentReviewPollInterval(30000);
-        setDueCountPollInterval(30000);
-      }, 5000);
-      
-      return () => clearTimeout(timeout);
-    };
-    
-    window.addEventListener('questions-generated', handleQuestionsGenerated);
-    return () => window.removeEventListener('questions-generated', handleQuestionsGenerated);
-  }, []);
+  // No need for generation event listeners - Convex automatically updates queries
+  // when new questions are inserted into the database!
   
   // Pre-fetch next question
   useEffect(() => {

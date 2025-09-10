@@ -40,6 +40,9 @@ import { scheduleNextReview, getRetrievability, initializeCard, cardToDb } from 
 import { getAuthenticatedUserId } from "./lib/auth";
 import { Doc } from "./_generated/dataModel";
 
+// Export for testing
+export { calculateFreshnessDecay, calculateRetrievabilityScore };
+
 /**
  * Calculate freshness priority with exponential decay over 24 hours
  * 
@@ -66,6 +69,10 @@ function calculateFreshnessDecay(hoursSinceCreation: number): number {
  * The freshness decay ensures newly generated questions get immediate priority
  * but gradually lose that boost over 24 hours, preventing stale new questions
  * from indefinitely blocking important reviews.
+ * 
+ * @param question - The question document to calculate priority for
+ * @param now - Current date/time for calculation (defaults to now)
+ * @returns Priority score: -2 to -1 for new questions, 0 to 1 for reviewed questions
  */
 function calculateRetrievabilityScore(question: Doc<"questions">, now: Date = new Date()): number {
   if (question.nextReview === undefined) {
