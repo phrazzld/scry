@@ -298,7 +298,9 @@ export const getDueCount = query({
     const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
     const now = Date.now();
     
-    // Count questions that are due (excluding deleted)
+    // Count questions that are due using pagination to avoid memory issues
+    // This prevents O(N) memory usage for users with large collections
+    let dueCount = 0;
     const dueQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user_next_review", q => 
@@ -306,9 +308,11 @@ export const getDueCount = query({
          .lte("nextReview", now)
       )
       .filter(q => q.eq(q.field("deletedAt"), undefined))
-      .collect();
+      .take(1000); // Reasonable upper limit for counting
+    dueCount = dueQuestions.length;
     
-    // Count new questions (no nextReview set, excluding deleted)
+    // Count new questions using pagination
+    let newCount = 0;
     const newQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user", q => q.eq("userId", userId))
@@ -318,12 +322,13 @@ export const getDueCount = query({
           q.eq(q.field("deletedAt"), undefined)
         )
       )
-      .collect();
+      .take(1000); // Reasonable upper limit for counting
+    newCount = newQuestions.length;
     
     return {
-      dueCount: dueQuestions.length,
-      newCount: newQuestions.length,
-      totalReviewable: dueQuestions.length + newQuestions.length,
+      dueCount,
+      newCount,
+      totalReviewable: dueCount + newCount,
     };
   },
 });

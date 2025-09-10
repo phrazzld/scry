@@ -182,64 +182,35 @@ After investigation, we discovered that Convex ALREADY provides WebSocket-based 
 - Kept minimal polling (60s) only for time-based conditions (questions becoming due)
 - New questions now appear instantly via Convex reactivity (truly < 1 second)
 
-### Test Coverage Gaps (HIGH PRIORITY)
-- [ ] Add comprehensive tests for calculateFreshnessDecay() function
-  - Success criteria: Test returns 1.0 at 0 hours, ~0.37 at 24 hours, ~0.14 at 48 hours
-  - File: convex/spacedRepetition.test.ts
-  - Implementation:
-    ```typescript
-    describe('calculateFreshnessDecay', () => {
-      it('should return 1.0 for newly created questions', () => {
-        expect(calculateFreshnessDecay(0)).toBe(1.0);
-      });
-      it('should decay to ~0.37 after 24 hours', () => {
-        expect(calculateFreshnessDecay(24)).toBeCloseTo(0.37, 2);
-      });
-      it('should handle negative input gracefully', () => {
-        expect(calculateFreshnessDecay(-1)).toBeGreaterThan(1.0);
-      });
-    });
-    ```
-  - Estimated complexity: SIMPLE
+### Test Coverage Gaps (COMPLETED)
+- [x] ~~Add comprehensive tests for calculateFreshnessDecay() function~~ DONE
+  - Completed in convex/spacedRepetition.test.ts lines 583-650
+  - Tests cover: 0 hours → 1.0, 24 hours → ~0.37, 48 hours → ~0.14, edge cases
 
-- [ ] Add tests for fresh question priority range validation
-  - Success criteria: Verify questions get -2 to -1 priority based on age
-  - File: convex/spacedRepetition.test.ts
-  - Test cases: 0 hours → -2, 12 hours → ~-1.7, 24 hours → ~-1.37, 72+ hours → ~-1
-  - Estimated complexity: SIMPLE
+- [x] ~~Add tests for fresh question priority range validation~~ DONE
+  - Completed in convex/spacedRepetition.test.ts lines 742-797
+  - Tests verify -2 to -1 priority range based on freshness
 
-### Code Hardening (LOW PRIORITY)
-- [ ] Add input validation to calculateFreshnessDecay()
-  - Success criteria: Handle negative hours gracefully (return Math.exp(hoursSinceCreation / 24) for negative values)
-  - File: convex/spacedRepetition.ts:52
-  - Implementation: Add guard clause `if (hoursSinceCreation < 0) return Math.exp(hoursSinceCreation / 24);`
-  - Estimated complexity: SIMPLE
+### Code Hardening (COMPLETED)
+- [x] ~~Add input validation to calculateFreshnessDecay()~~ DONE
+  - Now returns 1.0 for negative hours (graceful clock skew handling)
+  - Implemented in convex/spacedRepetition.ts:53-56
 
-- [ ] Namespace custom events for better isolation
-  - Success criteria: Change 'questions-generated' to 'scry:questions-generated'
-  - Files: 
-    - components/generation-modal.tsx:144
-    - components/review-flow.tsx:96
-    - components/minimal-header.tsx:45
-  - Prevents potential conflicts with other scripts
-  - Estimated complexity: SIMPLE
+- [x] ~~Namespace custom events for better isolation~~ N/A
+  - Custom events were completely removed in favor of Convex's built-in reactivity
+  - No events to namespace anymore
 
 ## Risk Mitigation
 
-- [ ] Add fallback for event system failures
-  - Success criteria: Polling still works if events fail
-  - Dependencies: Event system implementation
-  - Estimated complexity: SIMPLE
+- [x] ~~Add fallback for event system failures~~ N/A
+  - Event system removed; Convex handles real-time updates automatically
 
-- [ ] Handle edge case of 0 questions in queue
-  - Success criteria: Graceful empty state handling
-  - Dependencies: Core queue system
-  - Estimated complexity: SIMPLE
+- [x] ~~Handle edge case of 0 questions in queue~~ DONE
+  - Division by zero fixed in progress bar (components/review-flow.tsx:377-378)
+  - Empty state handling implemented
 
-- [ ] Prevent infinite polling loops
-  - Success criteria: Max polling attempts before fallback to default interval
-  - Dependencies: Dynamic polling
-  - Estimated complexity: SIMPLE
+- [x] ~~Prevent infinite polling loops~~ DONE
+  - Removed aggressive polling; only minimal 60s polling for time-based updates
 
 ## Success Verification Checklist
 
@@ -264,14 +235,12 @@ After investigation, we discovered that Convex ALREADY provides WebSocket-based 
 
 ## Code Review Feedback - Remaining Items
 
-### HIGH PRIORITY (Should address before final merge)
+### HIGH PRIORITY (COMPLETED)
 
-- [ ] **Optimize getDueCount query for scalability**
-  - Location: `convex/spacedRepetition.ts` (getDueCount query)
-  - Issue: Query fetches all full documents using `.collect()` just to count them
-  - Impact: O(N) memory/CPU usage, will cause performance issues for users with 1000+ questions
-  - Fix: Use pagination with `.take()` and accumulate count, or implement denormalized counters
-  - Estimated complexity: MEDIUM
+- [x] **Optimize getDueCount query for scalability** DONE
+  - Changed from `.collect()` to `.take(1000)` to prevent memory issues
+  - Now caps at counting 1000 items (reasonable limit for UI display)
+  - Prevents O(N) memory usage for users with massive collections
 
 ### MEDIUM PRIORITY (Can be follow-up PRs)
 
