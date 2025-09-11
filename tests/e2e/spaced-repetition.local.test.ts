@@ -247,45 +247,29 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     const generationCompleteTime = Date.now();
     
     // 4. Check review page for new questions appearing
-    // The review page should update via polling within 2 seconds
+    // The review page should update automatically via WebSocket within 2 seconds
     
-    // Wait up to 2 seconds for questions to appear
-    const startCheckTime = Date.now();
+    // Wait for questions to appear automatically (no reload needed - Convex provides real-time updates)
     let questionsAppeared = false;
-    let checkDuration = 0;
     
-    while (checkDuration < 2000) {
-      // Reload to trigger polling update
-      await reviewPage.reload();
-      await waitForConvexQuery(reviewPage);
-      
-      const currentContent = await reviewPage.textContent('body');
-      
-      // Check if new questions are available
-      if (!currentContent?.includes('All Caught Up')) {
-        // Questions are available - verify count increased
-        const countText = await reviewPage.getByText(/\d+ questions? available/).textContent().catch(() => null);
-        
-        if (countText) {
-          const currentCount = parseInt(countText.match(/\d+/)?.[0] || '0');
-          if (currentCount > initialQuestionCount) {
-            questionsAppeared = true;
-            break;
-          }
-        } else {
-          // Or check if we can see a question heading
-          const hasQuestion = await reviewPage.getByRole('heading', { name: /Question/i }).isVisible({ timeout: 100 }).catch(() => false);
-          if (hasQuestion) {
-            questionsAppeared = true;
-            break;
-          }
-        }
+    try {
+      // Use Playwright's auto-waiting to detect when new questions appear
+      // This properly validates the WebSocket reactivity
+      if (initialHasQuestions) {
+        // If there were initial questions, wait for the count to increase
+        await expect(reviewPage.getByText(/\d+ questions? available/)).toContainText(
+          new RegExp(`(${initialQuestionCount + 1}|${initialQuestionCount + 2}|${initialQuestionCount + 3}|${initialQuestionCount + 4}|${initialQuestionCount + 5}) questions? available`),
+          { timeout: 2000 }
+        );
+        questionsAppeared = true;
+      } else {
+        // If no initial questions, wait for questions to appear
+        await expect(reviewPage.getByRole('heading', { name: /Question/i })).toBeVisible({ timeout: 2000 });
+        questionsAppeared = true;
       }
-      
-      checkDuration = Date.now() - startCheckTime;
-      
-      // Wait 100ms before next check
-      await reviewPage.waitForTimeout(100);
+    } catch {
+      // Questions didn't appear within 2 seconds
+      questionsAppeared = false;
     }
     
     const timeToAppear = Date.now() - generationCompleteTime;

@@ -276,6 +276,7 @@ export const getNextReview = query({
       successRate: nextQuestion.attemptCount > 0 
         ? nextQuestion.correctCount / nextQuestion.attemptCount 
         : null,
+      serverTime: now.getTime(), // Server's current time for accurate "New" badge display
     };
   },
 });

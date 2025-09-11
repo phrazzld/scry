@@ -26,6 +26,7 @@ interface ReviewQuestion {
   attemptCount: number;
   correctCount: number;
   successRate: number | null;
+  serverTime?: number; // Server's current time for accurate "New" badge display
 }
 
 interface ReviewFeedback {
@@ -457,7 +458,7 @@ export function ReviewFlow() {
           <CardHeader className="flex items-start justify-between">
             <CardTitle className="text-xl flex-1">
               {currentQuestion.question.question}
-              {currentQuestion.question._creationTime > Date.now() - 3600000 && (
+              {currentQuestion.serverTime && currentQuestion.question._creationTime > currentQuestion.serverTime - 3600000 && (
                 <Badge variant="secondary" className="ml-2 text-xs">
                   New
                 </Badge>

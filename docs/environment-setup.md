@@ -226,13 +226,6 @@ pnpm deploy:check
 2. Create a new API key
 3. Copy the key starting with `re_...`
 
-### Database (Neon)
-
-1. Visit [Neon Console](https://console.neon.tech/)
-2. Create a new project
-3. Copy the connection string
-4. Use both pooled and direct URLs if available
-
 ### Vercel KV (Optional)
 
 1. Visit Vercel Dashboard → Storage → KV

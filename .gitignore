@@ -54,6 +54,7 @@ next-env.d.ts
 
 # logs
 thinktank.log
+logs_result.json
 
 /docs/leyline
 /thinktank_*/
