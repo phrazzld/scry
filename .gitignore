@@ -40,6 +40,7 @@ yarn-error.log*
 # env files (track example files, ignore actual config)
 .env
 .env.local
+.env.vercel.local
 .env.development.local
 .env.test.local
 .env.production.local

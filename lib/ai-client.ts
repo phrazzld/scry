@@ -5,19 +5,8 @@ import type { SimpleQuestion } from '@/types/quiz'
 import { aiLogger, loggers } from './logger'
 import { createSafePrompt, sanitizeTopic } from './prompt-sanitization'
 
-// Validate API key is present
-if (!process.env.GOOGLE_AI_API_KEY) {
-  const errorMessage = 'GOOGLE_AI_API_KEY is not configured. Please set it in your environment variables.';
-  console.error(`[AI Client Error] ${errorMessage}`);
-  // Log this configuration error
-  aiLogger.error({
-    event: 'ai.configuration.missing-api-key',
-    error: errorMessage,
-  }, errorMessage);
-}
-
 const google = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_AI_API_KEY,
+  apiKey: process.env.GOOGLE_AI_API_KEY || '',
 })
 
 const questionSchema = z.object({
@@ -78,22 +67,28 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
       explanation: q.explanation
     }))
   } catch (error) {
+    const errorMessage = (error as Error).message || 'Unknown error'
+    const isApiKeyError = errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')
+    
     loggers.error(
       error as Error,
       'ai',
       {
         event: 'ai.quiz-generation.failure',
         topic: sanitizedTopic,
-        model: 'gemini-2.0-flash-exp'
+        model: 'gemini-2.0-flash-exp',
+        errorType: isApiKeyError ? 'api-key-error' : 'generation-error',
+        errorMessage
       },
-      'Failed to generate quiz questions with AI'
+      `Failed to generate quiz questions: ${errorMessage}`
     )
 
     aiLogger.warn({
       event: 'ai.quiz-generation.fallback',
       topic: sanitizedTopic,
-      fallbackQuestionCount: 2
-    }, `Using fallback questions for topic: ${sanitizedTopic}`)
+      fallbackQuestionCount: 2,
+      reason: errorMessage
+    }, `Using fallback questions for topic: ${sanitizedTopic} - Error: ${errorMessage}`)
 
     // Return some default questions as fallback
     return [
