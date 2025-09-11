@@ -5,6 +5,17 @@ import type { SimpleQuestion } from '@/types/quiz'
 import { aiLogger, loggers } from './logger'
 import { createSafePrompt, sanitizeTopic } from './prompt-sanitization'
 
+// Validate API key is present
+if (!process.env.GOOGLE_AI_API_KEY) {
+  const errorMessage = 'GOOGLE_AI_API_KEY is not configured. Please set it in your environment variables.';
+  console.error(`[AI Client Error] ${errorMessage}`);
+  // Log this configuration error
+  aiLogger.error({
+    event: 'ai.configuration.missing-api-key',
+    error: errorMessage,
+  }, errorMessage);
+}
+
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_AI_API_KEY,
 })

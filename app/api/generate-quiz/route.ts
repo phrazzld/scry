@@ -54,6 +54,39 @@ export async function POST(request: NextRequest) {
   
   const timer = loggers.time('api.generate-quiz', 'api')
   
+  // Check for required API key configuration
+  if (!process.env.GOOGLE_AI_API_KEY) {
+    logger.error({
+      event: 'api.generate-quiz.missing-config',
+      error: 'GOOGLE_AI_API_KEY not configured'
+    }, 'API key missing for quiz generation');
+    
+    const duration = timer.end({
+      success: false,
+      error: 'Missing API key configuration'
+    })
+    
+    loggers.apiRequest('POST', '/api/generate-quiz', 503, duration, {
+      error: 'Configuration error'
+    })
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Quiz generation service is not properly configured. Please contact support.',
+        details: process.env.NODE_ENV === 'development' 
+          ? { message: 'GOOGLE_AI_API_KEY environment variable is missing' }
+          : undefined
+      }),
+      { 
+        status: 503, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Retry-After': '3600' // Suggest retry in 1 hour
+        } 
+      }
+    );
+  }
+  
   try {
     // Check rate limit first
     const rateLimitResult = await getConvexClient().mutation(api.rateLimit.checkApiRateLimit, {
