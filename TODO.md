@@ -1,7 +1,105 @@
+# 🚨 CRITICAL SECURITY INCIDENT - API Keys Exposed in Git History
+
+**Incident Date**: 2025-09-11
+**Severity**: CRITICAL
+**Status**: ACTIVE BREACH
+
+## IMMEDIATE REMEDIATION (Do within 30 minutes)
+
+### Rotate Compromised API Keys
+- [x] Open https://makersuite.google.com/app/apikey and revoke key `AIzaSyBZUEtv21VkLMo3BAzlt-OLZWHYvsE36RM`
+- [x] Generate new Google AI API key and save temporarily in password manager
+- [x] Open https://resend.com/api-keys and revoke key `re_f4b8b5VP_G9nb9LceJ5mDzU1Kx8SQUGmS`
+- [x] Generate new Resend API key with same permissions and save temporarily in password manager
+- [x] Run `npx convex env set RESEND_API_KEY "new-resend-key-here" --prod` to update Convex production
+- [x] Open Vercel dashboard → Settings → Environment Variables and update `GOOGLE_AI_API_KEY` for all environments
+- [x] Open Vercel dashboard → Settings → Environment Variables and update `RESEND_API_KEY` for all environments  
+- [x] Update `.env.local` with new keys: `GOOGLE_AI_API_KEY` and `RESEND_API_KEY`
+- [x] Test magic link flow locally with `pnpm dev` to verify new Resend key works
+- [x] Test quiz generation locally to verify new Google AI key works
+
+### Remove Secrets from Git History
+- [x] Run `git rm --cached .env.production` to unstage the file
+- [x] Run `git commit -m "security: remove exposed .env.production from tracking"`
+- [x] Install BFG Repo-Cleaner: `brew install bfg`
+- [x] Run `bfg --delete-files .env.production` to purge from all history
+- [x] Run `git reflog expire --expire=now --all && git gc --prune=now --aggressive`
+- [x] Run `git push --force-with-lease --all` to update remote
+- [x] Run `git push --force-with-lease --tags` to update tags
+
+## PREVENTION INFRASTRUCTURE (Complete within 24 hours)
+
+### Fix .gitignore Coverage
+- [x] Add `.env*` to .gitignore to catch all env files
+- [x] Add `!.env.example` to .gitignore to allow example files
+- [x] Add `!.env.*.example` to .gitignore to allow environment-specific examples
+- [x] Run `git add .gitignore && git commit -m "security: comprehensive env file exclusion"`
+- [ ] Verify with `git check-ignore .env.production` - should return the filename
+
+### Install Pre-Commit Hook for Secret Detection
+- [ ] Create file `.git/hooks/pre-commit` with executable permissions: `touch .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+- [ ] Add shebang line: `#!/bin/bash`
+- [ ] Add check for .env files: `if git diff --cached --name-only | grep -E "^\.env"; then echo "ERROR: Attempting to commit .env file!" && exit 1; fi`
+- [ ] Add check for inline secrets: `if git diff --cached | grep -iE "(api_key|apikey|api-key|secret|token|password)[\"\'\s]*[:=][\"\'\s]*[A-Za-z0-9]"; then echo "WARNING: Possible secret detected!" && exit 1; fi`
+- [ ] Test hook by attempting to stage .env.local: `git add .env.local` - should fail with error
+
+### Install Secret Scanning Tools
+- [ ] Install gitleaks: `brew install gitleaks`
+- [ ] Run initial scan: `gitleaks detect --source . --verbose` and address any findings
+- [ ] Add gitleaks to pre-push: `echo 'gitleaks protect --verbose --staged' >> .git/hooks/pre-push`
+- [ ] Install git-secrets: `brew install git-secrets`
+- [ ] Initialize git-secrets: `git secrets --install -f`
+- [ ] Register AWS patterns: `git secrets --register-aws`
+- [ ] Register custom patterns: `git secrets --add 'sk_live_[0-9a-zA-Z]{24}'` for Stripe keys
+- [ ] Register custom patterns: `git secrets --add 're_[0-9a-zA-Z_]{20,}'` for Resend keys
+
+## WORKFLOW PROCESS CHANGES (Implement immediately)
+
+### Safe Git Add Practices
+- [ ] Create shell alias: `alias ga='git add'` (never use with -A flag)
+- [ ] Create shell function `safe-commit() { git status && read -p "Continue? (y/n): " && [[ $REPLY =~ ^[Yy]$ ]] && git commit "$@"; }`
+- [ ] Document in team README: "NEVER use `git add -A` or `git add .`"
+- [ ] Document required workflow: `git status` → `git diff` → `git add <specific-file>` → `git diff --staged` → `git commit`
+
+### Verification Commands to Run Before Every Commit
+- [ ] Add to muscle memory: `git status` - check what files are staged
+- [ ] Add to muscle memory: `git diff --staged` - review actual changes
+- [ ] Add to muscle memory: `git diff --staged | grep -iE "api|key|secret|token|password"` - scan for secrets
+- [ ] Add to muscle memory: `gitleaks protect --staged` - automated secret scan
+
+## VERIFICATION & AUDIT (Complete within 48 hours)
+
+### Verify Remediation Success
+- [ ] Confirm old Google AI key returns 403 when tested
+- [ ] Confirm old Resend key returns unauthorized when tested  
+- [ ] Run `git log --all --grep="\.env"` and verify .env.production doesn't appear after cleanup
+- [ ] Clone repo to new directory and run `git log --all -- .env.production` - should return nothing
+- [ ] Search GitHub web UI for exposed keys - should show "This commit does not belong to any branch"
+
+### Security Audit
+- [ ] Review all environment variables in Vercel dashboard for other potential exposures
+- [ ] Review all environment variables in Convex dashboard for other potential exposures
+- [ ] Check if any other sensitive files are tracked: `git ls-files | grep -E "\.(env|key|pem|p12|pfx)"`
+- [ ] Review recent commits for other accidents: `git log --oneline -20 | xargs -I {} git show --name-only {}`
+- [ ] Enable GitHub secret scanning: Settings → Security → Code security → Enable secret scanning
+
+## LESSONS LEARNED DOCUMENTATION
+
+### Create Incident Report
+- [ ] Document what happened: ".env.production with API keys was committed to git"
+- [ ] Document root cause: "Used `git add -A` without reviewing staged files"
+- [ ] Document impact: "API keys exposed in public GitHub repository"
+- [ ] Document remediation: "Keys rotated, history cleaned, prevention measures added"
+- [ ] Document prevention: "Pre-commit hooks, secret scanning, workflow changes"
+- [ ] Save report to `docs/incidents/2025-09-11-api-key-exposure.md`
+
+---
+
 # Pure FSRS with Fresh Question Priority - Implementation TODO
 
 Generated from TASK.md on 2025-01-09
 Updated with Code Review Feedback on 2025-01-10
+SECURITY INCIDENT TASKS ADDED: 2025-09-11
 
 ## Critical Path Items (Must complete in order)
 
