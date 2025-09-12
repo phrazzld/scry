@@ -36,19 +36,10 @@ export const sendMagicLink = mutation({
     // Enforce rate limiting for magic link requests
     await enforceRateLimit(ctx, email, "magicLink", true);
 
-    // Check for existing unused magic links for this email
-    const existingLink = await ctx.db
-      .query("magicLinks")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .filter((q) => q.eq(q.field("used"), false))
-      .filter((q) => q.gt(q.field("expiresAt"), Date.now()))
-      .first();
-
-    if (existingLink) {
-      // Return early if a valid link already exists
-      return { success: true, message: "Magic link already sent" };
-    }
-
+    // Always send a fresh magic link when requested
+    // Rate limiting (5 per hour) already prevents abuse
+    // This ensures users can always get a new link if they need one
+    
     // Generate new token
     const token = generateToken();
     const expiresAt = Date.now() + 3600000; // 1 hour from now
