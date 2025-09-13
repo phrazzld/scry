@@ -34,14 +34,21 @@
 - [x] Add `!.env.example` to .gitignore to allow example files
 - [x] Add `!.env.*.example` to .gitignore to allow environment-specific examples
 - [x] Run `git add .gitignore && git commit -m "security: comprehensive env file exclusion"`
-- [ ] Verify with `git check-ignore .env.production` - should return the filename
+- [x] Verify with `git check-ignore .env.production` - should return the filename
 
 ### Install Pre-Commit Hook for Secret Detection
-- [ ] Create file `.git/hooks/pre-commit` with executable permissions: `touch .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
-- [ ] Add shebang line: `#!/bin/bash`
-- [ ] Add check for .env files: `if git diff --cached --name-only | grep -E "^\.env"; then echo "ERROR: Attempting to commit .env file!" && exit 1; fi`
-- [ ] Add check for inline secrets: `if git diff --cached | grep -iE "(api_key|apikey|api-key|secret|token|password)[\"\'\s]*[:=][\"\'\s]*[A-Za-z0-9]"; then echo "WARNING: Possible secret detected!" && exit 1; fi`
-- [ ] Test hook by attempting to stage .env.local: `git add .env.local` - should fail with error
+- [x] Create file `.git/hooks/pre-commit` with executable permissions: `touch .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+- [x] Add shebang line: `#!/bin/bash`
+- [x] Add check for .env files: `if git diff --cached --name-only | grep -E "^\.env"; then echo "ERROR: Attempting to commit .env file!" && exit 1; fi`
+- [x] Add check for inline secrets: `if git diff --cached | grep -iE "(api_key|apikey|api-key|secret|token|password)[\"\'\s]*[:=][\"\'\s]*[A-Za-z0-9]"; then echo "WARNING: Possible secret detected!" && exit 1; fi`
+- [x] Test hook by attempting to stage .env.local: `git add .env.local` - should fail with error
+  ```
+  Work Log:
+  - Discovered husky is managing git hooks via .husky/ directory
+  - Added secret detection to .husky/pre-commit instead of .git/hooks/pre-commit
+  - Successfully tested hook - it blocks commits with api_key patterns
+  - Hook also checks for Google API keys (AIzaSy...), Stripe keys (sk_live_...), and Resend keys (re_...)
+  ```
 
 ### Install Secret Scanning Tools
 - [ ] Install gitleaks: `brew install gitleaks`

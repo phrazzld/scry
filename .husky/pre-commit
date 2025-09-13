@@ -1,1 +1,29 @@
+#!/bin/bash
+
+# Check if any .env files are being committed
+if git diff --cached --name-only | grep -E "^\.env"; then 
+    echo "❌ ERROR: Attempting to commit .env file!"
+    echo "Environment files should never be committed to version control."
+    echo "Files detected:"
+    git diff --cached --name-only | grep -E "^\.env"
+    exit 1
+fi
+
+# Check for potential API keys and secrets in staged changes
+if git diff --cached | grep -iE "(api[_-]?key|secret|token|password)[\"'[:space:]]*[:=][\"'[:space:]]*[A-Za-z0-9]" || \
+   git diff --cached | grep -E "AIzaSy[A-Za-z0-9_-]{33}" || \
+   git diff --cached | grep -E "sk_live_[0-9a-zA-Z]{24}" || \
+   git diff --cached | grep -E "re_[0-9a-zA-Z_]{20,}"; then
+    echo "⚠️  WARNING: Possible secret detected in staged changes!"
+    echo "Please review your changes to ensure no secrets are being committed."
+    echo ""
+    echo "Potential secrets found in:"
+    git diff --cached --name-only
+    echo ""
+    echo "If this is a false positive (e.g., example file or documentation),"
+    echo "you can bypass this check with: git commit --no-verify"
+    exit 1
+fi
+
+# Run lint-staged (existing husky functionality)
 pnpm exec lint-staged
