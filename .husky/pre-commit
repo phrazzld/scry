@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Run git-secrets to scan for secrets
+git secrets --pre_commit_hook -- "$@"
+if [ $? -ne 0 ]; then
+    echo "❌ git-secrets detected potential secrets - commit rejected"
+    exit 1
+fi
+
 # Check if any .env files are being committed
 if git diff --cached --name-only | grep -E "^\.env"; then 
     echo "❌ ERROR: Attempting to commit .env file!"

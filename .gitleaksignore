@@ -1,4 +1,0 @@
-# False positives to ignore
-
-# Old revoked Google API key documented in TODO.md for security incident tracking
-00435ceb68c238a8af8242acef32a9d4b817e1bb:TODO.md:gcp-api-key:10

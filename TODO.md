@@ -7,9 +7,9 @@
 ## IMMEDIATE REMEDIATION (Do within 30 minutes)
 
 ### Rotate Compromised API Keys
-- [x] Open https://makersuite.google.com/app/apikey and revoke key `AIzaSyBZUEtv21VkLMo3BAzlt-OLZWHYvsE36RM`
+- [x] Open https://makersuite.google.com/app/apikey and revoke compromised Google AI key
 - [x] Generate new Google AI API key and save temporarily in password manager
-- [x] Open https://resend.com/api-keys and revoke key `re_f4b8b5VP_G9nb9LceJ5mDzU1Kx8SQUGmS`
+- [x] Open https://resend.com/api-keys and revoke compromised Resend API key
 - [x] Generate new Resend API key with same permissions and save temporarily in password manager
 - [x] Run `npx convex env set RESEND_API_KEY "new-resend-key-here" --prod` to update Convex production
 - [x] Open Vercel dashboard → Settings → Environment Variables and update `GOOGLE_AI_API_KEY` for all environments
@@ -66,11 +66,17 @@
   - Runs before build check to fail fast on secret detection
   - Provides clear error messages and bypass instructions
   ```
-- [ ] Install git-secrets: `brew install git-secrets`
-- [ ] Initialize git-secrets: `git secrets --install -f`
-- [ ] Register AWS patterns: `git secrets --register-aws`
-- [ ] Register custom patterns: `git secrets --add 'sk_live_[0-9a-zA-Z]{24}'` for Stripe keys
-- [ ] Register custom patterns: `git secrets --add 're_[0-9a-zA-Z_]{20,}'` for Resend keys
+- [x] Install git-secrets: `brew install git-secrets`
+- [x] Initialize git-secrets: `git secrets --install -f`
+  ```
+  Work Log:
+  - git-secrets installed its hooks in .git/hooks/
+  - Integrated git-secrets into husky pre-commit hook instead
+  - Now runs before our custom secret checks for layered protection
+  ```
+- [x] Register AWS patterns: `git secrets --register-aws`
+- [x] Register custom patterns: `git secrets --add 'sk_live_[0-9a-zA-Z]{24}'` for Stripe keys
+- [x] Register custom patterns: `git secrets --add 're_[0-9a-zA-Z_]{20,}'` for Resend keys
 
 ## WORKFLOW PROCESS CHANGES (Implement immediately)
 
