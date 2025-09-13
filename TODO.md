@@ -51,9 +51,21 @@
   ```
 
 ### Install Secret Scanning Tools
-- [ ] Install gitleaks: `brew install gitleaks`
-- [ ] Run initial scan: `gitleaks detect --source . --verbose` and address any findings
-- [ ] Add gitleaks to pre-push: `echo 'gitleaks protect --verbose --staged' >> .git/hooks/pre-push`
+- [x] Install gitleaks: `brew install gitleaks`
+- [x] Run initial scan: `gitleaks detect --source . --verbose` and address any findings
+  ```
+  Work Log:
+  - Found 1 false positive: revoked Google API key documented in TODO.md 
+  - Created .gitleaksignore to exclude this documented incident
+  - Scan now reports: "no leaks found"
+  ```
+- [x] Add gitleaks to pre-push: `echo 'gitleaks protect --verbose --staged' >> .git/hooks/pre-push`
+  ```
+  Work Log:
+  - Added to husky pre-push hook instead of .git/hooks/pre-push
+  - Runs before build check to fail fast on secret detection
+  - Provides clear error messages and bypass instructions
+  ```
 - [ ] Install git-secrets: `brew install git-secrets`
 - [ ] Initialize git-secrets: `git secrets --install -f`
 - [ ] Register AWS patterns: `git secrets --register-aws`

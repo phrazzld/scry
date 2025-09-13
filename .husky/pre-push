@@ -1,5 +1,17 @@
 #!/bin/sh
 echo "🔍 Running pre-push checks..."
+
+# Run gitleaks to check for secrets before pushing
+echo "🔐 Scanning for secrets with gitleaks..."
+gitleaks protect --staged --verbose
+
+if [ $? -ne 0 ]; then
+  echo "❌ Gitleaks detected potential secrets - push rejected"
+  echo "If this is a false positive, you can bypass with: git push --no-verify"
+  exit 1
+fi
+
+echo "✅ No secrets detected"
 echo "🏗️  Testing full build..."
 pnpm build
 
