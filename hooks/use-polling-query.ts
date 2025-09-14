@@ -66,5 +66,9 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
   // @ts-expect-error - TypeScript can't infer that we're adding the required _refreshTimestamp field
   const result = useQuery(query, queryArgs);
   
+  // Note: Convex queries throw errors that are caught by error boundaries
+  // We can't catch them here directly, but components using this hook
+  // should wrap their usage in error boundaries or handle undefined results
+  
   return result;
 }

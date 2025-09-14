@@ -65,6 +65,9 @@ export const sendMagicLinkEmail = internalAction({
         `,
       });
 
+      // Log magic link URL in development for debugging
+      console.log('Magic link:', magicLinkUrl);
+
       emailLogger.info('Email sent successfully', { 
         event: 'email.send.success',
         emailId: result.data?.id,

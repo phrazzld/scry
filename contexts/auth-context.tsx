@@ -70,6 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
+  // Clear session on authentication errors
+  useEffect(() => {
+    if (user === null && sessionToken !== null && !isLoading) {
+      // Session token exists but user lookup failed - likely expired
+      console.warn('Session token exists but user lookup failed - clearing session')
+      safeStorage.removeItem(SESSION_TOKEN_KEY)
+      removeClientSessionCookie()
+      setSessionToken(null)
+    }
+  }, [user, sessionToken, isLoading])
+
   // Send magic link
   const sendMagicLink = useCallback(async (email: string) => {
     try {
@@ -89,8 +100,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const result = await response.json()
       if (result.success) {
-        toast.success('Check your email for the magic link!')
-        return { success: true }
+        // In development, show the magic link URL if provided
+        if (result.devUrl) {
+          console.log('🔗 Magic Link URL:', result.devUrl)
+          toast.success(
+            <div>
+              <p>Magic link ready!</p>
+              <p className="text-xs mt-1">Check console for URL (dev mode)</p>
+            </div>
+          )
+          // Also copy to clipboard for convenience
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(result.devUrl)
+            console.log('✅ Magic link copied to clipboard!')
+          }
+        } else {
+          toast.success('Check your email for the magic link!')
+        }
+        return { success: true, devUrl: result.devUrl }
       }
       return { success: false }
     } catch (error) {

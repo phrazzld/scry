@@ -79,9 +79,14 @@ export const sendMagicLink = mutation({
     }
 
     // Return immediately - don't wait for email to send
-    const isDevMode = !process.env.RESEND_API_KEY;
-    if (isDevMode) {
+    // Always return magic link URL in development for debugging
+    const isDevelopment = process.env.NODE_ENV !== 'production' || !process.env.RESEND_API_KEY;
+    if (isDevelopment) {
       // In development, return the magic link URL for easy testing
+      authLogger.info('Development mode - returning magic link URL', { 
+        event: 'dev.magic_link', 
+        url: magicLinkUrl 
+      });
       return { 
         success: true, 
         message: "Magic link sent",

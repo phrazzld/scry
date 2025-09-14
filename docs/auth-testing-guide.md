@@ -111,6 +111,59 @@ If something isn't working:
 3. **Check Convex Logs** - In the dashboard, check the Logs tab
 4. **Check Next.js Terminal** - Look for any server-side errors
 
+### Common Authentication Issues
+
+#### Cross-Environment Session Contamination
+**Symptom**: "Invalid or expired session" errors when switching between dev/preview/production
+**Cause**: Sessions created in one environment are rejected in another due to environment mismatch
+**Solution**: Clear localStorage and cookies when switching environments
+```bash
+# Clear all browser storage for localhost
+# Or manually clear localStorage.getItem('sessionToken')
+```
+
+#### Dual Storage Desynchronization
+**Symptom**: Authentication works intermittently or fails after browser refresh
+**Cause**: localStorage and cookie session tokens fall out of sync
+**Solution**: Check both storage mechanisms are consistent
+```javascript
+// Debug command in browser console
+console.log({
+  localStorage: localStorage.getItem('sessionToken'),
+  cookies: document.cookie.split(';').find(c => c.includes('sessionToken'))
+});
+```
+
+#### Silent Authentication Failures
+**Symptom**: Pages show loading state but never complete, no error messages
+**Cause**: Functions returning null instead of throwing expected errors
+**Solution**: Check network tab for 200 responses with null data, indicates silent failures
+
+#### Polling Query Amplification
+**Symptom**: Authentication errors appearing in rapid succession
+**Cause**: Polling queries (due counts, review status) hitting auth endpoints frequently
+**Solution**: Verify session token validity before enabling polling queries
+
+### Advanced Debugging Techniques
+
+#### Token Format Validation
+```javascript
+// Validate token structure before database lookups
+const isValidToken = (token) => {
+  return token && typeof token === 'string' && token.length > 10;
+};
+```
+
+#### Environment-Aware Session Debugging
+```javascript
+// Check environment context in browser console
+console.log({
+  nodeEnv: process.env.NODE_ENV,
+  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL,
+  currentHost: window.location.host
+});
+```
+
 ## 7. Test with Different Browsers
 
 Test the authentication flow in:

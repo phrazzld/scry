@@ -22,6 +22,8 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
+    "@clerk/clerk-react": "^5.47.0",
+    "@clerk/nextjs": "^6.32.0",
     "@formkit/auto-animate": "^0.8.2",
     "@hookform/resolvers": "^5.1.1",
     "@openrouter/ai-sdk-provider": "^0.7.2",
@@ -42,6 +44,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.2",
+    "convex-helpers": "^0.1.104",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.522.0",
     "next": "15.4.7",
