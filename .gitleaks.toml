@@ -1,0 +1,24 @@
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  "TODO\\.md",
+  "ARCHIVE\\.md", 
+  "ISSUE\\.md",
+  "docs/.*\\.md",
+  ".*\\.test\\.(ts|js)",
+  ".*\\.spec\\.(ts|js)"
+]
+
+[[rules]]
+id = "high-entropy-base64"
+description = "High entropy base64 string (40+ chars)"
+regex = '''['\"]([A-Za-z0-9+/]{40,})['\"]'''
+entropy = 4.5
+
+[[rules]]
+id = "high-entropy-hex"  
+description = "High entropy hex string (40+ chars)"
+regex = '''['\"]([a-f0-9]{40,})['\"]'''
+entropy = 4.5

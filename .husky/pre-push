@@ -7,7 +7,7 @@ gitleaks protect --staged --verbose
 
 if [ $? -ne 0 ]; then
   echo "❌ Gitleaks detected potential secrets - push rejected"
-  echo "If this is a false positive, you can bypass with: git push --no-verify"
+  echo "If gitleaks warns, it's probably right - fix the issue before pushing"
   exit 1
 fi
 

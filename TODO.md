@@ -9,8 +9,8 @@
 - [x] Test commit works without false positives ✓ CONFIRMED WORKING
 
 ### Phase 2: Install Real Detection (10 min)
-- [ ] Install gitleaks: `brew install gitleaks`
-- [ ] Create `.gitleaks.toml` with this exact config:
+- [x] Install gitleaks: `brew install gitleaks`
+- [x] Create `.gitleaks.toml` with this exact config:
   ```toml
   [extend]
   useDefault = true
@@ -37,7 +37,7 @@
   regex = '''['\"]([a-f0-9]{40,})['\"]'''
   entropy = 4.5
   ```
-- [ ] Add to `.husky/pre-commit` after git-secrets check:
+- [x] Add to `.husky/pre-commit` after git-secrets check:
   ```bash
   # Gitleaks check (better than grep patterns)
   if command -v gitleaks &> /dev/null; then
@@ -48,11 +48,11 @@
     fi
   fi
   ```
-- [ ] Test: Try committing actual test secret like `API_KEY="sk_test_4242424242424242424242"`
-- [ ] Test: Verify normal code with "token" variable names passes
+- [x] Test: Try committing actual test secret like `API_KEY="sk_test_4242424242424242424242"`
+- [x] Test: Verify normal code with "token" variable names passes
 
 ### Phase 3: Fix Root Cause (15 min)
-- [ ] Create `docs/SECRET_HANDLING.md`:
+- [x] Create `docs/SECRET_HANDLING.md`:
   ```markdown
   # Secret Handling Protocol
   
@@ -73,7 +73,7 @@
   - Vercel: Dashboard → Settings → Environment Variables
   - Local: `.env.local` (never commit)
   ```
-- [ ] Add env var validation to `lib/env.ts`:
+- [x] Add env var validation to `lib/env.ts`:
   ```typescript
   const requiredEnvVars = [
     'NEXT_PUBLIC_CONVEX_URL',
@@ -88,12 +88,12 @@
     }
   }
   ```
-- [ ] Call `validateEnv()` in `app/layout.tsx` (fail fast in dev)
+- [x] Call `validateEnv()` in `app/layout.tsx` (fail fast in dev)
 
 ### Phase 4: Remove Security Theater (2 min)
-- [ ] Delete the custom grep patterns from `.husky/pre-commit` (lines 19-39)
-- [ ] Update commit message guidance: "If gitleaks warns, it's probably right"
-- [ ] Remove `--no-verify` from any scripts or docs
+- [x] Delete the custom grep patterns from `.husky/pre-commit` (lines 19-39)
+- [x] Update commit message guidance: "If gitleaks warns, it's probably right"
+- [x] Remove `--no-verify` from any scripts or docs
 - [ ] Git commit this fix: "fix: Replace broken secret detection with gitleaks"
 
 ## Immediate: Fix Magic Link Email Delivery (Ship Today)

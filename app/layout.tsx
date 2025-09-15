@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { validateEnv } from "@/lib/env";
+
+// Validate environment variables at build/dev time
+if (process.env.NODE_ENV === "development") {
+  validateEnv();
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
