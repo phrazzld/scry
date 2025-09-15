@@ -119,6 +119,19 @@
   - Magic link automatically copied to clipboard
   ```
 
+## URGENT: Complete Clerk Migration to Fix Build
+
+### Critical Components Still Using Old Auth (Build Blockers)
+- [ ] Update `components/review-flow.tsx` - Replace useAuth with useUser
+- [ ] Update `app/settings/settings-client.tsx` - Replace useAuth with useUser
+- [ ] Update `components/navbar.tsx` - Replace useAuth with useUser
+- [ ] Update `components/generation-modal.tsx` - Replace useAuth with useUser
+- [ ] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth
+- [ ] Update `components/empty-states.tsx` - Replace useAuth with useUser
+- [ ] Update `components/sign-in-landing.tsx` - Remove entirely (Clerk handles this)
+- [ ] Update all hooks using sessionToken (use-quiz-interactions, use-question-mutations)
+- [ ] Test build passes after auth updates
+
 ## Clerk Migration: Minimum Viable Auth (4 Hours Total)
 
 ### Hour 1: Get Clerk Working At All
