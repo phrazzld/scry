@@ -30,6 +30,9 @@
 - **Pattern-Scout Test Discovery**: Use `ast-grep` or `glob **/*.test.ts` to systematically find existing test files before assuming tests need creation - comprehensive test suites often exist without being immediately visible in file structure
 - **Native Platform Integration Over Custom Deployment**: Use Vercel's GitHub integration instead of manual CI deployment - cleaner separation of concerns, fewer secrets to manage
 - **Platform-Specific Deployment Patterns**: Vercel for frontend, Convex for backend - each platform has native integration that's more reliable than custom CI deployment
+- **Clerk useAuth to useUser Migration**: Replace `useAuth()` with `useUser()` from `@clerk/nextjs`, map `{ user, isAuthenticated, isLoading }` to `{ user, isSignedIn, isLoaded }`, remove sessionToken dependencies
+- **Clerk Declarative Auth Components**: Use `<SignedIn>`, `<SignedOut>`, `<SignInButton>`, `<UserButton>` for conditional auth UI instead of manual hook-based conditionals
+- **Authentication State Loading Pattern**: Use `if (!isSignedIn && isLoaded) return null` to prevent flash of incorrect content during auth state loading
 
 ## Anti-patterns Found
 
@@ -318,3 +321,13 @@
 - **Secret Management Reduction**: Native platform integrations eliminate need for deployment secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID) in CI environment
 - **Build Validation vs Deployment Separation**: CI focuses on code quality validation, deployment platforms handle the actual deployment - each tool does what it's optimized for
 - **Quick Deployment Cleanup Wins**: Removing unnecessary manual deployment steps from CI can be completed in minutes and immediately reduces complexity
+
+## Clerk Migration Patterns
+
+- **useAuth to useUser Hook Migration**: Replace `import { useAuth } from '@/contexts/auth-context'` with `import { useUser } from '@clerk/nextjs'`
+- **Authentication State Mapping**: Map `{ user, isAuthenticated, isLoading }` from useAuth to `{ user, isSignedIn, isLoaded }` from useUser
+- **Loading State Inversion**: Replace `isLoading` checks with `!isLoaded` for Clerk's inverted loading state pattern
+- **SessionToken Removal**: Remove `sessionToken` from API calls, component props, and query parameters - Clerk handles auth via middleware
+- **Declarative Auth Components**: Use `<SignedIn>`, `<SignedOut>`, `<SignInButton>`, `<UserButton>` instead of manual conditional rendering
+- **Auth Protection Pattern**: Use `if (!isSignedIn && isLoaded) return null` or redirect pattern to prevent flash of wrong content
+- **UserButton Integration**: Replace custom user menus with Clerk's `<UserButton afterSignOutUrl="/" />` component

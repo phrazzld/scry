@@ -2,21 +2,21 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser } from '@clerk/nextjs'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { DeleteAccountDialog } from '@/components/delete-account-dialog'
 
 export function SettingsPageClient() {
-  const { user, isAuthenticated, isLoading } = useAuth()
+  const { user, isSignedIn, isLoaded } = useUser()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoaded && !isSignedIn) {
       router.push('/')
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isSignedIn, isLoaded, router])
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -32,7 +32,7 @@ export function SettingsPageClient() {
     )
   }
 
-  if (!isAuthenticated || !user) {
+  if (!isSignedIn || !user) {
     return null
   }
 
@@ -58,8 +58,8 @@ export function SettingsPageClient() {
                       Authentication Method
                     </h3>
                     <p className="text-blue-800 text-sm">
-                      You are currently using email magic link authentication. 
-                      This provides secure, passwordless access to your account.
+                      You are currently using Clerk authentication. 
+                      This provides secure access to your account.
                     </p>
                   </div>
 
@@ -87,7 +87,7 @@ export function SettingsPageClient() {
                       <li>Account settings and preferences</li>
                       <li>All authentication sessions</li>
                     </ul>
-                    <DeleteAccountDialog userEmail={user.email || ''} />
+                    <DeleteAccountDialog userEmail={user.primaryEmailAddress?.emailAddress || ''} />
                   </div>
                 </div>
               </CardContent>

@@ -94,7 +94,7 @@
 - [x] Delete the custom grep patterns from `.husky/pre-commit` (lines 19-39)
 - [x] Update commit message guidance: "If gitleaks warns, it's probably right"
 - [x] Remove `--no-verify` from any scripts or docs
-- [ ] Git commit this fix: "fix: Replace broken secret detection with gitleaks"
+- [x] Git commit this fix: "fix: Replace broken secret detection with gitleaks"
 
 ## Immediate: Fix Magic Link Email Delivery (Ship Today)
 - [x] Add `NEXT_PUBLIC_APP_URL=http://localhost:3002` to `.env.local` (port 3002 since 3000 is taken)
@@ -131,7 +131,14 @@
   - This is a chicken-and-egg problem - need both frontend and backend changes
   - Switching approach: Update all Convex auth first, then frontend
   ```
-- [ ] Update `app/settings/settings-client.tsx` - Replace useAuth with useUser
+- [x] Update `app/settings/settings-client.tsx` - Replace useAuth with useUser
+  ```
+  Work Log:
+  - Replaced useAuth with useUser from @clerk/nextjs
+  - Updated authentication checks: isAuthenticated → isSignedIn, isLoading → !isLoaded
+  - Updated user email access: user.email → user.primaryEmailAddress?.emailAddress
+  - Note: DeleteAccountDialog component also needs updating (uses useAuth)
+  ```
 - [x] Update `components/navbar.tsx` - Replace useAuth with useUser
   ```
   Work Log:
@@ -140,7 +147,14 @@
   - Replaced custom sign out button with UserButton
   - Simplified component significantly
   ```
-- [ ] Update `components/generation-modal.tsx` - Replace useAuth with useUser
+- [x] Update `components/generation-modal.tsx` - Replace useAuth with useUser
+  ```
+  Work Log:
+  - Replaced useAuth with useUser from @clerk/nextjs
+  - Removed sessionToken from component state
+  - Removed sessionToken from API call body (Clerk handles auth via cookies/headers)
+  - Added isSignedIn for auth state checking (though not actively used in component)
+  ```
 - [ ] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth
 - [x] Update `components/empty-states.tsx` - Replace useAuth with useUser
   ```

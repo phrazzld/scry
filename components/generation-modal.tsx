@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/contexts/auth-context'
+// Clerk authentication handled via middleware
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import type { Doc } from '@/convex/_generated/dataModel'
@@ -42,8 +42,6 @@ export function GenerationModal({
   const [useCurrentContext, setUseCurrentContext] = React.useState(false)
   const [isGenerating, setIsGenerating] = React.useState(false)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-  
-  const { sessionToken } = useAuth()
 
   // Reset state when modal closes, or set smart defaults when opening with context
   React.useEffect(() => {
@@ -112,7 +110,6 @@ export function GenerationModal({
         body: JSON.stringify({
           topic: finalPrompt,
           difficulty: 'medium',
-          sessionToken,
           userContext, // Include performance metrics
         })
       })
