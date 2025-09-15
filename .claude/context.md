@@ -33,6 +33,9 @@
 - **Clerk useAuth to useUser Migration**: Replace `useAuth()` with `useUser()` from `@clerk/nextjs`, map `{ user, isAuthenticated, isLoading }` to `{ user, isSignedIn, isLoaded }`, remove sessionToken dependencies
 - **Clerk Declarative Auth Components**: Use `<SignedIn>`, `<SignedOut>`, `<SignInButton>`, `<UserButton>` for conditional auth UI instead of manual hook-based conditionals
 - **Authentication State Loading Pattern**: Use `if (!isSignedIn && isLoaded) return null` to prevent flash of incorrect content during auth state loading
+- **Layered Auth Migration Pattern**: API routes can be migrated independently (via middleware), but frontend components depend on backend functions - migration has critical dependency order
+- **Auth Context vs Direct Provider Migration**: Replace custom auth context usage with direct provider hooks - eliminates sessionToken prop passing through component trees
+- **Backend-First Auth Migration Strategy**: Convex backend functions must be migrated to new auth system before frontend components that depend on them can be updated
 
 ## Anti-patterns Found
 
@@ -47,6 +50,7 @@
 - **Unit Testing Runtime Code with Simulators**: Using simulator patterns to test business logic creates valuable tests but doesn't increase line coverage since the actual runtime code (Convex mutations) is never executed
 - **Module-Level External Client Instantiation**: Creating external clients (ConvexHttpClient) at module level makes testing difficult - dependency injection at function level is more testable
 - **Manual Deployment in CI**: Custom deployment steps when platform provides native GitHub integration - more complex and requires secret management
+- **Mixed Auth Migration Order**: Attempting to migrate frontend components before backend auth functions creates chicken-and-egg dependency problems
 
 ## Performance Optimizations
 
@@ -61,6 +65,7 @@
 - **Test Coverage Threshold Blocking**: 60% threshold requirement but only 2.82% actual coverage - disconnect between requirements and reality
 - **Coverage vs Testing Value Gap**: Comprehensive business logic tests using simulators provide excellent validation but don't execute actual Convex mutation code, resulting in zero coverage increase despite 21 quality tests
 - **Next.js API Route Module-Level Instantiation Testing Issue**: ConvexHttpClient created at line 13 in route.ts creates module-level dependency that cannot be mocked after module evaluation - blocks comprehensive testing of API routes with external dependencies
+- **Auth Migration Dependency Order Issue**: Frontend components that use sessionToken for Convex queries cannot be migrated until backend functions are updated to use new auth system
 
 ## Decisions
 
@@ -73,6 +78,7 @@
 - **Simulator Testing vs Integration Testing**: Prioritized comprehensive business logic validation over coverage metrics - simulator pattern tests critical validation rules, permission checks, and FSRS integration without Convex runtime overhead
 - **API Route Testing: Work Around vs Refactor for Testability**: Module-level ConvexHttpClient instantiation blocks testing - decided to accept testing limitations rather than refactor for dependency injection since API route logic is straightforward and covered by integration testing
 - **Native Platform Integration vs Custom Deployment**: Chose Vercel's GitHub integration over manual CI deployment - eliminates need for deployment secrets (VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID), reduces CI complexity, cleaner separation of concerns
+- **Partial Auth Migration vs Complete Migration**: Chose to migrate API routes first (independent via Clerk middleware) while accepting that frontend components remain blocked until backend auth system is updated - reduces scope and enables incremental progress
 
 ## Quick Wins Identified
 
@@ -89,6 +95,7 @@
 - **Test Discovery via Pattern Scout**: Using ast-grep/global search to find existing test files prevents duplicate work - comprehensive test suites (586+319 lines) can exist without being obvious from directory structure
 - **Verification Before Implementation**: Checking for existing comprehensive test coverage first can save hours of redundant work
 - **Simple Deployment Cleanup**: Removing manual CI deployment is straightforward - identify deployment step, remove 7 lines, cleanup unused secrets
+- **API Route Auth Migration Independence**: API routes can be updated to remove sessionToken immediately without waiting for backend migration - Clerk middleware handles auth automatically
 
 ## Accessibility & UX Patterns
 
@@ -142,6 +149,7 @@
 - **Test Discovery Speed vs Creation Speed**: Finding existing comprehensive tests (586+319 lines) took ~5 minutes vs estimated hours of test creation - systematic search is dramatically faster than redundant implementation
 - **React Hook Testing Infrastructure Speed vs Implementation**: React Testing Library setup completes in ~5 minutes (faster than expected) but achieving passing tests for complex serverless hooks takes significantly longer (~15+ minutes) due to mocking complexity - infrastructure setup is fast, full implementation is slow
 - **Simple Deployment Cleanup is Ultra-Fast**: CI deployment removal task completed in 3 minutes vs 15 minute estimate (5x faster) - straightforward deletions are often trivial when architecture is clean
+- **Partial Auth Migration Time**: API route auth migration (10 minutes actual vs 5 minutes estimated) - 2x estimate due to dependency discovery and scope clarification
 
 ## Anti-patterns in Testing
 
@@ -331,3 +339,17 @@
 - **Declarative Auth Components**: Use `<SignedIn>`, `<SignedOut>`, `<SignInButton>`, `<UserButton>` instead of manual conditional rendering
 - **Auth Protection Pattern**: Use `if (!isSignedIn && isLoaded) return null` or redirect pattern to prevent flash of wrong content
 - **UserButton Integration**: Replace custom user menus with Clerk's `<UserButton afterSignOutUrl="/" />` component
+
+## Auth Migration Dependency Management
+
+- **Critical Migration Order**: Backend auth system (Convex functions) must be migrated before frontend components that depend on sessionToken can be updated
+- **Independent API Route Migration**: Next.js API routes can be migrated independently via Clerk middleware - no sessionToken dependency on backend functions
+- **Chicken-and-Egg Problem Recognition**: Frontend components calling Convex queries with sessionToken cannot be migrated until those backend functions support new auth system
+- **Scope Reduction Strategy**: When full migration is blocked, focus on independent components first (API routes) while documenting dependencies for blocked components
+- **Incremental Progress Over Complete Migration**: Partial progress with clear dependency documentation is better than attempting full migration and getting stuck
+
+## Migration Time Estimation Lessons
+
+- **Dependency Discovery Impact**: Initial estimates (5 minutes) can be 2x actual time (10 minutes) when dependency analysis reveals scope limitations and blocking factors
+- **Architecture Exploration Time**: Understanding migration dependencies and constraints takes significant portion of task time - factor this into estimates
+- **Partial Success Value**: Even blocked migrations provide value through dependency mapping and incremental progress on independent components

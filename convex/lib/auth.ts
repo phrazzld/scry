@@ -1,4 +1,5 @@
 import { QueryCtx, MutationCtx } from "../_generated/server";
+import { Id } from "../_generated/dataModel";
 
 /**
  * Validate session token format
@@ -80,4 +81,95 @@ export async function getAuthenticatedUserId(
   }
 
   return session.userId;
+}
+
+/**
+ * Helper to get authenticated user ID using Clerk authentication
+ * 
+ * @param ctx - Convex query or mutation context with Clerk auth
+ * @returns User ID if authenticated
+ * @throws Error if not authenticated
+ */
+export async function getAuthenticatedUserIdFromClerk(
+  ctx: QueryCtx | MutationCtx
+): Promise<Id<"users">> {
+  // Get the user identity from Clerk via Convex auth integration
+  const identity = await ctx.auth.getUserIdentity();
+  
+  if (!identity) {
+    throw new Error("Authentication required");
+  }
+  
+  // The subject field contains the Clerk user ID
+  const clerkId = identity.subject;
+  
+  // Look up the user by their Clerk ID
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .first();
+  
+  if (!user) {
+    // User doesn't exist yet - they need to be synced from Clerk
+    // This could happen on first sign-in
+    throw new Error("User not found. Please ensure your account is properly set up.");
+  }
+  
+  return user._id;
+}
+
+/**
+ * Helper to get or create a user from Clerk identity
+ * Used for initial user creation during first sign-in
+ * 
+ * @param ctx - Convex mutation context with Clerk auth
+ * @returns User ID (existing or newly created)
+ */
+export async function getOrCreateUserFromClerk(
+  ctx: MutationCtx
+): Promise<Id<"users">> {
+  const identity = await ctx.auth.getUserIdentity();
+  
+  if (!identity) {
+    throw new Error("Authentication required");
+  }
+  
+  const clerkId = identity.subject;
+  const email = identity.email;
+  const name = identity.name;
+  
+  if (!email) {
+    throw new Error("Email is required for user creation");
+  }
+  
+  // Check if user already exists
+  let user = await ctx.db
+    .query("users")
+    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .first();
+  
+  if (!user) {
+    // Check by email as fallback (for migrating existing users)
+    user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    
+    if (user) {
+      // Update existing user with Clerk ID
+      await ctx.db.patch(user._id, { clerkId });
+    } else {
+      // Create new user
+      const userId = await ctx.db.insert("users", {
+        clerkId,
+        email,
+        name: name || undefined,
+        emailVerified: Date.now(), // Clerk handles email verification
+      });
+      
+      user = await ctx.db.get(userId);
+    }
+  }
+  
+  return user!._id;
 }

@@ -173,8 +173,23 @@
   - Simple fix since component only used sessionToken for API calls
   ```
 - [!] Update `components/sign-in-landing.tsx` - Remove entirely (BLOCKED: used in review-flow.tsx)
-- [ ] Update all hooks using sessionToken (use-quiz-interactions, use-question-mutations)
-- [ ] Test build passes after auth updates
+- [!] Update all hooks using sessionToken (use-quiz-interactions, use-question-mutations) (BLOCKED: Convex mutations need backend update)
+  ```
+  Work Log:
+  - Both hooks pass sessionToken to Convex mutations (api.questions.recordInteraction, api.questions.updateQuestion, etc.)
+  - Cannot remove sessionToken until Convex backend functions are migrated to use ctx.auth.getUserIdentity()
+  - These hooks are the bridge between frontend and Convex backend - need backend migration first
+  - Partial migration not beneficial here as hooks are purely for Convex communication
+  ```
+- [!] Test build passes after auth updates (BLOCKED: ReviewFlow on home page still uses old auth)
+  ```
+  Work Log:
+  - Build fails with "useAuth must be used within an AuthProvider"
+  - Home page renders ReviewFlow which still uses old useAuth hook
+  - AuthProvider was replaced with ClerkProvider, causing the error
+  - Cannot fix until ReviewFlow is migrated (which is blocked by backend)
+  - Build error: prerendering page "/" fails due to missing AuthProvider
+  ```
 
 ## Clerk Migration: Minimum Viable Auth (4 Hours Total)
 

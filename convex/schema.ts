@@ -4,10 +4,12 @@ import { v } from "convex/values";
 export default defineSchema({
   users: defineTable({
     email: v.string(),
+    clerkId: v.optional(v.string()), // Clerk user ID for auth integration
     name: v.optional(v.string()),
     emailVerified: v.optional(v.number()),
     image: v.optional(v.string()),
-  }).index("by_email", ["email"]),
+  }).index("by_email", ["email"])
+    .index("by_clerk_id", ["clerkId"]),
 
   sessions: defineTable({
     userId: v.id("users"),
