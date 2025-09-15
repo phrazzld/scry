@@ -1,5 +1,6 @@
 "use client";
 
+// TODO: Migrate to Clerk after Convex backend is updated
 import { useAuth } from "@/contexts/auth-context";
 import { QuizMode } from "./quiz-mode";
 import { ReviewMode } from "./review-mode";
@@ -26,6 +27,7 @@ export function UnifiedQuizFlow({
   difficulty = "medium",
   mode = "quiz" 
 }: UnifiedQuizFlowProps) {
+  // TODO: Replace with useUser from Clerk after backend migration
   const { sessionToken } = useAuth();
 
   // Delegate to appropriate mode component

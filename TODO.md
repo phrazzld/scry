@@ -155,7 +155,15 @@
   - Removed sessionToken from API call body (Clerk handles auth via cookies/headers)
   - Added isSignedIn for auth state checking (though not actively used in component)
   ```
-- [ ] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth
+- [!] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth (BLOCKED: child components need backend update)
+  ```
+  Work Log:
+  - Updated quiz-flow.tsx to use useUser from Clerk
+  - Removed sessionToken from API calls (Clerk handles via cookies)
+  - BLOCKED: Child components (ReviewMode, QuizMode) still need sessionToken for Convex queries
+  - Need to update Convex backend functions first before fully removing sessionToken
+  - Partial update done: main component uses Clerk, but can't update child components yet
+  ```
 - [x] Update `components/empty-states.tsx` - Replace useAuth with useUser
   ```
   Work Log:
