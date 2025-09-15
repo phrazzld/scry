@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Target, BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
-import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 
 interface EmptyStateProps {
@@ -13,7 +12,6 @@ interface EmptyStateProps {
 export function NoQuestionsEmptyState() {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const { sessionToken } = useAuth();
   
   // Hardcoded recent topics for now (TODO: fetch from backend)
   const recentTopics = [
@@ -36,8 +34,7 @@ export function NoQuestionsEmptyState() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           topic: topic.trim(), 
-          difficulty: 'medium',
-          sessionToken 
+          difficulty: 'medium'
         })
       });
       
@@ -61,8 +58,7 @@ export function NoQuestionsEmptyState() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           topic: quickTopic, 
-          difficulty: 'medium',
-          sessionToken 
+          difficulty: 'medium'
         })
       });
       

@@ -122,12 +122,27 @@
 ## URGENT: Complete Clerk Migration to Fix Build
 
 ### Critical Components Still Using Old Auth (Build Blockers)
-- [ ] Update `components/review-flow.tsx` - Replace useAuth with useUser
+- [!] Update `components/review-flow.tsx` - Replace useAuth with useUser (BLOCKED: needs backend update first)
+  ```
+  Work Log:
+  - Component heavily uses sessionToken passed to Convex functions
+  - Backend functions still expect sessionToken parameter
+  - Need to update Convex functions first to use ctx.auth.getUserIdentity()
+  - This is a chicken-and-egg problem - need both frontend and backend changes
+  - Switching approach: Update all Convex auth first, then frontend
+  ```
 - [ ] Update `app/settings/settings-client.tsx` - Replace useAuth with useUser
 - [ ] Update `components/navbar.tsx` - Replace useAuth with useUser
 - [ ] Update `components/generation-modal.tsx` - Replace useAuth with useUser
 - [ ] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth
-- [ ] Update `components/empty-states.tsx` - Replace useAuth with useUser
+- [x] Update `components/empty-states.tsx` - Replace useAuth with useUser
+  ```
+  Work Log:
+  - Removed useAuth import entirely
+  - Removed sessionToken from API calls
+  - API routes will get auth from Clerk automatically via cookies/headers
+  - Simple fix since component only used sessionToken for API calls
+  ```
 - [ ] Update `components/sign-in-landing.tsx` - Remove entirely (Clerk handles this)
 - [ ] Update all hooks using sessionToken (use-quiz-interactions, use-question-mutations)
 - [ ] Test build passes after auth updates
