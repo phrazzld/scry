@@ -132,7 +132,14 @@
   - Switching approach: Update all Convex auth first, then frontend
   ```
 - [ ] Update `app/settings/settings-client.tsx` - Replace useAuth with useUser
-- [ ] Update `components/navbar.tsx` - Replace useAuth with useUser
+- [x] Update `components/navbar.tsx` - Replace useAuth with useUser
+  ```
+  Work Log:
+  - Replaced useAuth with useUser from Clerk
+  - Removed AuthModal component (Clerk handles auth UI)
+  - Replaced custom sign out button with UserButton
+  - Simplified component significantly
+  ```
 - [ ] Update `components/generation-modal.tsx` - Replace useAuth with useUser
 - [ ] Update `components/quiz-flow.tsx` and `quiz-flow/index.tsx` - Replace useAuth
 - [x] Update `components/empty-states.tsx` - Replace useAuth with useUser
@@ -143,7 +150,7 @@
   - API routes will get auth from Clerk automatically via cookies/headers
   - Simple fix since component only used sessionToken for API calls
   ```
-- [ ] Update `components/sign-in-landing.tsx` - Remove entirely (Clerk handles this)
+- [!] Update `components/sign-in-landing.tsx` - Remove entirely (BLOCKED: used in review-flow.tsx)
 - [ ] Update all hooks using sessionToken (use-quiz-interactions, use-question-mutations)
 - [ ] Test build passes after auth updates
 
