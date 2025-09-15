@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@/contexts/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { EditQuestionModal } from "@/components/edit-question-modal";
-import { SignInLanding } from "@/components/sign-in-landing";
+import { SignIn } from "@clerk/nextjs";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -55,7 +55,8 @@ interface ReviewFeedback {
  */
 export function ReviewFlow() {
   const router = useRouter();
-  const { sessionToken } = useAuth();
+  const { isSignedIn, user } = useUser();
+  const sessionToken = isSignedIn ? user?.id : null;
   const [currentQuestion, setCurrentQuestion] = useState<ReviewQuestion | null>(null);
   const [nextQuestion, setNextQuestion] = useState<ReviewQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -325,7 +326,11 @@ export function ReviewFlow() {
   
   // Loading state
   if (!sessionToken) {
-    return <SignInLanding />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <SignIn routing="hash" />
+      </div>
+    );
   }
   
   if (currentReview === undefined) {

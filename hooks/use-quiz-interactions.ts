@@ -1,11 +1,12 @@
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useCallback } from "react";
-import { useAuth } from "@/contexts/auth-context";
+import { useUser } from "@clerk/nextjs";
 
 export function useQuizInteractions() {
   const recordInteraction = useMutation(api.questions.recordInteraction);
-  const { sessionToken } = useAuth();
+  const { isSignedIn, user } = useUser();
+  const sessionToken = isSignedIn ? user?.id : null;
   
   const trackAnswer = useCallback(async (
     questionId: string,

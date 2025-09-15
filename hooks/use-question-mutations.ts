@@ -5,7 +5,7 @@ import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { toast } from 'sonner'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser } from '@clerk/nextjs'
 
 // Track optimistic updates globally to persist across component re-renders
 const optimisticStore = {
@@ -29,7 +29,8 @@ interface OptimisticDeleteParams {
  * Provides immediate UI updates with automatic rollback on error
  */
 export function useQuestionMutations() {
-  const { sessionToken } = useAuth()
+  const { isSignedIn, user } = useUser()
+  const sessionToken = isSignedIn ? user?.id : null
   const updateQuestion = useMutation(api.questions.updateQuestion)
   const softDeleteQuestion = useMutation(api.questions.softDeleteQuestion)
   
