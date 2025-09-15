@@ -1,16 +1,16 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser } from '@clerk/nextjs'
 import { Navbar } from './navbar'
 import { MinimalHeader } from './minimal-header'
 
 export function ConditionalNavbar() {
   const pathname = usePathname()
-  const { user, isLoading } = useAuth()
+  const { isLoaded, isSignedIn } = useUser()
   
   // Hide navbar on homepage for unauthenticated users
-  if (pathname === '/' && !user && !isLoading) {
+  if (pathname === '/' && !isSignedIn && isLoaded) {
     return null
   }
   
@@ -19,6 +19,6 @@ export function ConditionalNavbar() {
     return <MinimalHeader />
   }
   
-  // Show full navbar on all other pages (including /auth/verify)
+  // Show full navbar on all other pages
   return <Navbar />
 }
