@@ -37,10 +37,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { scheduleNextReview, getRetrievability, initializeCard, cardToDb } from "./fsrs";
-import { 
-  getAuthenticatedUserId,
-  getAuthenticatedUserIdFromClerk 
-} from "./lib/auth";
+import { requireUserFromClerk } from "./clerk";
 import { Doc } from "./_generated/dataModel";
 
 // Export for testing
@@ -119,7 +116,6 @@ function calculateRetrievabilityScore(question: Doc<"questions">, now: Date = ne
  */
 export const scheduleReview = mutation({
   args: {
-    sessionToken: v.optional(v.string()), // Made optional for Clerk auth
     questionId: v.id("questions"),
     userAnswer: v.string(),
     isCorrect: v.boolean(),
@@ -127,10 +123,8 @@ export const scheduleReview = mutation({
     sessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Support both auth methods during migration
-    const userId = args.sessionToken 
-      ? await getAuthenticatedUserId(ctx, args.sessionToken)
-      : await getAuthenticatedUserIdFromClerk(ctx);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Verify user owns this question
     const question = await ctx.db.get(args.questionId);
@@ -216,14 +210,11 @@ export const scheduleReview = mutation({
  */
 export const getNextReview = query({
   args: {
-    sessionToken: v.optional(v.string()), // Made optional for Clerk auth
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  handler: async (ctx, args) => {
-    // Support both auth methods during migration
-    const userId = args.sessionToken 
-      ? await getAuthenticatedUserId(ctx, args.sessionToken)
-      : await getAuthenticatedUserIdFromClerk(ctx);
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     const now = new Date();
     
     // First, try to get questions that are due for review (excluding deleted)
@@ -301,14 +292,11 @@ export const getNextReview = query({
  */
 export const getDueCount = query({
   args: {
-    sessionToken: v.optional(v.string()), // Made optional for Clerk auth
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  handler: async (ctx, args) => {
-    // Support both auth methods during migration
-    const userId = args.sessionToken 
-      ? await getAuthenticatedUserId(ctx, args.sessionToken)
-      : await getAuthenticatedUserIdFromClerk(ctx);
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     const now = Date.now();
     
     // Count questions that are due using pagination to avoid memory issues
