@@ -61,8 +61,17 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - Updated quiz.ts: 4 functions refactored
   - Fixed ESLint issues with unused parameters
   ```
-- [~] Remove `sessionToken` plumbing from client components and hooks (review flow, quiz flow, question mutations/interactions, etc.).
-- [ ] Delete obsolete files once Clerk auth is authoritative: `app/api/auth/send-magic-link/route.ts`, `app/auth/verify/page.tsx` (if present), `convex/emailActions.ts`, and `lib/cookies.ts`.
+- [x] Remove `sessionToken` plumbing from client components and hooks (review flow, quiz flow, question mutations/interactions, etc.).
+  ```
+  Work Log:
+  - Updated use-question-mutations.ts to use Clerk auth state
+  - Updated use-quiz-interactions.ts to remove sessionToken
+  - Cleaned up review-flow.tsx component
+  - Refactored quiz-flow components (index, quiz-mode, review-mode)
+  - Updated API route to use Clerk getAuth() directly
+  - Removed sessionToken from prompt sanitization schema and tests
+  ```
+- [~] Delete obsolete files once Clerk auth is authoritative: `app/api/auth/send-magic-link/route.ts`, `app/auth/verify/page.tsx` (if present), `convex/emailActions.ts`, and `lib/cookies.ts`.
 - [ ] Strip magic-link schema tables (`sessions`, `magicLinks`) from `convex/schema.ts`.
 
 ### Verification & Tooling

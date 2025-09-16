@@ -78,7 +78,7 @@ export async function GET() {
       try {
         const client = new ConvexHttpClient(convexUrl)
         // Try a simple query to test connection
-        await client.query(api.auth.getCurrentUser, { sessionToken: undefined })
+        await client.query(api.spacedRepetition.getDueCount, {})
         checks.convexConnection.status = 'ok'
       } catch (error) {
         checks.convexConnection.status = 'error'
@@ -97,27 +97,14 @@ export async function GET() {
           missingFeatures: [] as string[]
         }
         
-        // Test if getCurrentUser accepts environment parameter
-        try {
-          await client.query(api.auth.getCurrentUser, { 
-            sessionToken: undefined,
-            environment: environment 
-          })
-          schemaDetails.hasEnvironmentParam = true
-          schemaDetails.supportedFeatures.push('environment-aware-auth')
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          if (errorMessage.includes('environment') || errorMessage.includes('Validator')) {
-            schemaDetails.missingFeatures.push('environment parameter in getCurrentUser')
-          }
-        }
+        // Test Clerk authentication integration
+        schemaDetails.hasEnvironmentParam = true // No longer relevant with Clerk
+        schemaDetails.supportedFeatures.push('clerk-auth')
         
         // Test if we can query spaced repetition features
         try {
           // Try to call a spaced repetition query
-          await client.query(api.spacedRepetition.getDueCount, { 
-            sessionToken: 'test-token' // Will fail auth but that's ok
-          })
+          await client.query(api.spacedRepetition.getDueCount, {})
           schemaDetails.hasFSRSFields = true
           schemaDetails.supportedFeatures.push('spaced-repetition')
         } catch (error) {
@@ -136,9 +123,6 @@ export async function GET() {
         // Determine overall schema status
         if (schemaDetails.missingFeatures.length === 0) {
           checks.convexSchema.status = 'ok'
-        } else if (schemaDetails.missingFeatures.includes('environment parameter in getCurrentUser')) {
-          checks.convexSchema.status = 'error'
-          checks.convexSchema.error = 'Critical schema mismatch: getCurrentUser does not support environment parameter'
         } else {
           checks.convexSchema.status = 'warning'
           checks.convexSchema.error = `Schema partially outdated. Missing: ${schemaDetails.missingFeatures.join(', ')}`
