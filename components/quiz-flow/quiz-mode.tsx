@@ -15,12 +15,11 @@ interface ExtendedQuiz extends SimpleQuiz {
 interface QuizModeProps {
   topic: string;
   difficulty: "easy" | "medium" | "hard";
-  sessionToken?: string | null;
 }
 
 type QuizState = "ready" | "generating" | "quiz" | "complete";
 
-export function QuizMode({ topic, difficulty, sessionToken }: QuizModeProps) {
+export function QuizMode({ topic, difficulty }: QuizModeProps) {
   const [state, setState] = useState<QuizState>("ready");
   const [quiz, setQuiz] = useState<ExtendedQuiz | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +32,9 @@ export function QuizMode({ topic, difficulty, sessionToken }: QuizModeProps) {
       const response = await fetch("/api/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          topic, 
-          difficulty,
-          ...(sessionToken && { sessionToken })
+        body: JSON.stringify({
+          topic,
+          difficulty
         }),
       });
 
@@ -69,8 +67,7 @@ export function QuizMode({ topic, difficulty, sessionToken }: QuizModeProps) {
           score,
           answers,
           topic: quiz.topic,
-          difficulty: quiz.difficulty || difficulty,
-          ...(sessionToken && { sessionToken })
+          difficulty: quiz.difficulty || difficulty
         }),
       });
     } catch (err) {

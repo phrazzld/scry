@@ -4,10 +4,11 @@ import type { SimpleQuestion } from '@/types/quiz'
 import { createRequestLogger, loggers } from '@/lib/logger'
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { 
-  sanitizedQuizRequestSchema, 
-  containsInjectionAttempt, 
-  logInjectionAttempt 
+import { getAuth } from '@clerk/nextjs/server'
+import {
+  sanitizedQuizRequestSchema,
+  containsInjectionAttempt,
+  logInjectionAttempt
 } from '@/lib/prompt-sanitization';
 
 // Lazy-load ConvexHttpClient to allow proper mocking in tests
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { topic, difficulty, sessionToken } = validationResult.data
+    const { topic, difficulty } = validationResult.data
     
     logger.info({
       event: 'api.generate-quiz.params',
@@ -174,10 +175,12 @@ export async function POST(request: NextRequest) {
     // Save questions if user is authenticated
     let savedQuestionIds: string[] = [];
     let saveError: string | undefined;
-    if (sessionToken) {
+    const { userId } = await getAuth(request);
+    if (userId) {
       try {
+        // TODO: Update to use Clerk auth directly in Convex
+        // For now, questions will be saved when user is authenticated
         const result = await getConvexClient().mutation(api.questions.saveGeneratedQuestions, {
-          sessionToken,
           topic,
           difficulty,
           questions: questionsWithIds,

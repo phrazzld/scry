@@ -154,7 +154,6 @@ export function ReviewFlow() {
     
     try {
       const result = await scheduleReview({
-        sessionToken,
         questionId: currentQuestion.question._id,
         userAnswer: selectedAnswer,
         isCorrect,
