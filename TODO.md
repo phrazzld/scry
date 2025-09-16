@@ -82,7 +82,15 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - Updated health check endpoint to remove auth.getCurrentUser references
   - Cleaned .next build directory
   ```
-- [~] Strip magic-link schema tables (`sessions`, `magicLinks`) from `convex/schema.ts`.
+- [x] Strip magic-link schema tables (`sessions`, `magicLinks`) from `convex/schema.ts`.
+  ```
+  Work Log:
+  - Removed sessions and magicLinks tables from convex/schema.ts
+  - Removed associated types from convex/types.ts (Session, MagicLink, SessionId, MagicLinkId)
+  - Verified no references to these tables in Convex functions
+  - Linting passes, test failures appear pre-existing (API route env issues)
+  - Committed as chore: remove legacy magic-link tables from schema
+  ```
 
 ### Verification & Tooling
 - [ ] Run `pnpm dev` (after env keys exist) to ensure Clerk loads cleanly.
