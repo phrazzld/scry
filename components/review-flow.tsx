@@ -55,8 +55,7 @@ interface ReviewFeedback {
  */
 export function ReviewFlow() {
   const router = useRouter();
-  const { isSignedIn, user } = useUser();
-  const sessionToken = isSignedIn ? user?.id : null;
+  const { isSignedIn } = useUser();
   const [currentQuestion, setCurrentQuestion] = useState<ReviewQuestion | null>(null);
   const [nextQuestion, setNextQuestion] = useState<ReviewQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -79,20 +78,20 @@ export function ReviewFlow() {
   // New questions will appear automatically via Convex reactivity
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    sessionToken ? { sessionToken } : "skip",
+    isSignedIn ? {} : "skip",
     timeBasedPollInterval
   );
   
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
-    sessionToken ? { sessionToken } : "skip",
+    isSignedIn ? {} : "skip",
     timeBasedPollInterval
   );
   
   // Pre-fetch next review when we have a current question
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    currentQuestion && sessionToken ? { sessionToken } : "skip",
+    currentQuestion && isSignedIn ? {} : "skip",
     timeBasedPollInterval
   );
   
@@ -146,7 +145,7 @@ export function ReviewFlow() {
   
   // Handle answer submission
   const handleSubmit = useCallback(async () => {
-    if (!currentQuestion || !selectedAnswer || !sessionToken || isAnswering) return;
+    if (!currentQuestion || !selectedAnswer || !isSignedIn || isAnswering) return;
     
     setIsAnswering(true);
     const isCorrect = selectedAnswer === currentQuestion.question.correctAnswer;
@@ -178,11 +177,11 @@ export function ReviewFlow() {
     } finally {
       setIsAnswering(false);
     }
-  }, [currentQuestion, selectedAnswer, sessionToken, isAnswering, questionStartTime, scheduleReview]);
+  }, [currentQuestion, selectedAnswer, isSignedIn, isAnswering, questionStartTime, scheduleReview]);
   
   // Handle delete with undo
   const handleDelete = useCallback(async (questionId: string) => {
-    if (!sessionToken) return;
+    if (!isSignedIn) return;
     
     setIsMutating(true);
     
@@ -191,9 +190,8 @@ export function ReviewFlow() {
       setDeletedQuestions(prev => new Set(prev).add(questionId));
       
       // Perform soft delete
-      await deleteQuestion({ 
-        questionId,
-        sessionToken 
+      await deleteQuestion({
+        questionId
       });
       
       // Set up auto-remove from deleted set after 5 seconds
@@ -208,8 +206,7 @@ export function ReviewFlow() {
             try {
               // Restore the question
               await restoreQuestion({
-                questionId,
-                sessionToken
+                questionId
               });
               
               // Remove from deleted set
@@ -266,7 +263,7 @@ export function ReviewFlow() {
     } finally {
       setIsMutating(false);
     }
-  }, [sessionToken, deleteQuestion, restoreQuestion, router]);
+  }, [isSignedIn, deleteQuestion, restoreQuestion, router]);
   
   // Enhanced keyboard shortcuts for power users
   const { showHelp, setShowHelp, shortcuts } = useReviewShortcuts({
@@ -302,10 +299,9 @@ export function ReviewFlow() {
     options: string[];
     correctAnswer: string;
   }) => {
-    if (!sessionToken || !currentQuestion) return;
+    if (!isSignedIn || !currentQuestion) return;
     
     await updateQuestion({
-      sessionToken,
       questionId: currentQuestion.question._id,
       question: updates.question,
       options: updates.options,
@@ -320,11 +316,11 @@ export function ReviewFlow() {
         ...updates
       }
     });
-  }, [sessionToken, currentQuestion, updateQuestion]);
+  }, [isSignedIn, currentQuestion, updateQuestion]);
   
   
   // Loading state
-  if (!sessionToken) {
+  if (!isSignedIn) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <SignIn routing="hash" />
