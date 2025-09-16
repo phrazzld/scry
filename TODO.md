@@ -71,8 +71,18 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - Updated API route to use Clerk getAuth() directly
   - Removed sessionToken from prompt sanitization schema and tests
   ```
-- [~] Delete obsolete files once Clerk auth is authoritative: `app/api/auth/send-magic-link/route.ts`, `app/auth/verify/page.tsx` (if present), `convex/emailActions.ts`, and `lib/cookies.ts`.
-- [ ] Strip magic-link schema tables (`sessions`, `magicLinks`) from `convex/schema.ts`.
+- [x] Delete obsolete files once Clerk auth is authoritative: `app/api/auth/send-magic-link/route.ts`, `app/auth/verify/page.tsx` (if present), `convex/emailActions.ts`, and `lib/cookies.ts`.
+  ```
+  Work Log:
+  - Deleted app/api/auth/send-magic-link/route.ts (API route)
+  - Deleted convex/auth.ts (magic link mutations)
+  - Deleted convex/emailActions.ts (email sending)
+  - Deleted convex/lib/auth.ts (session token helpers)
+  - app/auth/verify/page.tsx and lib/cookies.ts didn't exist
+  - Updated health check endpoint to remove auth.getCurrentUser references
+  - Cleaned .next build directory
+  ```
+- [~] Strip magic-link schema tables (`sessions`, `magicLinks`) from `convex/schema.ts`.
 
 ### Verification & Tooling
 - [ ] Run `pnpm dev` (after env keys exist) to ensure Clerk loads cleanly.

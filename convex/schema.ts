@@ -11,24 +11,6 @@ export default defineSchema({
   }).index("by_email", ["email"])
     .index("by_clerk_id", ["clerkId"]),
 
-  sessions: defineTable({
-    userId: v.id("users"),
-    expiresAt: v.number(),
-    token: v.string(),
-    environment: v.optional(v.string()), // Track where session was created (production, preview, development)
-  }).index("by_token", ["token"])
-    .index("by_user", ["userId"])
-    .index("by_environment", ["environment"]),
-
-  magicLinks: defineTable({
-    email: v.string(),
-    token: v.string(),
-    expiresAt: v.number(),
-    used: v.optional(v.boolean()),
-    environment: v.optional(v.string()), // Track environment for session creation
-  }).index("by_token", ["token"])
-    .index("by_email", ["email"]),
-
   questions: defineTable({
     userId: v.id("users"),
     topic: v.string(),
