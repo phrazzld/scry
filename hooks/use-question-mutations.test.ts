@@ -17,8 +17,8 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('@/contexts/auth-context', () => ({
-  useAuth: vi.fn(() => ({ sessionToken: 'mock-token' })),
+vi.mock('@clerk/nextjs', () => ({
+  useUser: vi.fn(() => ({ isSignedIn: true, user: { id: 'mock-token' } })),
 }));
 
 vi.mock('@/convex/_generated/api', () => ({
@@ -208,4 +208,3 @@ describe('useQuestionMutations', () => {
     });
   });
 });
-

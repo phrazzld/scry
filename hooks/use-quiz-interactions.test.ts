@@ -7,12 +7,12 @@ vi.mock('convex/react', () => ({
   useMutation: vi.fn(),
 }));
 
-vi.mock('@/contexts/auth-context', () => ({
-  useAuth: vi.fn(),
+vi.mock('@clerk/nextjs', () => ({
+  useUser: vi.fn(() => ({ isSignedIn: true, user: { id: 'test-token' } })),
 }));
 
 import { useMutation } from 'convex/react';
-import { useAuth } from '@/contexts/auth-context';
+import { useUser } from '@clerk/nextjs';
 
 describe('useQuizInteractions', () => {
   let mockRecordInteraction: any;
@@ -27,7 +27,7 @@ describe('useQuizInteractions', () => {
     // Setup default mocks
     mockRecordInteraction = vi.fn();
     (useMutation as any).mockReturnValue(mockRecordInteraction);
-    (useAuth as any).mockReturnValue({ sessionToken: 'test-token' });
+    (useUser as any).mockReturnValue({ isSignedIn: true, user: { id: 'test-token' } });
   });
 
   afterEach(() => {
@@ -110,7 +110,7 @@ describe('useQuizInteractions', () => {
     });
 
     it('should return null when no session token', async () => {
-      (useAuth as any).mockReturnValue({ sessionToken: null });
+      (useUser as any).mockReturnValue({ isSignedIn: false, user: null });
       
       const { result } = renderHook(() => useQuizInteractions());
       
@@ -176,7 +176,7 @@ describe('useQuizInteractions', () => {
       expect(trackAnswer1).toBe(trackAnswer2);
       
       // Change sessionToken
-      (useAuth as any).mockReturnValue({ sessionToken: 'new-token' });
+      (useUser as any).mockReturnValue({ isSignedIn: true, user: { id: 'new-token' } });
       rerender();
       const trackAnswer3 = result.current.trackAnswer;
       
@@ -239,7 +239,7 @@ describe('useQuizInteractions', () => {
       expect(mockRecordInteraction).toHaveBeenCalledTimes(1);
       
       // Switch to unauthenticated
-      (useAuth as any).mockReturnValue({ sessionToken: null });
+      (useUser as any).mockReturnValue({ isSignedIn: false, user: null });
       rerender();
       
       await act(async () => {
@@ -262,7 +262,7 @@ describe('useQuizInteractions', () => {
     it('should use auth context for session token', () => {
       renderHook(() => useQuizInteractions());
       
-      expect(useAuth).toHaveBeenCalled();
+      expect(useUser).toHaveBeenCalled();
     });
   });
 });
