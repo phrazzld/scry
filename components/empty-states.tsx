@@ -70,6 +70,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
           }
         } else if (result.questions) {
           // User not authenticated, just show generation success
+          console.warn('Questions generated but not saved - user is not authenticated');
           toast.success(`✓ ${count} questions generated! Sign in to save them.`);
           // Don't trigger callback for unauthenticated users
         } else {
@@ -195,6 +196,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
             toast.error(`Generated ${count} questions but failed to save. Please try again.`);
           }
         } else if (result.questions) {
+          console.warn('Questions generated but not saved - user is not authenticated');
           toast.success(`✓ ${count} questions generated! Sign in to save them.`);
         } else {
           toast.error('Failed to generate questions');

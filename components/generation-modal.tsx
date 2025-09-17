@@ -153,6 +153,7 @@ export function GenerationModal({
         }
       } else if (result.questions) {
         // User not authenticated, just show generation success
+        console.warn('Questions generated but not saved - user is not authenticated');
         toast.success(`✓ ${count} questions generated. Sign in to save them.`, {
           description: topic,
           duration: 4000,

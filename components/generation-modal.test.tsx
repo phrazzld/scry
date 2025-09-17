@@ -217,7 +217,17 @@ describe('GenerationModal', () => {
     it('should successfully generate questions', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ savedCount: 5, topic: 'JavaScript closures' }),
+        json: async () => ({
+          questions: [
+            { question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
+            { question: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B' },
+            { question: 'Q3', options: ['A', 'B', 'C', 'D'], correctAnswer: 'C' },
+            { question: 'Q4', options: ['A', 'B', 'C', 'D'], correctAnswer: 'D' },
+            { question: 'Q5', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
+          ],
+          topic: 'JavaScript closures',
+          difficulty: 'medium'
+        }),
       });
       
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
@@ -254,7 +264,11 @@ describe('GenerationModal', () => {
     it('should include context in prompt when checkbox is checked', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ savedCount: 0, topic: 'Based on: What is React?. Generate 5 similar questions' }),
+        json: async () => ({
+          questions: [],
+          topic: 'Based on: What is React?. Generate 5 similar questions',
+          difficulty: 'medium'
+        }),
       });
       
       render(
@@ -284,7 +298,11 @@ describe('GenerationModal', () => {
 
     it('should show loading state while generating', async () => {
       mockFetch.mockImplementationOnce(() => 
-        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({ savedCount: 1, topic: 'Test prompt' }) }), 100))
+        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({
+          questions: [{ question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' }],
+          topic: 'Test prompt',
+          difficulty: 'medium'
+        }) }), 100))
       );
       
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
