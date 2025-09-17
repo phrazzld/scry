@@ -253,10 +253,18 @@ The API route uses `ConvexHttpClient` without auth context, causing "Authenticat
   ```
 
 #### Phase 4: Clean Up Response Handling
-- [ ] Update all test files that mock `/api/generate-quiz` response to remove `savedCount` field
-- [ ] Search for any other components using `result.savedCount` and update to use `result.questions?.length`
-- [ ] Verify that unauthenticated users can still generate questions (but won't save)
-- [ ] Add console warning when questions are generated but not saved due to missing auth
+- [x] Update all test files that mock `/api/generate-quiz` response to remove `savedCount` field
+- [x] Search for any other components using `result.savedCount` and update to use `result.questions?.length`
+- [x] Verify that unauthenticated users can still generate questions (but won't save)
+- [x] Add console warning when questions are generated but not saved due to missing auth
+  ```
+  Work Log:
+  - Updated generation-modal.test.tsx to return questions arrays
+  - No remaining savedCount usage in production code
+  - Added console.warn() for unauthenticated generations
+  - Tests passing, linting clean
+  - Committed as: refactor: clean up response handling
+  ```
 
 #### Phase 5: Test the New Flow
 - [ ] Test authenticated flow: generate → save → auto-review should work
