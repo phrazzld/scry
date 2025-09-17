@@ -351,30 +351,40 @@ export function ReviewFlow() {
   if (!currentQuestion && !showingFeedback) {
     // Check if user has any cards at all
     if (cardStats?.totalCards === 0) {
-      return <NoCardsEmptyState />;
+      return (
+        <div className="w-full max-w-2xl mx-auto pt-20">
+          <NoCardsEmptyState />
+        </div>
+      );
     }
 
     // User has cards but nothing is due
     if (!currentReview && cardStats) {
       return (
-        <NothingDueEmptyState
-          nextReviewTime={cardStats.nextReviewTime}
-          stats={{
-            learningCount: cardStats.learningCount,
-            totalCards: cardStats.totalCards,
-            newCount: cardStats.newCount,
-          }}
-        />
+        <div className="w-full max-w-2xl mx-auto pt-20">
+          <NothingDueEmptyState
+            nextReviewTime={cardStats.nextReviewTime}
+            stats={{
+              learningCount: cardStats.learningCount,
+              totalCards: cardStats.totalCards,
+              newCount: cardStats.newCount,
+            }}
+          />
+        </div>
       );
     }
 
     // Fallback (should not happen, but just in case)
-    return <NoCardsEmptyState />;
+    return (
+      <div className="w-full max-w-2xl mx-auto pt-20">
+        <NoCardsEmptyState />
+      </div>
+    );
   }
   
   // Review interface
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4 pt-20">
+    <div className="w-full max-w-2xl mx-auto space-y-4 pt-16">
       {/* Progress header */}
       <Card>
         <CardHeader className="pb-3">

@@ -157,11 +157,11 @@ The current layout system has multiple navbar components (Navbar vs MinimalHeade
   ```
 
 ### Phase 4: Fix Empty States Spacing
-- [ ] Remove `p-8` class from NoCardsEmptyState container div in `/components/empty-states.tsx` line 54, replace with `px-4`.
-- [ ] Remove `p-8` class from NothingDueEmptyState container div in `/components/empty-states.tsx` line 130, replace with `px-4`.
-- [ ] Wrap NoCardsEmptyState return in review-flow.tsx line 354 with `<div className="w-full max-w-2xl mx-auto pt-20">` for consistent navbar offset.
-- [ ] Wrap NothingDueEmptyState return in review-flow.tsx lines 359-369 with `<div className="w-full max-w-2xl mx-auto pt-20">` container.
-- [ ] Remove hardcoded `pt-20` from review-flow.tsx line 377 and replace with `pt-16` to match actual navbar height of 64px.
+- [x] Remove `p-8` class from NoCardsEmptyState container div in `/components/empty-states.tsx` line 54, replace with `px-4`.
+- [x] Remove `p-8` class from NothingDueEmptyState container div in `/components/empty-states.tsx` line 130, replace with `px-4`.
+- [x] Wrap NoCardsEmptyState return in review-flow.tsx line 354 with `<div className="w-full max-w-2xl mx-auto pt-20">` for consistent navbar offset.
+- [x] Wrap NothingDueEmptyState return in review-flow.tsx lines 359-369 with `<div className="w-full max-w-2xl mx-auto pt-20">` container.
+- [x] Remove hardcoded `pt-20` from review-flow.tsx line 377 and replace with `pt-16` to match actual navbar height of 64px.
 
 ### Phase 5: Clean Up Redundant Routes
 - [ ] Delete entire `/app/review` directory since it duplicates homepage functionality - both show ReviewFlow component.

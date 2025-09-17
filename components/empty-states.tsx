@@ -51,7 +51,7 @@ export function NoCardsEmptyState() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-8">
+    <div className="max-w-xl mx-auto px-4">
       <h1 className="text-2xl font-bold mb-6">What do you want to learn?</h1>
       <form onSubmit={handleGenerate} className="space-y-4">
         <input
@@ -151,7 +151,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
   const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
 
   return (
-    <div className="max-w-xl mx-auto p-8">
+    <div className="max-w-xl mx-auto px-4">
       <div className="text-center mb-6">
         <h1 className="text-4xl font-bold mb-2">0 due</h1>
 
