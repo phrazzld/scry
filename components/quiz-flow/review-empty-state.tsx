@@ -25,17 +25,22 @@ export function ReviewEmptyState() {
             Your next review will be available soon. In the meantime, you can:
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              onClick={() => router.push("/create")}
+            <Button
+              onClick={() => {
+                router.push("/");
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('open-generation-modal'));
+                }, 100);
+              }}
               variant="default"
             >
               Create New Quiz
             </Button>
             <Button 
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/")}
               variant="outline"
             >
-              View Dashboard
+              Go Home
             </Button>
           </div>
         </div>

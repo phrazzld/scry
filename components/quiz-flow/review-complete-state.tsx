@@ -38,10 +38,10 @@ export function ReviewCompleteState({ remainingReviews, onNextReview }: ReviewCo
               </Button>
             )}
             <Button 
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/")}
               variant={remainingReviews > 0 ? "outline" : "default"}
             >
-              View Dashboard
+              Go Home
             </Button>
           </div>
         </div>
