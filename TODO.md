@@ -187,7 +187,59 @@ The current layout system has multiple navbar components (Navbar vs MinimalHeade
   - Removed unused TopicInput component (orphaned, not referenced anywhere)
   ```
 
-### Phase 6: Test & Verify
+## Authentication Architecture Fix for Question Generation
+
+### Problem
+The API route uses `ConvexHttpClient` without auth context, causing "Authentication required" errors when saving questions. The API acts as a middleman but cannot forward Clerk tokens to Convex.
+
+### Root Fix: Separate AI Generation from Database Persistence
+
+#### Phase 1: Simplify API Route (Remove Save Logic)
+- [ ] Remove lines 175-202 in `/app/api/generate-quiz/route.ts` that handle question saving to Convex
+- [ ] Remove the `getAuth` import and usage from `/app/api/generate-quiz/route.ts` since auth check is no longer needed
+- [ ] Remove `ConvexHttpClient` import and lazy-loading code (lines 5, 14-33) from `/app/api/generate-quiz/route.ts`
+- [ ] Remove `api` import from `@/convex/_generated/api` in `/app/api/generate-quiz/route.ts` since we're not calling Convex
+- [ ] Update response structure to always return `{ questions, topic, difficulty }` without `savedCount` or `savedQuestionIds`
+- [ ] Remove the `saveError` field from response (line 231-233) since we're not saving anymore
+- [ ] Update API route tests to remove expectations of `savedCount` in response
+
+#### Phase 2: Update NoCardsEmptyState Component
+- [ ] Import `useMutation` from `convex/react` in `/components/empty-states.tsx`
+- [ ] Import `api` from `@/convex/_generated/api` in `/components/empty-states.tsx`
+- [ ] Import `useUser` from `@clerk/nextjs` to check authentication state
+- [ ] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 23
+- [ ] After successful API response (line 46), check if user is authenticated with `const { isSignedIn } = useUser()`
+- [ ] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
+- [ ] Update success toast to show different message based on whether questions were saved
+- [ ] Handle save errors gracefully with try/catch and show error toast if save fails
+- [ ] Only call `onGenerationSuccess?.()` after successful save (not just generation)
+
+#### Phase 3: Update GenerationModal Component
+- [ ] Import `useMutation` from `convex/react` in `/components/generation-modal.tsx`
+- [ ] Import `api` from `@/convex/_generated/api` in `/components/generation-modal.tsx`
+- [ ] Add `const { isSignedIn } = useUser()` to check auth state (already importing useUser)
+- [ ] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 40
+- [ ] After API success (line 121), check if `isSignedIn` before attempting to save
+- [ ] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
+- [ ] Update line 125 to calculate count from `result.questions?.length` directly (no savedCount)
+- [ ] Only call `onGenerationSuccess?.(count)` after successful save, not just generation
+- [ ] Add error handling for save failure with appropriate user feedback
+
+#### Phase 4: Clean Up Response Handling
+- [ ] Update all test files that mock `/api/generate-quiz` response to remove `savedCount` field
+- [ ] Search for any other components using `result.savedCount` and update to use `result.questions?.length`
+- [ ] Verify that unauthenticated users can still generate questions (but won't save)
+- [ ] Add console warning when questions are generated but not saved due to missing auth
+
+#### Phase 5: Test the New Flow
+- [ ] Test authenticated flow: generate → save → auto-review should work
+- [ ] Test unauthenticated flow: generate should work, save should be skipped gracefully
+- [ ] Test auth expiry: if auth expires between generation and save, handle gracefully
+- [ ] Verify Convex mutations now receive proper auth context from client
+- [ ] Run `pnpm lint` to catch any TypeScript issues from the refactoring
+- [ ] Run `pnpm test` to ensure unit tests still pass with new architecture
+
+### Phase 6: Test & Verify Layout System
 - [ ] Test that empty state (NoCardsEmptyState) no longer overlaps with navbar on homepage for new users with screenshot verification.
 - [ ] Test that NothingDueEmptyState displays correctly with proper spacing when user has cards but nothing due.
 - [ ] Verify Settings link appears on /settings page but not on homepage.
