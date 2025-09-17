@@ -4,6 +4,9 @@ import { BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
 import { toast } from "sonner";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 
 interface EmptyStateProps {
   className?: string;
@@ -26,6 +29,8 @@ interface NoCardsEmptyStateProps {
 export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProps = {}) {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
 
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
@@ -45,14 +50,40 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
 
       if (response.ok) {
         const result = await response.json();
-        const count = result.savedCount || result.questions?.length || 0;
-        toast.success(`✓ ${count} questions generated!`);
+        const count = result.questions?.length || 0;
+
+        // Save questions if user is authenticated
+        if (isSignedIn && result.questions) {
+          try {
+            await saveQuestions({
+              topic: result.topic,
+              difficulty: result.difficulty || 'medium',
+              questions: result.questions
+            });
+            toast.success(`✓ ${count} questions generated and saved!`);
+            // Only trigger callback after successful save
+            onGenerationSuccess?.();
+          } catch (saveError) {
+            console.error('Failed to save questions:', saveError);
+            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
+            // Don't trigger callback if save failed
+          }
+        } else if (result.questions) {
+          // User not authenticated, just show generation success
+          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+          // Don't trigger callback for unauthenticated users
+        } else {
+          toast.error('Failed to generate questions');
+        }
+
         setTopic('');
-        // Trigger callback to initiate review
-        onGenerationSuccess?.();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate questions');
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);
+      toast.error('Failed to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -100,6 +131,8 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
 
   const formatNextReviewTime = (timestamp: number | null) => {
     if (!timestamp) return null;
@@ -145,12 +178,37 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
       });
 
       if (response.ok) {
-        toast.success("Questions generated! They'll appear shortly.");
+        const result = await response.json();
+        const count = result.questions?.length || 0;
+
+        // Save questions if user is authenticated
+        if (isSignedIn && result.questions) {
+          try {
+            await saveQuestions({
+              topic: result.topic,
+              difficulty: result.difficulty || 'medium',
+              questions: result.questions
+            });
+            toast.success(`✓ ${count} questions generated! They'll appear shortly.`);
+          } catch (saveError) {
+            console.error('Failed to save questions:', saveError);
+            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
+          }
+        } else if (result.questions) {
+          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+        } else {
+          toast.error('Failed to generate questions');
+        }
+
         setTopic('');
         setShowGenerate(false);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate questions');
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);
+      toast.error('Failed to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
