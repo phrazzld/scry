@@ -162,6 +162,14 @@ The current layout system has multiple navbar components (Navbar vs MinimalHeade
 - [x] Wrap NoCardsEmptyState return in review-flow.tsx line 354 with `<div className="w-full max-w-2xl mx-auto pt-20">` for consistent navbar offset.
 - [x] Wrap NothingDueEmptyState return in review-flow.tsx lines 359-369 with `<div className="w-full max-w-2xl mx-auto pt-20">` container.
 - [x] Remove hardcoded `pt-20` from review-flow.tsx line 377 and replace with `pt-16` to match actual navbar height of 64px.
+  ```
+  Work Log:
+  - Updated empty-states.tsx to use px-4 instead of p-8 for better horizontal spacing
+  - Wrapped all empty state returns in review-flow.tsx with consistent containers
+  - Fixed navbar offset from pt-20 to pt-16 to match actual 64px navbar height
+  - Also wrapped fallback NoCardsEmptyState for consistency
+  - Committed as: fix: improve empty states spacing and navbar offset
+  ```
 
 ### Phase 5: Clean Up Redundant Routes
 - [ ] Delete entire `/app/review` directory since it duplicates homepage functionality - both show ReviewFlow component.
