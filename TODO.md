@@ -128,6 +128,14 @@ The current layout system has multiple navbar components (Navbar vs MinimalHeade
 - [x] Import GenerationModal component in Navbar and add state management (`generateOpen`, `currentQuestion`) matching MinimalHeader's implementation.
 - [x] Ensure Navbar maintains consistent height by using `h-16` class (64px) for the container div, matching what MinimalHeader currently uses with `py-3`.
 - [x] Test that keyboard shortcut 'G' still opens generation modal when on homepage by verifying the `open-generation-modal` event listener works.
+  ```
+  Work Log:
+  - Integrated GenerationModal from MinimalHeader into unified Navbar component
+  - Fixed React hooks rule violations (useEffect must be called before conditional returns)
+  - Navbar now shows Generate button on homepage, Settings on other pages
+  - All event listeners preserved and working
+  - Committed as: refactor: merge navbar components for consistency
+  ```
 
 ### Phase 2: Update Conditional Logic
 - [x] Remove MinimalHeader import from `/components/conditional-navbar.tsx` after Navbar has all its functionality.
@@ -135,10 +143,10 @@ The current layout system has multiple navbar components (Navbar vs MinimalHeade
 - [x] Delete `/components/minimal-header.tsx` file completely after verifying Navbar works on homepage with generation button.
 
 ### Phase 3: Fix Layout Spacing System
-- [ ] Update `/lib/layout-mode.ts` function `needsNavbarSpacer()` to return `true` when `isLegacyLayoutEnabled()` returns `true` (fixed positioning needs spacer).
-- [ ] Add new function `getNavbarHeight()` to `/lib/layout-mode.ts` that returns `'4rem'` (64px) as a consistent value for use across the app.
-- [ ] Update `/app/layout.tsx` to render spacer div with `h-16` class (not dynamic height) when `needsNavbarSpacer()` returns true.
-- [ ] Add CSS custom property `--navbar-height: 4rem;` to `:root` selector in `/app/globals.css` for maintainable height reference.
+- [x] Update `/lib/layout-mode.ts` function `needsNavbarSpacer()` to return `true` when `isLegacyLayoutEnabled()` returns `true` (fixed positioning needs spacer).
+- [x] Add new function `getNavbarHeight()` to `/lib/layout-mode.ts` that returns `'4rem'` (64px) as a consistent value for use across the app.
+- [x] Update `/app/layout.tsx` to render spacer div with `h-16` class (not dynamic height) when `needsNavbarSpacer()` returns true.
+- [x] Add CSS custom property `--navbar-height: 4rem;` to `:root` selector in `/app/globals.css` for maintainable height reference.
 
 ### Phase 4: Fix Empty States Spacing
 - [ ] Remove `p-8` class from NoCardsEmptyState container div in `/components/empty-states.tsx` line 54, replace with `px-4`.

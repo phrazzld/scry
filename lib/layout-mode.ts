@@ -41,10 +41,19 @@ export function getNavbarClassName(): string {
 
 /**
  * Check if spacer is needed
- * 
+ *
  * @returns true if navbar spacer should be rendered
  */
 export function needsNavbarSpacer(): boolean {
-  // MinimalHeader handles its own spacer, so we don't need one in the layout
-  return false;
+  // Fixed positioning needs a spacer to prevent content from sliding under navbar
+  return isLegacyLayoutEnabled();
+}
+
+/**
+ * Get the navbar height as a consistent value
+ *
+ * @returns Navbar height value (4rem = 64px)
+ */
+export function getNavbarHeight(): string {
+  return '4rem'; // 64px - matches h-16 class used in navbar component
 }

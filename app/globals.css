@@ -35,6 +35,7 @@
   --spacing-prose: 1.5em;
   --spacing-section: 4rem;
   --spacing-component: 2rem;
+  --navbar-height: 4rem; /* 64px - matches h-16 class */
   
   /* Type scale */
   --font-size-xs: 0.75rem;
