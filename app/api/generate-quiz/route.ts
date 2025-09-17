@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
         const result = await getConvexClient().mutation(api.questions.saveGeneratedQuestions, {
           topic,
           difficulty,
-          questions: questionsWithIds,
+          questions: questions,  // Pass original questions without id field
         });
         savedQuestionIds = result.questionIds;
         
