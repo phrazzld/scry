@@ -55,10 +55,13 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
         // Save questions if user is authenticated
         if (isSignedIn && result.questions) {
           try {
+            // Strip id field that API adds for frontend tracking
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q);
             await saveQuestions({
               topic: result.topic,
               difficulty: result.difficulty || 'medium',
-              questions: result.questions
+              questions: questionsForSave
             });
             toast.success(`✓ ${count} questions generated and saved!`);
             // Only trigger callback after successful save
@@ -185,10 +188,13 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
         // Save questions if user is authenticated
         if (isSignedIn && result.questions) {
           try {
+            // Strip id field that API adds for frontend tracking
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q);
             await saveQuestions({
               topic: result.topic,
               difficulty: result.difficulty || 'medium',
-              questions: result.questions
+              questions: questionsForSave
             });
             toast.success(`✓ ${count} questions generated! They'll appear shortly.`);
           } catch (saveError) {

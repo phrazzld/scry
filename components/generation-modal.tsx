@@ -132,10 +132,13 @@ export function GenerationModal({
       // Save questions if user is authenticated
       if (isSignedIn && result.questions) {
         try {
+          // Strip id field that API adds for frontend tracking
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+          const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q)
           await saveQuestions({
             topic: topic,
             difficulty: 'medium',
-            questions: result.questions
+            questions: questionsForSave
           })
 
           // Enhanced toast with count and topic for saved questions
