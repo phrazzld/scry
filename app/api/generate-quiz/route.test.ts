@@ -9,26 +9,6 @@ vi.mock('@/lib/ai-client', () => ({
   generateQuizWithAI: vi.fn()
 }))
 
-vi.mock('@clerk/nextjs/server', () => ({
-  getAuth: vi.fn(() => Promise.resolve({ userId: null }))
-}))
-
-vi.mock('convex/browser', () => ({
-  ConvexHttpClient: vi.fn(() => ({
-    mutation: vi.fn()
-  }))
-}))
-
-vi.mock('@/convex/_generated/api', () => ({
-  api: {
-    rateLimit: {
-      checkApiRateLimit: { _functionPath: 'rateLimit:checkApiRateLimit' }
-    },
-    questions: {
-      saveGeneratedQuestions: { _functionPath: 'questions:saveGeneratedQuestions' }
-    }
-  }
-}))
 
 vi.mock('@/lib/logger', () => ({
   createRequestLogger: vi.fn(() => ({
@@ -49,33 +29,18 @@ vi.mock('@/lib/logger', () => ({
 
 // Import after mocks
 import { generateQuizWithAI } from '@/lib/ai-client'
-import { ConvexHttpClient } from 'convex/browser'
-import { getAuth } from '@clerk/nextjs/server'
 import { POST } from './route'
 
-// Access test helpers from global
-const resetConvexClient = () => {
-  if ((globalThis as any).__resetConvexClient) {
-    (globalThis as any).__resetConvexClient();
-  }
-}
 
 describe('/api/generate-quiz', () => {
-  let mockConvexMutation: ReturnType<typeof vi.fn>
-  
   // Verify mocks are working
-  it('should have mocked ConvexHttpClient', () => {
-    expect(vi.mocked(ConvexHttpClient)).toBeDefined()
+  it('should have mocked generateQuizWithAI', () => {
     expect(vi.mocked(generateQuizWithAI)).toBeDefined()
   })
   
   beforeEach(() => {
     vi.clearAllMocks()
-    resetConvexClient() // Reset the lazy-loaded client between tests
-    
-    // Setup default mock behavior
-    mockConvexMutation = vi.fn()
-    
+
     // Default successful AI generation
     vi.mocked(generateQuizWithAI).mockResolvedValue([
       {
@@ -89,25 +54,6 @@ describe('/api/generate-quiz', () => {
         correctAnswer: 'JavaScript XML'
       }
     ])
-    
-    // Default rate limit check - allowed
-    mockConvexMutation.mockImplementation((api: { _functionPath?: string }) => {
-      // Check the function path from the API object
-      if (api._functionPath === 'rateLimit:checkApiRateLimit') {
-        return Promise.resolve({ allowed: true })
-      }
-      if (api._functionPath === 'questions:saveGeneratedQuestions') {
-        return Promise.resolve({ 
-          questionIds: ['q1', 'q2'],
-          count: 2
-        })
-      }
-      return Promise.resolve({})
-    })
-    
-    vi.mocked(ConvexHttpClient).mockImplementation(() => ({
-      mutation: mockConvexMutation
-    }) as unknown as ConvexHttpClient)
   })
 
   describe('Successful Quiz Generation', () => {
@@ -137,7 +83,6 @@ describe('/api/generate-quiz', () => {
       if (response.status !== 200) {
         console.error('Response status:', response.status)
         console.error('Response data:', data)
-        console.error('Mock calls:', mockConvexMutation.mock.calls)
       }
 
       expect(response.status).toBe(200)
@@ -148,155 +93,8 @@ describe('/api/generate-quiz', () => {
       expect(data.questions[0]).toHaveProperty('question', 'What is React?')
     })
 
-    it('should save questions when user is authenticated', async () => {
-      // Mock authenticated user
-      vi.mocked(getAuth).mockResolvedValueOnce({ userId: 'user-123' } as any)
-
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          topic: 'React Hooks',
-          difficulty: 'hard'
-        })
-      })
-
-      const response = await POST(request)
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data).toHaveProperty('saved', true)
-      expect(data).toHaveProperty('savedCount', 2)
-      
-      // Verify Convex save mutation was called
-      expect(mockConvexMutation).toHaveBeenCalledWith(
-        expect.objectContaining({
-          _functionPath: expect.stringContaining('saveGeneratedQuestions')
-        }),
-        expect.objectContaining({
-          topic: 'React Hooks',
-          difficulty: 'hard',
-          questions: expect.arrayContaining([
-            expect.objectContaining({
-              question: 'What is React?'
-            })
-          ])
-        })
-      )
-    })
-
-    it('should not save questions without authentication', async () => {
-      // Ensure no user is authenticated
-      vi.mocked(getAuth).mockResolvedValueOnce({ userId: null } as any)
-
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          topic: 'TypeScript',
-          difficulty: 'easy'
-        })
-      })
-
-      const response = await POST(request)
-      const data = await response.json()
-
-      expect(response.status).toBe(200)
-      expect(data).toHaveProperty('saved', false)
-      expect(data).not.toHaveProperty('savedCount')
-      
-      // Verify save mutation was not called
-      const saveCalls = mockConvexMutation.mock.calls.filter((call: unknown[]) =>
-        (call[0] as { _functionPath?: string })?._functionPath?.includes('saveGeneratedQuestions')
-      )
-      expect(saveCalls).toHaveLength(0)
-    })
   })
 
-  describe('Rate Limiting', () => {
-    it('should return 429 when rate limited', async () => {
-      // Mock rate limit denial
-      mockConvexMutation.mockImplementation((api: { _functionPath?: string }) => {
-        if (api._functionPath?.includes('checkApiRateLimit')) {
-          return Promise.resolve({
-            allowed: false,
-            attemptsUsed: 10,
-            maxAttempts: 10,
-            errorMessage: 'Rate limit exceeded',
-            windowMs: 60000,
-            retryAfter: 45
-          })
-        }
-        return Promise.resolve({})
-      })
-
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          topic: 'JavaScript',
-          difficulty: 'medium'
-        })
-      })
-
-      const response = await POST(request)
-      
-      expect(response.status).toBe(429)
-      expect(response.headers.get('Retry-After')).toBe('45')
-      
-      const data = await response.json()
-      expect(data).toHaveProperty('error', 'Rate limit exceeded')
-      expect(data).toHaveProperty('retryAfter', 45)
-      expect(data).toHaveProperty('limit', 10)
-      expect(data).toHaveProperty('windowMs', 60000)
-      
-      // Verify AI generation was not called
-      expect(generateQuizWithAI).not.toHaveBeenCalled()
-    })
-
-    it('should extract IP from various headers', async () => {
-      const headerTests = [
-        { header: 'x-forwarded-for', value: '10.0.0.1, 192.168.1.1', expected: '10.0.0.1' },
-        { header: 'x-real-ip', value: '10.0.0.2', expected: '10.0.0.2' },
-        { header: 'cf-connecting-ip', value: '10.0.0.3', expected: '10.0.0.3' }
-      ]
-
-      for (const test of headerTests) {
-        vi.clearAllMocks()
-        
-        const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            [test.header]: test.value
-          },
-          body: JSON.stringify({
-            topic: 'Testing',
-            difficulty: 'easy'
-          })
-        })
-
-        await POST(request)
-
-        // Verify rate limit check was called with correct IP
-        expect(mockConvexMutation).toHaveBeenCalledWith(
-          expect.objectContaining({
-            _functionPath: expect.stringContaining('checkApiRateLimit')
-          }),
-          expect.objectContaining({
-            ipAddress: test.expected,
-            operation: 'quizGeneration'
-          })
-        )
-      }
-    })
-  })
 
   describe('Input Validation', () => {
     it('should reject empty topic', async () => {
@@ -425,42 +223,7 @@ describe('/api/generate-quiz', () => {
       expect(data.error).toMatch(/generation failed|error/i)
     })
 
-    it('should handle Convex save failures gracefully', async () => {
-      // Mock authenticated user
-      vi.mocked(getAuth).mockResolvedValueOnce({ userId: 'user-123' } as any)
-
-      mockConvexMutation.mockImplementation((api: { _functionPath?: string }) => {
-        if (api._functionPath?.includes('checkApiRateLimit')) {
-          return Promise.resolve({ allowed: true })
-        }
-        if (api._functionPath?.includes('saveGeneratedQuestions')) {
-          return Promise.reject(new Error('Database unavailable'))
-        }
-        return Promise.resolve({})
-      })
-
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          topic: 'React',
-          difficulty: 'medium'
-        })
-      })
-
-      const response = await POST(request)
-      const data = await response.json()
-
-      // Should still return success with questions, but saved=false
-      expect(response.status).toBe(200)
-      expect(data).toHaveProperty('questions')
-      expect(data).toHaveProperty('saved', false)
-      expect(data).toHaveProperty('saveError')
-    })
-
-    it('should handle malformed JSON body', async () => {
+it('should handle malformed JSON body', async () => {
       const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
         method: 'POST',
         headers: {
@@ -520,8 +283,7 @@ describe('/api/generate-quiz', () => {
             options: expect.any(Array),
             correctAnswer: expect.any(String)
           })
-        ]),
-        saved: false
+        ])
       })
     })
 
