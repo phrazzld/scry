@@ -123,16 +123,16 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
 The current layout system has multiple navbar components (Navbar vs MinimalHeader) with inconsistent positioning and heights, causing recurring overlap issues with content. Empty states don't account for navbar spacing, and the ReviewFlow hardcodes `pt-20` that doesn't match actual navbar height.
 
 ### Phase 1: Merge Navbar Components
-- [ ] Copy GenerationModal integration from MinimalHeader into Navbar component at `/components/navbar.tsx`. The MinimalHeader has event listeners for `review-question-changed` and `open-generation-modal` that need to be preserved.
-- [ ] Add conditional rendering logic to Navbar for showing Generate button (Sparkles icon) when pathname === '/' and user is authenticated, replacing the Settings link on homepage only.
-- [ ] Import GenerationModal component in Navbar and add state management (`generateOpen`, `currentQuestion`) matching MinimalHeader's implementation.
-- [ ] Ensure Navbar maintains consistent height by using `h-16` class (64px) for the container div, matching what MinimalHeader currently uses with `py-3`.
-- [ ] Test that keyboard shortcut 'G' still opens generation modal when on homepage by verifying the `open-generation-modal` event listener works.
+- [x] Copy GenerationModal integration from MinimalHeader into Navbar component at `/components/navbar.tsx`. The MinimalHeader has event listeners for `review-question-changed` and `open-generation-modal` that need to be preserved.
+- [x] Add conditional rendering logic to Navbar for showing Generate button (Sparkles icon) when pathname === '/' and user is authenticated, replacing the Settings link on homepage only.
+- [x] Import GenerationModal component in Navbar and add state management (`generateOpen`, `currentQuestion`) matching MinimalHeader's implementation.
+- [x] Ensure Navbar maintains consistent height by using `h-16` class (64px) for the container div, matching what MinimalHeader currently uses with `py-3`.
+- [x] Test that keyboard shortcut 'G' still opens generation modal when on homepage by verifying the `open-generation-modal` event listener works.
 
 ### Phase 2: Update Conditional Logic
-- [ ] Remove MinimalHeader import from `/components/conditional-navbar.tsx` after Navbar has all its functionality.
-- [ ] Simplify ConditionalNavbar logic to only check: if pathname === '/' && !isSignedIn then return null, else return unified Navbar.
-- [ ] Delete `/components/minimal-header.tsx` file completely after verifying Navbar works on homepage with generation button.
+- [x] Remove MinimalHeader import from `/components/conditional-navbar.tsx` after Navbar has all its functionality.
+- [x] Simplify ConditionalNavbar logic to only check: if pathname === '/' && !isSignedIn then return null, else return unified Navbar.
+- [x] Delete `/components/minimal-header.tsx` file completely after verifying Navbar works on homepage with generation button.
 
 ### Phase 3: Fix Layout Spacing System
 - [ ] Update `/lib/layout-mode.ts` function `needsNavbarSpacer()` to return `true` when `isLegacyLayoutEnabled()` returns `true` (fixed positioning needs spacer).
