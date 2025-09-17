@@ -212,15 +212,25 @@ The API route uses `ConvexHttpClient` without auth context, causing "Authenticat
   ```
 
 #### Phase 2: Update NoCardsEmptyState Component
-- [ ] Import `useMutation` from `convex/react` in `/components/empty-states.tsx`
-- [ ] Import `api` from `@/convex/_generated/api` in `/components/empty-states.tsx`
-- [ ] Import `useUser` from `@clerk/nextjs` to check authentication state
-- [ ] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 23
-- [ ] After successful API response (line 46), check if user is authenticated with `const { isSignedIn } = useUser()`
-- [ ] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
-- [ ] Update success toast to show different message based on whether questions were saved
-- [ ] Handle save errors gracefully with try/catch and show error toast if save fails
-- [ ] Only call `onGenerationSuccess?.()` after successful save (not just generation)
+- [x] Import `useMutation` from `convex/react` in `/components/empty-states.tsx`
+- [x] Import `api` from `@/convex/_generated/api` in `/components/empty-states.tsx`
+- [x] Import `useUser` from `@clerk/nextjs` to check authentication state
+- [x] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 23
+- [x] After successful API response (line 46), check if user is authenticated with `const { isSignedIn } = useUser()`
+- [x] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
+- [x] Update success toast to show different message based on whether questions were saved
+- [x] Handle save errors gracefully with try/catch and show error toast if save fails
+- [x] Only call `onGenerationSuccess?.()` after successful save (not just generation)
+  ```
+  Work Log:
+  - Added Clerk and Convex imports to empty-states.tsx
+  - Implemented client-side save after successful generation
+  - Different toasts for authenticated vs unauthenticated users
+  - onGenerationSuccess only called after successful save
+  - Also applied same pattern to NothingDueEmptyState for consistency
+  - Tests passing, linting clean
+  - Committed as: feat: add client-side question saving to empty states
+  ```
 
 #### Phase 3: Update GenerationModal Component
 - [ ] Import `useMutation` from `convex/react` in `/components/generation-modal.tsx`
