@@ -233,15 +233,24 @@ The API route uses `ConvexHttpClient` without auth context, causing "Authenticat
   ```
 
 #### Phase 3: Update GenerationModal Component
-- [ ] Import `useMutation` from `convex/react` in `/components/generation-modal.tsx`
-- [ ] Import `api` from `@/convex/_generated/api` in `/components/generation-modal.tsx`
-- [ ] Add `const { isSignedIn } = useUser()` to check auth state (already importing useUser)
-- [ ] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 40
-- [ ] After API success (line 121), check if `isSignedIn` before attempting to save
-- [ ] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
-- [ ] Update line 125 to calculate count from `result.questions?.length` directly (no savedCount)
-- [ ] Only call `onGenerationSuccess?.(count)` after successful save, not just generation
-- [ ] Add error handling for save failure with appropriate user feedback
+- [x] Import `useMutation` from `convex/react` in `/components/generation-modal.tsx`
+- [x] Import `api` from `@/convex/_generated/api` in `/components/generation-modal.tsx`
+- [x] Add `const { isSignedIn } = useUser()` to check auth state (already importing useUser)
+- [x] Add `const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)` after line 40
+- [x] After API success (line 121), check if `isSignedIn` before attempting to save
+- [x] If authenticated, call `await saveQuestions({ topic, difficulty: 'medium', questions: result.questions })`
+- [x] Update line 125 to calculate count from `result.questions?.length` directly (no savedCount)
+- [x] Only call `onGenerationSuccess?.(count)` after successful save, not just generation
+- [x] Add error handling for save failure with appropriate user feedback
+  ```
+  Work Log:
+  - Added Clerk and Convex imports to generation-modal.tsx
+  - Implemented client-side save after successful generation
+  - Different toasts for authenticated vs unauthenticated users
+  - onGenerationSuccess only called after successful save
+  - Tests passing, linting clean
+  - Committed as: feat: add client-side question saving to GenerationModal
+  ```
 
 #### Phase 4: Clean Up Response Handling
 - [ ] Update all test files that mock `/api/generate-quiz` response to remove `savedCount` field
