@@ -58,7 +58,6 @@ describe('useQuizInteractions', () => {
       });
       
       expect(mockRecordInteraction).toHaveBeenCalledWith({
-        sessionToken: 'test-token',
         questionId: 'question-1',
         userAnswer: 'Answer A',
         isCorrect: true,
@@ -94,7 +93,6 @@ describe('useQuizInteractions', () => {
       });
       
       expect(mockRecordInteraction).toHaveBeenCalledWith({
-        sessionToken: 'test-token',
         questionId: 'question-2',
         userAnswer: 'Answer B',
         isCorrect: false,
@@ -165,21 +163,21 @@ describe('useQuizInteractions', () => {
 
     it('should memoize trackAnswer based on dependencies', () => {
       const { result, rerender } = renderHook(() => useQuizInteractions());
-      
+
       const trackAnswer1 = result.current.trackAnswer;
-      
+
       // Re-render with same dependencies
       rerender();
       const trackAnswer2 = result.current.trackAnswer;
-      
+
       // Should be the same function reference
       expect(trackAnswer1).toBe(trackAnswer2);
-      
-      // Change sessionToken
-      (useUser as any).mockReturnValue({ isSignedIn: true, user: { id: 'new-token' } });
+
+      // Change isSignedIn status
+      (useUser as any).mockReturnValue({ isSignedIn: false });
       rerender();
       const trackAnswer3 = result.current.trackAnswer;
-      
+
       // Should be a new function reference
       expect(trackAnswer1).not.toBe(trackAnswer3);
     });

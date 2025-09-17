@@ -99,7 +99,6 @@ describe('useQuestionMutations', () => {
       });
       
       expect(mockUpdateQuestion).toHaveBeenCalledWith({
-        sessionToken: 'mock-token',
         questionId: mockQuestion._id,
         question: updates.question,
         topic: updates.topic,
@@ -171,7 +170,6 @@ describe('useQuestionMutations', () => {
       
       expect(mockDeleteQuestion).toHaveBeenCalledWith({
         questionId: mockQuestion._id,
-        sessionToken: 'mock-token',
       });
     });
 

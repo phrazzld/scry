@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuestionHistory } from "@/components/question-history";
-import { AllReviewsCompleteEmptyState, NoQuestionsEmptyState } from "@/components/empty-states";
+import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-states";
 import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
@@ -84,6 +84,13 @@ export function ReviewFlow() {
   
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
+    isSignedIn ? {} : "skip",
+    timeBasedPollInterval
+  );
+
+  // Get user's card statistics for context-aware empty states
+  const cardStats = usePollingQuery(
+    api.spacedRepetition.getUserCardStats,
     isSignedIn ? {} : "skip",
     timeBasedPollInterval
   );
@@ -342,10 +349,27 @@ export function ReviewFlow() {
   
   // Empty state
   if (!currentQuestion && !showingFeedback) {
-    if (!currentReview) {
-      return <AllReviewsCompleteEmptyState />;
+    // Check if user has any cards at all
+    if (cardStats?.totalCards === 0) {
+      return <NoCardsEmptyState />;
     }
-    return <NoQuestionsEmptyState />;
+
+    // User has cards but nothing is due
+    if (!currentReview && cardStats) {
+      return (
+        <NothingDueEmptyState
+          nextReviewTime={cardStats.nextReviewTime}
+          stats={{
+            learningCount: cardStats.learningCount,
+            totalCards: cardStats.totalCards,
+            newCount: cardStats.newCount,
+          }}
+        />
+      );
+    }
+
+    // Fallback (should not happen, but just in case)
+    return <NoCardsEmptyState />;
   }
   
   // Review interface

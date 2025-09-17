@@ -9,6 +9,10 @@ vi.mock('@/lib/ai-client', () => ({
   generateQuizWithAI: vi.fn()
 }))
 
+vi.mock('@clerk/nextjs/server', () => ({
+  getAuth: vi.fn(() => Promise.resolve({ userId: null }))
+}))
+
 vi.mock('convex/browser', () => ({
   ConvexHttpClient: vi.fn(() => ({
     mutation: vi.fn()
@@ -46,6 +50,7 @@ vi.mock('@/lib/logger', () => ({
 // Import after mocks
 import { generateQuizWithAI } from '@/lib/ai-client'
 import { ConvexHttpClient } from 'convex/browser'
+import { getAuth } from '@clerk/nextjs/server'
 import { POST } from './route'
 
 // Access test helpers from global
@@ -143,7 +148,10 @@ describe('/api/generate-quiz', () => {
       expect(data.questions[0]).toHaveProperty('question', 'What is React?')
     })
 
-    it('should save questions when sessionToken provided', async () => {
+    it('should save questions when user is authenticated', async () => {
+      // Mock authenticated user
+      vi.mocked(getAuth).mockResolvedValueOnce({ userId: 'user-123' } as any)
+
       const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
         method: 'POST',
         headers: {
@@ -151,8 +159,7 @@ describe('/api/generate-quiz', () => {
         },
         body: JSON.stringify({
           topic: 'React Hooks',
-          difficulty: 'hard',
-          sessionToken: 'valid-session-123'
+          difficulty: 'hard'
         })
       })
 
@@ -169,7 +176,6 @@ describe('/api/generate-quiz', () => {
           _functionPath: expect.stringContaining('saveGeneratedQuestions')
         }),
         expect.objectContaining({
-          sessionToken: 'valid-session-123',
           topic: 'React Hooks',
           difficulty: 'hard',
           questions: expect.arrayContaining([
@@ -181,7 +187,10 @@ describe('/api/generate-quiz', () => {
       )
     })
 
-    it('should not save questions without sessionToken', async () => {
+    it('should not save questions without authentication', async () => {
+      // Ensure no user is authenticated
+      vi.mocked(getAuth).mockResolvedValueOnce({ userId: null } as any)
+
       const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
         method: 'POST',
         headers: {
@@ -417,6 +426,9 @@ describe('/api/generate-quiz', () => {
     })
 
     it('should handle Convex save failures gracefully', async () => {
+      // Mock authenticated user
+      vi.mocked(getAuth).mockResolvedValueOnce({ userId: 'user-123' } as any)
+
       mockConvexMutation.mockImplementation((api: { _functionPath?: string }) => {
         if (api._functionPath?.includes('checkApiRateLimit')) {
           return Promise.resolve({ allowed: true })
@@ -434,8 +446,7 @@ describe('/api/generate-quiz', () => {
         },
         body: JSON.stringify({
           topic: 'React',
-          difficulty: 'medium',
-          sessionToken: 'valid-session'
+          difficulty: 'medium'
         })
       })
 

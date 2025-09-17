@@ -333,3 +333,67 @@ export const getDueCount = query({
     };
   },
 });
+
+/**
+ * Get user's card statistics and next scheduled review time
+ * Used for context-aware empty states
+ */
+export const getUserCardStats = query({
+  args: {
+    _refreshTimestamp: v.optional(v.float64()),
+  },
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Get all user's cards (not deleted)
+    const allCards = await ctx.db
+      .query("questions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q => q.eq(q.field("deletedAt"), undefined))
+      .collect();
+
+    const totalCards = allCards.length;
+
+    if (totalCards === 0) {
+      return {
+        totalCards: 0,
+        nextReviewTime: null,
+        learningCount: 0,
+        matureCount: 0,
+        newCount: 0,
+      };
+    }
+
+    // Find the earliest next review time (for cards not yet due)
+    const futureReviews = allCards
+      .filter(card => card.nextReview && card.nextReview > now)
+      .sort((a, b) => (a.nextReview || 0) - (b.nextReview || 0));
+
+    const nextReviewTime = futureReviews[0]?.nextReview || null;
+
+    // Count cards by state
+    let learningCount = 0;
+    let matureCount = 0;
+    let newCount = 0;
+
+    for (const card of allCards) {
+      if (!card.state || card.state === "new") {
+        newCount++;
+      } else if (card.state === "learning" || card.state === "relearning") {
+        learningCount++;
+      } else if (card.state === "review") {
+        matureCount++;
+      }
+    }
+
+    return {
+      totalCards,
+      nextReviewTime,
+      learningCount,
+      matureCount,
+      newCount,
+    };
+  },
+});

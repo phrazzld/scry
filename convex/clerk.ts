@@ -1,4 +1,5 @@
-import { internalMutation, QueryCtx, MutationCtx } from "./_generated/server";
+import { internalMutation, mutation, QueryCtx, MutationCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import { v } from "convex/values";
 
 /**
@@ -144,3 +145,76 @@ export async function requireUserFromClerk(ctx: QueryCtx | MutationCtx) {
 
   return user;
 }
+
+/**
+ * Public mutation to ensure a Convex user exists for the currently authenticated Clerk identity.
+ *
+ * This provides a development-friendly fallback when Clerk webhooks are not configured.
+ * It is safe to call repeatedly and will update basic profile fields when they change.
+ */
+export const ensureUser = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const clerkId = identity.subject;
+
+    if (!clerkId) {
+      throw new Error("Invalid Clerk identity");
+    }
+
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    const name = identity.name || [identity.givenName, identity.familyName].filter(Boolean).join(" ") || undefined;
+    const imageUrl = identity.pictureUrl;
+    const emailVerified = identity.emailVerified ? Date.now() : undefined;
+    const email = identity.email;
+
+    if (existingUser) {
+      const updates: Partial<Doc<"users">> = {};
+
+      if (email && email !== existingUser.email) {
+        updates.email = email;
+      }
+
+      if (name && name !== existingUser.name) {
+        updates.name = name;
+      }
+
+      if (imageUrl && imageUrl !== existingUser.image) {
+        updates.image = imageUrl;
+      }
+
+      if (emailVerified && emailVerified !== existingUser.emailVerified) {
+        updates.emailVerified = emailVerified;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(existingUser._id, updates);
+      }
+
+      return existingUser._id;
+    }
+
+    if (!email) {
+      throw new Error("Clerk identity is missing an email address");
+    }
+
+    const newUserId = await ctx.db.insert("users", {
+      clerkId,
+      email,
+      name,
+      image: imageUrl,
+      emailVerified,
+    });
+
+    return newUserId;
+  },
+});
