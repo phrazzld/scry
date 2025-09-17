@@ -9,10 +9,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-// Clerk authentication handled via middleware
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import type { Doc } from '@/convex/_generated/dataModel'
+import { useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
+import { useUser } from '@clerk/nextjs'
 
 interface GenerationModalProps {
   open: boolean
@@ -44,6 +46,8 @@ export function GenerationModal({
   const [useCurrentContext, setUseCurrentContext] = React.useState(false)
   const [isGenerating, setIsGenerating] = React.useState(false)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+  const { isSignedIn } = useUser()
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)
 
   // Reset state when modal closes, or set smart defaults when opening with context
   React.useEffect(() => {
@@ -122,17 +126,41 @@ export function GenerationModal({
       }
 
       const result = await response.json()
-      const count = result.savedCount || result.questions?.length || 0
+      const count = result.questions?.length || 0
       const topic = result.topic || finalPrompt
-      
-      // Enhanced toast with count and topic
-      toast.success(`✓ ${count} questions generated`, {
-        description: topic,
-        duration: 4000,
-      })
 
-      // Notify parent of successful generation
-      onGenerationSuccess?.(count)
+      // Save questions if user is authenticated
+      if (isSignedIn && result.questions) {
+        try {
+          await saveQuestions({
+            topic: topic,
+            difficulty: 'medium',
+            questions: result.questions
+          })
+
+          // Enhanced toast with count and topic for saved questions
+          toast.success(`✓ ${count} questions generated`, {
+            description: topic,
+            duration: 4000,
+          })
+
+          // Notify parent of successful generation and save
+          onGenerationSuccess?.(count)
+        } catch (saveError) {
+          console.error('Failed to save questions:', saveError)
+          toast.error(`Generated ${count} questions but failed to save. Please try again.`)
+          // Don't call onGenerationSuccess if save failed
+        }
+      } else if (result.questions) {
+        // User not authenticated, just show generation success
+        toast.success(`✓ ${count} questions generated. Sign in to save them.`, {
+          description: topic,
+          duration: 4000,
+        })
+        // Don't trigger callback for unauthenticated users
+      } else {
+        toast.error('Failed to generate questions')
+      }
 
       onOpenChange(false) // Close modal on success
     } catch (error) {
