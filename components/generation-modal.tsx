@@ -18,6 +18,7 @@ interface GenerationModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentQuestion?: Doc<"questions">
+  onGenerationSuccess?: (count: number) => void
 }
 
 /**
@@ -33,10 +34,11 @@ interface GenerationModalProps {
  * @param onOpenChange - Callback to handle modal open/close state changes
  * @param currentQuestion - Optional current question for context-aware generation
  */
-export function GenerationModal({ 
-  open, 
-  onOpenChange, 
-  currentQuestion 
+export function GenerationModal({
+  open,
+  onOpenChange,
+  currentQuestion,
+  onGenerationSuccess
 }: GenerationModalProps) {
   const [prompt, setPrompt] = React.useState('')
   const [useCurrentContext, setUseCurrentContext] = React.useState(false)
@@ -128,9 +130,10 @@ export function GenerationModal({
         description: topic,
         duration: 4000,
       })
-      
-      // No need for custom events - Convex handles real-time updates automatically!
-      
+
+      // Notify parent of successful generation
+      onGenerationSuccess?.(count)
+
       onOpenChange(false) // Close modal on success
     } catch (error) {
       console.error('Generation error:', error)

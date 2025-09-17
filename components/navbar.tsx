@@ -94,6 +94,12 @@ export function Navbar() {
           }
         }}
         currentQuestion={currentQuestion}
+        onGenerationSuccess={() => {
+          // Dispatch event to trigger review if on homepage
+          if (pathname === '/') {
+            window.dispatchEvent(new CustomEvent('start-review-after-generation'));
+          }
+        }}
       />
     </>
   )

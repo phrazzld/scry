@@ -15,11 +15,15 @@ export function NoQuestionsEmptyState() {
   return <NoCardsEmptyState />;
 }
 
+interface NoCardsEmptyStateProps {
+  onGenerationSuccess?: () => void;
+}
+
 /**
  * Empty state for users with no cards at all (new users)
  * Shows inline generation interface - no "empty state" feeling
  */
-export function NoCardsEmptyState() {
+export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProps = {}) {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -40,8 +44,12 @@ export function NoCardsEmptyState() {
       });
 
       if (response.ok) {
-        toast.success("Questions generated! They'll appear shortly.");
+        const result = await response.json();
+        const count = result.savedCount || result.questions?.length || 0;
+        toast.success(`✓ ${count} questions generated!`);
         setTopic('');
+        // Trigger callback to initiate review
+        onGenerationSuccess?.();
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);

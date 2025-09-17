@@ -66,6 +66,7 @@ export function ReviewFlow() {
   const [sessionStats, setSessionStats] = useState({ completed: 0 });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false); // General mutation loading state
+  const [shouldStartReview, setShouldStartReview] = useState(false); // Trigger review after generation
   // Track deleted questions for undo functionality
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
@@ -108,13 +109,14 @@ export function ReviewFlow() {
   const deleteQuestion = useMutation(api.questions.softDeleteQuestion);
   const restoreQuestion = useMutation(api.questions.restoreQuestion);
   
-  // Set initial question
+  // Set initial question or auto-start after generation
   useEffect(() => {
-    if (currentReview && !currentQuestion && !showingFeedback) {
+    if (currentReview && (!currentQuestion || shouldStartReview) && !showingFeedback) {
       setCurrentQuestion(currentReview);
       setQuestionStartTime(Date.now());
+      setShouldStartReview(false);
     }
-  }, [currentReview, currentQuestion, showingFeedback]);
+  }, [currentReview, currentQuestion, showingFeedback, shouldStartReview]);
   
   // Broadcast current question for generation context
   useEffect(() => {
@@ -124,8 +126,15 @@ export function ReviewFlow() {
     window.dispatchEvent(event);
   }, [currentQuestion]);
   
-  // No need for generation event listeners - Convex automatically updates queries
-  // when new questions are inserted into the database!
+  // Listen for generation success from navbar modal
+  useEffect(() => {
+    const handleStartReview = () => {
+      setShouldStartReview(true);
+    };
+
+    window.addEventListener('start-review-after-generation', handleStartReview);
+    return () => window.removeEventListener('start-review-after-generation', handleStartReview);
+  }, []);
   
   // Pre-fetch next question
   useEffect(() => {
@@ -353,7 +362,12 @@ export function ReviewFlow() {
     if (cardStats?.totalCards === 0) {
       return (
         <div className="w-full max-w-2xl mx-auto pt-20">
-          <NoCardsEmptyState />
+          <NoCardsEmptyState
+            onGenerationSuccess={() => {
+              // Trigger immediate review of newly generated questions
+              setShouldStartReview(true);
+            }}
+          />
         </div>
       );
     }
