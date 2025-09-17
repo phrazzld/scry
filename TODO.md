@@ -195,13 +195,21 @@ The API route uses `ConvexHttpClient` without auth context, causing "Authenticat
 ### Root Fix: Separate AI Generation from Database Persistence
 
 #### Phase 1: Simplify API Route (Remove Save Logic)
-- [ ] Remove lines 175-202 in `/app/api/generate-quiz/route.ts` that handle question saving to Convex
-- [ ] Remove the `getAuth` import and usage from `/app/api/generate-quiz/route.ts` since auth check is no longer needed
-- [ ] Remove `ConvexHttpClient` import and lazy-loading code (lines 5, 14-33) from `/app/api/generate-quiz/route.ts`
-- [ ] Remove `api` import from `@/convex/_generated/api` in `/app/api/generate-quiz/route.ts` since we're not calling Convex
-- [ ] Update response structure to always return `{ questions, topic, difficulty }` without `savedCount` or `savedQuestionIds`
-- [ ] Remove the `saveError` field from response (line 231-233) since we're not saving anymore
-- [ ] Update API route tests to remove expectations of `savedCount` in response
+- [x] Remove lines 175-202 in `/app/api/generate-quiz/route.ts` that handle question saving to Convex
+- [x] Remove the `getAuth` import and usage from `/app/api/generate-quiz/route.ts` since auth check is no longer needed
+- [x] Remove `ConvexHttpClient` import and lazy-loading code (lines 5, 14-33) from `/app/api/generate-quiz/route.ts`
+- [x] Remove `api` import from `@/convex/_generated/api` in `/app/api/generate-quiz/route.ts` since we're not calling Convex
+- [x] Update response structure to always return `{ questions, topic, difficulty }` without `savedCount` or `savedQuestionIds`
+- [x] Remove the `saveError` field from response (line 231-233) since we're not saving anymore
+- [x] Update API route tests to remove expectations of `savedCount` in response
+  ```
+  Work Log:
+  - Removed all Convex-related code from API route
+  - Simplified response to only include questions, topic, difficulty
+  - Updated tests to remove auth/save related expectations
+  - Tests passing, linting clean
+  - Committed as: refactor: remove Convex save logic from API route
+  ```
 
 #### Phase 2: Update NoCardsEmptyState Component
 - [ ] Import `useMutation` from `convex/react` in `/components/empty-states.tsx`
