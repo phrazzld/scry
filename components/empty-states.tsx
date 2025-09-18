@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -303,16 +303,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
   );
 }
 
-// Keep the old component for backwards compatibility, but it's now deprecated
-export function AllReviewsCompleteEmptyState() {
-  console.warn('AllReviewsCompleteEmptyState is deprecated. Use NothingDueEmptyState instead.');
-  return (
-    <NothingDueEmptyState
-      nextReviewTime={null}
-      stats={{ learningCount: 0, totalCards: 0, newCount: 0 }}
-    />
-  );
-}
+// Deprecated components removed - use NothingDueEmptyState for seamless transitions
 
 export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
   return (
@@ -329,45 +320,6 @@ export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
             <ArrowRight className="h-3 w-3 ml-1" />
           </Link>
         </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-interface ReviewsCompleteWithCountProps extends EmptyStateProps {
-  remainingCount?: number;
-  onNextReview?: () => void;
-}
-
-export function ReviewsCompleteWithCount({ 
-  remainingCount = 0, 
-  onNextReview,
-  className 
-}: ReviewsCompleteWithCountProps) {
-  return (
-    <Card className={`w-full max-w-2xl mx-auto ${className || ""}`}>
-      <CardHeader>
-        <CardTitle>Review Complete!</CardTitle>
-        <CardDescription>
-          Great job! Your review has been recorded and the next review time has been scheduled.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {remainingCount > 0
-              ? `You have ${remainingCount} more question${remainingCount === 1 ? "" : "s"} due for review.`
-              : "You're all caught up with your reviews!"
-            }
-          </p>
-          {remainingCount > 0 && onNextReview && (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={onNextReview} variant="default">
-                Next Review
-              </Button>
-            </div>
-          )}
-        </div>
       </CardContent>
     </Card>
   );

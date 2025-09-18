@@ -37,7 +37,6 @@ vi.mock('sonner', () => ({
 
 // Mock components
 vi.mock('@/components/empty-states', () => ({
-  AllReviewsCompleteEmptyState: vi.fn(() => <div data-testid="all-reviews-complete">All reviews complete</div>),
   NoQuestionsEmptyState: vi.fn(() => <div data-testid="no-questions">No questions</div>),
 }));
 
