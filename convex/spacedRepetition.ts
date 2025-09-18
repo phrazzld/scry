@@ -416,3 +416,97 @@ export const getUserCardStats = query({
     };
   },
 });
+
+/**
+ * Get user's current streak of consecutive days with reviews
+ * Calculates streak from interaction history
+ */
+export const getUserStreak = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = new Date();
+
+    // Get all interactions for the user, sorted by date descending
+    const interactions = await ctx.db
+      .query("interactions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .order("desc")
+      .collect();
+
+    if (interactions.length === 0) {
+      // No interactions yet
+      return { streak: 0, lastReviewDate: null, hasReviewedToday: false };
+    }
+
+    // Group interactions by day
+    const reviewsByDay = new Map<string, number>();
+    for (const interaction of interactions) {
+      const date = new Date(interaction.attemptedAt);
+      const dayKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      reviewsByDay.set(dayKey, (reviewsByDay.get(dayKey) || 0) + 1);
+    }
+
+    // Calculate streak starting from today or yesterday
+    let streak = 0;
+    const currentDate = new Date(now);
+    const todayKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
+
+    // Check if user has reviewed today
+    const hasReviewedToday = reviewsByDay.has(todayKey);
+
+    // If no reviews today, start checking from yesterday
+    if (!hasReviewedToday) {
+      currentDate.setDate(currentDate.getDate() - 1);
+    }
+
+    // Count consecutive days with reviews
+    while (true) {
+      const dayKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`;
+
+      if (!reviewsByDay.has(dayKey)) {
+        // No reviews on this day, streak ends
+        break;
+      }
+
+      streak++;
+      currentDate.setDate(currentDate.getDate() - 1);
+
+      // Prevent infinite loops (max streak of 1000 days)
+      if (streak >= 1000) break;
+    }
+
+    // Get the most recent review date
+    const lastReviewDate = interactions[0]?.attemptedAt || null;
+
+    return {
+      streak,
+      lastReviewDate,
+      hasReviewedToday,
+    };
+  },
+});
+
+/**
+ * Update user's streak in the database
+ * Should be called after calculating streak if needed
+ */
+export const updateUserStreak = mutation({
+  args: {
+    streak: v.number(),
+  },
+  handler: async (ctx, { streak }) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    await ctx.db.patch(userId, {
+      currentStreak: streak,
+      lastStreakDate: todayStart,
+    });
+
+    return { success: true };
+  },
+});
