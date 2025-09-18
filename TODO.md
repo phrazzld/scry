@@ -445,7 +445,17 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   ```
 
 ### Phase 5: Seamless Transitions
-- [ ] Implement card fade animations using CSS transitions. Add `@keyframes fadeIn` and `@keyframes fadeOut` to globals.css with 300ms duration.
+- [x] Implement card fade animations using CSS transitions. Add `@keyframes fadeIn` and `@keyframes fadeOut` to globals.css with 300ms duration.
+  ```
+  Work Log:
+  - Added fadeIn, fadeOut, scaleIn, and scaleOut keyframe animations
+  - Created utility classes for each animation (animate-fadeIn, etc.)
+  - Added special classes for seamless transitions (fade-transition-enter/exit)
+  - Implemented card-emerge class for scale+fade emergence effect
+  - All animations use 300ms duration with appropriate easing functions
+  - Added will-change: transform for GPU acceleration on scale animations
+  - Included accessibility support with prefers-reduced-motion
+  ```
 - [ ] When transitioning from card to empty state, fade out card over 300ms while simultaneously fading in zen state. Never show blank screen.
 - [ ] When card becomes due while in empty state, morph empty state smoothly: fade out text while card emerges from center with scale transform from 0.8 to 1.0.
 - [ ] Add subtle haptic feedback on mobile using Vibration API (if available) when answering cards. Single 10ms pulse for feedback.
