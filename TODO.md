@@ -378,7 +378,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Includes Page Visibility API integration for battery efficiency
   - Committed as: feat: add smart polling utility for battery-efficient updates
   ```
-- [ ] Replace fixed 30s/60s polling intervals in `usePollingQuery` calls with dynamic intervals from `getPollingInterval`. Update review-flow.tsx lines where polling is initialized.
+- [x] Replace fixed 30s/60s polling intervals in `usePollingQuery` calls with dynamic intervals from `getPollingInterval`. Update review-flow.tsx lines where polling is initialized.
+  ```
+  Work Log:
+  - Imported getPollingInterval from smart-polling utility
+  - Replaced fixed timeBasedPollInterval (60s) with dynamic pollingInterval state
+  - Added useEffect to recalculate interval when cardStats.nextReviewTime changes
+  - Polling now adjusts from immediate (due now) to 1hr (due tomorrow+)
+  - Committed as: refactor: replace fixed polling intervals with smart polling in review-flow
+  ```
 - [ ] Add battery-efficient background polling using `document.visibilityState`. Pause polling when tab is hidden, resume with immediate fetch when visible.
 - [ ] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
 
