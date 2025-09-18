@@ -383,6 +383,10 @@ export function ReviewFlow() {
               totalCards: cardStats.totalCards,
               newCount: cardStats.newCount,
             }}
+            onContinueLearning={() => {
+              // Trigger immediate review when learning cards are imminent
+              setShouldStartReview(true);
+            }}
           />
         </div>
       );

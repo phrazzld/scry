@@ -129,9 +129,10 @@ interface NothingDueEmptyStateProps {
     totalCards: number;
     newCount: number;
   };
+  onContinueLearning?: () => void;
 }
 
-export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyStateProps) {
+export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning }: NothingDueEmptyStateProps) {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
@@ -225,6 +226,9 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
 
   const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
 
+  // Check if cards are due within 1 minute
+  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= 60000;
+
   return (
     <div className="max-w-xl mx-auto px-4">
       <div className="text-center mb-6">
@@ -244,12 +248,23 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
       </div>
 
       {!showGenerate && (
-        <button
-          onClick={() => setShowGenerate(true)}
-          className="w-full p-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-        >
-          Generate more questions →
-        </button>
+        <>
+          {isImminentReview && onContinueLearning ? (
+            <button
+              onClick={onContinueLearning}
+              className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-800"
+            >
+              Continue Learning →
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowGenerate(true)}
+              className="w-full p-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Generate more questions →
+            </button>
+          )}
+        </>
       )}
 
       {showGenerate && (
