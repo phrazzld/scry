@@ -323,7 +323,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Button has distinct black styling to differentiate from generate button
   - Committed as: feat: show Continue Learning button when reviews are imminent
   ```
-- [ ] Add educational microcopy below continue button: "Cards in learning phase need immediate review for optimal retention" to explain why immediate review is needed.
+- [x] Add educational microcopy below continue button: "Cards in learning phase need immediate review for optimal retention" to explain why immediate review is needed.
+  ```
+  Work Log:
+  - Added explanatory text below Continue Learning button at line 260-262
+  - Text appears only when imminent review is detected and Continue Learning button is shown
+  - Styled with text-sm text-gray-500 for subtle, educational appearance
+  - Centered text alignment for visual balance
+  - Committed as: feat: add educational microcopy explaining immediate review importance
+  ```
 
 ### Phase 2: Remove Session Concept
 - [ ] Delete `sessionStats` state from `/components/review-flow.tsx` line 66. Replace with simple daily counter using localStorage key `scry:daily-count:${dateString}` that persists across page refreshes.
