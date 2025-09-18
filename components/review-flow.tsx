@@ -20,6 +20,7 @@ import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { EditQuestionModal } from "@/components/edit-question-modal";
 import { SignIn } from "@clerk/nextjs";
+import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/lib/haptic";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -215,11 +216,18 @@ export function ReviewFlow() {
   // Handle answer submission
   const handleSubmit = useCallback(async () => {
     if (!currentQuestion || !selectedAnswer || !isSignedIn || isAnswering) return;
-    
+
     setIsAnswering(true);
     const isCorrect = selectedAnswer === currentQuestion.question.correctAnswer;
     const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
-    
+
+    // Trigger haptic feedback based on answer correctness
+    if (isCorrect) {
+      triggerSuccessHaptic();
+    } else {
+      triggerErrorHaptic();
+    }
+
     try {
       const result = await scheduleReview({
         questionId: currentQuestion.question._id,
@@ -227,13 +235,13 @@ export function ReviewFlow() {
         isCorrect,
         timeSpent,
       });
-      
+
       setFeedback({
         isCorrect,
         nextReview: result.nextReview,
         scheduledDays: result.scheduledDays,
       });
-      
+
       setShowingFeedback(true);
       const newCount = incrementDailyCount();
       setDailyCount(newCount);
@@ -340,6 +348,7 @@ export function ReviewFlow() {
     onSelectAnswer: (index) => {
       if (currentQuestion?.question.options[index]) {
         setSelectedAnswer(currentQuestion.question.options[index]);
+        triggerHaptic(); // Subtle feedback on selection
       }
     },
     onSubmit: handleSubmit,
@@ -509,7 +518,12 @@ export function ReviewFlow() {
               {currentQuestion.question.options.map((option, index) => (
                 <button
                   key={index}
-                  onClick={() => !showingFeedback && setSelectedAnswer(option)}
+                  onClick={() => {
+                    if (!showingFeedback) {
+                      setSelectedAnswer(option);
+                      triggerHaptic(); // Subtle feedback on selection
+                    }
+                  }}
                   disabled={showingFeedback || isAnswering}
                   className={`
                     w-full text-left p-4 rounded-lg border transition-all
