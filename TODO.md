@@ -481,7 +481,16 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
 - [ ] Use `requestIdleCallback` for non-critical updates (analytics calculations, localStorage writes) to maintain 60fps during interactions.
 
 ### Phase 8: Testing & Polish
-- [ ] Write unit tests for `getPollingInterval` function with edge cases: past due times, far future times, invalid dates.
+- [x] Write unit tests for `getPollingInterval` function with edge cases: past due times, far future times, invalid dates.
+  ```
+  Work Log:
+  - Created comprehensive test suite with 36 tests covering all functions in smart-polling.ts
+  - Tested edge cases: null inputs, invalid dates, past/future times, 0 timestamps
+  - Tested all time intervals: <1min, 1-5min, 5min-1hr, 1-24hr, >24hr
+  - Tested helper functions: describePollingInterval, getOptimalPollingInterval
+  - Tested visibility awareness: shouldPausePolling, createVisibilityAwareInterval
+  - All tests passing with proper mocking of timers and DOM APIs
+  ```
 - [ ] Add E2E test for infinite stream flow: answer 10 cards continuously without session breaks, verify smooth transitions.
 - [ ] Test battery usage on mobile with 1-hour review session. Target: <2% battery drain with smart polling.
 - [ ] Verify accessibility: all interactions work with keyboard only, screen reader announces state changes, focus management during transitions.
