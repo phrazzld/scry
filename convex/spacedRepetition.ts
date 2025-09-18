@@ -510,3 +510,154 @@ export const updateUserStreak = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Get user's retention rate for the last 7 days
+ * Calculates percentage of correct answers from recent interactions
+ */
+export const getRetentionRate = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+
+    // Get interactions from the last 7 days
+    const recentInteractions = await ctx.db
+      .query("interactions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q => q.gte(q.field("attemptedAt"), sevenDaysAgo))
+      .collect();
+
+    if (recentInteractions.length === 0) {
+      return {
+        retentionRate: null,
+        totalReviews: 0,
+        correctReviews: 0,
+        periodDays: 7,
+      };
+    }
+
+    // Calculate correct vs total
+    const correctCount = recentInteractions.filter(i => i.isCorrect).length;
+    const totalCount = recentInteractions.length;
+    const retentionRate = (correctCount / totalCount) * 100;
+
+    // Group by day for daily breakdown
+    const dailyStats = new Map<string, { correct: number; total: number }>();
+
+    for (const interaction of recentInteractions) {
+      const date = new Date(interaction.attemptedAt);
+      const dayKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+      if (!dailyStats.has(dayKey)) {
+        dailyStats.set(dayKey, { correct: 0, total: 0 });
+      }
+
+      const stats = dailyStats.get(dayKey)!;
+      stats.total++;
+      if (interaction.isCorrect) {
+        stats.correct++;
+      }
+    }
+
+    // Convert to array and sort by date
+    const dailyBreakdown = Array.from(dailyStats.entries())
+      .map(([date, stats]) => ({
+        date,
+        retentionRate: (stats.correct / stats.total) * 100,
+        correct: stats.correct,
+        total: stats.total,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      retentionRate: Math.round(retentionRate * 10) / 10, // Round to 1 decimal place
+      totalReviews: totalCount,
+      correctReviews: correctCount,
+      periodDays: 7,
+      dailyBreakdown,
+      calculatedAt: now,
+    };
+  },
+});
+
+/**
+ * Get recall speed improvement by comparing this week vs last week
+ * Analyzes average time spent on questions
+ */
+export const getRecallSpeedImprovement = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = now - (14 * 24 * 60 * 60 * 1000);
+
+    // Get this week's interactions (last 7 days)
+    const thisWeekInteractions = await ctx.db
+      .query("interactions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q =>
+        q.and(
+          q.gte(q.field("attemptedAt"), oneWeekAgo),
+          q.neq(q.field("timeSpent"), undefined)
+        )
+      )
+      .collect();
+
+    // Get last week's interactions (7-14 days ago)
+    const lastWeekInteractions = await ctx.db
+      .query("interactions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q =>
+        q.and(
+          q.gte(q.field("attemptedAt"), twoWeeksAgo),
+          q.lt(q.field("attemptedAt"), oneWeekAgo),
+          q.neq(q.field("timeSpent"), undefined)
+        )
+      )
+      .collect();
+
+    // Calculate average time spent for each period
+    const thisWeekTimes = thisWeekInteractions
+      .map(i => i.timeSpent)
+      .filter((t): t is number => t !== undefined);
+
+    const lastWeekTimes = lastWeekInteractions
+      .map(i => i.timeSpent)
+      .filter((t): t is number => t !== undefined);
+
+    if (thisWeekTimes.length === 0 || lastWeekTimes.length === 0) {
+      return {
+        speedImprovement: null,
+        thisWeekAvg: thisWeekTimes.length > 0
+          ? thisWeekTimes.reduce((a, b) => a + b, 0) / thisWeekTimes.length
+          : null,
+        lastWeekAvg: lastWeekTimes.length > 0
+          ? lastWeekTimes.reduce((a, b) => a + b, 0) / lastWeekTimes.length
+          : null,
+        thisWeekCount: thisWeekTimes.length,
+        lastWeekCount: lastWeekTimes.length,
+      };
+    }
+
+    const thisWeekAvg = thisWeekTimes.reduce((a, b) => a + b, 0) / thisWeekTimes.length;
+    const lastWeekAvg = lastWeekTimes.reduce((a, b) => a + b, 0) / lastWeekTimes.length;
+
+    // Calculate percentage improvement (negative means faster/better)
+    const speedImprovement = ((thisWeekAvg - lastWeekAvg) / lastWeekAvg) * 100;
+
+    return {
+      speedImprovement: Math.round(speedImprovement * 10) / 10, // Round to 1 decimal
+      thisWeekAvg: Math.round(thisWeekAvg),
+      lastWeekAvg: Math.round(lastWeekAvg),
+      thisWeekCount: thisWeekTimes.length,
+      lastWeekCount: lastWeekTimes.length,
+      isFaster: speedImprovement < 0,
+      calculatedAt: now,
+    };
+  },
+});
