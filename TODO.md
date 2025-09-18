@@ -344,7 +344,14 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Includes automatic cleanup of old daily counts (keeps last 7 days)
   - Committed as: refactor: replace sessionStats with localStorage-based daily counter
   ```
-- [ ] Remove "Review Session" header and progress bars from lines 403-469 in review-flow.tsx. Replace with minimal fixed header showing only streak emoji and daily count: "🔥 12 today".
+- [x] Remove "Review Session" header and progress bars from lines 403-469 in review-flow.tsx. Replace with minimal fixed header showing only streak emoji and daily count: "🔥 12 today".
+  ```
+  Work Log:
+  - Removed entire Card component with "Review Session" header and progress bars
+  - Replaced with minimal centered div showing just "🔥 {dailyCount} today"
+  - Removed unused Target import and dueCount query
+  - Committed as: refactor: replace session header with minimal daily count display
+  ```
 - [ ] Eliminate session completion logic. When no cards are due, seamlessly transition to zen empty state without "session complete" messaging.
 - [x] Remove `sessionStats.completed` references throughout review-flow.tsx (lines 411, 423, 430, 441, 469). Use daily count instead.
   ```
