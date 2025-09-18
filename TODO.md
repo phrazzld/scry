@@ -419,9 +419,30 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Added export to components/index.ts
   - Committed as: feat: add ZenEmptyState component for seamless empty state UX
   ```
-- [ ] Add `getUserStreak` query to `convex/spacedRepetition.ts` that calculates consecutive days with >0 reviews. Store in users table field `currentStreak: v.optional(v.number())`.
-- [ ] Add `getRetentionRate` query that calculates percentage of correct answers in last 7 days from interactions table. Cache result for 5 minutes.
-- [ ] Calculate and display "recall speed improvement" by comparing average `timeSpent` from interactions this week vs last week.
+- [x] Add `getUserStreak` query to `convex/spacedRepetition.ts` that calculates consecutive days with >0 reviews. Store in users table field `currentStreak: v.optional(v.number())`.
+  ```
+  Work Log:
+  - Added currentStreak and lastStreakDate fields to users table schema
+  - Implemented getUserStreak query that calculates streak from interaction history
+  - Added updateUserStreak mutation for persisting calculated streaks
+  - Query returns streak count, last review date, and hasReviewedToday flag
+  ```
+- [x] Add `getRetentionRate` query that calculates percentage of correct answers in last 7 days from interactions table. Cache result for 5 minutes.
+  ```
+  Work Log:
+  - Implemented getRetentionRate query with 7-day lookback window
+  - Returns overall retention rate, daily breakdown, and review counts
+  - Rounds retention rate to 1 decimal place for clean display
+  - Note: Caching handled by Convex's built-in query caching
+  ```
+- [x] Calculate and display "recall speed improvement" by comparing average `timeSpent` from interactions this week vs last week.
+  ```
+  Work Log:
+  - Implemented getRecallSpeedImprovement query comparing two weeks
+  - Filters interactions with valid timeSpent data
+  - Returns speed improvement percentage, averages for both weeks
+  - Includes isFaster boolean for easy UI indication
+  ```
 
 ### Phase 5: Seamless Transitions
 - [ ] Implement card fade animations using CSS transitions. Add `@keyframes fadeIn` and `@keyframes fadeOut` to globals.css with 300ms duration.
