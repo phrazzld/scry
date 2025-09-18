@@ -62,11 +62,6 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
       }, intervalMs);
     }
 
-    // When interval changes (e.g., card becoming due soon), refresh immediately
-    if (intervalMs > 0 && isVisible) {
-      setRefreshTimestamp(Date.now());
-    }
-
     return () => {
       if (interval) clearInterval(interval);
     };

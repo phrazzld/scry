@@ -158,10 +158,13 @@ export function ReviewFlow() {
     const newInterval = getPollingInterval(nextDueTime);
 
     // Only update if interval has changed significantly (avoid unnecessary re-renders)
-    if (Math.abs(newInterval - pollingInterval) > 1000) {
-      setPollingInterval(newInterval);
-    }
-  }, [cardStats?.nextReviewTime, pollingInterval]);
+    setPollingInterval((currentInterval) => {
+      if (Math.abs(newInterval - currentInterval) > 1000) {
+        return newInterval;
+      }
+      return currentInterval;
+    });
+  }, [cardStats?.nextReviewTime]);
 
   // Sync daily count on mount and when date changes
   useEffect(() => {
@@ -527,13 +530,13 @@ export function ReviewFlow() {
             
             {/* Feedback display with history */}
             {showingFeedback && feedback && (
-              <>
-                <div className={`p-6 rounded-xl animate-fadeIn ${feedback.isCorrect ? "bg-green-50 border-2 border-green-200" : "bg-red-50 border-2 border-red-200"}`}>
-                  <p className="font-semibold text-lg text-center mb-2">
+              <div className="space-y-4 animate-fadeIn">
+                <div className={`p-6 rounded-xl ${feedback.isCorrect ? "bg-green-50/70 border border-green-200" : "bg-red-50/70 border border-red-200"}`}>
+                  <p className="font-semibold text-lg text-center">
                     {feedback.isCorrect ? "✅ Correct!" : "❌ Incorrect"}
                   </p>
                   {currentQuestion.question.explanation && (
-                    <p className="text-sm text-gray-600 mt-3 text-center">
+                    <p className="text-sm text-gray-600 mt-3 text-center px-4">
                       {currentQuestion.question.explanation}
                     </p>
                   )}
@@ -541,19 +544,12 @@ export function ReviewFlow() {
 
                 {/* Show history after answering */}
                 {currentQuestion.interactions.length > 0 && (
-                  <details className="mt-4">
-                    <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                      View previous attempts ({currentQuestion.interactions.length})
-                    </summary>
-                    <div className="mt-3">
-                      <QuestionHistory
-                        interactions={currentQuestion.interactions}
-                        loading={false}
-                      />
-                    </div>
-                  </details>
+                  <QuestionHistory
+                    interactions={currentQuestion.interactions}
+                    loading={false}
+                  />
                 )}
-              </>
+              </div>
             )}
             
             {/* Submit/Next button */}

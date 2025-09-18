@@ -1,10 +1,7 @@
 "use client"
 
 import { formatDistanceToNow } from 'date-fns'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react"
+import { CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { useState } from "react"
 import { Doc } from "@/convex/_generated/dataModel"
 
@@ -15,18 +12,16 @@ interface QuestionHistoryProps {
 
 export function QuestionHistory({ interactions, loading }: QuestionHistoryProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  
+
   if (loading) {
     return <QuestionHistorySkeleton />
   }
 
   if (!interactions || interactions.length === 0) {
     return (
-      <Card className="w-full">
-        <CardContent className="text-center py-8">
-          <p className="text-muted-foreground">No previous attempts</p>
-        </CardContent>
-      </Card>
+      <div className="w-full bg-gray-50/50 rounded-xl p-4">
+        <p className="text-center text-sm text-gray-500">No previous attempts</p>
+      </div>
     )
   }
 
@@ -40,104 +35,90 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
   const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Previous Attempts</CardTitle>
-            <CardDescription>
-              {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% success rate
-            </CardDescription>
-          </div>
-          {hasMore && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isExpanded ? (
-                <>
-                  <span>Show less</span>
-                  <ChevronUp className="h-4 w-4" />
-                </>
-              ) : (
-                <>
-                  <span>Show all</span>
-                  <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          )}
+    <div className="w-full bg-gray-50/50 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700">Previous Attempts</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% success rate
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {recentInteractions.map((interaction, index) => (
-            <div 
-              key={interaction._id} 
-              className={`flex items-start gap-3 pb-3 ${
-                index < recentInteractions.length - 1 ? 'border-b' : ''
-              }`}
-            >
-              <div className="mt-0.5">
-                {interaction.isCorrect ? (
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-500" />
-                )}
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant={interaction.isCorrect ? "secondary" : "destructive"}>
-                    {interaction.isCorrect ? "Correct" : "Incorrect"}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Your answer: </span>
-                  <span className="font-medium">{interaction.userAnswer}</span>
-                </div>
+        {hasMore && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            {isExpanded ? (
+              <>
+                <span>Show less</span>
+                <ChevronUp className="h-3.5 w-3.5" />
+              </>
+            ) : (
+              <>
+                <span>Show all</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {recentInteractions.map((interaction) => (
+          <div
+            key={interaction._id}
+            className="flex items-start gap-2.5 py-2"
+          >
+            <div className="mt-0.5">
+              {interaction.isCorrect ? (
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-gray-600 font-medium">
+                  {interaction.userAnswer}
+                </span>
+                <span className="text-gray-400">•</span>
+                <span className="text-gray-500">
+                  {formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}
+                </span>
                 {interaction.timeSpent && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{formatTimeSpent(interaction.timeSpent)}</span>
-                  </div>
+                  <>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-500">
+                      {formatTimeSpent(interaction.timeSpent)}
+                    </span>
+                  </>
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
 function QuestionHistorySkeleton() {
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-4 w-48 mt-1" />
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-start gap-3 pb-3 border-b last:border-0">
-              <Skeleton className="h-5 w-5 rounded-full mt-0.5" />
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-5 w-16" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-                <Skeleton className="h-4 w-full max-w-xs" />
-                <Skeleton className="h-3 w-16" />
-              </div>
+    <div className="w-full bg-gray-50/50 rounded-xl p-4">
+      <div className="space-y-2">
+        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+        <div className="h-3 w-48 bg-gray-200 rounded animate-pulse mt-1" />
+      </div>
+      <div className="space-y-2 mt-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-start gap-2.5 py-2">
+            <div className="h-4 w-4 bg-gray-200 rounded-full animate-pulse" />
+            <div className="flex-1 space-y-1">
+              <div className="h-3 w-full max-w-xs bg-gray-200 rounded animate-pulse" />
             </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

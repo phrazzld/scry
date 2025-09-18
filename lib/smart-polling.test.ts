@@ -185,8 +185,8 @@ describe('shouldPausePolling', () => {
   it('returns false when document is undefined (non-browser)', () => {
     // In test environment, document might be undefined
     const originalDocument = global.document;
-    // @ts-expect-error - intentionally setting to undefined for test
-    global.document = undefined;
+    // Intentionally setting to undefined for test
+    (global as any).document = undefined;
 
     expect(shouldPausePolling()).toBe(false);
 
