@@ -458,7 +458,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   ```
 - [ ] When transitioning from card to empty state, fade out card over 300ms while simultaneously fading in zen state. Never show blank screen.
 - [ ] When card becomes due while in empty state, morph empty state smoothly: fade out text while card emerges from center with scale transform from 0.8 to 1.0.
-- [ ] Add subtle haptic feedback on mobile using Vibration API (if available) when answering cards. Single 10ms pulse for feedback.
+- [x] Add subtle haptic feedback on mobile using Vibration API (if available) when answering cards. Single 10ms pulse for feedback.
+  ```
+  Work Log:
+  - Created lib/haptic.ts utility with graceful fallback
+  - Added triggerHaptic (10ms), triggerSuccessHaptic (double pulse), triggerErrorHaptic (20ms)
+  - Integrated haptic feedback on answer selection (both keyboard and click)
+  - Different patterns for correct (double pulse) vs incorrect (single longer pulse)
+  - Fails silently on devices without Vibration API support
+  ```
 
 ### Phase 6: Micro-Analytics
 - [ ] Create minimal analytics display component `StreamMetrics` that shows only streak and daily count by default. Single tap reveals retention % and speed multiplier.
