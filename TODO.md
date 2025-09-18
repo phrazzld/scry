@@ -408,7 +408,17 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   ```
 
 ### Phase 4: Create Zen Empty State
-- [ ] Design new empty state component `ZenEmptyState` in `/components/empty-states.tsx` that shows: "✓ Mind synchronized", next review time, streak/retention/speed metrics, and single "Generate new knowledge" button.
+- [x] Design new empty state component `ZenEmptyState` in `/components/empty-states.tsx` that shows: "✓ Mind synchronized", next review time, streak/retention/speed metrics, and single "Generate new knowledge" button.
+  ```
+  Work Log:
+  - Created ZenEmptyState component with all requested features
+  - Shows "✓ Mind synchronized" as main status in green
+  - Displays formatted next review time (same logic as NothingDueEmptyState)
+  - Shows optional metrics: streak, retention rate, speed improvement
+  - Single black "Generate new knowledge" button
+  - Added export to components/index.ts
+  - Committed as: feat: add ZenEmptyState component for seamless empty state UX
+  ```
 - [ ] Add `getUserStreak` query to `convex/spacedRepetition.ts` that calculates consecutive days with >0 reviews. Store in users table field `currentStreak: v.optional(v.number())`.
 - [ ] Add `getRetentionRate` query that calculates percentage of correct answers in last 7 days from interactions table. Cache result for 5 minutes.
 - [ ] Calculate and display "recall speed improvement" by comparing average `timeSpent` from interactions this week vs last week.
