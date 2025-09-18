@@ -387,7 +387,16 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Polling now adjusts from immediate (due now) to 1hr (due tomorrow+)
   - Committed as: refactor: replace fixed polling intervals with smart polling in review-flow
   ```
-- [ ] Add battery-efficient background polling using `document.visibilityState`. Pause polling when tab is hidden, resume with immediate fetch when visible.
+- [x] Add battery-efficient background polling using `document.visibilityState`. Pause polling when tab is hidden, resume with immediate fetch when visible.
+  ```
+  Work Log:
+  - Enhanced usePollingQuery hook with Page Visibility API integration
+  - Polling automatically pauses when tab becomes hidden
+  - Immediately refreshes data when tab becomes visible again
+  - Added immediate refresh when polling interval changes
+  - Includes defensive visibility checks in polling interval
+  - Committed as: feat: enhance usePollingQuery with battery-efficient visibility handling
+  ```
 - [ ] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
 
 ### Phase 4: Create Zen Empty State
