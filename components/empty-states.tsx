@@ -144,7 +144,8 @@ export function NothingDueEmptyState({ nextReviewTime, stats }: NothingDueEmptyS
     const now = Date.now();
     const diff = timestamp - now;
 
-    if (diff < 0) return "Now";
+    // Never return "Now" - show "< 1 minute" for imminent reviews
+    if (diff <= 60000) return "< 1 minute";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
