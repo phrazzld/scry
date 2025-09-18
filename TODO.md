@@ -352,7 +352,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Removed unused Target import and dueCount query
   - Committed as: refactor: replace session header with minimal daily count display
   ```
-- [ ] Eliminate session completion logic. When no cards are due, seamlessly transition to zen empty state without "session complete" messaging.
+- [x] Eliminate session completion logic. When no cards are due, seamlessly transition to zen empty state without "session complete" messaging.
+  ```
+  Work Log:
+  - Removed deprecated AllReviewsCompleteEmptyState component
+  - Removed ReviewsCompleteWithCount component with "Review Complete!" title
+  - Updated component exports and test mocks
+  - Now uses NothingDueEmptyState exclusively for seamless transitions
+  - Committed as: refactor: eliminate session completion logic for seamless transitions
+  ```
 - [x] Remove `sessionStats.completed` references throughout review-flow.tsx (lines 411, 423, 430, 441, 469). Use daily count instead.
   ```
   Work Log:
