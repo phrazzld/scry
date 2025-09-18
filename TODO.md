@@ -313,7 +313,16 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - This ensures learning cards always show as "due" since they need immediate review
   - Committed as: fix: include learning cards in due count
   ```
-- [ ] Update `NothingDueEmptyState` component lines 225-253 to check if any cards are due within 1 minute. If true, replace "Generate more questions" button with "Continue Learning →" as primary CTA.
+- [x] Update `NothingDueEmptyState` component lines 225-253 to check if any cards are due within 1 minute. If true, replace "Generate more questions" button with "Continue Learning →" as primary CTA.
+  ```
+  Work Log:
+  - Added optional onContinueLearning prop to NothingDueEmptyState interface (line 132)
+  - Added check for imminent reviews (nextReviewTime within 60000ms) at line 230
+  - When imminent review detected, show "Continue Learning →" button instead of "Generate more questions →"
+  - Updated review-flow.tsx to pass onContinueLearning callback that triggers setShouldStartReview(true)
+  - Button has distinct black styling to differentiate from generate button
+  - Committed as: feat: show Continue Learning button when reviews are imminent
+  ```
 - [ ] Add educational microcopy below continue button: "Cards in learning phase need immediate review for optimal retention" to explain why immediate review is needed.
 
 ### Phase 2: Remove Session Concept
