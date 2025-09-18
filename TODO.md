@@ -334,10 +334,24 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   ```
 
 ### Phase 2: Remove Session Concept
-- [ ] Delete `sessionStats` state from `/components/review-flow.tsx` line 66. Replace with simple daily counter using localStorage key `scry:daily-count:${dateString}` that persists across page refreshes.
+- [x] Delete `sessionStats` state from `/components/review-flow.tsx` line 66. Replace with simple daily counter using localStorage key `scry:daily-count:${dateString}` that persists across page refreshes.
+  ```
+  Work Log:
+  - Moved getDailyCount/incrementDailyCount functions outside component (lines 39-66)
+  - Replaced sessionStats state with dailyCount state initialized from localStorage
+  - Updated all sessionStats.completed references to use dailyCount (5 locations)
+  - Added useEffect to sync daily count on mount and focus events
+  - Includes automatic cleanup of old daily counts (keeps last 7 days)
+  - Committed as: refactor: replace sessionStats with localStorage-based daily counter
+  ```
 - [ ] Remove "Review Session" header and progress bars from lines 403-469 in review-flow.tsx. Replace with minimal fixed header showing only streak emoji and daily count: "🔥 12 today".
 - [ ] Eliminate session completion logic. When no cards are due, seamlessly transition to zen empty state without "session complete" messaging.
-- [ ] Remove `sessionStats.completed` references throughout review-flow.tsx (lines 411, 423, 430, 441, 469). Use daily count instead.
+- [x] Remove `sessionStats.completed` references throughout review-flow.tsx (lines 411, 423, 430, 441, 469). Use daily count instead.
+  ```
+  Work Log:
+  - Already completed as part of sessionStats replacement task above
+  - All 5 references to sessionStats.completed have been replaced with dailyCount
+  ```
 
 ### Phase 3: Implement Smart Polling
 - [ ] Create `/lib/smart-polling.ts` with `getPollingInterval(nextDueTime: Date): number` function that returns: 0ms if due now, 5s if <1min, 30s if <5min, 5min if <1hr, 30min if today, 1hr if tomorrow+.
