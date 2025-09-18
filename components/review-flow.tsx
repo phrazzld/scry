@@ -14,6 +14,7 @@ import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-stat
 import { CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
+import { getPollingInterval } from "@/lib/smart-polling";
 import { toast } from "sonner";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
@@ -101,30 +102,31 @@ export function ReviewFlow() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
-  // Minimal polling for time-based updates only (questions becoming due over time)
+  // Smart polling for time-based updates only (questions becoming due over time)
   // Convex handles data changes automatically via real-time subscriptions
-  const timeBasedPollInterval = 60000; // 1 minute for time-based checks
+  // Dynamically adjust polling based on when next card is due
+  const [pollingInterval, setPollingInterval] = useState(60000); // Default 1 minute
   
   // Queries with minimal polling for time-based updates
   // New questions will appear automatically via Convex reactivity
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     isSignedIn ? {} : "skip",
-    timeBasedPollInterval
+    pollingInterval
   );
 
   // Get user's card statistics for context-aware empty states
   const cardStats = usePollingQuery(
     api.spacedRepetition.getUserCardStats,
     isSignedIn ? {} : "skip",
-    timeBasedPollInterval
+    pollingInterval
   );
   
   // Pre-fetch next review when we have a current question
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
     currentQuestion && isSignedIn ? {} : "skip",
-    timeBasedPollInterval
+    pollingInterval
   );
   
   // Mutations
@@ -149,6 +151,18 @@ export function ReviewFlow() {
     });
     window.dispatchEvent(event);
   }, [currentQuestion]);
+
+  // Update polling interval based on next due time
+  useEffect(() => {
+    // Calculate optimal polling interval based on when next card is due
+    const nextDueTime = cardStats?.nextReviewTime || null;
+    const newInterval = getPollingInterval(nextDueTime);
+
+    // Only update if interval has changed significantly (avoid unnecessary re-renders)
+    if (Math.abs(newInterval - pollingInterval) > 1000) {
+      setPollingInterval(newInterval);
+    }
+  }, [cardStats?.nextReviewTime, pollingInterval]);
 
   // Sync daily count on mount and when date changes
   useEffect(() => {
