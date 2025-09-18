@@ -290,3 +290,63 @@ The API route uses `ConvexHttpClient` without auth context, causing "Authenticat
 - [ ] Run `pnpm lint` to catch any TypeScript/ESLint issues from the refactoring.
 - [ ] Test keyboard shortcut 'G' opens generation modal on homepage.
 - [ ] Verify navbar stays consistent height when switching between pages.
+
+## Infinite Review Stream (TikTok × Anki UX)
+
+### Problem
+Current review system shows confusing "0 due, Next review: Now" state. Session-based paradigm creates completion anxiety. Need infinite stream model for continuous engagement.
+
+### Phase 1: Fix Immediate UX Confusion
+- [x] Update `formatNextReviewTime` in `/components/empty-states.tsx` lines 141-166 to never return "Now". If `diff <= 60000`, return "< 1 minute" instead. This fixes the confusing "Next review: Now" display.
+  ```
+  Work Log:
+  - Changed condition from `diff < 0` to `diff <= 60000` to catch all times within 1 minute
+  - Returns "< 1 minute" for imminent reviews instead of "Now"
+  - Committed as: fix: prevent confusing 'Next review: Now' display
+  ```
+- [ ] Modify `convex/spacedRepetition.ts` query `getDueCount` to include learning cards (state === 'learning' or nextReview <= now) in the `dueCount` not just new cards. This ensures "0 due" is never shown when cards need immediate review.
+- [ ] Update `NothingDueEmptyState` component lines 225-253 to check if any cards are due within 1 minute. If true, replace "Generate more questions" button with "Continue Learning →" as primary CTA.
+- [ ] Add educational microcopy below continue button: "Cards in learning phase need immediate review for optimal retention" to explain why immediate review is needed.
+
+### Phase 2: Remove Session Concept
+- [ ] Delete `sessionStats` state from `/components/review-flow.tsx` line 66. Replace with simple daily counter using localStorage key `scry:daily-count:${dateString}` that persists across page refreshes.
+- [ ] Remove "Review Session" header and progress bars from lines 403-469 in review-flow.tsx. Replace with minimal fixed header showing only streak emoji and daily count: "🔥 12 today".
+- [ ] Eliminate session completion logic. When no cards are due, seamlessly transition to zen empty state without "session complete" messaging.
+- [ ] Remove `sessionStats.completed` references throughout review-flow.tsx (lines 411, 423, 430, 441, 469). Use daily count instead.
+
+### Phase 3: Implement Smart Polling
+- [ ] Create `/lib/smart-polling.ts` with `getPollingInterval(nextDueTime: Date): number` function that returns: 0ms if due now, 5s if <1min, 30s if <5min, 5min if <1hr, 30min if today, 1hr if tomorrow+.
+- [ ] Replace fixed 30s/60s polling intervals in `usePollingQuery` calls with dynamic intervals from `getPollingInterval`. Update review-flow.tsx lines where polling is initialized.
+- [ ] Add battery-efficient background polling using `document.visibilityState`. Pause polling when tab is hidden, resume with immediate fetch when visible.
+- [ ] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
+
+### Phase 4: Create Zen Empty State
+- [ ] Design new empty state component `ZenEmptyState` in `/components/empty-states.tsx` that shows: "✓ Mind synchronized", next review time, streak/retention/speed metrics, and single "Generate new knowledge" button.
+- [ ] Add `getUserStreak` query to `convex/spacedRepetition.ts` that calculates consecutive days with >0 reviews. Store in users table field `currentStreak: v.optional(v.number())`.
+- [ ] Add `getRetentionRate` query that calculates percentage of correct answers in last 7 days from interactions table. Cache result for 5 minutes.
+- [ ] Calculate and display "recall speed improvement" by comparing average `timeSpent` from interactions this week vs last week.
+
+### Phase 5: Seamless Transitions
+- [ ] Implement card fade animations using CSS transitions. Add `@keyframes fadeIn` and `@keyframes fadeOut` to globals.css with 300ms duration.
+- [ ] When transitioning from card to empty state, fade out card over 300ms while simultaneously fading in zen state. Never show blank screen.
+- [ ] When card becomes due while in empty state, morph empty state smoothly: fade out text while card emerges from center with scale transform from 0.8 to 1.0.
+- [ ] Add subtle haptic feedback on mobile using Vibration API (if available) when answering cards. Single 10ms pulse for feedback.
+
+### Phase 6: Micro-Analytics
+- [ ] Create minimal analytics display component `StreamMetrics` that shows only streak and daily count by default. Single tap reveals retention % and speed multiplier.
+- [ ] Store metrics in localStorage with keys: `scry:metrics:streak`, `scry:metrics:retention`, `scry:metrics:speed` for instant display without server roundtrip.
+- [ ] Add swipe-up gesture detection (touch events) to reveal full analytics panel with heat map calendar, per-topic performance, forgetting curves.
+- [ ] Implement progressive disclosure: new users see only streak, week-old users see retention, month-old users get full analytics.
+
+### Phase 7: Performance Optimizations
+- [ ] Preload next card while current card is being reviewed. Use React Suspense with `startTransition` for non-blocking updates.
+- [ ] Implement virtual DOM diffing optimization: only update changed parts of question display, not entire card component.
+- [ ] Add `will-change: transform` CSS hint to card container for GPU acceleration of animations.
+- [ ] Use `requestIdleCallback` for non-critical updates (analytics calculations, localStorage writes) to maintain 60fps during interactions.
+
+### Phase 8: Testing & Polish
+- [ ] Write unit tests for `getPollingInterval` function with edge cases: past due times, far future times, invalid dates.
+- [ ] Add E2E test for infinite stream flow: answer 10 cards continuously without session breaks, verify smooth transitions.
+- [ ] Test battery usage on mobile with 1-hour review session. Target: <2% battery drain with smart polling.
+- [ ] Verify accessibility: all interactions work with keyboard only, screen reader announces state changes, focus management during transitions.
+- [ ] Load test with 1000 cards due simultaneously. Target: <100ms to load next card, no UI freezes.
