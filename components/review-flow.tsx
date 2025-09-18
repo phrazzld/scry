@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuestionHistory } from "@/components/question-history";
 import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { formatNextReviewTime } from "@/lib/format-review-time";
 import { toast } from "sonner";
@@ -109,12 +109,6 @@ export function ReviewFlow() {
   // New questions will appear automatically via Convex reactivity
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    isSignedIn ? {} : "skip",
-    timeBasedPollInterval
-  );
-  
-  const dueCount = usePollingQuery(
-    api.spacedRepetition.getDueCount,
     isSignedIn ? {} : "skip",
     timeBasedPollInterval
   );
@@ -449,98 +443,12 @@ export function ReviewFlow() {
   // Review interface
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4 pt-16">
-      {/* Progress header */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Review Session</CardTitle>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {dailyCount} reviewed
-              {dueCount && dueCount.totalReviewable > 0 && (
-                <span className="font-medium"> • {dueCount.totalReviewable} total due</span>
-              )}
-            </div>
-          </div>
-          {dueCount && dueCount.totalReviewable > 0 && (
-            <div className="space-y-2">
-              {/* Segmented progress bar */}
-              <div className="relative h-2 mt-2 bg-secondary rounded-full overflow-hidden">
-                {/* Calculate segment widths */}
-                {(() => {
-                  const total = dailyCount + dueCount.totalReviewable;
-
-                  // Handle edge case where total is 0 (no completed, no due)
-                  if (total === 0) {
-                    return <div className="flex h-full" />;
-                  }
-
-                  const completedPercent = (dailyCount / total) * 100;
-                  const newPercent = (dueCount.newCount / total) * 100;
-                  const duePercent = (dueCount.dueCount / total) * 100;
-                  
-                  return (
-                    <div className="flex h-full">
-                      {/* Completed segment (green) */}
-                      {completedPercent > 0 && (
-                        <div
-                          className="bg-green-500 transition-all duration-300"
-                          style={{ width: `${completedPercent}%` }}
-                          title={`${dailyCount} completed`}
-                        />
-                      )}
-                      {/* New questions segment (blue) */}
-                      {newPercent > 0 && (
-                        <div 
-                          className="bg-blue-500 transition-all duration-300"
-                          style={{ width: `${newPercent}%` }}
-                          title={`${dueCount.newCount} new questions`}
-                        />
-                      )}
-                      {/* Due reviews segment (orange) */}
-                      {duePercent > 0 && (
-                        <div 
-                          className="bg-orange-500 transition-all duration-300"
-                          style={{ width: `${duePercent}%` }}
-                          title={`${dueCount.dueCount} reviews due`}
-                        />
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-              
-              {/* Legend */}
-              <div className="flex gap-4 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-green-500 rounded" />
-                  <span>Completed ({dailyCount})</span>
-                </div>
-                {dueCount.newCount > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-blue-500 rounded" />
-                    <span>New ({dueCount.newCount})</span>
-                  </div>
-                )}
-                {dueCount.dueCount > 0 && (
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-orange-500 rounded" />
-                    <span>Due ({dueCount.dueCount})</span>
-                  </div>
-                )}
-              </div>
-              
-              {dueCount.totalReviewable > 100 && (
-                <p className="text-xs text-muted-foreground">
-                  This is your real learning debt. Each review matters.
-                </p>
-              )}
-            </div>
-          )}
-        </CardHeader>
-      </Card>
+      {/* Minimal streak header */}
+      <div className="flex justify-center">
+        <div className="text-lg font-medium text-muted-foreground">
+          🔥 {dailyCount} today
+        </div>
+      </div>
       
       {/* Question history */}
       {currentQuestion && currentQuestion.interactions.length > 0 && (
