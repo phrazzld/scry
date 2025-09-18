@@ -250,12 +250,17 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
       {!showGenerate && (
         <>
           {isImminentReview && onContinueLearning ? (
-            <button
-              onClick={onContinueLearning}
-              className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-800"
-            >
-              Continue Learning →
-            </button>
+            <>
+              <button
+                onClick={onContinueLearning}
+                className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-800"
+              >
+                Continue Learning →
+              </button>
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                Cards in learning phase need immediate review for optimal retention
+              </p>
+            </>
           ) : (
             <button
               onClick={() => setShowGenerate(true)}
