@@ -7,13 +7,11 @@ import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuestionHistory } from "@/components/question-history";
 import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { formatNextReviewTime } from "@/lib/format-review-time";
 import { getPollingInterval } from "@/lib/smart-polling";
 import { toast } from "sonner";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -96,8 +94,8 @@ export function ReviewFlow() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [dailyCount, setDailyCount] = useState(getDailyCount);
-  const [isMutating, setIsMutating] = useState(false); // General mutation loading state
+  // const [dailyCount, setDailyCount] = useState(getDailyCount); // Removed for minimal design
+  // const [isMutating, setIsMutating] = useState(false); // Not needed anymore
   const [shouldStartReview, setShouldStartReview] = useState(false); // Trigger review after generation
   // Track deleted questions for undo functionality
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -169,7 +167,7 @@ export function ReviewFlow() {
   useEffect(() => {
     // Check daily count on component mount and focus
     const syncDailyCount = () => {
-      setDailyCount(getDailyCount());
+      // setDailyCount(getDailyCount()); // Not needed with new minimal design
     };
 
     syncDailyCount();
@@ -243,8 +241,8 @@ export function ReviewFlow() {
       });
 
       setShowingFeedback(true);
-      const newCount = incrementDailyCount();
-      setDailyCount(newCount);
+      incrementDailyCount(); // Track daily count in localStorage
+      // setDailyCount(newCount); // Not needed with new minimal design
       
     } catch (error) {
       console.error("Failed to submit review:", error);
@@ -261,7 +259,7 @@ export function ReviewFlow() {
   const handleDelete = useCallback(async (questionId: string) => {
     if (!isSignedIn) return;
     
-    setIsMutating(true);
+    // setIsMutating(true); // Not needed anymore
     
     try {
       // Mark as deleted in local state
@@ -339,7 +337,7 @@ export function ReviewFlow() {
         description: errorMessage
       });
     } finally {
-      setIsMutating(false);
+      // setIsMutating(false); // Not needed anymore
     }
   }, [isSignedIn, deleteQuestion, restoreQuestion, router]);
   
@@ -465,54 +463,17 @@ export function ReviewFlow() {
   
   // Review interface
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4 pt-16">
-      {/* Minimal streak header */}
-      <div className="flex justify-center">
-        <div className="text-lg font-medium text-muted-foreground">
-          🔥 {dailyCount} today
-        </div>
-      </div>
-      
-      {/* Question history */}
-      {currentQuestion && currentQuestion.interactions.length > 0 && (
-        <QuestionHistory 
-          interactions={currentQuestion.interactions}
-          loading={false}
-        />
-      )}
-      
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="w-full max-w-2xl space-y-4">
       {/* Question card */}
       {currentQuestion && (
-        <Card className="group">
-          <CardHeader className="flex items-start justify-between">
-            <CardTitle className="text-xl flex-1">
+        <Card className="group animate-fadeIn shadow-lg border-0">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-semibold text-center px-4">
               {currentQuestion.question.question}
-              {currentQuestion.serverTime && currentQuestion.question._creationTime > currentQuestion.serverTime - 3600000 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  New
-                </Badge>
-              )}
             </CardTitle>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                disabled={isMutating}
-                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Edit question"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(currentQuestion.question._id)}
-                disabled={isMutating}
-                className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="Delete question"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 px-8 pb-8">
             {/* Answer options */}
             <div className="space-y-2">
               {currentQuestion.question.options.map((option, index) => (
@@ -526,7 +487,7 @@ export function ReviewFlow() {
                   }}
                   disabled={showingFeedback || isAnswering}
                   className={`
-                    w-full text-left p-4 rounded-lg border transition-all
+                    w-full text-left p-5 rounded-xl border-2 transition-all text-base
                     ${selectedAnswer === option 
                       ? showingFeedback
                         ? feedback?.isCorrect && option === currentQuestion.question.correctAnswer
@@ -536,16 +497,16 @@ export function ReviewFlow() {
                           : option === currentQuestion.question.correctAnswer
                           ? "border-green-500 bg-green-50"
                           : "border-gray-200"
-                        : "border-primary bg-primary/10"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        : "border-primary bg-primary/5 shadow-sm"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
                     }
                     ${(showingFeedback || isAnswering) ? "cursor-not-allowed opacity-60" : "cursor-pointer"}
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-500">
-                        {index + 1}
+                      <span className="text-sm font-medium text-gray-400">
+                        {String.fromCharCode(65 + index)}
                       </span>
                       <span>{option}</span>
                     </div>
@@ -564,18 +525,35 @@ export function ReviewFlow() {
               ))}
             </div>
             
-            {/* Feedback display */}
+            {/* Feedback display with history */}
             {showingFeedback && feedback && (
-              <div className={`p-4 rounded-lg ${feedback.isCorrect ? "bg-green-50" : "bg-red-50"}`}>
-                <p className="font-medium">
-                  {feedback.isCorrect ? "Correct!" : "Incorrect"}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Next review: {feedback.nextReview 
-                    ? formatNextReviewTime(feedback.nextReview)
-                    : "Not scheduled"}
-                </p>
-              </div>
+              <>
+                <div className={`p-6 rounded-xl animate-fadeIn ${feedback.isCorrect ? "bg-green-50 border-2 border-green-200" : "bg-red-50 border-2 border-red-200"}`}>
+                  <p className="font-semibold text-lg text-center mb-2">
+                    {feedback.isCorrect ? "✅ Correct!" : "❌ Incorrect"}
+                  </p>
+                  {currentQuestion.question.explanation && (
+                    <p className="text-sm text-gray-600 mt-3 text-center">
+                      {currentQuestion.question.explanation}
+                    </p>
+                  )}
+                </div>
+
+                {/* Show history after answering */}
+                {currentQuestion.interactions.length > 0 && (
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                      View previous attempts ({currentQuestion.interactions.length})
+                    </summary>
+                    <div className="mt-3">
+                      <QuestionHistory
+                        interactions={currentQuestion.interactions}
+                        loading={false}
+                      />
+                    </div>
+                  </details>
+                )}
+              </>
             )}
             
             {/* Submit/Next button */}
@@ -583,7 +561,7 @@ export function ReviewFlow() {
               <Button
                 onClick={handleSubmit}
                 disabled={!selectedAnswer || isAnswering}
-                className="w-full"
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 {isAnswering ? (
@@ -594,7 +572,7 @@ export function ReviewFlow() {
             ) : (
               <Button
                 onClick={advanceToNext}
-                className="w-full"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 Next Question
@@ -603,7 +581,7 @@ export function ReviewFlow() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Edit question modal */}
       {currentQuestion && (
         <EditQuestionModal
@@ -613,14 +591,14 @@ export function ReviewFlow() {
           onSave={handleEditSave}
         />
       )}
-      
+
       {/* Keyboard shortcuts help modal */}
       <KeyboardShortcutsHelp
         open={showHelp}
         onOpenChange={setShowHelp}
         shortcuts={shortcuts}
       />
-      
+      </div>
     </div>
   );
 }
