@@ -35,6 +35,36 @@ interface ReviewFeedback {
   scheduledDays: number;
 }
 
+// Daily counter helper functions (localStorage-based, replaces session concept)
+const getDailyCount = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const today = new Date().toISOString().split('T')[0];
+  const key = `scry:daily-count:${today}`;
+  const stored = localStorage.getItem(key);
+  return stored ? parseInt(stored, 10) : 0;
+};
+
+const incrementDailyCount = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const today = new Date().toISOString().split('T')[0];
+  const key = `scry:daily-count:${today}`;
+  const newCount = getDailyCount() + 1;
+  localStorage.setItem(key, newCount.toString());
+  // Clean up old daily counts (keep last 7 days)
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  for (let i = 0; i < localStorage.length; i++) {
+    const storageKey = localStorage.key(i);
+    if (storageKey?.startsWith('scry:daily-count:')) {
+      const dateStr = storageKey.replace('scry:daily-count:', '');
+      if (dateStr < cutoff.toISOString().split('T')[0]) {
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }
+  return newCount;
+};
+
 /**
  * Main review flow component for spaced repetition learning
  * 
@@ -63,8 +93,8 @@ export function ReviewFlow() {
   const [feedback, setFeedback] = useState<ReviewFeedback | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
-  const [sessionStats, setSessionStats] = useState({ completed: 0 });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [dailyCount, setDailyCount] = useState(getDailyCount);
   const [isMutating, setIsMutating] = useState(false); // General mutation loading state
   const [shouldStartReview, setShouldStartReview] = useState(false); // Trigger review after generation
   // Track deleted questions for undo functionality
@@ -120,11 +150,26 @@ export function ReviewFlow() {
   
   // Broadcast current question for generation context
   useEffect(() => {
-    const event = new CustomEvent('review-question-changed', { 
+    const event = new CustomEvent('review-question-changed', {
       detail: { question: currentQuestion?.question || null }
     });
     window.dispatchEvent(event);
   }, [currentQuestion]);
+
+  // Sync daily count on mount and when date changes
+  useEffect(() => {
+    // Check daily count on component mount and focus
+    const syncDailyCount = () => {
+      setDailyCount(getDailyCount());
+    };
+
+    syncDailyCount();
+    window.addEventListener('focus', syncDailyCount);
+
+    return () => {
+      window.removeEventListener('focus', syncDailyCount);
+    };
+  }, []);
   
   // Listen for generation success from navbar modal
   useEffect(() => {
@@ -182,7 +227,8 @@ export function ReviewFlow() {
       });
       
       setShowingFeedback(true);
-      setSessionStats(prev => ({ completed: prev.completed + 1 }));
+      const newCount = incrementDailyCount();
+      setDailyCount(newCount);
       
     } catch (error) {
       console.error("Failed to submit review:", error);
@@ -412,7 +458,7 @@ export function ReviewFlow() {
               <CardTitle className="text-lg">Review Session</CardTitle>
             </div>
             <div className="text-sm text-muted-foreground">
-              {sessionStats.completed} reviewed
+              {dailyCount} reviewed
               {dueCount && dueCount.totalReviewable > 0 && (
                 <span className="font-medium"> • {dueCount.totalReviewable} total due</span>
               )}
@@ -424,14 +470,14 @@ export function ReviewFlow() {
               <div className="relative h-2 mt-2 bg-secondary rounded-full overflow-hidden">
                 {/* Calculate segment widths */}
                 {(() => {
-                  const total = sessionStats.completed + dueCount.totalReviewable;
-                  
+                  const total = dailyCount + dueCount.totalReviewable;
+
                   // Handle edge case where total is 0 (no completed, no due)
                   if (total === 0) {
                     return <div className="flex h-full" />;
                   }
-                  
-                  const completedPercent = (sessionStats.completed / total) * 100;
+
+                  const completedPercent = (dailyCount / total) * 100;
                   const newPercent = (dueCount.newCount / total) * 100;
                   const duePercent = (dueCount.dueCount / total) * 100;
                   
@@ -439,10 +485,10 @@ export function ReviewFlow() {
                     <div className="flex h-full">
                       {/* Completed segment (green) */}
                       {completedPercent > 0 && (
-                        <div 
+                        <div
                           className="bg-green-500 transition-all duration-300"
                           style={{ width: `${completedPercent}%` }}
-                          title={`${sessionStats.completed} completed`}
+                          title={`${dailyCount} completed`}
                         />
                       )}
                       {/* New questions segment (blue) */}
@@ -470,7 +516,7 @@ export function ReviewFlow() {
               <div className="flex gap-4 text-xs">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 bg-green-500 rounded" />
-                  <span>Completed ({sessionStats.completed})</span>
+                  <span>Completed ({dailyCount})</span>
                 </div>
                 {dueCount.newCount > 0 && (
                   <div className="flex items-center gap-1">
