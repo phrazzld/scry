@@ -384,3 +384,101 @@ export function CustomEmptyState({
     </Card>
   );
 }
+// Zen empty state for when all reviews are complete
+interface ZenEmptyStateProps {
+  nextReviewTime: number | null;
+  stats?: {
+    streak?: number;
+    retentionRate?: number;
+    speedImprovement?: number;
+  };
+  onGenerateNewKnowledge?: () => void;
+}
+
+export function ZenEmptyState({
+  nextReviewTime,
+  stats,
+  onGenerateNewKnowledge
+}: ZenEmptyStateProps) {
+  const formatNextReviewTime = (timestamp: number | null) => {
+    if (!timestamp) return null;
+
+    const now = Date.now();
+    const diff = timestamp - now;
+
+    // Never return "Now" - show "< 1 minute" for imminent reviews
+    if (diff <= 60000) return "< 1 minute";
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+      const date = new Date(timestamp);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      if (date.toDateString() === tomorrow.toDateString()) {
+        return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+      }
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } else if (hours > 0) {
+      return `in ${hours}h ${minutes}m`;
+    } else {
+      return `in ${minutes}m`;
+    }
+  };
+
+  const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
+
+  return (
+    <div className="max-w-xl mx-auto px-4">
+      <div className="text-center mb-6">
+        {/* Main status */}
+        <h1 className="text-3xl font-bold mb-4 text-green-600">
+          ✓ Mind synchronized
+        </h1>
+
+        {/* Next review time */}
+        {nextReviewFormatted && (
+          <p className="text-lg text-gray-600 mb-4">
+            Next review: {nextReviewFormatted}
+          </p>
+        )}
+
+        {/* Metrics display */}
+        {stats && (
+          <div className="flex justify-center gap-8 mt-6 mb-6 text-sm">
+            {stats.streak !== undefined && (
+              <div className="text-center">
+                <div className="text-2xl font-bold">🔥 {stats.streak}</div>
+                <div className="text-gray-500">day streak</div>
+              </div>
+            )}
+            {stats.retentionRate !== undefined && (
+              <div className="text-center">
+                <div className="text-2xl font-bold">{Math.round(stats.retentionRate)}%</div>
+                <div className="text-gray-500">retention</div>
+              </div>
+            )}
+            {stats.speedImprovement !== undefined && stats.speedImprovement > 0 && (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {stats.speedImprovement > 0 ? '+' : ''}{Math.round(stats.speedImprovement)}%
+                </div>
+                <div className="text-gray-500">faster recall</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Generate button */}
+        <button
+          onClick={onGenerateNewKnowledge}
+          className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+        >
+          Generate new knowledge →
+        </button>
+      </div>
+    </div>
+  );
+}

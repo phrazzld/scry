@@ -397,7 +397,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Includes defensive visibility checks in polling interval
   - Committed as: feat: enhance usePollingQuery with battery-efficient visibility handling
   ```
-- [ ] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
+- [!] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
+  ```
+  Work Log:
+  - Convex's useQuery hook handles its own error recovery internally
+  - Cannot directly catch/retry failed queries - they're managed by React error boundaries
+  - Convex already implements exponential backoff for network failures
+  - Would require significant architectural changes to override Convex's retry logic
+  - Blocked: Not feasible with current Convex architecture
+  ```
 
 ### Phase 4: Create Zen Empty State
 - [ ] Design new empty state component `ZenEmptyState` in `/components/empty-states.tsx` that shows: "✓ Mind synchronized", next review time, streak/retention/speed metrics, and single "Generate new knowledge" button.

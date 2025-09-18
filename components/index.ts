@@ -4,5 +4,6 @@ export { ReviewFlow } from "./review-flow"
 export {
   NoQuestionsEmptyState,
   NoQuizHistoryEmptyState,
-  CustomEmptyState
+  CustomEmptyState,
+  ZenEmptyState
 } from "./empty-states"
