@@ -298,26 +298,45 @@ export const getDueCount = query({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = Date.now();
-    
+
     // Count questions that are due using pagination to avoid memory issues
     // This prevents O(N) memory usage for users with large collections
     let dueCount = 0;
     const dueQuestions = await ctx.db
       .query("questions")
-      .withIndex("by_user_next_review", q => 
+      .withIndex("by_user_next_review", q =>
         q.eq("userId", userId)
          .lte("nextReview", now)
       )
       .filter(q => q.eq(q.field("deletedAt"), undefined))
       .take(1000); // Reasonable upper limit for counting
     dueCount = dueQuestions.length;
-    
+
+    // Also count learning/relearning cards as "due" since they need immediate review
+    // This ensures "0 due" is never shown when learning cards exist
+    const learningQuestions = await ctx.db
+      .query("questions")
+      .withIndex("by_user", q => q.eq("userId", userId))
+      .filter(q =>
+        q.and(
+          q.or(
+            q.eq(q.field("state"), "learning"),
+            q.eq(q.field("state"), "relearning")
+          ),
+          q.eq(q.field("deletedAt"), undefined),
+          // Don't double-count cards already in dueQuestions
+          q.gt(q.field("nextReview"), now)
+        )
+      )
+      .take(1000);
+    dueCount += learningQuestions.length;
+
     // Count new questions using pagination
     let newCount = 0;
     const newQuestions = await ctx.db
       .query("questions")
       .withIndex("by_user", q => q.eq("userId", userId))
-      .filter(q => 
+      .filter(q =>
         q.and(
           q.eq(q.field("nextReview"), undefined),
           q.eq(q.field("deletedAt"), undefined)
@@ -325,7 +344,7 @@ export const getDueCount = query({
       )
       .take(1000); // Reasonable upper limit for counting
     newCount = newQuestions.length;
-    
+
     return {
       dueCount,
       newCount,
