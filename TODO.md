@@ -369,7 +369,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   ```
 
 ### Phase 3: Implement Smart Polling
-- [ ] Create `/lib/smart-polling.ts` with `getPollingInterval(nextDueTime: Date): number` function that returns: 0ms if due now, 5s if <1min, 30s if <5min, 5min if <1hr, 30min if today, 1hr if tomorrow+.
+- [x] Create `/lib/smart-polling.ts` with `getPollingInterval(nextDueTime: Date): number` function that returns: 0ms if due now, 5s if <1min, 30s if <5min, 5min if <1hr, 30min if today, 1hr if tomorrow+.
+  ```
+  Work Log:
+  - Created comprehensive smart-polling.ts with getPollingInterval function
+  - Added helper functions: describePollingInterval, getOptimalPollingInterval, shouldPausePolling
+  - Implemented createVisibilityAwareInterval for automatic pause/resume on tab visibility changes
+  - Includes Page Visibility API integration for battery efficiency
+  - Committed as: feat: add smart polling utility for battery-efficient updates
+  ```
 - [ ] Replace fixed 30s/60s polling intervals in `usePollingQuery` calls with dynamic intervals from `getPollingInterval`. Update review-flow.tsx lines where polling is initialized.
 - [ ] Add battery-efficient background polling using `document.visibilityState`. Pause polling when tab is hidden, resume with immediate fetch when visible.
 - [ ] Implement exponential backoff for failed queries to prevent hammering server during outages. Max 3 retries with 1s, 2s, 4s delays.
