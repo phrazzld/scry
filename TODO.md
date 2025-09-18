@@ -304,7 +304,15 @@ Current review system shows confusing "0 due, Next review: Now" state. Session-b
   - Returns "< 1 minute" for imminent reviews instead of "Now"
   - Committed as: fix: prevent confusing 'Next review: Now' display
   ```
-- [ ] Modify `convex/spacedRepetition.ts` query `getDueCount` to include learning cards (state === 'learning' or nextReview <= now) in the `dueCount` not just new cards. This ensures "0 due" is never shown when cards need immediate review.
+- [x] Modify `convex/spacedRepetition.ts` query `getDueCount` to include learning cards (state === 'learning' or nextReview <= now) in the `dueCount` not just new cards. This ensures "0 due" is never shown when cards need immediate review.
+  ```
+  Work Log:
+  - Added separate query for learning/relearning cards (lines 317-332)
+  - Cards with state='learning' or state='relearning' are now counted as due
+  - Added filter to prevent double-counting cards already in dueQuestions
+  - This ensures learning cards always show as "due" since they need immediate review
+  - Committed as: fix: include learning cards in due count
+  ```
 - [ ] Update `NothingDueEmptyState` component lines 225-253 to check if any cards are due within 1 minute. If true, replace "Generate more questions" button with "Continue Learning →" as primary CTA.
 - [ ] Add educational microcopy below continue button: "Cards in learning phase need immediate review for optimal retention" to explain why immediate review is needed.
 
