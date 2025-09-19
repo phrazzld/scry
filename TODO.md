@@ -45,6 +45,29 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - convex/auth.config.ts already has correct configuration
   - Convex dev server running successfully
   ```
+- [ ] Configure Clerk JWT Template for Convex Integration
+  ```
+  CRITICAL: Authentication is failing because Clerk JWT template isn't configured properly.
+
+  Steps to fix:
+  1. Go to Clerk Dashboard → Configure → JWT Templates
+  2. Create a new template with EXACTLY the name: "convex"
+  3. Configure the template:
+     - Lifetime: 60 seconds (default)
+     - Claims to include:
+       * sub (automatically included)
+       * email
+       * email_verified
+       * name (or first_name + last_name)
+       * picture
+     - Custom claims (if needed): None
+  4. Save the template
+  5. Clear browser cache and cookies
+  6. Sign out and sign back in on the Vercel preview deployment
+
+  Current error: "No auth provider found matching the given token"
+  This happens because Convex expects a JWT with applicationID "convex" but Clerk isn't providing it.
+  ```
 - [ ] Verify the UI: trigger the Clerk sign-in modal, complete login, and confirm the avatar renders.
   ```
   Work Log:
