@@ -46,8 +46,22 @@
   ```
 
 ## [MEDIUM] Fix Test Infrastructure
-- [ ] Remove coverage threshold or make it real (no fake metrics)
-- [ ] Delete 40-line "improvement plan" comment in vitest.config.ts
+- [x] Remove coverage threshold or make it real (no fake metrics)
+  ```
+  Work Log:
+  - No thresholds were actually enforced (commented out)
+  - Removed misleading --coverage.thresholdAutoUpdate=false flag
+  - Added honest comment: "coverage is informational only"
+  - Coverage reports still run, just no fake enforcement
+  ```
+- [x] Delete 40-line "improvement plan" comment in vitest.config.ts
+  ```
+  Work Log:
+  - Removed entire "improvement plan" (lines 19-35)
+  - Replaced with single honest line
+  - Also removed commented-out threshold config
+  - Reduced from 48 lines to 5 lines
+  ```
 - [ ] Fix flaky E2E tests instead of using retries
 
 ## [LOW] Clean Up False Positives
