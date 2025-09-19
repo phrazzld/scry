@@ -25,7 +25,15 @@
   - Expected time savings: ~30 seconds per CI run
   - Build (40s) and test (30s) now run simultaneously
   ```
-- [ ] Add condition to Claude review: only for external contributors
+- [x] Add condition to Claude review: only for external contributors
+  ```
+  Work Log:
+  - Added condition to check author_association
+  - Skips review for MEMBER, OWNER, COLLABORATOR
+  - Added workflow_dispatch for manual triggers
+  - Team members can still request reviews manually
+  - Renamed workflow to clarify it's for external contributors
+  ```
 - [ ] Reduce convex-schema-check.yml from 143 to ~20 lines
 
 ## [MEDIUM] Fix Test Infrastructure
