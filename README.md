@@ -9,11 +9,23 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 - **Individual Question Tracking**: Every generated question is persisted and tracked independently
 - **Interaction Analytics**: Each answer attempt is recorded with timing and accuracy data
 - **Optimistic UI**: Immediate feedback for all operations with automatic error rollback
-- **Spaced Repetition Learning**: Optimized review scheduling using the ts-fsrs algorithm
+- **Pure FSRS Spaced Repetition**: Unmodified FSRS algorithm without comfort features or daily limits
 - **Magic Link Authentication**: Secure, passwordless authentication with Convex Auth
 - **Real-time Updates**: Built on Convex for instant data synchronization
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
 - **Keyboard Shortcuts**: Power user shortcuts for efficient navigation and review
+
+## Philosophy: Hypersimplicity & Pure Memory Science
+
+Scry respects the science of memory without compromise:
+
+- **No Daily Limits**: If 300 cards are due, you see 300 cards
+- **No Comfort Features**: The forgetting curve doesn't care about your comfort
+- **Natural Consequences**: Generate 50 questions? Review 50 questions
+- **Brutal Honesty**: Real counts, real progress, real learning debt
+- **Pure FSRS**: The algorithm as designed, without "improvements"
+
+Every "enhancement" that makes spaced repetition more comfortable makes it less effective. Scry chooses effectiveness.
 
 ## Prerequisites
 

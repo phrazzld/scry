@@ -21,23 +21,6 @@ export type User = {
   image?: string
 }
 
-export type Session = {
-  _id: Id<'sessions'>
-  _creationTime: number
-  userId: Id<'users'>
-  token: string
-  expiresAt: number
-}
-
-export type MagicLink = {
-  _id: Id<'magicLinks'>
-  _creationTime: number
-  email: string
-  token: string
-  expiresAt: number
-  used: boolean
-}
-
 export type QuizResult = {
   _id: Id<'quizResults'>
   _creationTime: number
@@ -58,6 +41,4 @@ export type QuizResult = {
 
 // Re-export Id type with specific table names for convenience
 export type UserId = Id<'users'>
-export type SessionId = Id<'sessions'>
-export type MagicLinkId = Id<'magicLinks'>
 export type QuizResultId = Id<'quizResults'>

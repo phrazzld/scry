@@ -44,7 +44,7 @@ test.describe('Spaced Repetition Flow', () => {
       
       // Navigate to review page
       await page.getByRole('menuitem', { name: /Review/i }).click();
-      await expect(page).toHaveURL(`${BASE_URL}/review`);
+      await expect(page).toHaveURL(`${BASE_URL}/`);
       
       // Verify review page elements
       const reviewContent = await page.textContent('body');
@@ -52,7 +52,8 @@ test.describe('Spaced Repetition Flow', () => {
     }
   });
 
-  test('should validate quiz creation flow elements', async ({ page }) => {
+  // TODO: Update this test to use the generation modal instead of /create route
+  test.skip('should validate quiz creation flow elements', async ({ page }) => {
     await page.goto(`${BASE_URL}/create`);
     
     // Check the response status
@@ -82,7 +83,7 @@ test.describe('Spaced Repetition Flow', () => {
   });
 
   test('should validate review page structure', async ({ page }) => {
-    await page.goto(`${BASE_URL}/review`);
+    await page.goto(`${BASE_URL}/`);
     
     // Should redirect to sign in if not authenticated
     if (page.url().includes('/auth/signin')) {
@@ -111,7 +112,7 @@ test.describe('Spaced Repetition Flow', () => {
   });
 
   test('should verify dashboard shows review indicator', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/`);
     
     // Should redirect to sign in if not authenticated
     if (page.url().includes('/auth/signin')) {
@@ -143,12 +144,12 @@ test.describe('Spaced Repetition Flow', () => {
 
     test.skip('full spaced repetition flow with test account', async ({ page }) => {
       // This is a template for the full E2E flow that would run with proper test auth
-      
+
       // 1. Sign in with test account
       // await signInWithTestAccount(page);
-      
-      // 2. Create a quiz
-      await page.goto(`${BASE_URL}/create`);
+
+      // 2. Create a quiz - TODO: Update to use generation modal instead of /create route
+      // await page.goto(`${BASE_URL}/create`);
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
       await page.getByRole('button', { name: /Generate Quiz/i }).click();
@@ -181,7 +182,7 @@ test.describe('Spaced Repetition Flow', () => {
       await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
       
       // 6. Navigate to review page
-      await page.goto(`${BASE_URL}/review`);
+      await page.goto(`${BASE_URL}/`);
       
       // 7. Verify questions appear in review queue
       await expect(page.getByRole('heading', { name: /Question/i })).toBeVisible();

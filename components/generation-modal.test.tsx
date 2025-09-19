@@ -4,19 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { GenerationModal } from './generation-modal';
 import { toast } from 'sonner';
 
-// Mock dependencies
-vi.mock('@/contexts/auth-context', () => ({
-  useAuth: vi.fn(),
-}));
-
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
   },
 }));
-
-import { useAuth } from '@/contexts/auth-context';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -37,10 +30,6 @@ describe('GenerationModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOnOpenChange = vi.fn();
-    
-    (useAuth as any).mockReturnValue({
-      sessionToken: 'mock-token',
-    });
   });
 
   afterEach(() => {
@@ -228,7 +217,17 @@ describe('GenerationModal', () => {
     it('should successfully generate questions', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => 'Success',
+        json: async () => ({
+          questions: [
+            { question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
+            { question: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B' },
+            { question: 'Q3', options: ['A', 'B', 'C', 'D'], correctAnswer: 'C' },
+            { question: 'Q4', options: ['A', 'B', 'C', 'D'], correctAnswer: 'D' },
+            { question: 'Q5', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
+          ],
+          topic: 'JavaScript closures',
+          difficulty: 'medium'
+        }),
       });
       
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
@@ -246,7 +245,6 @@ describe('GenerationModal', () => {
           body: JSON.stringify({
             topic: 'JavaScript closures',
             difficulty: 'medium',
-            sessionToken: 'mock-token',
             userContext: expect.objectContaining({
               successRate: expect.any(Number),
               avgTime: expect.any(Number),
@@ -256,14 +254,21 @@ describe('GenerationModal', () => {
         });
       });
       
-      expect(toast.success).toHaveBeenCalledWith('Questions generated successfully!');
+      expect(toast.success).toHaveBeenCalledWith('✓ 5 questions generated', {
+        description: 'JavaScript closures',
+        duration: 4000,
+      });
       expect(mockOnOpenChange).toHaveBeenCalledWith(false);
     });
 
     it('should include context in prompt when checkbox is checked', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: async () => 'Success',
+        json: async () => ({
+          questions: [],
+          topic: 'Based on: What is React?. Generate 5 similar questions',
+          difficulty: 'medium'
+        }),
       });
       
       render(
@@ -285,7 +290,6 @@ describe('GenerationModal', () => {
           body: JSON.stringify({
             topic: 'Based on: What is React?. Generate 5 similar questions',
             difficulty: 'medium',
-            sessionToken: 'mock-token',
             userContext: expect.any(Object),
           }),
         });
@@ -294,7 +298,11 @@ describe('GenerationModal', () => {
 
     it('should show loading state while generating', async () => {
       mockFetch.mockImplementationOnce(() => 
-        new Promise(resolve => setTimeout(() => resolve({ ok: true, text: async () => 'Success' }), 100))
+        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({
+          questions: [{ question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' }],
+          topic: 'Test prompt',
+          difficulty: 'medium'
+        }) }), 100))
       );
       
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);

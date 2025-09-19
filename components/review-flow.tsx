@@ -4,21 +4,32 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useAuth } from "@/contexts/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { QuestionHistory } from "@/components/question-history";
-import { AllReviewsCompleteEmptyState, NoQuestionsEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2, Target, Pencil, Trash2 } from "lucide-react";
+import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-states";
+import { CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
-import { formatNextReviewTime } from "@/lib/format-review-time";
+import { getPollingInterval } from "@/lib/smart-polling";
 import { toast } from "sonner";
 import { useReviewShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { EditQuestionModal } from "@/components/edit-question-modal";
-import { SignInLanding } from "@/components/sign-in-landing";
+import { SignIn } from "@clerk/nextjs";
+import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/lib/haptic";
+import { formatDistanceToNow } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -26,17 +37,98 @@ interface ReviewQuestion {
   attemptCount: number;
   correctCount: number;
   successRate: number | null;
+  serverTime?: number; // Server's current time for accurate "New" badge display
 }
 
 interface ReviewFeedback {
   isCorrect: boolean;
   nextReview: number | null;
   scheduledDays: number;
+  timeSpentSeconds: number;
 }
 
+// Daily counter helper functions (localStorage-based, replaces session concept)
+const getDailyCount = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const today = new Date().toISOString().split('T')[0];
+  const key = `scry:daily-count:${today}`;
+  const stored = localStorage.getItem(key);
+  return stored ? parseInt(stored, 10) : 0;
+};
+
+const incrementDailyCount = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const today = new Date().toISOString().split('T')[0];
+  const key = `scry:daily-count:${today}`;
+  const newCount = getDailyCount() + 1;
+  localStorage.setItem(key, newCount.toString());
+  // Clean up old daily counts (keep last 7 days)
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 7);
+  for (let i = 0; i < localStorage.length; i++) {
+    const storageKey = localStorage.key(i);
+    if (storageKey?.startsWith('scry:daily-count:')) {
+      const dateStr = storageKey.replace('scry:daily-count:', '');
+      if (dateStr < cutoff.toISOString().split('T')[0]) {
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }
+  return newCount;
+};
+
+const formatSeconds = (totalSeconds: number): string => {
+  if (totalSeconds <= 60) {
+    return `${Math.max(totalSeconds, 1)}s`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  if (remainingSeconds === 0) {
+    return `${minutes}m`;
+  }
+
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
+const formatNextReviewWindow = (scheduledDays: number, nextReview: number | null): string => {
+  if (nextReview) {
+    return formatDistanceToNow(new Date(nextReview), { addSuffix: true });
+  }
+
+  if (scheduledDays === 0) {
+    return "Later today";
+  }
+
+  if (scheduledDays === 1) {
+    return "In 1 day";
+  }
+
+  return `In ${scheduledDays} days`;
+};
+
+/**
+ * Main review flow component for spaced repetition learning
+ * 
+ * Implements Pure FSRS queue prioritization with:
+ * - Real-time polling for newly generated questions
+ * - Dynamic polling intervals (1s aggressive → 30s normal)
+ * - Fresh question priority with exponential decay
+ * - No daily limits or comfort features
+ * 
+ * Features:
+ * - Automatic question prioritization based on FSRS algorithm
+ * - Question history tracking with success rates
+ * - Question editing and deletion capabilities
+ * - Segmented progress bar showing new vs due questions
+ * - Keyboard shortcuts for navigation
+ * 
+ * @returns Review interface with question cards and progress tracking
+ */
 export function ReviewFlow() {
   const router = useRouter();
-  const { sessionToken } = useAuth();
+  const { isSignedIn } = useUser();
   const [currentQuestion, setCurrentQuestion] = useState<ReviewQuestion | null>(null);
   const [nextQuestion, setNextQuestion] = useState<ReviewQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -44,31 +136,41 @@ export function ReviewFlow() {
   const [feedback, setFeedback] = useState<ReviewFeedback | null>(null);
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
-  const [sessionStats, setSessionStats] = useState({ completed: 0 });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isMutating, setIsMutating] = useState(false); // General mutation loading state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // const [dailyCount, setDailyCount] = useState(getDailyCount); // Removed for minimal design
+  // const [isMutating, setIsMutating] = useState(false); // Not needed anymore
+  const [shouldStartReview, setShouldStartReview] = useState(false); // Trigger review after generation
   // Track deleted questions for undo functionality
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletedQuestions, setDeletedQuestions] = useState<Set<string>>(new Set());
   
-  // Queries with polling for real-time updates
+  // Smart polling for time-based updates only (questions becoming due over time)
+  // Convex handles data changes automatically via real-time subscriptions
+  // Dynamically adjust polling based on when next card is due
+  const [pollingInterval, setPollingInterval] = useState(60000); // Default 1 minute
+  
+  // Queries with minimal polling for time-based updates
+  // New questions will appear automatically via Convex reactivity
   const currentReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+    isSignedIn ? {} : "skip",
+    pollingInterval
   );
-  
-  const dueCount = usePollingQuery(
-    api.spacedRepetition.getDueCount,
-    sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+
+  // Get user's card statistics for context-aware empty states
+  const cardStats = usePollingQuery(
+    api.spacedRepetition.getUserCardStats,
+    isSignedIn ? {} : "skip",
+    pollingInterval
   );
   
   // Pre-fetch next review when we have a current question
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    currentQuestion && sessionToken ? { sessionToken } : "skip",
-    30000 // Poll every 30 seconds
+    currentQuestion && isSignedIn ? {} : "skip",
+    pollingInterval
   );
   
   // Mutations
@@ -77,28 +179,144 @@ export function ReviewFlow() {
   const deleteQuestion = useMutation(api.questions.softDeleteQuestion);
   const restoreQuestion = useMutation(api.questions.restoreQuestion);
   
-  // Set initial question
+  // Set initial question or auto-start after generation
   useEffect(() => {
-    if (currentReview && !currentQuestion && !showingFeedback) {
-      setCurrentQuestion(currentReview);
-      setQuestionStartTime(Date.now());
+    if (!currentReview || showingFeedback) {
+      return;
     }
-  }, [currentReview, currentQuestion, showingFeedback]);
+
+    setCurrentQuestion((prev) => {
+      const needsInitialQuestion = !prev || shouldStartReview;
+      const isDifferentQuestion = prev?.question._id !== currentReview.question._id;
+
+      if (needsInitialQuestion || isDifferentQuestion) {
+        setQuestionStartTime(Date.now());
+        return currentReview;
+      }
+
+      const interactionsChanged =
+        prev.interactions.length !== currentReview.interactions.length ||
+        prev.interactions.some((interaction, index) => {
+          const nextInteraction = currentReview.interactions[index];
+          if (!nextInteraction) return true;
+          return (
+            interaction._id !== nextInteraction._id ||
+            interaction.isCorrect !== nextInteraction.isCorrect ||
+            interaction.userAnswer !== nextInteraction.userAnswer ||
+            interaction.attemptedAt !== nextInteraction.attemptedAt ||
+            interaction.timeSpent !== nextInteraction.timeSpent
+          );
+        });
+
+      const questionContentChanged =
+        prev.question.question !== currentReview.question.question ||
+        prev.question.correctAnswer !== currentReview.question.correctAnswer ||
+        prev.question.explanation !== currentReview.question.explanation ||
+        prev.question.options.length !== currentReview.question.options.length ||
+        prev.question.options.some((option, index) => option !== currentReview.question.options[index]);
+
+      const progressChanged =
+        prev.attemptCount !== currentReview.attemptCount ||
+        prev.correctCount !== currentReview.correctCount ||
+        prev.successRate !== currentReview.successRate ||
+        prev.serverTime !== currentReview.serverTime;
+
+      if (interactionsChanged || questionContentChanged || progressChanged) {
+        return {
+          ...prev,
+          ...currentReview,
+        };
+      }
+
+      return prev;
+    });
+
+    if (shouldStartReview) {
+      setShouldStartReview(false);
+    }
+  }, [currentReview, showingFeedback, shouldStartReview]);
   
   // Broadcast current question for generation context
   useEffect(() => {
-    const event = new CustomEvent('review-question-changed', { 
+    const event = new CustomEvent('review-question-changed', {
       detail: { question: currentQuestion?.question || null }
     });
     window.dispatchEvent(event);
   }, [currentQuestion]);
+
+  // Update polling interval based on next due time
+  useEffect(() => {
+    // Calculate optimal polling interval based on when next card is due
+    const nextDueTime = cardStats?.nextReviewTime || null;
+    const newInterval = getPollingInterval(nextDueTime);
+
+    // Only update if interval has changed significantly (avoid unnecessary re-renders)
+    setPollingInterval((currentInterval) => {
+      if (Math.abs(newInterval - currentInterval) > 1000) {
+        return newInterval;
+      }
+      return currentInterval;
+    });
+  }, [cardStats?.nextReviewTime]);
+
+  // Sync daily count on mount and when date changes
+  useEffect(() => {
+    // Check daily count on component mount and focus
+    const syncDailyCount = () => {
+      // setDailyCount(getDailyCount()); // Not needed with new minimal design
+    };
+
+    syncDailyCount();
+    window.addEventListener('focus', syncDailyCount);
+
+    return () => {
+      window.removeEventListener('focus', syncDailyCount);
+    };
+  }, []);
+  
+  // Listen for generation success from navbar modal
+  useEffect(() => {
+    const handleStartReview = () => {
+      setShouldStartReview(true);
+    };
+
+    window.addEventListener('start-review-after-generation', handleStartReview);
+    return () => window.removeEventListener('start-review-after-generation', handleStartReview);
+  }, []);
   
   // Pre-fetch next question
   useEffect(() => {
-    if (nextReview && nextReview !== currentQuestion) {
-      setNextQuestion(nextReview);
+    if (nextReview === undefined) {
+      return;
     }
+
+    if (nextReview === null) {
+      setNextQuestion(null);
+      return;
+    }
+
+    if (
+      currentQuestion &&
+      nextReview.question._id === currentQuestion.question._id
+    ) {
+      // Avoid storing the same card as both current and next.
+      return;
+    }
+
+    setNextQuestion((prev) => {
+      if (prev?.question._id === nextReview.question._id) {
+        return prev;
+      }
+      return nextReview;
+    });
   }, [nextReview, currentQuestion]);
+
+  useEffect(() => {
+    if (!currentQuestion) {
+      setIsDeleteDialogOpen(false);
+      setIsDeleting(false);
+    }
+  }, [currentQuestion]);
   
   // Advance to next question
   const advanceToNext = useCallback(() => {
@@ -118,29 +336,37 @@ export function ReviewFlow() {
   
   // Handle answer submission
   const handleSubmit = useCallback(async () => {
-    if (!currentQuestion || !selectedAnswer || !sessionToken || isAnswering) return;
-    
+    if (!currentQuestion || !selectedAnswer || !isSignedIn || isAnswering) return;
+
     setIsAnswering(true);
     const isCorrect = selectedAnswer === currentQuestion.question.correctAnswer;
     const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
-    
+
+    // Trigger haptic feedback based on answer correctness
+    if (isCorrect) {
+      triggerSuccessHaptic();
+    } else {
+      triggerErrorHaptic();
+    }
+
     try {
       const result = await scheduleReview({
-        sessionToken,
         questionId: currentQuestion.question._id,
         userAnswer: selectedAnswer,
         isCorrect,
         timeSpent,
       });
-      
+
       setFeedback({
         isCorrect,
         nextReview: result.nextReview,
         scheduledDays: result.scheduledDays,
+        timeSpentSeconds: timeSpent,
       });
-      
+
       setShowingFeedback(true);
-      setSessionStats(prev => ({ completed: prev.completed + 1 }));
+      incrementDailyCount(); // Track daily count in localStorage
+      // setDailyCount(newCount); // Not needed with new minimal design
       
     } catch (error) {
       console.error("Failed to submit review:", error);
@@ -151,22 +377,30 @@ export function ReviewFlow() {
     } finally {
       setIsAnswering(false);
     }
-  }, [currentQuestion, selectedAnswer, sessionToken, isAnswering, questionStartTime, scheduleReview]);
+  }, [currentQuestion, selectedAnswer, isSignedIn, isAnswering, questionStartTime, scheduleReview]);
   
   // Handle delete with undo
-  const handleDelete = useCallback(async (questionId: string) => {
-    if (!sessionToken) return;
-    
-    setIsMutating(true);
-    
+  const resetQuestionState = useCallback(() => {
+    setCurrentQuestion(null);
+    setNextQuestion(null);
+    setSelectedAnswer("");
+    setShowingFeedback(false);
+    setFeedback(null);
+    setQuestionStartTime(Date.now());
+  }, []);
+
+  const handleDelete = useCallback(async (questionId: string): Promise<boolean> => {
+    if (!isSignedIn) return false;
+
+    // setIsMutating(true); // Not needed anymore
+
     try {
       // Mark as deleted in local state
       setDeletedQuestions(prev => new Set(prev).add(questionId));
       
       // Perform soft delete
-      await deleteQuestion({ 
-        questionId,
-        sessionToken 
+      await deleteQuestion({
+        questionId
       });
       
       // Set up auto-remove from deleted set after 5 seconds
@@ -181,8 +415,7 @@ export function ReviewFlow() {
             try {
               // Restore the question
               await restoreQuestion({
-                questionId,
-                sessionToken
+                questionId
               });
               
               // Remove from deleted set
@@ -221,31 +454,49 @@ export function ReviewFlow() {
           return next;
         });
       }, 5000);
-      
+
+      return true;
     } catch (error) {
       console.error("Failed to delete question:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to delete question";
-      
+
       // Remove from local deleted state since operation failed
       setDeletedQuestions(prev => {
         const next = new Set(prev);
         next.delete(questionId);
         return next;
       });
-      
+
       toast.error("Unable to delete question", {
         description: errorMessage
       });
+      return false;
     } finally {
-      setIsMutating(false);
+      // setIsMutating(false); // Not needed anymore
     }
-  }, [sessionToken, deleteQuestion, restoreQuestion, router]);
+  }, [isSignedIn, deleteQuestion, restoreQuestion, router]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!currentQuestion) return;
+
+    setIsDeleting(true);
+    const didDelete = await handleDelete(currentQuestion.question._id);
+
+    if (didDelete) {
+      resetQuestionState();
+      setIsDeleteDialogOpen(false);
+      setIsEditModalOpen(false);
+    }
+
+    setIsDeleting(false);
+  }, [currentQuestion, handleDelete, resetQuestionState]);
   
   // Enhanced keyboard shortcuts for power users
   const { showHelp, setShowHelp, shortcuts } = useReviewShortcuts({
     onSelectAnswer: (index) => {
       if (currentQuestion?.question.options[index]) {
         setSelectedAnswer(currentQuestion.question.options[index]);
+        triggerHaptic(); // Subtle feedback on selection
       }
     },
     onSubmit: handleSubmit,
@@ -257,7 +508,7 @@ export function ReviewFlow() {
     },
     onDelete: () => {
       if (currentQuestion) {
-        handleDelete(currentQuestion.question._id);
+        setIsDeleteDialogOpen(true);
       }
     },
     onUndo: () => {
@@ -274,15 +525,16 @@ export function ReviewFlow() {
     question: string;
     options: string[];
     correctAnswer: string;
+    explanation: string;
   }) => {
-    if (!sessionToken || !currentQuestion) return;
+    if (!isSignedIn || !currentQuestion) return;
     
     await updateQuestion({
-      sessionToken,
       questionId: currentQuestion.question._id,
       question: updates.question,
       options: updates.options,
-      correctAnswer: updates.correctAnswer
+      correctAnswer: updates.correctAnswer,
+      explanation: updates.explanation
     });
     
     // Update local state to reflect changes
@@ -293,103 +545,132 @@ export function ReviewFlow() {
         ...updates
       }
     });
-  }, [sessionToken, currentQuestion, updateQuestion]);
+  }, [isSignedIn, currentQuestion, updateQuestion]);
   
   
   // Loading state
-  if (!sessionToken) {
-    return <SignInLanding />;
+  if (!isSignedIn) {
+    return (
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+        <SignIn routing="hash" />
+      </div>
+    );
   }
   
   if (currentReview === undefined) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-12 pb-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-2xl">
+          <CardContent className="pt-12 pb-8">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
   
   // Empty state
   if (!currentQuestion && !showingFeedback) {
-    if (!currentReview) {
-      return <AllReviewsCompleteEmptyState />;
+    // Check if user has any cards at all
+    if (cardStats?.totalCards === 0) {
+      return (
+        <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+          <div className="w-full max-w-2xl">
+            <NoCardsEmptyState
+              onGenerationSuccess={() => {
+                // Trigger immediate review of newly generated questions
+                setShouldStartReview(true);
+              }}
+            />
+          </div>
+        </div>
+      );
     }
-    return <NoQuestionsEmptyState />;
+
+    // User has cards but nothing is due
+    if (!currentReview && cardStats) {
+      return (
+        <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+          <div className="w-full max-w-2xl">
+            <NothingDueEmptyState
+              nextReviewTime={cardStats.nextReviewTime}
+              stats={{
+                learningCount: cardStats.learningCount,
+                totalCards: cardStats.totalCards,
+                newCount: cardStats.newCount,
+              }}
+              onContinueLearning={() => {
+                // Trigger immediate review when learning cards are imminent
+                setShouldStartReview(true);
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback (should not happen, but just in case)
+    return (
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+        <div className="w-full max-w-2xl">
+          <NoCardsEmptyState />
+        </div>
+      </div>
+    );
   }
   
   // Review interface
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4 pt-20">
-      {/* Progress header */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Review Session</CardTitle>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {sessionStats.completed} completed
-              {dueCount && dueCount.totalReviewable > 0 && (
-                <span> • {dueCount.totalReviewable} remaining</span>
-              )}
-            </div>
-          </div>
-          {dueCount && dueCount.totalReviewable > 0 && (
-            <Progress 
-              value={(sessionStats.completed / (sessionStats.completed + dueCount.totalReviewable)) * 100} 
-              className="h-2 mt-2"
-            />
-          )}
-        </CardHeader>
-      </Card>
-      
-      {/* Question history */}
-      {currentQuestion && currentQuestion.interactions.length > 0 && (
-        <QuestionHistory 
-          interactions={currentQuestion.interactions}
-          loading={false}
-        />
-      )}
-      
+    <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+      <div className="w-full max-w-2xl space-y-4">
       {/* Question card */}
       {currentQuestion && (
-        <Card className="group">
-          <CardHeader className="flex items-start justify-between">
-            <CardTitle className="text-xl flex-1">{currentQuestion.question.question}</CardTitle>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
+        <Card className="group animate-fadeIn shadow-lg border-0">
+          <CardHeader className="pb-4 pt-4 space-y-4">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setIsEditModalOpen(true)}
-                disabled={isMutating}
-                className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Edit question"
               >
                 <Pencil className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(currentQuestion.question._id)}
-                disabled={isMutating}
-                className="p-1 hover:bg-red-100 rounded text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                <span className="sr-only">Edit question</span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDeleteDialogOpen(true)}
                 aria-label="Delete question"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
-              </button>
+                <span className="sr-only">Delete question</span>
+              </Button>
             </div>
+            <CardTitle className="text-2xl font-semibold text-left leading-tight px-4">
+              {currentQuestion.question.question}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6 px-8 pb-8">
             {/* Answer options */}
             <div className="space-y-2">
               {currentQuestion.question.options.map((option, index) => (
                 <button
                   key={index}
-                  onClick={() => !showingFeedback && setSelectedAnswer(option)}
+                  onClick={() => {
+                    if (!showingFeedback) {
+                      setSelectedAnswer(option);
+                      triggerHaptic(); // Subtle feedback on selection
+                    }
+                  }}
                   disabled={showingFeedback || isAnswering}
                   className={`
-                    w-full text-left p-4 rounded-lg border transition-all
+                    w-full text-left p-5 rounded-xl border-2 transition-all text-base
                     ${selectedAnswer === option 
                       ? showingFeedback
                         ? feedback?.isCorrect && option === currentQuestion.question.correctAnswer
@@ -399,16 +680,16 @@ export function ReviewFlow() {
                           : option === currentQuestion.question.correctAnswer
                           ? "border-green-500 bg-green-50"
                           : "border-gray-200"
-                        : "border-primary bg-primary/10"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        : "border-primary bg-primary/5 shadow-sm"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
                     }
                     ${(showingFeedback || isAnswering) ? "cursor-not-allowed opacity-60" : "cursor-pointer"}
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-500">
-                        {index + 1}
+                      <span className="text-sm font-medium text-gray-400">
+                        {String.fromCharCode(65 + index)}
                       </span>
                       <span>{option}</span>
                     </div>
@@ -427,17 +708,107 @@ export function ReviewFlow() {
               ))}
             </div>
             
-            {/* Feedback display */}
+            {/* Feedback display with history */}
             {showingFeedback && feedback && (
-              <div className={`p-4 rounded-lg ${feedback.isCorrect ? "bg-green-50" : "bg-red-50"}`}>
-                <p className="font-medium">
-                  {feedback.isCorrect ? "Correct!" : "Incorrect"}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Next review: {feedback.nextReview 
-                    ? formatNextReviewTime(feedback.nextReview)
-                    : "Not scheduled"}
-                </p>
+              <div className="space-y-4 animate-fadeIn">
+                <div
+                  className={`rounded-2xl border px-5 py-5 ${
+                    feedback.isCorrect
+                      ? "border-emerald-200 bg-emerald-50/70"
+                      : "border-rose-200 bg-rose-50/70"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-1 rounded-full p-2 ${
+                        feedback.isCorrect
+                          ? "bg-white/70 text-emerald-600"
+                          : "bg-white/70 text-rose-600"
+                      }`}
+                    >
+                      {feedback.isCorrect ? (
+                        <CheckCircle className="h-5 w-5" />
+                      ) : (
+                        <XCircle className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="space-y-1 text-left">
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-wide ${
+                          feedback.isCorrect ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {feedback.isCorrect ? "Correct" : "Needs review"}
+                      </p>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {feedback.isCorrect ? "Memory reinforced" : "Let's revisit this card"}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {feedback.isCorrect
+                          ? "Consistency keeps this concept locked in. Queue the next prompt when you're ready."
+                          : "Review what went wrong, study the right answer, and take another pass soon."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        label: "Next review",
+                        value: formatNextReviewWindow(feedback.scheduledDays, feedback.nextReview),
+                      },
+                      {
+                        label: "Response time",
+                        value: formatSeconds(feedback.timeSpentSeconds),
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className={`rounded-lg border bg-white/80 p-3 ${
+                          feedback.isCorrect
+                            ? "border-emerald-100/70"
+                            : "border-rose-100/70"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!feedback.isCorrect && (
+                    <div className="mt-4 rounded-lg border border-white/40 bg-white/90 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Correct answer
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {currentQuestion.question.correctAnswer}
+                      </p>
+                    </div>
+                  )}
+
+                  {currentQuestion.question.explanation && (
+                    <div
+                      className={`mt-4 border-t pt-4 ${
+                        feedback.isCorrect ? "border-emerald-100" : "border-rose-100"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Explanation
+                      </p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        {currentQuestion.question.explanation}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Show history after answering */}
+                {currentQuestion.interactions.length > 0 && (
+                  <QuestionHistory interactions={currentQuestion.interactions} loading={false} />
+                )}
               </div>
             )}
             
@@ -446,7 +817,7 @@ export function ReviewFlow() {
               <Button
                 onClick={handleSubmit}
                 disabled={!selectedAnswer || isAnswering}
-                className="w-full"
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 {isAnswering ? (
@@ -457,7 +828,7 @@ export function ReviewFlow() {
             ) : (
               <Button
                 onClick={advanceToNext}
-                className="w-full"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 Next Question
@@ -466,7 +837,7 @@ export function ReviewFlow() {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Edit question modal */}
       {currentQuestion && (
         <EditQuestionModal
@@ -476,14 +847,51 @@ export function ReviewFlow() {
           onSave={handleEditSave}
         />
       )}
-      
+
+      {currentQuestion && (
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!isDeleting) {
+              setIsDeleteDialogOpen(open);
+            }
+          }}
+        >
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this question?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes the current question from your review queue. You can undo from the toast immediately after deletion.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting
+                  </>
+                ) : (
+                  "Delete question"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       {/* Keyboard shortcuts help modal */}
       <KeyboardShortcutsHelp
         open={showHelp}
         onOpenChange={setShowHelp}
         shortcuts={shortcuts}
       />
-      
+      </div>
     </div>
   );
 }

@@ -41,19 +41,24 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
             >
               Retake Quiz
             </Button>
-            <Button 
-              onClick={() => router.push("/create")}
+            <Button
+              onClick={() => {
+                router.push("/");
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('open-generation-modal'));
+                }, 100);
+              }}
               variant="outline"
               className="flex-1"
             >
               New Quiz
             </Button>
             <Button 
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/")}
               variant="outline"
               className="flex-1"
             >
-              Dashboard
+              Go Home
             </Button>
           </div>
         </div>

@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser, useClerk } from '@clerk/nextjs'
+import { useMutation } from 'convex/react'
+import { api } from '@/convex/_generated/api'
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -29,7 +31,9 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
   const [confirmationEmail, setConfirmationEmail] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
-  const { deleteAccount } = useAuth()
+  const { user } = useUser()
+  const clerk = useClerk()
+  const deleteUserData = useMutation(api.users.deleteUserData)
 
   const handleDeleteAccount = async () => {
     if (!confirmationEmail) {
@@ -45,7 +49,16 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
     setIsDeleting(true)
 
     try {
-      const result = await deleteAccount(confirmationEmail)
+      // Delete user data from Convex
+      if (user?.id) {
+        await deleteUserData({ userId: user.id })
+      }
+
+      // Delete user from Clerk
+      await clerk.signOut()
+      await user?.delete()
+
+      const result = { success: true }
 
       if (!result.success) {
         setIsDeleting(false)

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { validateEnv } from "@/lib/env";
+
+// Validate environment variables at build/dev time
+if (process.env.NODE_ENV === "development") {
+  validateEnv();
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +26,7 @@ export const metadata: Metadata = {
 import { ConditionalNavbar } from '@/components/conditional-navbar'
 import { Footer } from '@/components/footer'
 import { Toaster } from '@/components/ui/sonner'
-import { Providers } from './providers'
+import { ClerkConvexProvider } from './clerk-provider'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
@@ -35,7 +41,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
+        <ClerkConvexProvider>
           <div className={getLayoutClassName()}>
             <ConditionalNavbar />
             {needsNavbarSpacer() && <div className="h-16" />}
@@ -45,7 +51,7 @@ export default function RootLayout({
           <Toaster />
           <Analytics />
           <SpeedInsights />
-        </Providers>
+        </ClerkConvexProvider>
       </body>
     </html>
   );

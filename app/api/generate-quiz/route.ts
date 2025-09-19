@@ -2,34 +2,12 @@ import { NextRequest } from 'next/server'
 import { generateQuizWithAI } from '@/lib/ai-client'
 import type { SimpleQuestion } from '@/types/quiz'
 import { createRequestLogger, loggers } from '@/lib/logger'
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
-import { 
-  sanitizedQuizRequestSchema, 
-  containsInjectionAttempt, 
-  logInjectionAttempt 
+import {
+  sanitizedQuizRequestSchema,
+  containsInjectionAttempt,
+  logInjectionAttempt
 } from '@/lib/prompt-sanitization';
 
-// Lazy-load ConvexHttpClient to allow proper mocking in tests
-let convex: ConvexHttpClient | null = null;
-function getConvexClient() {
-  if (!convex) {
-    convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-  }
-  return convex;
-}
-
-// For testing purposes - allows resetting between tests
-if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-  const g = globalThis as typeof globalThis & {
-    __resetConvexClient?: () => void;
-    __getConvexClient?: typeof getConvexClient;
-  };
-  g.__resetConvexClient = () => {
-    convex = null;
-  };
-  g.__getConvexClient = getConvexClient;
-}
 
 export async function POST(request: NextRequest) {
   // Extract client IP properly - x-forwarded-for can contain multiple IPs
@@ -55,40 +33,8 @@ export async function POST(request: NextRequest) {
   const timer = loggers.time('api.generate-quiz', 'api')
   
   try {
-    // Check rate limit first
-    const rateLimitResult = await getConvexClient().mutation(api.rateLimit.checkApiRateLimit, {
-      ipAddress,
-      operation: 'quizGeneration',
-    });
-
-    if (!rateLimitResult.allowed) {
-      logger.warn({
-        event: 'api.generate-quiz.rate-limited',
-        ip: ipAddress,
-        attemptsUsed: rateLimitResult.attemptsUsed,
-        maxAttempts: rateLimitResult.maxAttempts,
-      }, 'Rate limit exceeded for quiz generation');
-
-      return new Response(
-        JSON.stringify({ 
-          error: rateLimitResult.errorMessage,
-          retryAfter: rateLimitResult.retryAfter,
-          limit: rateLimitResult.maxAttempts,
-          windowMs: rateLimitResult.windowMs,
-        }),
-        { 
-          status: 429, 
-          headers: { 
-            'Content-Type': 'application/json',
-            'Retry-After': String(rateLimitResult.retryAfter),
-          } 
-        }
-      );
-    }
-
     logger.info({
       event: 'api.generate-quiz.start',
-      attemptsRemaining: rateLimitResult.attemptsRemaining,
     }, 'Starting quiz generation request')
 
     let body;
@@ -154,7 +100,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const { topic, difficulty, sessionToken } = validationResult.data
+    const { topic, difficulty } = validationResult.data
     
     logger.info({
       event: 'api.generate-quiz.params',
@@ -171,32 +117,6 @@ export async function POST(request: NextRequest) {
       id: index + 1
     }))
     
-    // Save questions if user is authenticated
-    let savedQuestionIds: string[] = [];
-    let saveError: string | undefined;
-    if (sessionToken) {
-      try {
-        const result = await getConvexClient().mutation(api.questions.saveGeneratedQuestions, {
-          sessionToken,
-          topic,
-          difficulty,
-          questions: questionsWithIds,
-        });
-        savedQuestionIds = result.questionIds;
-        
-        logger.info({
-          event: 'api.generate-quiz.questions-saved',
-          count: result.count,
-          topic,
-        }, 'Questions saved to database');
-      } catch (error) {
-        saveError = (error as Error).message;
-        logger.warn({
-          event: 'api.generate-quiz.save-error',
-          error: saveError,
-        }, 'Failed to save questions, continuing anyway');
-      }
-    }
     
     const duration = timer.end({
       topic,
@@ -211,26 +131,12 @@ export async function POST(request: NextRequest) {
       questionCount: questions.length
     })
     
-    const responseData: Record<string, number | string | boolean | SimpleQuestion[] | string[] | undefined> = { 
-      questions: questionsWithIds,
-      topic,
-      difficulty,
-      saved: savedQuestionIds.length > 0,
-    };
-    
-    // Only include savedCount if there were saved questions
-    if (savedQuestionIds.length > 0) {
-      responseData.savedCount = savedQuestionIds.length;
-      responseData.questionIds = savedQuestionIds; // Keep for backward compatibility
-    }
-    
-    // Include save error if one occurred
-    if (saveError) {
-      responseData.saveError = saveError;
-    }
-    
     return new Response(
-      JSON.stringify(responseData),
+      JSON.stringify({
+        questions: questionsWithIds,
+        topic,
+        difficulty,
+      }),
       { 
         status: 200, 
         headers: { 'Content-Type': 'application/json' }

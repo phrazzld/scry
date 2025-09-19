@@ -15,16 +15,17 @@ vi.mock('convex/react', () => ({
   useMutation: vi.fn(),
 }));
 
-vi.mock('@/contexts/auth-context', () => ({
-  useAuth: vi.fn(() => ({ sessionToken: 'mock-token' })),
-}));
-
 vi.mock('@/hooks/use-polling-query', () => ({
   usePollingQuery: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-keyboard-shortcuts', () => ({
   useReviewShortcuts: vi.fn(),
+}));
+
+vi.mock('@clerk/nextjs', () => ({
+  useUser: vi.fn(() => ({ isSignedIn: true, user: { id: 'mock-token' } })),
+  SignIn: vi.fn(() => <div data-testid="clerk-sign-in" />),
 }));
 
 vi.mock('sonner', () => ({
@@ -35,14 +36,7 @@ vi.mock('sonner', () => ({
 }));
 
 // Mock components
-vi.mock('@/components/auth', () => ({
-  AuthModal: vi.fn(({ open, children }: any) => 
-    open ? <div data-testid="auth-modal">{children}</div> : null
-  ),
-}));
-
 vi.mock('@/components/empty-states', () => ({
-  AllReviewsCompleteEmptyState: vi.fn(() => <div data-testid="all-reviews-complete">All reviews complete</div>),
   NoQuestionsEmptyState: vi.fn(() => <div data-testid="no-questions">No questions</div>),
 }));
 
@@ -64,7 +58,7 @@ vi.mock('@/components/edit-question-modal', () => ({
 
 import { useMutation } from 'convex/react';
 import { usePollingQuery } from '@/hooks/use-polling-query';
-import { useAuth } from '@/contexts/auth-context';
+import { useUser } from '@clerk/nextjs';
 
 describe('ReviewFlow', () => {
   let mockScheduleReview: any;
@@ -233,7 +227,7 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Correct!/i)).toBeInTheDocument();
+        expect(screen.getByText(/Memory reinforced/i)).toBeInTheDocument();
       });
       
       expect(mockScheduleReview).toHaveBeenCalledWith({
@@ -262,10 +256,10 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Incorrect/i)).toBeInTheDocument();
+        expect(screen.getByText(/Let's revisit this card/i)).toBeInTheDocument();
       });
-      
-      expect(screen.getByText(/The correct answer was:/i)).toBeInTheDocument();
+
+      expect(screen.getByText(/Correct answer/i)).toBeInTheDocument();
       expect(screen.getByText(/A library/i)).toBeInTheDocument();
     });
 
@@ -341,7 +335,7 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Correct!/i)).toBeInTheDocument();
+        expect(screen.getByText(/Memory reinforced/i)).toBeInTheDocument();
       });
       
       // Click next button
@@ -395,13 +389,13 @@ describe('ReviewFlow', () => {
   });
 
   describe('Unauthenticated State', () => {
-    it('should show auth modal when not authenticated', () => {
-      (useAuth as any).mockReturnValue({ sessionToken: null });
+    it('should show Clerk sign-in when not authenticated', () => {
+      (useUser as any).mockReturnValue({ isSignedIn: false, user: null });
       (usePollingQuery as any).mockReturnValue(undefined);
       
       render(<ReviewFlow />);
       
-      expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('clerk-sign-in')).toBeInTheDocument();
     });
   });
 

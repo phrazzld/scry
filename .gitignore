@@ -37,12 +37,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (track example files, ignore actual config)
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# ALL env files except examples
+.env*
+!.env.example
+!.env.*.example
 
 # vercel
 .vercel
@@ -53,6 +51,7 @@ next-env.d.ts
 
 # logs
 thinktank.log
+logs_result.json
 
 /docs/leyline
 /thinktank_*/

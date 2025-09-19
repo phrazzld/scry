@@ -12,13 +12,9 @@ import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
 import type { SimpleQuiz, SimpleQuestion } from "@/types/quiz";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
 
-interface ReviewModeProps {
-  sessionToken: string;
-}
-
 type ReviewState = "loading" | "empty" | "ready" | "quiz" | "complete";
 
-export function ReviewMode({ sessionToken }: ReviewModeProps) {
+export function ReviewMode() {
   const [state, setState] = useState<ReviewState>("loading");
   const [reviewQuestion, setReviewQuestion] = useState<SimpleQuestion | null>(null);
   const [reviewQuestionId, setReviewQuestionId] = useState<Id<"questions"> | null>(null);
@@ -27,13 +23,13 @@ export function ReviewMode({ sessionToken }: ReviewModeProps) {
   // Queries - use polling for time-sensitive review queries
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    { sessionToken },
+    {},
     30000 // Poll every 30 seconds
   );
   
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
-    { sessionToken },
+    {},
     30000 // Poll every 30 seconds
   );
 

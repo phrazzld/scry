@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { QuizSessionManager } from '@/components/quiz-session-manager'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import type { SimpleQuiz } from '@/types/quiz'
 
@@ -18,7 +18,7 @@ interface QuizFlowProps {
 
 export function QuizFlow({ topic }: QuizFlowProps) {
   const router = useRouter()
-  const { user, sessionToken } = useAuth()
+  const { user, isSignedIn } = useUser()
   const [flowState, setFlowState] = useState<QuizFlowState>('generating')
   const [quiz, setQuiz] = useState<SimpleQuiz | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +35,6 @@ export function QuizFlow({ topic }: QuizFlowProps) {
         body: JSON.stringify({ 
           topic, 
           difficulty: 'medium',
-          sessionToken,
         }),
       })
 
@@ -69,13 +68,12 @@ export function QuizFlow({ topic }: QuizFlowProps) {
       setQuiz({ ...quiz, score: finalScore })
       
       // Save quiz results if user is authenticated
-      if (user && sessionToken) {
+      if (user && isSignedIn) {
         try {
           const response = await fetch('/api/quiz/complete', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                sessionToken,
                 topic,
                 difficulty: 'medium',
                 score: finalScore,

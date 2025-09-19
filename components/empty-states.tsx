@@ -1,144 +1,309 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Target, BookOpen, ArrowRight } from "lucide-react";
+import { BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useState, FormEvent } from "react";
-import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 
 interface EmptyStateProps {
   className?: string;
 }
 
+// Deprecated - use NoCardsEmptyState instead
 export function NoQuestionsEmptyState() {
+  console.warn('NoQuestionsEmptyState is deprecated. Use NoCardsEmptyState instead.');
+  return <NoCardsEmptyState />;
+}
+
+interface NoCardsEmptyStateProps {
+  onGenerationSuccess?: () => void;
+}
+
+/**
+ * Empty state for users with no cards at all (new users)
+ * Shows inline generation interface - no "empty state" feeling
+ */
+export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProps = {}) {
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const { sessionToken } = useAuth();
-  
-  // Hardcoded recent topics for now (TODO: fetch from backend)
-  const recentTopics = [
-    "JavaScript closures",
-    "React hooks",
-    "TypeScript generics",
-    "Linear algebra",
-    "French verbs"
-  ];
-  
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
+
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
     if (!topic.trim() || isGenerating) return;
-    
+
     setIsGenerating(true);
-    
+
     try {
       const response = await fetch('/api/generate-quiz', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          topic: topic.trim(), 
-          difficulty: 'medium',
-          sessionToken 
+        body: JSON.stringify({
+          topic: topic.trim(),
+          difficulty: 'medium'
         })
       });
-      
+
       if (response.ok) {
-        toast.success("Questions generated! They'll appear shortly.");
+        const result = await response.json();
+        const count = result.questions?.length || 0;
+
+        // Save questions if user is authenticated
+        if (isSignedIn && result.questions) {
+          try {
+            // Strip id field that API adds for frontend tracking
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number;[key: string]: any }) => q);
+            await saveQuestions({
+              topic: result.topic,
+              difficulty: result.difficulty || 'medium',
+              questions: questionsForSave
+            });
+            toast.success(`✓ ${count} questions generated and saved!`);
+            // Only trigger callback after successful save
+            onGenerationSuccess?.();
+          } catch (saveError) {
+            console.error('Failed to save questions:', saveError);
+            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
+            // Don't trigger callback if save failed
+          }
+        } else if (result.questions) {
+          // User not authenticated, just show generation success
+          console.warn('Questions generated but not saved - user is not authenticated');
+          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+          // Don't trigger callback for unauthenticated users
+        } else {
+          toast.error('Failed to generate questions');
+        }
+
+        setTopic('');
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate questions');
       }
     } catch (error) {
       console.error('Failed to generate questions:', error);
+      toast.error('Failed to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
-  
-  const handleQuickGenerate = async (quickTopic: string) => {
-    setTopic(quickTopic);
-    setIsGenerating(true);
-    
-    try {
-      const response = await fetch('/api/generate-quiz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          topic: quickTopic, 
-          difficulty: 'medium',
-          sessionToken 
-        })
-      });
-      
-      if (response.ok) {
-        toast.success("Questions generated! They'll appear shortly.");
-      }
-    } catch (error) {
-      console.error('Failed to generate questions:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-  
+
   return (
-    <div className="max-w-xl mx-auto p-8">
-      <h1 className="text-2xl font-bold mb-4">What do you want to learn?</h1>
+    <div className="max-w-xl mx-auto px-4">
+      <h1 className="text-2xl font-bold mb-6">What do you want to learn?</h1>
       <form onSubmit={handleGenerate} className="space-y-4">
         <input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="Quantum computing, French verbs, Linear algebra..."
+          placeholder="Enter a topic..."
           className="w-full p-3 text-lg border rounded-lg"
           autoFocus
         />
-        <button 
+        <button
           type="submit"
           disabled={!topic || isGenerating}
           className="w-full p-3 bg-black text-white rounded-lg disabled:opacity-50"
         >
-          {isGenerating ? 'Generating...' : 'Generate 5 Questions'}
+          {isGenerating ? 'Generating...' : 'Generate questions'}
         </button>
       </form>
-      
-      {recentTopics.length > 0 && (
-        <div className="mt-6">
-          <p className="text-sm text-gray-500 mb-2">Recent topics:</p>
-          <div className="flex flex-wrap gap-2">
-            {recentTopics.map(topic => (
-              <button
-                key={topic}
-                onClick={() => handleQuickGenerate(topic)}
-                disabled={isGenerating}
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm disabled:opacity-50"
-              >
-                {topic}
-              </button>
-            ))}
-          </div>
+
+      <p className="text-sm text-gray-500 mt-6">Example topics: JavaScript closures, French verbs, Linear algebra</p>
+    </div>
+  );
+}
+
+/**
+ * Empty state for users with cards but nothing currently due
+ * Shows next review time and statistics
+ */
+interface NothingDueEmptyStateProps {
+  nextReviewTime: number | null;
+  stats: {
+    learningCount: number;
+    totalCards: number;
+    newCount: number;
+  };
+  onContinueLearning?: () => void;
+}
+
+export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning }: NothingDueEmptyStateProps) {
+  const [topic, setTopic] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
+
+  const formatNextReviewTime = (timestamp: number | null) => {
+    if (!timestamp) return null;
+
+    const now = Date.now();
+    const diff = timestamp - now;
+
+    // Never return "Now" - show "< 1 minute" for imminent reviews
+    if (diff <= 60000) return "< 1 minute";
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+      const date = new Date(timestamp);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      if (date.toDateString() === tomorrow.toDateString()) {
+        return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+      }
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } else if (hours > 0) {
+      return `in ${hours}h ${minutes}m`;
+    } else {
+      return `in ${minutes}m`;
+    }
+  };
+
+  const handleGenerate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!topic.trim() || isGenerating) return;
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch('/api/generate-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          difficulty: 'medium'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const count = result.questions?.length || 0;
+
+        // Save questions if user is authenticated
+        if (isSignedIn && result.questions) {
+          try {
+            // Strip id field that API adds for frontend tracking
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number;[key: string]: any }) => q);
+            await saveQuestions({
+              topic: result.topic,
+              difficulty: result.difficulty || 'medium',
+              questions: questionsForSave
+            });
+            toast.success(`✓ ${count} questions generated! They'll appear shortly.`);
+          } catch (saveError) {
+            console.error('Failed to save questions:', saveError);
+            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
+          }
+        } else if (result.questions) {
+          console.warn('Questions generated but not saved - user is not authenticated');
+          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+        } else {
+          toast.error('Failed to generate questions');
+        }
+
+        setTopic('');
+        setShowGenerate(false);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to generate questions');
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      toast.error('Failed to generate questions. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
+
+  // Check if cards are due within 1 minute
+  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= 60000;
+
+  return (
+    <div className="max-w-xl mx-auto px-4">
+      <div className="text-center mb-6">
+        <h1 className="text-4xl font-bold mb-2">0 due</h1>
+
+        {nextReviewFormatted && (
+          <p className="text-lg text-gray-600">
+            Next review: {nextReviewFormatted}
+          </p>
+        )}
+
+        <div className="text-sm text-gray-500 mt-4">
+          {stats.learningCount > 0 && `${stats.learningCount} learning`}
+          {stats.learningCount > 0 && stats.totalCards > 0 && ' | '}
+          {stats.totalCards > 0 && `${stats.totalCards} total`}
         </div>
+      </div>
+
+      {!showGenerate && (
+        <>
+          {isImminentReview && onContinueLearning ? (
+            <>
+              <button
+                onClick={onContinueLearning}
+                className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-800"
+              >
+                Continue Learning →
+              </button>
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                Cards in learning phase need immediate review for optimal retention
+              </p>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowGenerate(true)}
+              className="w-full p-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Generate more questions →
+            </button>
+          )}
+        </>
+      )}
+
+      {showGenerate && (
+        <form onSubmit={handleGenerate} className="space-y-4">
+          <input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Enter a topic..."
+            className="w-full p-3 text-lg border rounded-lg"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={!topic || isGenerating}
+              className="flex-1 p-3 bg-black text-white rounded-lg disabled:opacity-50"
+            >
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGenerate(false)}
+              className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );
 }
 
-export function AllReviewsCompleteEmptyState({ className }: EmptyStateProps) {
-  return (
-    <Card className={`w-full max-w-2xl mx-auto ${className || ""}`}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5" />
-          All Caught Up!
-        </CardTitle>
-        <CardDescription>
-          You have no questions due for review right now. Great job staying on top of your learning!
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Your next review will be available soon. Check back later!
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// Deprecated components removed - use NothingDueEmptyState for seamless transitions
 
 export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
   return (
@@ -155,45 +320,6 @@ export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
             <ArrowRight className="h-3 w-3 ml-1" />
           </Link>
         </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-interface ReviewsCompleteWithCountProps extends EmptyStateProps {
-  remainingCount?: number;
-  onNextReview?: () => void;
-}
-
-export function ReviewsCompleteWithCount({ 
-  remainingCount = 0, 
-  onNextReview,
-  className 
-}: ReviewsCompleteWithCountProps) {
-  return (
-    <Card className={`w-full max-w-2xl mx-auto ${className || ""}`}>
-      <CardHeader>
-        <CardTitle>Review Complete!</CardTitle>
-        <CardDescription>
-          Great job! Your review has been recorded and the next review time has been scheduled.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {remainingCount > 0
-              ? `You have ${remainingCount} more question${remainingCount === 1 ? "" : "s"} due for review.`
-              : "You're all caught up with your reviews!"
-            }
-          </p>
-          {remainingCount > 0 && onNextReview && (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={onNextReview} variant="default">
-                Next Review
-              </Button>
-            </div>
-          )}
-        </div>
       </CardContent>
     </Card>
   );
@@ -256,5 +382,103 @@ export function CustomEmptyState({
         )}
       </CardContent>
     </Card>
+  );
+}
+// Zen empty state for when all reviews are complete
+interface ZenEmptyStateProps {
+  nextReviewTime: number | null;
+  stats?: {
+    streak?: number;
+    retentionRate?: number;
+    speedImprovement?: number;
+  };
+  onGenerateNewKnowledge?: () => void;
+}
+
+export function ZenEmptyState({
+  nextReviewTime,
+  stats,
+  onGenerateNewKnowledge
+}: ZenEmptyStateProps) {
+  const formatNextReviewTime = (timestamp: number | null) => {
+    if (!timestamp) return null;
+
+    const now = Date.now();
+    const diff = timestamp - now;
+
+    // Never return "Now" - show "< 1 minute" for imminent reviews
+    if (diff <= 60000) return "< 1 minute";
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+      const date = new Date(timestamp);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      if (date.toDateString() === tomorrow.toDateString()) {
+        return `Tomorrow, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+      }
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } else if (hours > 0) {
+      return `in ${hours}h ${minutes}m`;
+    } else {
+      return `in ${minutes}m`;
+    }
+  };
+
+  const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
+
+  return (
+    <div className="max-w-xl mx-auto px-4">
+      <div className="text-center mb-6">
+        {/* Main status */}
+        <h1 className="text-3xl font-bold mb-4 text-green-600">
+          ✓ Mind synchronized
+        </h1>
+
+        {/* Next review time */}
+        {nextReviewFormatted && (
+          <p className="text-lg text-gray-600 mb-4">
+            Next review: {nextReviewFormatted}
+          </p>
+        )}
+
+        {/* Metrics display */}
+        {stats && (
+          <div className="flex justify-center gap-8 mt-6 mb-6 text-sm">
+            {stats.streak !== undefined && (
+              <div className="text-center">
+                <div className="text-2xl font-bold">🔥 {stats.streak}</div>
+                <div className="text-gray-500">day streak</div>
+              </div>
+            )}
+            {stats.retentionRate !== undefined && (
+              <div className="text-center">
+                <div className="text-2xl font-bold">{Math.round(stats.retentionRate)}%</div>
+                <div className="text-gray-500">retention</div>
+              </div>
+            )}
+            {stats.speedImprovement !== undefined && stats.speedImprovement > 0 && (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {stats.speedImprovement > 0 ? '+' : ''}{Math.round(stats.speedImprovement)}%
+                </div>
+                <div className="text-gray-500">faster recall</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Generate button */}
+        <button
+          onClick={onGenerateNewKnowledge}
+          className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+        >
+          Generate new knowledge →
+        </button>
+      </div>
+    </div>
   );
 }

@@ -4,28 +4,14 @@ import { v } from "convex/values";
 export default defineSchema({
   users: defineTable({
     email: v.string(),
+    clerkId: v.optional(v.string()), // Clerk user ID for auth integration
     name: v.optional(v.string()),
     emailVerified: v.optional(v.number()),
     image: v.optional(v.string()),
-  }).index("by_email", ["email"]),
-
-  sessions: defineTable({
-    userId: v.id("users"),
-    expiresAt: v.number(),
-    token: v.string(),
-    environment: v.optional(v.string()), // Track where session was created (production, preview, development)
-  }).index("by_token", ["token"])
-    .index("by_user", ["userId"])
-    .index("by_environment", ["environment"]),
-
-  magicLinks: defineTable({
-    email: v.string(),
-    token: v.string(),
-    expiresAt: v.number(),
-    used: v.optional(v.boolean()),
-    environment: v.optional(v.string()), // Track environment for session creation
-  }).index("by_token", ["token"])
-    .index("by_email", ["email"]),
+    currentStreak: v.optional(v.number()), // Consecutive days with >0 reviews
+    lastStreakDate: v.optional(v.number()), // Last date streak was calculated
+  }).index("by_email", ["email"])
+    .index("by_clerk_id", ["clerkId"]),
 
   questions: defineTable({
     userId: v.id("users"),

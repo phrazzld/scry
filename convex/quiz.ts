@@ -1,10 +1,9 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthenticatedUserId } from "./lib/auth";
+import { getUserFromClerk, requireUserFromClerk } from "./clerk";
 
 export const completeQuiz = mutation({
   args: {
-    sessionToken: v.string(),
     topic: v.string(),
     difficulty: v.string(),
     score: v.number(),
@@ -22,7 +21,8 @@ export const completeQuiz = mutation({
   },
   handler: async (ctx, args) => {
     // Verify authentication
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
 
     // Validate score
     if (args.score > args.totalQuestions) {
@@ -51,22 +51,16 @@ export const completeQuiz = mutation({
 
 export const getQuizHistory = query({
   args: {
-    sessionToken: v.optional(v.string()),
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    if (!args.sessionToken) {
-      return { quizzes: [], total: 0 };
-    }
-
     // Verify authentication
-    let userId;
-    try {
-      userId = await getAuthenticatedUserId(ctx, args.sessionToken);
-    } catch {
+    const user = await getUserFromClerk(ctx);
+    if (!user) {
       return { quizzes: [], total: 0 };
     }
+    const userId = user._id;
 
     const limit = args.limit || 10;
     const offset = args.offset || 0;
@@ -114,21 +108,15 @@ export const getQuizHistory = query({
 
 export const getQuizStatsByTopic = query({
   args: {
-    sessionToken: v.optional(v.string()),
     topic: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!args.sessionToken) {
-      return null;
-    }
-
     // Verify authentication
-    let userId;
-    try {
-      userId = await getAuthenticatedUserId(ctx, args.sessionToken);
-    } catch {
+    const user = await getUserFromClerk(ctx);
+    if (!user) {
       return null;
     }
+    const userId = user._id;
 
     // Get all quizzes for this topic
     const quizzes = await ctx.db

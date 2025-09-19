@@ -163,7 +163,7 @@ describe('AI Client', () => {
           event: 'ai.quiz-generation.failure',
           topic: 'Mathematics'
         }),
-        'Failed to generate quiz questions with AI'
+        'Failed to generate quiz questions: AI service unavailable'
       )
 
       expect(aiLogger.warn).toHaveBeenCalledWith(

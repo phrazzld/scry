@@ -1,11 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { initializeCard, cardToDb, scheduleNextReview } from "./fsrs";
-import { getAuthenticatedUserId } from "./lib/auth";
+import { requireUserFromClerk } from "./clerk";
 
 export const saveGeneratedQuestions = mutation({
   args: {
-    sessionToken: v.string(),
     topic: v.string(),
     difficulty: v.string(),
     questions: v.array(v.object({
@@ -17,7 +16,8 @@ export const saveGeneratedQuestions = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Initialize FSRS card for new questions
     const initialCard = initializeCard();
@@ -64,7 +64,6 @@ export const saveGeneratedQuestions = mutation({
  */
 export const recordInteraction = mutation({
   args: {
-    sessionToken: v.string(),
     questionId: v.id("questions"),
     userAnswer: v.string(),
     isCorrect: v.boolean(),
@@ -72,7 +71,8 @@ export const recordInteraction = mutation({
     sessionId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Verify user owns this question
     const question = await ctx.db.get(args.questionId);
@@ -138,14 +138,14 @@ export const recordInteraction = mutation({
 
 export const getUserQuestions = query({
   args: {
-    sessionToken: v.string(),
     topic: v.optional(v.string()),
     onlyUnattempted: v.optional(v.boolean()),
     limit: v.optional(v.number()),
     includeDeleted: v.optional(v.boolean()), // Option to include deleted questions
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Choose the most selective index based on filters provided
     let query;
@@ -195,11 +195,11 @@ export const getUserQuestions = query({
 
 export const getQuizInteractionStats = query({
   args: {
-    sessionToken: v.string(),
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Get all interactions for this session
     const interactions = await ctx.db
@@ -230,7 +230,6 @@ export const getQuizInteractionStats = query({
  */
 export const updateQuestion = mutation({
   args: {
-    sessionToken: v.string(),
     questionId: v.id("questions"),
     question: v.optional(v.string()),
     topic: v.optional(v.string()),
@@ -240,7 +239,8 @@ export const updateQuestion = mutation({
   },
   handler: async (ctx, args) => {
     // 1. Authenticate user
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
@@ -322,12 +322,12 @@ export const updateQuestion = mutation({
  */
 export const softDeleteQuestion = mutation({
   args: {
-    sessionToken: v.string(),
     questionId: v.id("questions"),
   },
   handler: async (ctx, args) => {
     // 1. Authenticate user
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
@@ -360,12 +360,12 @@ export const softDeleteQuestion = mutation({
  */
 export const restoreQuestion = mutation({
   args: {
-    sessionToken: v.string(),
     questionId: v.id("questions"),
   },
   handler: async (ctx, args) => {
     // 1. Authenticate user
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
@@ -396,11 +396,11 @@ export const restoreQuestion = mutation({
 export const prepareRelatedGeneration = mutation({
   args: {
     baseQuestionId: v.id("questions"),
-    sessionToken: v.string(),
     count: v.optional(v.number()), // Default to 3 related questions
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Get the base question
     const baseQuestion = await ctx.db.get(args.baseQuestionId);
@@ -439,7 +439,6 @@ export const prepareRelatedGeneration = mutation({
 // Mutation to save related questions after AI generation
 export const saveRelatedQuestions = mutation({
   args: {
-    sessionToken: v.string(),
     baseQuestionId: v.id("questions"),
     relatedQuestions: v.array(v.object({
       question: v.string(),
@@ -450,7 +449,8 @@ export const saveRelatedQuestions = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Get the base question for topic and difficulty
     const baseQuestion = await ctx.db.get(args.baseQuestionId);
@@ -501,12 +501,12 @@ export const saveRelatedQuestions = mutation({
 // Query to get user's recent topics for quick generation
 export const getRecentTopics = query({
   args: {
-    sessionToken: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Get authenticated user
-    const userId = await getAuthenticatedUserId(ctx, args.sessionToken);
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
     
     // Query user's recent questions (not deleted)
     const recentQuestions = await ctx.db

@@ -35,6 +35,7 @@
   --spacing-prose: 1.5em;
   --spacing-section: 4rem;
   --spacing-component: 2rem;
+  --navbar-height: 4rem; /* 64px - matches h-16 class */
   
   /* Type scale */
   --font-size-xs: 0.75rem;
@@ -105,7 +106,13 @@
     min-height: 100vh;
     min-height: 100dvh; /* Dynamic viewport height for mobile */
   }
-  
+
+  .layout-grid > main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow children to manage their own overflow */
+  }
+
   .layout-grid > * {
     /* Ensure grid children respect layout boundaries */
     min-width: 0;
@@ -121,6 +128,9 @@
   
   .layout-legacy > main {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     /* Add padding to account for fixed navbar when in legacy mode */
     padding-top: 0; /* Spacer div handles this */
   }
@@ -311,44 +321,133 @@
       transform: translateX(100%);
     }
   }
-  
+
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
-  
+
+  /* Card fade animations for seamless transitions */
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes scaleIn {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes scaleOut {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+  }
+
+  /* Animation utility classes */
+  .animate-fadeIn {
+    animation: fadeIn 300ms ease-in-out forwards;
+  }
+
+  .animate-fadeOut {
+    animation: fadeOut 300ms ease-in-out forwards;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform;
+  }
+
+  .animate-scaleOut {
+    animation: scaleOut 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform;
+  }
+
+  /* Simultaneous fade transition for seamless state changes */
+  .fade-transition-enter {
+    animation: fadeIn 300ms ease-in-out forwards;
+  }
+
+  .fade-transition-exit {
+    animation: fadeOut 300ms ease-in-out forwards;
+    pointer-events: none;
+  }
+
+  /* Card emergence effect from center */
+  .card-emerge {
+    animation: scaleIn 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: center center;
+    will-change: transform;
+  }
+
   /* Gradient background animation */
   @keyframes gradient-shift {
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
   }
-  
+
   .gradient-bg {
     background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 25%, #fafafa 50%, #f0f0f0 75%, #fafafa 100%);
     background-size: 400% 400%;
     animation: gradient-shift 30s ease infinite;
     position: relative;
   }
-  
+
   .gradient-bg::after {
     content: '';
     position: absolute;
     inset: 0;
-    background-image: 
+    background-image:
       repeating-radial-gradient(circle at 50% 50%, transparent, transparent 50px, rgba(0, 0, 0, 0.015) 50px, rgba(0, 0, 0, 0.015) 51px);
     pointer-events: none;
   }
-  
+
   @media (prefers-reduced-motion: reduce) {
     .animate-shimmer {
       animation: none;
     }
-    
+
     .animate-pulse {
       animation: none;
     }
-    
+
     .gradient-bg {
       animation: none;
+    }
+
+    .animate-fadeIn,
+    .animate-fadeOut,
+    .animate-scaleIn,
+    .animate-scaleOut,
+    .fade-transition-enter,
+    .fade-transition-exit,
+    .card-emerge {
+      animation: none;
+      opacity: 1;
+      transform: none;
     }
   }
 }

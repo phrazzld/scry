@@ -250,7 +250,6 @@ describe('Prompt Sanitization', () => {
       const validInput = {
         topic: 'JavaScript',
         difficulty: 'medium',
-        sessionToken: 'token123'
       };
       
       const result = validateQuizInput(validInput);
@@ -261,7 +260,6 @@ describe('Prompt Sanitization', () => {
       const invalidInput = {
         topic: 'JavaScript',
         difficulty: 'super-hard', // Invalid
-        sessionToken: 'token123'
       };
       
       expect(() => validateQuizInput(invalidInput)).toThrow();
@@ -271,22 +269,20 @@ describe('Prompt Sanitization', () => {
       const invalidInput = {
         topic: '',
         difficulty: 'easy',
-        sessionToken: 'token123'
       };
       
       expect(() => validateQuizInput(invalidInput)).toThrow();
     });
 
-    it('should work without optional sessionToken', () => {
+    it('should work with valid input', () => {
       const input = {
         topic: 'Math',
         difficulty: 'hard'
       };
-      
+
       const result = validateQuizInput(input);
       expect(result.topic).toBe('Math');
       expect(result.difficulty).toBe('hard');
-      expect(result.sessionToken).toBeUndefined();
     });
   });
 

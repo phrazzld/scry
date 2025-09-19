@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/contexts/auth-context";
+import { useUser } from "@clerk/nextjs";
 import { QuizMode } from "./quiz-mode";
 import { ReviewMode } from "./review-mode";
 
@@ -26,11 +26,11 @@ export function UnifiedQuizFlow({
   difficulty = "medium",
   mode = "quiz" 
 }: UnifiedQuizFlowProps) {
-  const { sessionToken } = useAuth();
+  const { isSignedIn } = useUser();
 
   // Delegate to appropriate mode component
   if (mode === "review") {
-    if (!sessionToken) {
+    if (!isSignedIn) {
       // Review mode requires authentication
       return (
         <div className="w-full max-w-2xl mx-auto p-4 text-center">
@@ -40,11 +40,11 @@ export function UnifiedQuizFlow({
         </div>
       );
     }
-    return <ReviewMode sessionToken={sessionToken} />;
+    return <ReviewMode />;
   }
 
   // Default to quiz mode
-  return <QuizMode topic={topic} difficulty={difficulty} sessionToken={sessionToken} />;
+  return <QuizMode topic={topic} difficulty={difficulty} />;
 }
 
 // Default export for module

@@ -17,8 +17,8 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('@/contexts/auth-context', () => ({
-  useAuth: vi.fn(() => ({ sessionToken: 'mock-token' })),
+vi.mock('@clerk/nextjs', () => ({
+  useUser: vi.fn(() => ({ isSignedIn: true, user: { id: 'mock-token' } })),
 }));
 
 vi.mock('@/convex/_generated/api', () => ({
@@ -99,7 +99,6 @@ describe('useQuestionMutations', () => {
       });
       
       expect(mockUpdateQuestion).toHaveBeenCalledWith({
-        sessionToken: 'mock-token',
         questionId: mockQuestion._id,
         question: updates.question,
         topic: updates.topic,
@@ -171,7 +170,6 @@ describe('useQuestionMutations', () => {
       
       expect(mockDeleteQuestion).toHaveBeenCalledWith({
         questionId: mockQuestion._id,
-        sessionToken: 'mock-token',
       });
     });
 
@@ -208,4 +206,3 @@ describe('useQuestionMutations', () => {
     });
   });
 });
-

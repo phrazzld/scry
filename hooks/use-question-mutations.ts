@@ -5,7 +5,7 @@ import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { Id } from '@/convex/_generated/dataModel'
 import { toast } from 'sonner'
-import { useAuth } from '@/contexts/auth-context'
+import { useUser } from '@clerk/nextjs'
 
 // Track optimistic updates globally to persist across component re-renders
 const optimisticStore = {
@@ -29,7 +29,7 @@ interface OptimisticDeleteParams {
  * Provides immediate UI updates with automatic rollback on error
  */
 export function useQuestionMutations() {
-  const { sessionToken } = useAuth()
+  const { isSignedIn } = useUser()
   const updateQuestion = useMutation(api.questions.updateQuestion)
   const softDeleteQuestion = useMutation(api.questions.softDeleteQuestion)
   
@@ -39,7 +39,7 @@ export function useQuestionMutations() {
 
   // Optimistic edit with rollback on error
   const optimisticEdit = useCallback(async (params: OptimisticEditParams) => {
-    if (!sessionToken) {
+    if (!isSignedIn) {
       toast.error('You must be logged in to edit questions')
       return { success: false }
     }
@@ -58,7 +58,6 @@ export function useQuestionMutations() {
     try {
       // Perform the actual mutation
       const result = await updateQuestion({
-        sessionToken,
         questionId,
         question,
         topic,
@@ -99,11 +98,11 @@ export function useQuestionMutations() {
       
       return { success: false }
     }
-  }, [sessionToken, updateQuestion])
+  }, [isSignedIn, updateQuestion])
 
   // Optimistic delete with rollback on error
   const optimisticDelete = useCallback(async (params: OptimisticDeleteParams) => {
-    if (!sessionToken) {
+    if (!isSignedIn) {
       toast.error('You must be logged in to delete questions')
       return { success: false }
     }
@@ -121,7 +120,6 @@ export function useQuestionMutations() {
     try {
       // Perform the actual mutation
       await softDeleteQuestion({
-        sessionToken,
         questionId,
       })
 
@@ -151,7 +149,7 @@ export function useQuestionMutations() {
       
       return { success: false }
     }
-  }, [sessionToken, softDeleteQuestion])
+  }, [isSignedIn, softDeleteQuestion])
 
   // Helper to apply optimistic updates to a question
   const applyOptimisticUpdates = useCallback(<T extends { _id: string | Id<'questions'> }>(question: T): T => {
