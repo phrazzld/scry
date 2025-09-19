@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuestionHistory } from "@/components/question-history";
 import { NoCardsEmptyState, NothingDueEmptyState } from "@/components/empty-states";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { getPollingInterval } from "@/lib/smart-polling";
 import { toast } from "sonner";
@@ -19,6 +19,17 @@ import { KeyboardShortcutsHelp } from "@/components/keyboard-shortcuts-help";
 import { EditQuestionModal } from "@/components/edit-question-modal";
 import { SignIn } from "@clerk/nextjs";
 import { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } from "@/lib/haptic";
+import { formatDistanceToNow } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -33,6 +44,7 @@ interface ReviewFeedback {
   isCorrect: boolean;
   nextReview: number | null;
   scheduledDays: number;
+  timeSpentSeconds: number;
 }
 
 // Daily counter helper functions (localStorage-based, replaces session concept)
@@ -65,6 +77,37 @@ const incrementDailyCount = (): number => {
   return newCount;
 };
 
+const formatSeconds = (totalSeconds: number): string => {
+  if (totalSeconds <= 60) {
+    return `${Math.max(totalSeconds, 1)}s`;
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  if (remainingSeconds === 0) {
+    return `${minutes}m`;
+  }
+
+  return `${minutes}m ${remainingSeconds}s`;
+};
+
+const formatNextReviewWindow = (scheduledDays: number, nextReview: number | null): string => {
+  if (nextReview) {
+    return formatDistanceToNow(new Date(nextReview), { addSuffix: true });
+  }
+
+  if (scheduledDays === 0) {
+    return "Later today";
+  }
+
+  if (scheduledDays === 1) {
+    return "In 1 day";
+  }
+
+  return `In ${scheduledDays} days`;
+};
+
 /**
  * Main review flow component for spaced repetition learning
  * 
@@ -94,6 +137,8 @@ export function ReviewFlow() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   // const [dailyCount, setDailyCount] = useState(getDailyCount); // Removed for minimal design
   // const [isMutating, setIsMutating] = useState(false); // Not needed anymore
   const [shouldStartReview, setShouldStartReview] = useState(false); // Trigger review after generation
@@ -136,12 +181,60 @@ export function ReviewFlow() {
   
   // Set initial question or auto-start after generation
   useEffect(() => {
-    if (currentReview && (!currentQuestion || shouldStartReview) && !showingFeedback) {
-      setCurrentQuestion(currentReview);
-      setQuestionStartTime(Date.now());
+    if (!currentReview || showingFeedback) {
+      return;
+    }
+
+    setCurrentQuestion((prev) => {
+      const needsInitialQuestion = !prev || shouldStartReview;
+      const isDifferentQuestion = prev?.question._id !== currentReview.question._id;
+
+      if (needsInitialQuestion || isDifferentQuestion) {
+        setQuestionStartTime(Date.now());
+        return currentReview;
+      }
+
+      const interactionsChanged =
+        prev.interactions.length !== currentReview.interactions.length ||
+        prev.interactions.some((interaction, index) => {
+          const nextInteraction = currentReview.interactions[index];
+          if (!nextInteraction) return true;
+          return (
+            interaction._id !== nextInteraction._id ||
+            interaction.isCorrect !== nextInteraction.isCorrect ||
+            interaction.userAnswer !== nextInteraction.userAnswer ||
+            interaction.attemptedAt !== nextInteraction.attemptedAt ||
+            interaction.timeSpent !== nextInteraction.timeSpent
+          );
+        });
+
+      const questionContentChanged =
+        prev.question.question !== currentReview.question.question ||
+        prev.question.correctAnswer !== currentReview.question.correctAnswer ||
+        prev.question.explanation !== currentReview.question.explanation ||
+        prev.question.options.length !== currentReview.question.options.length ||
+        prev.question.options.some((option, index) => option !== currentReview.question.options[index]);
+
+      const progressChanged =
+        prev.attemptCount !== currentReview.attemptCount ||
+        prev.correctCount !== currentReview.correctCount ||
+        prev.successRate !== currentReview.successRate ||
+        prev.serverTime !== currentReview.serverTime;
+
+      if (interactionsChanged || questionContentChanged || progressChanged) {
+        return {
+          ...prev,
+          ...currentReview,
+        };
+      }
+
+      return prev;
+    });
+
+    if (shouldStartReview) {
       setShouldStartReview(false);
     }
-  }, [currentReview, currentQuestion, showingFeedback, shouldStartReview]);
+  }, [currentReview, showingFeedback, shouldStartReview]);
   
   // Broadcast current question for generation context
   useEffect(() => {
@@ -193,10 +286,37 @@ export function ReviewFlow() {
   
   // Pre-fetch next question
   useEffect(() => {
-    if (nextReview && nextReview !== currentQuestion) {
-      setNextQuestion(nextReview);
+    if (nextReview === undefined) {
+      return;
     }
+
+    if (nextReview === null) {
+      setNextQuestion(null);
+      return;
+    }
+
+    if (
+      currentQuestion &&
+      nextReview.question._id === currentQuestion.question._id
+    ) {
+      // Avoid storing the same card as both current and next.
+      return;
+    }
+
+    setNextQuestion((prev) => {
+      if (prev?.question._id === nextReview.question._id) {
+        return prev;
+      }
+      return nextReview;
+    });
   }, [nextReview, currentQuestion]);
+
+  useEffect(() => {
+    if (!currentQuestion) {
+      setIsDeleteDialogOpen(false);
+      setIsDeleting(false);
+    }
+  }, [currentQuestion]);
   
   // Advance to next question
   const advanceToNext = useCallback(() => {
@@ -241,6 +361,7 @@ export function ReviewFlow() {
         isCorrect,
         nextReview: result.nextReview,
         scheduledDays: result.scheduledDays,
+        timeSpentSeconds: timeSpent,
       });
 
       setShowingFeedback(true);
@@ -259,11 +380,20 @@ export function ReviewFlow() {
   }, [currentQuestion, selectedAnswer, isSignedIn, isAnswering, questionStartTime, scheduleReview]);
   
   // Handle delete with undo
-  const handleDelete = useCallback(async (questionId: string) => {
-    if (!isSignedIn) return;
-    
+  const resetQuestionState = useCallback(() => {
+    setCurrentQuestion(null);
+    setNextQuestion(null);
+    setSelectedAnswer("");
+    setShowingFeedback(false);
+    setFeedback(null);
+    setQuestionStartTime(Date.now());
+  }, []);
+
+  const handleDelete = useCallback(async (questionId: string): Promise<boolean> => {
+    if (!isSignedIn) return false;
+
     // setIsMutating(true); // Not needed anymore
-    
+
     try {
       // Mark as deleted in local state
       setDeletedQuestions(prev => new Set(prev).add(questionId));
@@ -324,25 +454,42 @@ export function ReviewFlow() {
           return next;
         });
       }, 5000);
-      
+
+      return true;
     } catch (error) {
       console.error("Failed to delete question:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to delete question";
-      
+
       // Remove from local deleted state since operation failed
       setDeletedQuestions(prev => {
         const next = new Set(prev);
         next.delete(questionId);
         return next;
       });
-      
+
       toast.error("Unable to delete question", {
         description: errorMessage
       });
+      return false;
     } finally {
       // setIsMutating(false); // Not needed anymore
     }
   }, [isSignedIn, deleteQuestion, restoreQuestion, router]);
+
+  const confirmDelete = useCallback(async () => {
+    if (!currentQuestion) return;
+
+    setIsDeleting(true);
+    const didDelete = await handleDelete(currentQuestion.question._id);
+
+    if (didDelete) {
+      resetQuestionState();
+      setIsDeleteDialogOpen(false);
+      setIsEditModalOpen(false);
+    }
+
+    setIsDeleting(false);
+  }, [currentQuestion, handleDelete, resetQuestionState]);
   
   // Enhanced keyboard shortcuts for power users
   const { showHelp, setShowHelp, shortcuts } = useReviewShortcuts({
@@ -361,7 +508,7 @@ export function ReviewFlow() {
     },
     onDelete: () => {
       if (currentQuestion) {
-        handleDelete(currentQuestion.question._id);
+        setIsDeleteDialogOpen(true);
       }
     },
     onUndo: () => {
@@ -378,6 +525,7 @@ export function ReviewFlow() {
     question: string;
     options: string[];
     correctAnswer: string;
+    explanation: string;
   }) => {
     if (!isSignedIn || !currentQuestion) return;
     
@@ -385,7 +533,8 @@ export function ReviewFlow() {
       questionId: currentQuestion.question._id,
       question: updates.question,
       options: updates.options,
-      correctAnswer: updates.correctAnswer
+      correctAnswer: updates.correctAnswer,
+      explanation: updates.explanation
     });
     
     // Update local state to reflect changes
@@ -402,7 +551,7 @@ export function ReviewFlow() {
   // Loading state
   if (!isSignedIn) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
         <SignIn routing="hash" />
       </div>
     );
@@ -410,13 +559,15 @@ export function ReviewFlow() {
   
   if (currentReview === undefined) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="pt-12 pb-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-2xl">
+          <CardContent className="pt-12 pb-8">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
   
@@ -425,13 +576,15 @@ export function ReviewFlow() {
     // Check if user has any cards at all
     if (cardStats?.totalCards === 0) {
       return (
-        <div className="w-full max-w-2xl mx-auto pt-20">
-          <NoCardsEmptyState
-            onGenerationSuccess={() => {
-              // Trigger immediate review of newly generated questions
-              setShouldStartReview(true);
-            }}
-          />
+        <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+          <div className="w-full max-w-2xl">
+            <NoCardsEmptyState
+              onGenerationSuccess={() => {
+                // Trigger immediate review of newly generated questions
+                setShouldStartReview(true);
+              }}
+            />
+          </div>
         </div>
       );
     }
@@ -439,40 +592,67 @@ export function ReviewFlow() {
     // User has cards but nothing is due
     if (!currentReview && cardStats) {
       return (
-        <div className="w-full max-w-2xl mx-auto pt-20">
-          <NothingDueEmptyState
-            nextReviewTime={cardStats.nextReviewTime}
-            stats={{
-              learningCount: cardStats.learningCount,
-              totalCards: cardStats.totalCards,
-              newCount: cardStats.newCount,
-            }}
-            onContinueLearning={() => {
-              // Trigger immediate review when learning cards are imminent
-              setShouldStartReview(true);
-            }}
-          />
+        <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+          <div className="w-full max-w-2xl">
+            <NothingDueEmptyState
+              nextReviewTime={cardStats.nextReviewTime}
+              stats={{
+                learningCount: cardStats.learningCount,
+                totalCards: cardStats.totalCards,
+                newCount: cardStats.newCount,
+              }}
+              onContinueLearning={() => {
+                // Trigger immediate review when learning cards are imminent
+                setShouldStartReview(true);
+              }}
+            />
+          </div>
         </div>
       );
     }
 
     // Fallback (should not happen, but just in case)
     return (
-      <div className="w-full max-w-2xl mx-auto pt-20">
-        <NoCardsEmptyState />
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
+        <div className="w-full max-w-2xl">
+          <NoCardsEmptyState />
+        </div>
       </div>
     );
   }
   
   // Review interface
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+    <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
       <div className="w-full max-w-2xl space-y-4">
       {/* Question card */}
       {currentQuestion && (
         <Card className="group animate-fadeIn shadow-lg border-0">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-2xl font-semibold text-center px-4">
+          <CardHeader className="pb-4 pt-4 space-y-4">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditModalOpen(true)}
+                aria-label="Edit question"
+              >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit question</span>
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                aria-label="Delete question"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete question</span>
+              </Button>
+            </div>
+            <CardTitle className="text-2xl font-semibold text-left leading-tight px-4">
               {currentQuestion.question.question}
             </CardTitle>
           </CardHeader>
@@ -531,23 +711,103 @@ export function ReviewFlow() {
             {/* Feedback display with history */}
             {showingFeedback && feedback && (
               <div className="space-y-4 animate-fadeIn">
-                <div className={`p-6 rounded-xl ${feedback.isCorrect ? "bg-green-50/70 border border-green-200" : "bg-red-50/70 border border-red-200"}`}>
-                  <p className="font-semibold text-lg text-center">
-                    {feedback.isCorrect ? "✅ Correct!" : "❌ Incorrect"}
-                  </p>
+                <div
+                  className={`rounded-2xl border px-5 py-5 ${
+                    feedback.isCorrect
+                      ? "border-emerald-200 bg-emerald-50/70"
+                      : "border-rose-200 bg-rose-50/70"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`mt-1 rounded-full p-2 ${
+                        feedback.isCorrect
+                          ? "bg-white/70 text-emerald-600"
+                          : "bg-white/70 text-rose-600"
+                      }`}
+                    >
+                      {feedback.isCorrect ? (
+                        <CheckCircle className="h-5 w-5" />
+                      ) : (
+                        <XCircle className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="space-y-1 text-left">
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-wide ${
+                          feedback.isCorrect ? "text-emerald-700" : "text-rose-700"
+                        }`}
+                      >
+                        {feedback.isCorrect ? "Correct" : "Needs review"}
+                      </p>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {feedback.isCorrect ? "Memory reinforced" : "Let's revisit this card"}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {feedback.isCorrect
+                          ? "Consistency keeps this concept locked in. Queue the next prompt when you're ready."
+                          : "Review what went wrong, study the right answer, and take another pass soon."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        label: "Next review",
+                        value: formatNextReviewWindow(feedback.scheduledDays, feedback.nextReview),
+                      },
+                      {
+                        label: "Response time",
+                        value: formatSeconds(feedback.timeSpentSeconds),
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className={`rounded-lg border bg-white/80 p-3 ${
+                          feedback.isCorrect
+                            ? "border-emerald-100/70"
+                            : "border-rose-100/70"
+                        }`}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {!feedback.isCorrect && (
+                    <div className="mt-4 rounded-lg border border-white/40 bg-white/90 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Correct answer
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {currentQuestion.question.correctAnswer}
+                      </p>
+                    </div>
+                  )}
+
                   {currentQuestion.question.explanation && (
-                    <p className="text-sm text-gray-600 mt-3 text-center px-4">
-                      {currentQuestion.question.explanation}
-                    </p>
+                    <div
+                      className={`mt-4 border-t pt-4 ${
+                        feedback.isCorrect ? "border-emerald-100" : "border-rose-100"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Explanation
+                      </p>
+                      <p className="mt-2 text-sm text-gray-600">
+                        {currentQuestion.question.explanation}
+                      </p>
+                    </div>
                   )}
                 </div>
 
                 {/* Show history after answering */}
                 {currentQuestion.interactions.length > 0 && (
-                  <QuestionHistory
-                    interactions={currentQuestion.interactions}
-                    loading={false}
-                  />
+                  <QuestionHistory interactions={currentQuestion.interactions} loading={false} />
                 )}
               </div>
             )}
@@ -586,6 +846,43 @@ export function ReviewFlow() {
           question={currentQuestion.question}
           onSave={handleEditSave}
         />
+      )}
+
+      {currentQuestion && (
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!isDeleting) {
+              setIsDeleteDialogOpen(open);
+            }
+          }}
+        >
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this question?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes the current question from your review queue. You can undo from the toast immediately after deletion.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting
+                  </>
+                ) : (
+                  "Delete question"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {/* Keyboard shortcuts help modal */}

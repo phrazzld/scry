@@ -19,8 +19,8 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
   if (!interactions || interactions.length === 0) {
     return (
-      <div className="w-full bg-gray-50/50 rounded-xl p-4">
-        <p className="text-center text-sm text-gray-500">No previous attempts</p>
+      <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
+        <p className="text-sm font-medium text-gray-600">No previous attempts yet.</p>
       </div>
     )
   }
@@ -35,18 +35,18 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
   const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0
 
   return (
-    <div className="w-full bg-gray-50/50 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-700">Previous Attempts</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% success rate
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Previous attempts</p>
+          <p className="mt-1 text-sm text-gray-600">
+            {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% correct
           </p>
         </div>
         {hasMore && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
           >
             {isExpanded ? (
               <>
@@ -62,34 +62,35 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
           </button>
         )}
       </div>
-      <div className="space-y-2">
+      <div className="mt-4 divide-y divide-gray-200">
         {recentInteractions.map((interaction) => (
           <div
             key={interaction._id}
-            className="flex items-start gap-2.5 py-2"
+            className="flex items-start gap-3 py-3"
           >
-            <div className="mt-0.5">
+            <div
+              className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full border ${
+                interaction.isCorrect
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                  : 'border-rose-200 bg-rose-50 text-rose-600'
+              }`}
+            >
               {interaction.isCorrect ? (
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-3.5 w-3.5" />
               ) : (
-                <XCircle className="h-4 w-4 text-red-600" />
+                <XCircle className="h-3.5 w-3.5" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-gray-600 font-medium">
-                  {interaction.userAnswer}
-                </span>
-                <span className="text-gray-400">•</span>
-                <span className="text-gray-500">
-                  {formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}
-                </span>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {interaction.userAnswer}
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <span>{formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}</span>
                 {interaction.timeSpent && (
                   <>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-gray-500">
-                      {formatTimeSpent(interaction.timeSpent)}
-                    </span>
+                    <span className="text-gray-300">•</span>
+                    <span>{formatTimeSpent(interaction.timeSpent)}</span>
                   </>
                 )}
               </div>
@@ -103,17 +104,18 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
 function QuestionHistorySkeleton() {
   return (
-    <div className="w-full bg-gray-50/50 rounded-xl p-4">
+    <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
       <div className="space-y-2">
-        <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-        <div className="h-3 w-48 bg-gray-200 rounded animate-pulse mt-1" />
+        <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
+        <div className="h-3 w-48 rounded bg-gray-200 animate-pulse" />
       </div>
-      <div className="space-y-2 mt-3">
+      <div className="mt-4 space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-start gap-2.5 py-2">
-            <div className="h-4 w-4 bg-gray-200 rounded-full animate-pulse" />
-            <div className="flex-1 space-y-1">
-              <div className="h-3 w-full max-w-xs bg-gray-200 rounded animate-pulse" />
+          <div key={i} className="flex items-start gap-3">
+            <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-40 rounded bg-gray-200 animate-pulse" />
+              <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
             </div>
           </div>
         ))}

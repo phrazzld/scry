@@ -106,7 +106,13 @@
     min-height: 100vh;
     min-height: 100dvh; /* Dynamic viewport height for mobile */
   }
-  
+
+  .layout-grid > main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow children to manage their own overflow */
+  }
+
   .layout-grid > * {
     /* Ensure grid children respect layout boundaries */
     min-width: 0;
@@ -122,6 +128,9 @@
   
   .layout-legacy > main {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     /* Add padding to account for fixed navbar when in legacy mode */
     padding-top: 0; /* Spacer div handles this */
   }

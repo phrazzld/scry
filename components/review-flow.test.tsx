@@ -227,7 +227,7 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Correct!/i)).toBeInTheDocument();
+        expect(screen.getByText(/Memory reinforced/i)).toBeInTheDocument();
       });
       
       expect(mockScheduleReview).toHaveBeenCalledWith({
@@ -256,10 +256,10 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Incorrect/i)).toBeInTheDocument();
+        expect(screen.getByText(/Let's revisit this card/i)).toBeInTheDocument();
       });
-      
-      expect(screen.getByText(/The correct answer was:/i)).toBeInTheDocument();
+
+      expect(screen.getByText(/Correct answer/i)).toBeInTheDocument();
       expect(screen.getByText(/A library/i)).toBeInTheDocument();
     });
 
@@ -335,7 +335,7 @@ describe('ReviewFlow', () => {
       fireEvent.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText(/Correct!/i)).toBeInTheDocument();
+        expect(screen.getByText(/Memory reinforced/i)).toBeInTheDocument();
       });
       
       // Click next button
