@@ -11,6 +11,15 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - Script tested successfully locally with all 307 tests passing
   - Fixed first CI failure, revealed secondary issue with missing env vars
   ```
+- [x] [CI FIX] Fix Vercel build command referencing non-existent script
+  ```
+  Work Log:
+  - Vercel was failing with "Cannot find module scripts/vercel-build.cjs"
+  - Script was deleted in commit 00435ce but vercel.json wasn't updated
+  - Changed buildCommand from "node scripts/vercel-build.cjs" to "pnpm build"
+  - Removed redundant vercel-alternative.json file
+  - Vercel now progresses past script error to env variable stage
+  ```
 - [ ] [CI FIX] Add Clerk environment variables to GitHub Secrets (requires repo admin)
   ```
   Required secrets for CI to pass:
