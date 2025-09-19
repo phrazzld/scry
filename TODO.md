@@ -9,7 +9,18 @@ Focus on the remaining Clerk migration and delivery fixes. Completed items from 
   - CI was failing with "Command test:ci not found" error
   - Added test:ci script: "vitest --run --coverage --coverage.thresholdAutoUpdate=false"
   - Script tested successfully locally with all 307 tests passing
-  - Ready to commit and push to trigger CI verification
+  - Fixed first CI failure, revealed secondary issue with missing env vars
+  ```
+- [ ] [CI FIX] Add Clerk environment variables to GitHub Secrets (requires repo admin)
+  ```
+  Required secrets for CI to pass:
+  - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  - CLERK_SECRET_KEY (if needed for build)
+
+  Current status:
+  - Build fails with: "@clerk/nextjs: Missing publishableKey"
+  - Settings page cannot pre-render without Clerk configuration
+  - Action needed: Repository owner must add secrets in GitHub repository settings
   ```
 
 ## Manual Tasks (require dashboard or secrets)
