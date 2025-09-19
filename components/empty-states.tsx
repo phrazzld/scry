@@ -57,7 +57,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
           try {
             // Strip id field that API adds for frontend tracking
             // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q);
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number;[key: string]: any }) => q);
             await saveQuestions({
               topic: result.topic,
               difficulty: result.difficulty || 'medium',
@@ -109,7 +109,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
           disabled={!topic || isGenerating}
           className="w-full p-3 bg-black text-white rounded-lg disabled:opacity-50"
         >
-          {isGenerating ? 'Generating...' : 'Generate 5 questions'}
+          {isGenerating ? 'Generating...' : 'Generate questions'}
         </button>
       </form>
 
@@ -192,7 +192,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
           try {
             // Strip id field that API adds for frontend tracking
             // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q);
+            const questionsForSave = result.questions.map(({ id, ...q }: { id?: number;[key: string]: any }) => q);
             await saveQuestions({
               topic: result.topic,
               difficulty: result.difficulty || 'medium',
