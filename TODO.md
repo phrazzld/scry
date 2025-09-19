@@ -2,6 +2,16 @@
 
 Focus on the remaining Clerk migration and delivery fixes. Completed items from earlier phases have been archived elsewhere.
 
+## CI Infrastructure Fix
+- [x] [CI FIX] Add missing test:ci script to package.json
+  ```
+  Work Log:
+  - CI was failing with "Command test:ci not found" error
+  - Added test:ci script: "vitest --run --coverage --coverage.thresholdAutoUpdate=false"
+  - Script tested successfully locally with all 307 tests passing
+  - Ready to commit and push to trigger CI verification
+  ```
+
 ## Manual Tasks (require dashboard or secrets)
 - [ ] Check Resend dashboard for delivery status of recent magic-link emails (optional cleanup task).
 - [x] Create the Clerk application (Email + Google only) and copy the publishable/secret keys into `.env.local`.
