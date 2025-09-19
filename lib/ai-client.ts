@@ -24,23 +24,23 @@ const questionsSchema = z.object({
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
   // Sanitize the topic before using it
   const sanitizedTopic = sanitizeTopic(topic);
-  
+
   // Create a safe prompt that prevents injection
   const prompt = createSafePrompt(sanitizedTopic, 10);
 
   try {
     const timer = loggers.time(`ai.quiz-generation.${sanitizedTopic}`, 'ai')
-    
+
     aiLogger.info({
       event: 'ai.quiz-generation.start',
       topic: sanitizedTopic,
       originalTopic: topic !== sanitizedTopic ? topic : undefined,
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash',
       questionCount: 10
     }, `Starting quiz generation for topic: ${sanitizedTopic}`)
 
     const { object } = await generateObject({
-      model: google('gemini-2.0-flash-exp'),
+      model: google('gemini-2.5-flash'),
       schema: questionsSchema,
       prompt,
     })
@@ -69,14 +69,14 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
   } catch (error) {
     const errorMessage = (error as Error).message || 'Unknown error'
     const isApiKeyError = errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')
-    
+
     loggers.error(
       error as Error,
       'ai',
       {
         event: 'ai.quiz-generation.failure',
         topic: sanitizedTopic,
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         errorType: isApiKeyError ? 'api-key-error' : 'generation-error',
         errorMessage
       },
