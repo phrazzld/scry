@@ -6,11 +6,11 @@ env:
   PNPM_VERSION: '10.12.1'
 
 jobs:
-  ci:
+  # Shared quality checks that must pass first
+  quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # Fail fast if stuck
+    timeout-minutes: 3
     steps:
-      # Setup (20 seconds)
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
@@ -19,10 +19,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
-      
-      # Install (30 seconds)
+
       - run: pnpm install --frozen-lockfile
-      
+
       # Quality checks in parallel (40 seconds)
       - name: Run quality checks
         run: |
@@ -30,13 +29,44 @@ jobs:
           pnpm tsc --noEmit &
           pnpm audit --audit-level=critical &
           wait
-      
-      # Test with coverage (30 seconds)
-      # Note: Using test:ci script with 60% coverage threshold for CI
+
+  # Test job - runs in parallel with build
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: quality  # Only run after quality checks pass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Run tests with coverage
         run: pnpm test:ci
-      
-      # Build (40 seconds)
+
+  # Build job - runs in parallel with test
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: quality  # Only run after quality checks pass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
       - name: Build application
         run: pnpm build
         env:

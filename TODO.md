@@ -16,7 +16,15 @@
 - [x] No point having a linter that's 90% disabled - Linter is working fine!
 
 ## [HIGH] Optimize CI Pipeline (save 45+ seconds per build)
-- [ ] Parallelize test and build steps in ci.yml
+- [x] Parallelize test and build steps in ci.yml
+  ```
+  Work Log:
+  - Split single job into 3 parallel jobs: quality, test, build
+  - Quality runs first as a gate (lint, typecheck, audit)
+  - Test and build run in parallel after quality passes
+  - Expected time savings: ~30 seconds per CI run
+  - Build (40s) and test (30s) now run simultaneously
+  ```
 - [ ] Add condition to Claude review: only for external contributors
 - [ ] Reduce convex-schema-check.yml from 143 to ~20 lines
 
