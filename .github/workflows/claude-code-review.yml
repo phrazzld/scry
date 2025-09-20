@@ -1,4 +1,4 @@
-name: Claude Code Review (External Contributors)
+name: Claude Code Review
 
 on:
   pull_request:
@@ -20,13 +20,6 @@ on:
 
 jobs:
   claude-review:
-    # Run for external contributors OR manual triggers
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.author_association != 'MEMBER' &&
-       github.event.pull_request.author_association != 'OWNER' &&
-       github.event.pull_request.author_association != 'COLLABORATOR')
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -60,4 +53,3 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
-
