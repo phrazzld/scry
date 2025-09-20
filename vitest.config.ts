@@ -16,36 +16,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      /**
-       * Test Coverage Improvement Plan (2025-09-04)
-       * Current: 4.01% 
-       * 
-       * Staged Milestones:
-       * ✅ Phase 1: 4%   - CI unblocked (DONE)
-       * ⏳ Phase 2: 15%  - Business logic tests (Convex mutations, API routes)
-       * ⏳ Phase 3: 30%  - Hook testing (custom hooks with mocks)
-       * ⏳ Phase 4: 60%  - UI testing (requires @testing-library/react installation)
-       * 
-       * Note: React components are 0% coverage. Reaching 60% requires installing:
-       * - @testing-library/react
-       * - @testing-library/jest-dom  
-       * - happy-dom (for DOM environment)
-       * 
-       * Threshold is enforced in package.json test script, not here.
-       */
-      // thresholds: {
-      //   statements: 80,
-      //   branches: 80,
-      //   functions: 80,
-      //   lines: 80,
-      //   // Auth module requires higher coverage
-      //   'lib/auth.ts': {
-      //     statements: 90,
-      //     branches: 90,
-      //     functions: 90,
-      //     lines: 90
-      //   }
-      // },
+      // No thresholds enforced - coverage is informational only
       exclude: [
         'node_modules/',
         'dist/',

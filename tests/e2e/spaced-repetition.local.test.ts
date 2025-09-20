@@ -3,7 +3,7 @@ import { test, expect, Page } from '@playwright/test';
 // This test file is designed to run against a local development environment
 // where we can control authentication and test data
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000';
+// BASE_URL is configured in playwright.config.ts
 
 // Mock session token for local testing
 const MOCK_SESSION_TOKEN = 'test-session-token-12345';
@@ -36,7 +36,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
   // TODO: Update this test to use the generation modal instead of /create route
   test.skip('complete spaced repetition flow', async ({ page }) => {
     // 1. Navigate to quiz creation - SKIPPED: /create route no longer exists
-    // await page.goto(`${BASE_URL}/create`);
+    // await page.goto('/create');
     await waitForConvexQuery(page);
 
     // 2. Create a quiz
@@ -91,7 +91,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     expect(scoreText).toContain('5');
 
     // 6. Navigate to review page
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     await waitForConvexQuery(page);
 
     // 7. Verify questions are in review queue
@@ -99,7 +99,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     
     if (reviewContent?.includes('All Caught Up')) {
       // If no reviews due immediately, check dashboard for count
-      await page.goto(`${BASE_URL}/`);
+      await page.goto('/');
       await waitForConvexQuery(page);
       
       const reviewIndicator = await page.getByText(/\d+ Reviews? Due/i).textContent();
@@ -135,7 +135,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     // and verifying they appear in the correct order
     
     // Navigate to review page
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     await waitForConvexQuery(page);
     
     const pageContent = await page.textContent('body');
@@ -166,7 +166,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
       test.skip();
     }
     
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     await waitForConvexQuery(page);
     
     // Verify mobile-specific UI elements
@@ -211,7 +211,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     // 1. Open review page in a separate tab first
     const reviewPage = await page.context().newPage();
     await mockAuthentication(reviewPage);
-    await reviewPage.goto(`${BASE_URL}/`);
+    await reviewPage.goto('/');
     await waitForConvexQuery(reviewPage);
 
     // Verify initial state (should be empty or have existing questions)
@@ -226,7 +226,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     }
 
     // 2. Generate new questions in main page - SKIPPED: /create route no longer exists
-    // await page.goto(`${BASE_URL}/create`);
+    // await page.goto('/create');
     await waitForConvexQuery(page);
     
     // Fill quiz form
@@ -287,7 +287,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     // 6. Verify we can actually review one of the new questions
     if (!initialHasQuestions || initialQuestionCount === 0) {
       // If there were no questions before, go to first question
-      await reviewPage.goto(`${BASE_URL}/`);
+      await reviewPage.goto('/');
       await waitForConvexQuery(reviewPage);
     }
     
@@ -309,7 +309,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     // This verifies the critical UX requirement that new questions are instantly accessible
 
     // 1. Start on the create page - SKIPPED: /create route no longer exists
-    // await page.goto(`${BASE_URL}/create`);
+    // await page.goto('/create');
     await waitForConvexQuery(page);
     
     // 2. Generate a quiz with a unique topic to ensure we're reviewing the right questions
@@ -326,7 +326,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     await expect(successToast).toBeVisible({ timeout: 30000 });
     
     // 3. Immediately navigate to review page
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     await waitForConvexQuery(page);
     
     // 4. Verify the newly generated questions are immediately available

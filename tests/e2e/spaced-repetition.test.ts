@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://scry.party';
-
 test.describe('Spaced Repetition Flow', () => {
   test('should display quiz creation and review flow UI elements', async ({ page }) => {
     // Test the UI flow without authentication
-    await page.goto(BASE_URL);
+    await page.goto('/');
     
     // Check if we're on the main page or got redirected
     const pageTitle = await page.title();
@@ -32,7 +30,7 @@ test.describe('Spaced Repetition Flow', () => {
     // This test verifies the review UI is accessible
     // In a real test environment, we'd have a test account with existing data
     
-    await page.goto(BASE_URL);
+    await page.goto('/');
     
     // Check if user menu exists (would only show if authenticated)
     const userMenuButton = page.getByRole('button', { name: /User menu/i });
@@ -44,7 +42,7 @@ test.describe('Spaced Repetition Flow', () => {
       
       // Navigate to review page
       await page.getByRole('menuitem', { name: /Review/i }).click();
-      await expect(page).toHaveURL(`${BASE_URL}/`);
+      await expect(page).toHaveURL(/.*\//);
       
       // Verify review page elements
       const reviewContent = await page.textContent('body');
@@ -54,7 +52,7 @@ test.describe('Spaced Repetition Flow', () => {
 
   // TODO: Update this test to use the generation modal instead of /create route
   test.skip('should validate quiz creation flow elements', async ({ page }) => {
-    await page.goto(`${BASE_URL}/create`);
+    await page.goto('/create');
     
     // Check the response status
     const response = await page.waitForResponse(response => response.url().includes('/create'));
@@ -83,7 +81,7 @@ test.describe('Spaced Repetition Flow', () => {
   });
 
   test('should validate review page structure', async ({ page }) => {
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     
     // Should redirect to sign in if not authenticated
     if (page.url().includes('/auth/signin')) {
@@ -112,7 +110,7 @@ test.describe('Spaced Repetition Flow', () => {
   });
 
   test('should verify dashboard shows review indicator', async ({ page }) => {
-    await page.goto(`${BASE_URL}/`);
+    await page.goto('/');
     
     // Should redirect to sign in if not authenticated
     if (page.url().includes('/auth/signin')) {
@@ -149,7 +147,7 @@ test.describe('Spaced Repetition Flow', () => {
       // await signInWithTestAccount(page);
 
       // 2. Create a quiz - TODO: Update to use generation modal instead of /create route
-      // await page.goto(`${BASE_URL}/create`);
+      // await page.goto('/create');
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
       await page.getByRole('button', { name: /Generate Quiz/i }).click();
@@ -182,7 +180,7 @@ test.describe('Spaced Repetition Flow', () => {
       await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
       
       // 6. Navigate to review page
-      await page.goto(`${BASE_URL}/`);
+      await page.goto('/');
       
       // 7. Verify questions appear in review queue
       await expect(page.getByRole('heading', { name: /Question/i })).toBeVisible();

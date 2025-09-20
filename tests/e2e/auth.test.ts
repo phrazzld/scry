@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'https://scry.vercel.app';
-
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the main page before each test
-    await page.goto(BASE_URL);
+    await page.goto('/');
   });
 
   test('should successfully submit valid email and redirect to verify-request', async ({ page }) => {
@@ -13,7 +11,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('link', { name: 'Sign up/ log in' }).click();
     
     // Verify we're on the sign-in page
-    await expect(page).toHaveURL(`${BASE_URL}/api/auth/signin`);
+    await expect(page).toHaveURL(/.*\/api\/auth\/signin/);
     await expect(page).toHaveTitle('Sign In');
     
     // Fill in a valid email
@@ -23,7 +21,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign in with Resend' }).click();
     
     // Verify redirect to verify-request page
-    await expect(page).toHaveURL(`${BASE_URL}/api/auth/verify-request?provider=resend&type=email`);
+    await expect(page).toHaveURL(/.*\/api\/auth\/verify-request\?provider=resend&type=email/);
     await expect(page).toHaveTitle('Verify Request');
     
     // Verify success message is displayed
@@ -45,7 +43,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign in with Resend' }).click();
     
     // Verify we're still on the sign-in page (form didn't submit)
-    await expect(page).toHaveURL(`${BASE_URL}/api/auth/signin`);
+    await expect(page).toHaveURL(/.*\/api\/auth\/signin/);
     await expect(page).toHaveTitle('Sign In');
     
     // Verify the invalid email is still in the field
@@ -60,7 +58,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign in with Resend' }).click();
     
     // Verify we're still on the sign-in page (form didn't submit)
-    await expect(page).toHaveURL(`${BASE_URL}/api/auth/signin`);
+    await expect(page).toHaveURL(/.*\/api\/auth\/signin/);
     await expect(page).toHaveTitle('Sign In');
     
     // Verify the email field is still empty
@@ -77,7 +75,7 @@ test.describe('Authentication Flow', () => {
 
     for (const email of emailDomains) {
       // Navigate to sign-in page
-      await page.goto(`${BASE_URL}/api/auth/signin`);
+      await page.goto('/api/auth/signin');
       
       // Fill in the email
       await page.getByRole('textbox', { name: 'Email' }).fill(email);
@@ -86,7 +84,7 @@ test.describe('Authentication Flow', () => {
       await page.getByRole('button', { name: 'Sign in with Resend' }).click();
       
       // Verify redirect to verify-request page
-      await expect(page).toHaveURL(`${BASE_URL}/api/auth/verify-request?provider=resend&type=email`);
+      await expect(page).toHaveURL(/.*\/api\/auth\/verify-request\?provider=resend&type=email/);
       await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
     }
   });
@@ -132,7 +130,7 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign in with Resend' }).click();
     
     // Wait for redirect
-    await page.waitForURL(`${BASE_URL}/api/auth/verify-request?provider=resend&type=email`);
+    await page.waitForURL(/.*\/api\/auth\/verify-request\?provider=resend&type=email/);
     
     // Verify no CSP violations occurred
     expect(cspViolations).toHaveLength(0);
@@ -163,13 +161,13 @@ test.describe('Authentication Flow', () => {
     await page.getByRole('button', { name: 'Sign in with Resend' }).click();
     
     // Verify we're on verify-request page
-    await expect(page).toHaveURL(`${BASE_URL}/api/auth/verify-request?provider=resend&type=email`);
+    await expect(page).toHaveURL(/.*\/api\/auth\/verify-request\?provider=resend&type=email/);
     
     // Click the return link
     await page.getByRole('link', { name: 'scry.vercel.app' }).click();
     
     // Verify we're back on the main page
-    await expect(page).toHaveURL(`${BASE_URL}/`);
+    await expect(page).toHaveURL(/.*\//);
     await expect(page.getByRole('heading', { name: 'Welcome to scry.party' })).toBeVisible();
   });
 

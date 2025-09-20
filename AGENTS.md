@@ -20,6 +20,7 @@ Vitest handles unit and integration suites—colocate specs as `*.test.ts` or `*
 
 ## Commit & Pull Request Guidelines
 History follows conventional commits (`feat:`, `fix:`, `chore:`), so match that format with concise subjects. Pull requests should link tasks, summarize key changes, and call out schema or environment updates. Attach screenshots or logs for UX or automation tweaks, confirm `pnpm lint` and `pnpm test` locally, and note any intentionally skipped suites.
+- Prefer merge commits when bringing a branch up to date; avoid rebasing shared history.
 
 ## Configuration & Security Tips
 Use Node 20.19+ and pnpm 10+ as declared in `package.json`. Copy `.env.example` to `.env.local`, fill secrets like `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`, and keep them out of Git. Convex dev requires a Clerk session; sign in before testing review flows. Avoid logging tokens or prompt contents in server code.
