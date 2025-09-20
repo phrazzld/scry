@@ -93,7 +93,15 @@
   - Created CONSOLE_POLICY.md documenting the rules
   - Policy: error/warn for production, log for dev/test
   ```
-- [ ] Consider removing convex schema check entirely (what has it caught?)
+- [x] Consider removing convex schema check entirely (what has it caught?)
+  ```
+  Work Log:
+  - Answer: It has caught NOTHING - validation scripts never existed
+  - Was just posting reminder comments on PRs
+  - Decision: REMOVED ENTIRELY
+  - Developers should know to deploy their changes
+  - One less piece of theater in the CI pipeline
+  ```
 
 ## [BONUS] Add Real Monitoring
 - [ ] Track bundle size changes in CI
