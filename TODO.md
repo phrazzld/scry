@@ -83,7 +83,16 @@
   - CI already configured to only fail on critical
   - These won't cause false alarms anymore
   ```
-- [ ] Remove or enforce console.log checking
+- [x] Remove or enforce console.log checking
+  ```
+  Work Log:
+  - Added no-console rule to ESLint config
+  - Allows console.error and console.warn everywhere
+  - Restricts console.log to scripts and tests only
+  - Removed 3 console.debug statements from haptic.ts
+  - Created CONSOLE_POLICY.md documenting the rules
+  - Policy: error/warn for production, log for dev/test
+  ```
 - [ ] Consider removing convex schema check entirely (what has it caught?)
 
 ## [BONUS] Add Real Monitoring

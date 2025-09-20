@@ -17,9 +17,8 @@ export function triggerHaptic(duration: number = 10): boolean {
     try {
       // Trigger vibration and return success status
       return navigator.vibrate(duration);
-    } catch (error) {
+    } catch {
       // Silently fail if vibration is not permitted or fails
-      console.debug('Haptic feedback failed:', error);
       return false;
     }
   }
@@ -37,8 +36,7 @@ export function triggerSuccessHaptic(): boolean {
     try {
       // Double pulse: vibrate 10ms, pause 50ms, vibrate 10ms
       return navigator.vibrate([10, 50, 10]);
-    } catch (error) {
-      console.debug('Success haptic failed:', error);
+    } catch {
       return false;
     }
   }
@@ -54,8 +52,7 @@ export function triggerErrorHaptic(): boolean {
     try {
       // Single longer pulse: 20ms
       return navigator.vibrate(20);
-    } catch (error) {
-      console.debug('Error haptic failed:', error);
+    } catch {
       return false;
     }
   }
