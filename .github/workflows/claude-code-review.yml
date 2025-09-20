@@ -1,4 +1,4 @@
-name: Claude Code Review (External Contributors)
+name: Claude Code Review
 
 on:
   pull_request:
@@ -10,23 +10,14 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
-  # Allow manual trigger for internal team members who want a review
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'Pull Request number to review'
-        required: true
-        type: number
-
 jobs:
   claude-review:
-    # Run for external contributors OR manual triggers
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.author_association != 'MEMBER' &&
-       github.event.pull_request.author_association != 'OWNER' &&
-       github.event.pull_request.author_association != 'COLLABORATOR')
-
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
