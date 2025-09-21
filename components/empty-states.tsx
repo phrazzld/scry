@@ -257,14 +257,14 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
               >
                 Continue Learning →
               </button>
-              <p className="text-sm text-gray-500 mt-2 text-center">
+              <p className="text-sm text-muted-foreground mt-2 text-center">
                 Cards in learning phase need immediate review for optimal retention
               </p>
             </>
           ) : (
             <button
               onClick={() => setShowGenerate(true)}
-              className="w-full p-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              className="w-full p-3 border border-input text-foreground rounded-lg hover:bg-accent"
             >
               Generate more questions →
             </button>
@@ -292,7 +292,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
             <button
               type="button"
               onClick={() => setShowGenerate(false)}
-              className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              className="px-4 py-3 border border-input text-foreground rounded-lg hover:bg-accent"
             >
               Cancel
             </button>
@@ -309,9 +309,9 @@ export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
   return (
     <Card className={`text-center py-8 ${className || ""}`}>
       <CardContent>
-        <BookOpen className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+        <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
         <h3 className="text-base font-semibold mb-2">No quiz history</h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Start taking quizzes to track your progress
         </p>
         <Button asChild size="sm">
@@ -355,7 +355,7 @@ export function CustomEmptyState({
       <CardContent>
         <div className="mb-4">{icon}</div>
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <p className="text-gray-600 mb-4">{description}</p>
+        <p className="text-muted-foreground mb-4">{description}</p>
         {(action || secondaryAction) && (
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             {action && (
@@ -434,13 +434,13 @@ export function ZenEmptyState({
     <div className="max-w-xl mx-auto px-4">
       <div className="text-center mb-6">
         {/* Main status */}
-        <h1 className="text-3xl font-bold mb-4 text-green-600">
+        <h1 className="text-3xl font-bold mb-4 text-success">
           ✓ Mind synchronized
         </h1>
 
         {/* Next review time */}
         {nextReviewFormatted && (
-          <p className="text-lg text-gray-600 mb-4">
+          <p className="text-lg text-muted-foreground mb-4">
             Next review: {nextReviewFormatted}
           </p>
         )}
@@ -451,21 +451,21 @@ export function ZenEmptyState({
             {stats.streak !== undefined && (
               <div className="text-center">
                 <div className="text-2xl font-bold">🔥 {stats.streak}</div>
-                <div className="text-gray-500">day streak</div>
+                <div className="text-muted-foreground">day streak</div>
               </div>
             )}
             {stats.retentionRate !== undefined && (
               <div className="text-center">
                 <div className="text-2xl font-bold">{Math.round(stats.retentionRate)}%</div>
-                <div className="text-gray-500">retention</div>
+                <div className="text-muted-foreground">retention</div>
               </div>
             )}
             {stats.speedImprovement !== undefined && stats.speedImprovement > 0 && (
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-success">
                   {stats.speedImprovement > 0 ? '+' : ''}{Math.round(stats.speedImprovement)}%
                 </div>
-                <div className="text-gray-500">faster recall</div>
+                <div className="text-muted-foreground">faster recall</div>
               </div>
             )}
           </div>
@@ -474,7 +474,7 @@ export function ZenEmptyState({
         {/* Generate button */}
         <button
           onClick={onGenerateNewKnowledge}
-          className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           Generate new knowledge →
         </button>

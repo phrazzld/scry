@@ -113,9 +113,9 @@ export function QuizFlow({ topic }: QuizFlowProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="text-center">
-          <p className="text-lg text-gray-600 mb-4">{error}</p>
+          <p className="text-lg text-muted-foreground mb-4">{error}</p>
           <div className="space-x-4">
             <Button variant="outline" onClick={() => router.push('/')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -130,10 +130,10 @@ export function QuizFlow({ topic }: QuizFlowProps) {
 
   if (flowState === 'generating') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-lg text-gray-600">Generating your quiz...</p>
+          <p className="text-lg text-muted-foreground">Generating your quiz...</p>
         </div>
       </div>
     )
@@ -141,10 +141,10 @@ export function QuizFlow({ topic }: QuizFlowProps) {
 
   if (flowState === 'ready' && quiz) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="max-w-md w-full text-center">
           <h2 className="text-3xl font-bold mb-2">Quiz Ready</h2>
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-muted-foreground mb-8">
             {quiz.questions.length} questions about {topic}
           </p>
           
@@ -180,13 +180,13 @@ export function QuizFlow({ topic }: QuizFlowProps) {
 
   if (flowState === 'complete' && quiz) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+      <div className="min-h-screen bg-background flex items-center justify-center p-8">
         <div className="max-w-md w-full text-center">
           <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-          <p className="text-5xl font-bold text-blue-600 mb-4">
+          <p className="text-5xl font-bold text-primary mb-4">
             {quiz.score}/{quiz.questions.length}
           </p>
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-muted-foreground mb-8">
             {Math.round((quiz.score / quiz.questions.length) * 100)}% correct
           </p>
           

@@ -30,6 +30,27 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* Semantic state colors */
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-success-background: hsl(var(--success-background));
+  --color-success-border: hsl(var(--success-border));
+
+  --color-error: hsl(var(--error));
+  --color-error-foreground: hsl(var(--error-foreground));
+  --color-error-background: hsl(var(--error-background));
+  --color-error-border: hsl(var(--error-border));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-warning-background: hsl(var(--warning-background));
+  --color-warning-border: hsl(var(--warning-border));
+
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-info-background: hsl(var(--info-background));
+  --color-info-border: hsl(var(--info-border));
   
   /* Spacing scale */
   --spacing-prose: 1.5em;
@@ -82,6 +103,27 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
   --radius: 0.5rem;
+
+  /* Semantic state colors - Light mode */
+  --success: 142 76% 36%;
+  --success-foreground: 142 76% 96%;
+  --success-background: 142 76% 96%;
+  --success-border: 142 76% 86%;
+
+  --error: 0 72% 51%;
+  --error-foreground: 0 86% 97%;
+  --error-background: 0 86% 97%;
+  --error-border: 0 72% 91%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 38 92% 95%;
+  --warning-background: 38 92% 95%;
+  --warning-border: 38 92% 85%;
+
+  --info: 217 91% 60%;
+  --info-foreground: 217 91% 96%;
+  --info-background: 217 91% 96%;
+  --info-border: 217 91% 86%;
 }
 
 .dark {
@@ -105,6 +147,27 @@
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
   --ring: 224.3 76.3% 48%;
+
+  /* Semantic state colors - Dark mode */
+  --success: 142 84% 61%;
+  --success-foreground: 142 31% 11%;
+  --success-background: 142 31% 11%;
+  --success-border: 142 31% 21%;
+
+  --error: 0 91% 71%;
+  --error-foreground: 0 31% 11%;
+  --error-background: 0 31% 11%;
+  --error-border: 0 31% 21%;
+
+  --warning: 38 92% 70%;
+  --warning-foreground: 38 31% 11%;
+  --warning-background: 38 31% 11%;
+  --warning-border: 38 31% 21%;
+
+  --info: 217 91% 70%;
+  --info-foreground: 217 31% 11%;
+  --info-background: 217 31% 11%;
+  --info-border: 217 31% 21%;
 }
 
 @layer base {
