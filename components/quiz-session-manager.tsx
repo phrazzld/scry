@@ -103,14 +103,14 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Question {currentIndex + 1} of {quiz.questions.length}
             </span>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Score: {score}/{currentIndex}
             </span>
           </div>
@@ -136,7 +136,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                             ? 'border-green-500 bg-green-50 text-green-700'
                             : 'border-red-500 bg-red-50 text-red-700'
                           : 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                        : 'border-input hover:bg-accent hover:border-input'
                     } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
                     disabled={showFeedback}
                   >
@@ -165,7 +165,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                           ? 'border-green-500 bg-green-50'
                           : 'border-red-500 bg-red-50'
                         : 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      : 'border-input hover:bg-accent'
                   } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
                   disabled={showFeedback}
                 >
@@ -184,7 +184,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
 
             {showFeedback && currentQuestion.explanation && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-700">{currentQuestion.explanation}</p>
+                <p className="text-sm text-foreground/80">{currentQuestion.explanation}</p>
               </div>
             )}
             

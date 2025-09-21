@@ -113,7 +113,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
         </button>
       </form>
 
-      <p className="text-sm text-gray-500 mt-6">Example topics: JavaScript closures, French verbs, Linear algebra</p>
+      <p className="text-sm text-muted-foreground mt-6">Example topics: JavaScript closures, French verbs, Linear algebra</p>
     </div>
   );
 }
@@ -235,12 +235,12 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
         <h1 className="text-4xl font-bold mb-2">0 due</h1>
 
         {nextReviewFormatted && (
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-muted-foreground">
             Next review: {nextReviewFormatted}
           </p>
         )}
 
-        <div className="text-sm text-gray-500 mt-4">
+        <div className="text-sm text-muted-foreground mt-4">
           {stats.learningCount > 0 && `${stats.learningCount} learning`}
           {stats.learningCount > 0 && stats.totalCards > 0 && ' | '}
           {stats.totalCards > 0 && `${stats.totalCards} total`}
@@ -253,7 +253,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
             <>
               <button
                 onClick={onContinueLearning}
-                className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                className="w-full p-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
               >
                 Continue Learning →
               </button>
