@@ -153,12 +153,12 @@ export function EditQuestionModal({
           <div className="flex-1 overflow-y-auto px-6 pb-6">
             <div className="space-y-6 py-6">
               {errors.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="bg-error-background border border-error-border rounded-lg p-3">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="h-5 w-5 text-error flex-shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       {errors.map((error, index) => (
-                        <p key={index} className="text-sm text-red-700">{error}</p>
+                        <p key={index} className="text-sm text-error">{error}</p>
                       ))}
                     </div>
                   </div>
@@ -166,7 +166,7 @@ export function EditQuestionModal({
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="question" className="text-sm font-medium text-gray-700">Question</Label>
+                <Label htmlFor="question" className="text-sm font-medium text-foreground">Question</Label>
                 <Textarea
                   id="question"
                   value={questionText}
@@ -177,7 +177,7 @@ export function EditQuestionModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="explanation" className="text-sm font-medium text-gray-700">Explanation</Label>
+                <Label htmlFor="explanation" className="text-sm font-medium text-foreground">Explanation</Label>
                 <Textarea
                   id="explanation"
                   value={explanation}
@@ -185,12 +185,12 @@ export function EditQuestionModal({
                   placeholder="Optional: offer context or reasoning to reinforce the concept."
                   className="min-h-[100px] resize-y"
                 />
-                <p className="text-xs text-gray-500">Leave blank to skip—add detail when it helps learners recover.</p>
+                <p className="text-xs text-muted-foreground">Leave blank to skip—add detail when it helps learners recover.</p>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-gray-700">Answer Options</Label>
+                  <Label className="text-sm font-medium text-foreground">Answer Options</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -207,7 +207,7 @@ export function EditQuestionModal({
                   {options.map((option, index) => (
                     <div
                       key={index}
-                      className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4"
+                      className="flex items-start gap-3 rounded-xl border border-border bg-muted/50 p-4"
                     >
                       <RadioGroupItem
                         value={option}
@@ -219,7 +219,7 @@ export function EditQuestionModal({
                         <div className="flex items-center justify-between">
                           <Label
                             htmlFor={`option-${index}-textarea`}
-                            className="text-xs font-semibold uppercase tracking-wide text-gray-500"
+                            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                           >
                             Option {index + 1}
                           </Label>
@@ -231,7 +231,7 @@ export function EditQuestionModal({
                           placeholder={`Write the answer text for option ${index + 1}`}
                           className="min-h-[90px] resize-y"
                         />
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                           <span>
                             {option === correctAnswer ? 'Currently marked as correct' : 'Select to mark as correct'}
                           </span>
@@ -252,7 +252,7 @@ export function EditQuestionModal({
                               size="icon"
                               onClick={() => handleRemoveOption(index)}
                               disabled={options.length <= 2}
-                              className="text-red-500 hover:text-red-600"
+                              className="text-error hover:text-error/90"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -263,31 +263,31 @@ export function EditQuestionModal({
                   ))}
                 </RadioGroup>
 
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Use the radio button or “Set correct” to choose the right answer. Each question needs 2–6 options.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-5">
-                <h4 className="text-sm font-semibold text-gray-700">Preview</h4>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <h4 className="text-sm font-semibold text-foreground">Preview</h4>
                 <div className="mt-3 space-y-3">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Question</p>
-                    <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Question</p>
+                    <p className="mt-1 text-sm text-foreground whitespace-pre-line">
                       {questionText || 'Question will appear here...'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Options</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Options</p>
                     <div className="mt-1 space-y-1">
                       {options.map((opt, idx) => (
                         <div key={idx} className="flex items-start gap-2 text-sm">
-                          <span className="text-gray-400 font-medium">{String.fromCharCode(65 + idx)}.</span>
-                          <span className={`flex-1 ${opt === correctAnswer ? 'font-semibold text-emerald-700' : 'text-gray-700'}`}>
+                          <span className="text-muted-foreground font-medium">{String.fromCharCode(65 + idx)}.</span>
+                          <span className={`flex-1 ${opt === correctAnswer ? 'font-semibold text-success' : 'text-foreground'}`}>
                             {opt || `Option ${idx + 1}`}
                           </span>
                           {opt === correctAnswer && (
-                            <span className="text-xs font-medium text-emerald-700">Correct</span>
+                            <span className="text-xs font-medium text-success">Correct</span>
                           )}
                         </div>
                       ))}
@@ -295,8 +295,8 @@ export function EditQuestionModal({
                   </div>
                   {explanation.trim().length > 0 && (
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Explanation</p>
-                      <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{explanation}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Explanation</p>
+                      <p className="mt-1 text-sm text-foreground whitespace-pre-line">{explanation}</p>
                     </div>
                   )}
                 </div>
@@ -304,7 +304,7 @@ export function EditQuestionModal({
             </div>
           </div>
 
-          <div className="border-t border-gray-200 bg-white/95 py-4 px-6">
+          <div className="border-t border-border bg-background/95 py-4 px-6">
             <DialogFooter className="px-0">
               <Button
                 variant="outline"

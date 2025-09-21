@@ -66,13 +66,13 @@ export function TopicInput() {
                     placeholder="What do you want to learn?"
                     {...field}
                     disabled={isLoading}
-                    className="text-lg h-14 px-4 pr-28 border-gray-300 rounded-lg"
+                    className="text-lg h-14 px-4 pr-28 border-border rounded-lg"
                   />
                   <Button
                     type="submit"
                     size="lg"
                     disabled={isLoading || !field.value}
-                    className="absolute right-2 top-2 h-10 px-6 bg-blue-500 hover:bg-blue-600 text-white rounded-md"
+                    className="absolute right-2 top-2 h-10 px-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md"
                   >
                     {isLoading ? (
                       <Loader2 className="h-5 w-5 animate-spin" />

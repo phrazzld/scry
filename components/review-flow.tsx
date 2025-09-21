@@ -646,7 +646,7 @@ export function ReviewFlow() {
                 size="icon"
                 onClick={() => setIsDeleteDialogOpen(true)}
                 aria-label="Delete question"
-                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                className="text-error hover:text-error/80 hover:bg-error-background"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete question</span>
@@ -674,21 +674,21 @@ export function ReviewFlow() {
                     ${selectedAnswer === option 
                       ? showingFeedback
                         ? feedback?.isCorrect && option === currentQuestion.question.correctAnswer
-                          ? "border-green-500 bg-green-50"
+                          ? "border-success-border bg-success-background"
                           : !feedback?.isCorrect && option === selectedAnswer
-                          ? "border-red-500 bg-red-50"
+                          ? "border-error-border bg-error-background"
                           : option === currentQuestion.question.correctAnswer
-                          ? "border-green-500 bg-green-50"
-                          : "border-gray-200"
+                          ? "border-success-border bg-success-background"
+                          : "border-border"
                         : "border-primary bg-primary/5 shadow-sm"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
+                      : "border-border hover:border-input hover:bg-accent/50"
                     }
                     ${(showingFeedback || isAnswering) ? "cursor-not-allowed opacity-60" : "cursor-pointer"}
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-400">
+                      <span className="text-sm font-medium text-muted-foreground">
                         {String.fromCharCode(65 + index)}
                       </span>
                       <span>{option}</span>
@@ -696,10 +696,10 @@ export function ReviewFlow() {
                     {showingFeedback && (
                       <>
                         {option === currentQuestion.question.correctAnswer && (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <CheckCircle className="h-5 w-5 text-success" />
                         )}
                         {option === selectedAnswer && !feedback?.isCorrect && (
-                          <XCircle className="h-5 w-5 text-red-500" />
+                          <XCircle className="h-5 w-5 text-error" />
                         )}
                       </>
                     )}
@@ -714,16 +714,16 @@ export function ReviewFlow() {
                 <div
                   className={`rounded-2xl border px-5 py-5 ${
                     feedback.isCorrect
-                      ? "border-emerald-200 bg-emerald-50/70"
-                      : "border-rose-200 bg-rose-50/70"
+                      ? "border-success-border bg-success-background/70"
+                      : "border-error-border bg-error-background/70"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={`mt-1 rounded-full p-2 ${
                         feedback.isCorrect
-                          ? "bg-white/70 text-emerald-600"
-                          : "bg-white/70 text-rose-600"
+                          ? "bg-background/70 text-success"
+                          : "bg-background/70 text-error"
                       }`}
                     >
                       {feedback.isCorrect ? (
@@ -735,15 +735,15 @@ export function ReviewFlow() {
                     <div className="space-y-1 text-left">
                       <p
                         className={`text-xs font-semibold uppercase tracking-wide ${
-                          feedback.isCorrect ? "text-emerald-700" : "text-rose-700"
+                          feedback.isCorrect ? "text-success" : "text-error"
                         }`}
                       >
                         {feedback.isCorrect ? "Correct" : "Needs review"}
                       </p>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-lg font-semibold text-foreground">
                         {feedback.isCorrect ? "Memory reinforced" : "Let's revisit this card"}
                       </h3>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {feedback.isCorrect
                           ? "Consistency keeps this concept locked in. Queue the next prompt when you're ready."
                           : "Review what went wrong, study the right answer, and take another pass soon."}
@@ -764,26 +764,26 @@ export function ReviewFlow() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className={`rounded-lg border bg-white/80 p-3 ${
+                        className={`rounded-lg border bg-background/80 p-3 ${
                           feedback.isCorrect
-                            ? "border-emerald-100/70"
-                            : "border-rose-100/70"
+                            ? "border-success-border/70"
+                            : "border-error-border/70"
                         }`}
                       >
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           {item.label}
                         </p>
-                        <p className="mt-1 text-sm font-medium text-gray-900">{item.value}</p>
+                        <p className="mt-1 text-sm font-medium text-foreground">{item.value}</p>
                       </div>
                     ))}
                   </div>
 
                   {!feedback.isCorrect && (
-                    <div className="mt-4 rounded-lg border border-white/40 bg-white/90 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    <div className="mt-4 rounded-lg border border-border/40 bg-background/90 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Correct answer
                       </p>
-                      <p className="mt-1 text-sm font-medium text-gray-900">
+                      <p className="mt-1 text-sm font-medium text-foreground">
                         {currentQuestion.question.correctAnswer}
                       </p>
                     </div>
@@ -792,13 +792,13 @@ export function ReviewFlow() {
                   {currentQuestion.question.explanation && (
                     <div
                       className={`mt-4 border-t pt-4 ${
-                        feedback.isCorrect ? "border-emerald-100" : "border-rose-100"
+                        feedback.isCorrect ? "border-success-border" : "border-error-border"
                       }`}
                     >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Explanation
                       </p>
-                      <p className="mt-2 text-sm text-gray-600">
+                      <p className="mt-2 text-sm text-muted-foreground">
                         {currentQuestion.question.explanation}
                       </p>
                     </div>
@@ -817,7 +817,7 @@ export function ReviewFlow() {
               <Button
                 onClick={handleSubmit}
                 disabled={!selectedAnswer || isAnswering}
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 {isAnswering ? (
@@ -828,7 +828,7 @@ export function ReviewFlow() {
             ) : (
               <Button
                 onClick={advanceToNext}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
+                className="w-full bg-success hover:bg-success/90 text-success-foreground py-6 text-lg rounded-xl transition-all hover:scale-[1.02]"
                 size="lg"
               >
                 Next Question
@@ -869,7 +869,7 @@ export function ReviewFlow() {
               <AlertDialogAction
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                className="bg-error hover:bg-error/90 focus:ring-error"
               >
                 {isDeleting ? (
                   <>

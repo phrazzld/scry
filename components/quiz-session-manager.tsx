@@ -103,14 +103,14 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Question {currentIndex + 1} of {quiz.questions.length}
             </span>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               Score: {score}/{currentIndex}
             </span>
           </div>
@@ -133,20 +133,20 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                       selectedAnswer === option
                         ? showFeedback
                           ? option === currentQuestion.correctAnswer
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-red-500 bg-red-50 text-red-700'
-                          : 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:bg-gray-50 hover:border-gray-300'
-                    } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
+                            ? 'border-success-border bg-success-background text-success'
+                            : 'border-error-border bg-error-background text-error'
+                          : 'border-info-border bg-info-background text-info'
+                        : 'border-input hover:bg-accent hover:border-input'
+                    } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
                     disabled={showFeedback}
                   >
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <span className="text-lg">{option}</span>
                       {showFeedback && option === currentQuestion.correctAnswer && (
-                        <CheckCircle className="h-6 w-6 text-green-500" />
+                        <CheckCircle className="h-6 w-6 text-success" />
                       )}
                       {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
-                        <XCircle className="h-6 w-6 text-red-500" />
+                        <XCircle className="h-6 w-6 text-error" />
                       )}
                     </div>
                   </button>
@@ -162,20 +162,20 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                     selectedAnswer === option
                       ? showFeedback
                         ? option === currentQuestion.correctAnswer
-                          ? 'border-green-500 bg-green-50'
-                          : 'border-red-500 bg-red-50'
-                        : 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-green-500 bg-green-50' : ''}`}
+                          ? 'border-success-border bg-success-background'
+                          : 'border-error-border bg-error-background'
+                        : 'border-info-border bg-info-background'
+                      : 'border-input hover:bg-accent'
+                  } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
                   disabled={showFeedback}
                 >
                   <div className="flex items-center justify-between">
                     <span>{option}</span>
                     {showFeedback && option === currentQuestion.correctAnswer && (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <CheckCircle className="h-5 w-5 text-success" />
                     )}
                     {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
-                      <XCircle className="h-5 w-5 text-red-500" />
+                      <XCircle className="h-5 w-5 text-error" />
                     )}
                   </div>
                 </button>
@@ -183,27 +183,27 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
             )}
 
             {showFeedback && currentQuestion.explanation && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-700">{currentQuestion.explanation}</p>
+              <div className="mt-4 p-4 bg-info-background rounded-lg border border-info-border">
+                <p className="text-sm text-foreground/80">{currentQuestion.explanation}</p>
               </div>
             )}
             
             {showFeedback && nextReviewInfo && nextReviewInfo.nextReview && (
-              <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="mt-4 p-4 bg-accent rounded-lg border border-border">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-purple-600" />
-                  <p className="text-sm font-medium text-purple-900">
+                  <Calendar className="h-4 w-4 text-accent-foreground" />
+                  <p className="text-sm font-medium text-accent-foreground">
                     Next Review Scheduled
                   </p>
                 </div>
-                <p className="text-sm text-purple-700 mt-1">
+                <p className="text-sm text-accent-foreground mt-1">
                   {nextReviewInfo.scheduledDays === 0 
                     ? "Review again today"
                     : nextReviewInfo.scheduledDays === 1 
                     ? "Review tomorrow"
                     : `Review in ${nextReviewInfo.scheduledDays} days`}
                 </p>
-                <p className="text-xs text-purple-600 mt-1">
+                <p className="text-xs text-accent-foreground/70 mt-1">
                   {new Date(nextReviewInfo.nextReview).toLocaleDateString('en-US', {
                     weekday: 'long',
                     year: 'numeric',

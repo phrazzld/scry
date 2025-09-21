@@ -8,6 +8,7 @@ import { getNavbarClassName } from '@/lib/layout-mode'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
 import { Settings, Sparkles } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
 
 export function Navbar() {
@@ -47,9 +48,9 @@ export function Navbar() {
 
   return (
     <>
-      <nav className={`${getNavbarClassName()} h-16 bg-white/80 backdrop-blur-sm border-b border-gray-100`}>
+      <nav className={`${getNavbarClassName()} h-16 bg-background/80 backdrop-blur-sm border-b border-border`}>
         <div className="h-full max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
-          <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-gray-700 hover:text-black border-b-0 transition-colors">
+          <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-foreground/80 hover:text-foreground border-b-0 transition-colors">
             Scry.
           </Link>
 
@@ -72,12 +73,13 @@ export function Navbar() {
                 ) : (
                   <Link
                     href="/settings"
-                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
                     aria-label="Settings"
                   >
                     <Settings className="h-4 w-4" />
                   </Link>
                 )}
+                <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
             )}

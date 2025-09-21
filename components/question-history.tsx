@@ -19,8 +19,8 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
   if (!interactions || interactions.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
-        <p className="text-sm font-medium text-gray-600">No previous attempts yet.</p>
+      <div className="rounded-2xl border border-border bg-background/80 p-6">
+        <p className="text-sm font-medium text-muted-foreground">No previous attempts yet.</p>
       </div>
     )
   }
@@ -35,18 +35,18 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
   const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
+    <div className="rounded-2xl border border-border bg-background/80 p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Previous attempts</p>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previous attempts</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% correct
           </p>
         </div>
         {hasMore && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             {isExpanded ? (
               <>
@@ -62,7 +62,7 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
           </button>
         )}
       </div>
-      <div className="mt-4 divide-y divide-gray-200">
+      <div className="mt-4 divide-y divide-border">
         {recentInteractions.map((interaction) => (
           <div
             key={interaction._id}
@@ -71,8 +71,8 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
             <div
               className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full border ${
                 interaction.isCorrect
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                  : 'border-rose-200 bg-rose-50 text-rose-600'
+                  ? 'border-success-border bg-success-background text-success'
+                  : 'border-error-border bg-error-background text-error'
               }`}
             >
               {interaction.isCorrect ? (
@@ -82,14 +82,14 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-foreground truncate">
                 {interaction.userAnswer}
               </p>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>{formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}</span>
                 {interaction.timeSpent && (
                   <>
-                    <span className="text-gray-300">•</span>
+                    <span className="text-muted-foreground/50">•</span>
                     <span>{formatTimeSpent(interaction.timeSpent)}</span>
                   </>
                 )}
@@ -104,18 +104,18 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
 function QuestionHistorySkeleton() {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white/80 p-6">
+    <div className="rounded-2xl border border-border bg-background/80 p-6">
       <div className="space-y-2">
-        <div className="h-4 w-32 rounded bg-gray-200 animate-pulse" />
-        <div className="h-3 w-48 rounded bg-gray-200 animate-pulse" />
+        <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-48 rounded bg-muted animate-pulse" />
       </div>
       <div className="mt-4 space-y-3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-start gap-3">
-            <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse" />
+            <div className="h-7 w-7 rounded-full bg-muted animate-pulse" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-40 rounded bg-gray-200 animate-pulse" />
-              <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
+              <div className="h-3 w-40 rounded bg-muted animate-pulse" />
+              <div className="h-3 w-24 rounded bg-muted animate-pulse" />
             </div>
           </div>
         ))}

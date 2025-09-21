@@ -218,7 +218,7 @@ export function QuestionEditModal({
                 <p className="text-sm font-medium text-muted-foreground">Options</p>
                 <ul className="text-sm space-y-1 mt-1">
                   {question.options.map((option, index) => (
-                    <li key={index} className={option === question.correctAnswer ? 'font-medium text-green-600' : ''}>
+                    <li key={index} className={option === question.correctAnswer ? 'font-medium text-success' : ''}>
                       • {option} {option === question.correctAnswer && '✓'}
                     </li>
                   ))}

@@ -205,7 +205,7 @@ export function GenerationModal({
                   type="checkbox"
                   checked={useCurrentContext}
                   onChange={(e) => setUseCurrentContext(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   disabled={isGenerating}
                 />
                 <span className="text-sm font-medium">Start from current question</span>

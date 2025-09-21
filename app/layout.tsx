@@ -30,6 +30,7 @@ import { ClerkConvexProvider } from './clerk-provider'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
+import { ThemeProvider } from '@/components/theme-provider'
 
 export default function RootLayout({
   children,
@@ -37,21 +38,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClerkConvexProvider>
-          <div className={getLayoutClassName()}>
-            <ConditionalNavbar />
-            {needsNavbarSpacer() && <div className="h-16" />}
-            <main>{children}</main>
-            <Footer />
-          </div>
-          <Toaster />
-          <Analytics />
-          <SpeedInsights />
-        </ClerkConvexProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ClerkConvexProvider>
+            <div className={getLayoutClassName()}>
+              <ConditionalNavbar />
+              {needsNavbarSpacer() && <div className="h-16" />}
+              <main>{children}</main>
+              <Footer />
+            </div>
+            <Toaster />
+            <Analytics />
+            <SpeedInsights />
+          </ClerkConvexProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -104,12 +104,12 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
       </AlertDialogTrigger>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-red-600">
+          <AlertDialogTitle className="text-error">
             Delete Account
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-3">
             <div className="text-sm">
-              <strong className="text-red-600">Warning:</strong> This action cannot be undone. 
+              <strong className="text-error">Warning:</strong> This action cannot be undone. 
               This will permanently delete your account and remove all your data from our servers.
             </div>
             <div className="text-sm">
@@ -133,13 +133,13 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
                 onChange={(e) => setConfirmationEmail(e.target.value)}
                 className={`${
                   confirmationEmail && !isEmailValid 
-                    ? 'border-red-300 focus:border-red-500' 
+                    ? 'border-error-border focus:border-error' 
                     : ''
                 }`}
                 disabled={isDeleting}
               />
               {confirmationEmail && !isEmailValid && (
-                <p className="text-xs text-red-600">
+                <p className="text-xs text-error">
                   Email does not match your account email
                 </p>
               )}
@@ -153,7 +153,7 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
           <AlertDialogAction
             onClick={handleDeleteAccount}
             disabled={!isEmailValid || isDeleting}
-            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            className="bg-error hover:bg-error/90 focus:ring-error"
           >
             {isDeleting ? (
               <>

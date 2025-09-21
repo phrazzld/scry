@@ -27,11 +27,11 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-8">
+    <div className="min-h-screen bg-background flex items-center justify-center p-8">
       <div className="text-center max-w-md">
-        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <AlertCircle className="h-12 w-12 text-error mx-auto mb-4" />
         <h1 className="text-2xl font-bold mb-2">Something went wrong</h1>
-        <p className="text-gray-600 mb-6">
+        <p className="text-muted-foreground mb-6">
           We encountered an error while processing your request.
         </p>
         <div className="space-x-4">
