@@ -25,6 +25,7 @@
     "@ai-sdk/google": "^1.2.22",
     "@clerk/clerk-react": "^5.47.0",
     "@clerk/nextjs": "^6.32.0",
+    "@clerk/themes": "^2.4.19",
     "@formkit/auto-animate": "^0.8.2",
     "@hookform/resolvers": "^5.1.1",
     "@openrouter/ai-sdk-provider": "^0.7.2",

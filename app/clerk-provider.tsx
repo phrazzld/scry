@@ -5,17 +5,27 @@ import { useEffect, useState } from "react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useClerkAppearance } from "@/hooks/use-clerk-appearance";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export function ClerkConvexProvider({ children }: { children: React.ReactNode }) {
+function ThemedClerkProvider({ children }: { children: React.ReactNode }) {
+  const appearance = useClerkAppearance();
+
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      appearance={appearance}
+    >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
         <EnsureConvexUser>{children}</EnsureConvexUser>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   );
+}
+
+export function ClerkConvexProvider({ children }: { children: React.ReactNode }) {
+  return <ThemedClerkProvider>{children}</ThemedClerkProvider>;
 }
 
 function EnsureConvexUser({ children }: { children: React.ReactNode }) {

@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Settings, Sparkles } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
+import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
 
 export function Navbar() {
   const { isLoaded, isSignedIn } = useUser()
+  const clerkAppearance = useClerkAppearance()
   const pathname = usePathname()
   const [generateOpen, setGenerateOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
@@ -80,7 +82,7 @@ export function Navbar() {
                   </Link>
                 )}
                 <ThemeToggle />
-                <UserButton afterSignOutUrl="/" />
+                <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
               </>
             )}
           </div>

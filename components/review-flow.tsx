@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useClerkAppearance } from "@/hooks/use-clerk-appearance";
 
 interface ReviewQuestion {
   question: Doc<"questions">;
@@ -129,6 +130,7 @@ const formatNextReviewWindow = (scheduledDays: number, nextReview: number | null
 export function ReviewFlow() {
   const router = useRouter();
   const { isSignedIn } = useUser();
+  const clerkAppearance = useClerkAppearance();
   const [currentQuestion, setCurrentQuestion] = useState<ReviewQuestion | null>(null);
   const [nextQuestion, setNextQuestion] = useState<ReviewQuestion | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string>("");
@@ -552,7 +554,7 @@ export function ReviewFlow() {
   if (!isSignedIn) {
     return (
       <div className="flex w-full flex-1 items-center justify-center px-4 py-8">
-        <SignIn routing="hash" />
+        <SignIn routing="hash" appearance={clerkAppearance} />
       </div>
     );
   }
