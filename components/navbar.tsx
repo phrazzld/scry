@@ -7,10 +7,11 @@ import { useUser, UserButton } from '@clerk/nextjs'
 import { getNavbarClassName } from '@/lib/layout-mode'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
-import { Settings, Sparkles } from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
+import { useButtonPress } from '@/hooks/use-button-press'
 
 export function Navbar() {
   const { isLoaded, isSignedIn } = useUser()
@@ -19,6 +20,7 @@ export function Navbar() {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
+  const { isPressing: isGeneratePressed, handlePressStart: handleGeneratePressStart } = useButtonPress()
 
   // Listen for review question changes
   useEffect(() => {
@@ -62,14 +64,26 @@ export function Navbar() {
                 {isHomepage ? (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                     onClick={() => {
                       setCurrentQuestion(reviewQuestion)
                       setGenerateOpen(true)
                     }}
+                    onPointerDown={handleGeneratePressStart}
                     title="Generate questions (G)"
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <span
+                      aria-hidden
+                      className={`pointer-events-none absolute inset-0 rounded-full bg-primary/20 transition-all duration-300 ease-out ${
+                        isGeneratePressed ? "scale-100 opacity-100" : "scale-75 opacity-0"
+                      }`}
+                    />
+                    <Plus
+                      className={`relative h-4 w-4 transition-transform duration-300 ease-out ${
+                        isGeneratePressed ? "rotate-180 scale-125" : "rotate-0 scale-100"
+                      }`}
+                    />
                     <span className="sr-only">Generate questions</span>
                   </Button>
                 ) : (
