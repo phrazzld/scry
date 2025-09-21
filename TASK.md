@@ -1,234 +1,244 @@
-need a better way to see / verify / access freshly generated questions.
+# Dark Mode Implementation Research - 2025 Best Practices
 
-example: i just clicked the generate questions button in the navbar. entered "nato phonetic alphabet". submitted. got the spinner, then the success toast. but i'm still on the current question. and the total number of questions in the review progress bar doesn't change. and there's no way for me to go see the questions that have allegedly been generated. not ideal ux!
+This document contains research findings on current best practices for implementing dark mode in Next.js applications, focusing on production-ready, performance-optimized solutions.
 
-let's figure out what the best ui/ux design is here, while still adhering to our north star and paramount design principle of hypersimplicity.
+## Executive Summary
 
----
+The most robust dark mode implementation for 2025 uses **CSS Custom Properties (Variables)** with a class-based toggle system, Next.js SSR-compatible initialization, and strict security measures. The `next-themes` library represents the gold standard for this implementation pattern.
 
-# Enhanced Specification: Pure FSRS with Fresh Question Priority
+## Core Architecture (Recommended Approach)
 
-## Core Philosophy: Brutal Honesty in Spaced Repetition
+### 1. CSS Variables Foundation
+Use CSS custom properties as the foundation for theme switching:
 
-### The Hypersimple Truth
-We implement **pure FSRS** without comfort features or artificial limits. The Ebbinghaus forgetting curve doesn't care about your comfort - when something needs review, it needs review NOW. Daily limits are a comfortable lie that corrupts the algorithm.
-
-```typescript
-// Traditional SRS (scientifically incorrect)
-if (dueToday > dailyLimit) {
-  postpone(excess)  // This breaks the forgetting curve!
+```css
+/* globals.css */
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #f8f9fa;
+  --border: #e9ecef;
+  --primary: #0066cc;
+  --muted: #6c757d;
 }
 
-// Our approach (scientifically pure)
-if (isDue) {
-  reviewNow()  // Period. No exceptions.
-}
-```
-
-### Key Principles
-1. **No Daily Limits**: If 300 cards are due, show 300 cards
-2. **Fresh First**: New questions always prioritize over reviews (FSRS standard)
-3. **Trust Through Predictability**: Generated questions appear immediately in queue
-4. **Natural Self-Regulation**: Users learn sustainable pace through experience
-5. **Transparent Consequences**: See real impact of generation choices
-
-## Solution Architecture
-
-### The Problem
-After generating questions, users experience a "dead end":
-- Success toast appears but no way to verify what was created
-- Questions saved to database but invisible to user
-- Progress counter doesn't update
-- Breaks trust and workflow continuity
-
-### The Solution
-Maintain review-first paradigm while providing subtle transparency:
-- **No Navigation**: Stay in review flow (hypersimplicity)
-- **Fresh Priority**: Generated questions appear immediately in queue
-- **Real-Time Updates**: Counters and progress update within 2 seconds
-- **Visual Confirmation**: "New" badges and enhanced toasts
-
-## FSRS Implementation Details
-
-### Queue Priority Algorithm
-```typescript
-// FSRS-standard retrievability scoring
-const getRetrievability = (question) => {
-  if (!question.lastReview) {
-    // New questions (including just generated)
-    const hoursSinceCreation = (Date.now() - question.createdAt) / 3600000
-    if (hoursSinceCreation < 1) {
-      return -2  // Ultra-fresh: just generated
-    }
-    return -1    // Regular new card
+/* Respect system preference first */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0d1117;
+    --foreground: #c9d1d9;
+    --card: #161b22;
+    --border: #30363d;
+    --primary: #58a6ff;
+    --muted: #8b949e;
   }
-  
-  // Calculate standard FSRS retrievability for reviewed cards
-  return calculateFSRSRetrievability(question)
 }
 
-// Queue order (no limits, no slicing)
-const queueOrder = [
-  ...newQuestions,      // All new (retrievability: -2 to -1)
-  ...learningQuestions, // In learning phase (retrievability: ~0)
-  ...dueReviews,       // All due reviews (retrievability: 0 to 1)
-]
-```
+/* Manual override for dark theme */
+[data-theme="dark"] {
+  --background: #0d1117;
+  --foreground: #c9d1d9;
+  --card: #161b22;
+  --border: #30363d;
+  --primary: #58a6ff;
+  --muted: #8b949e;
+}
 
-### Why Fresh First is Correct
-1. **FSRS Standard**: New cards always precede reviews in proper SRS
-2. **Memory Science**: Initial encoding must happen before strengthening
-3. **User Intent**: Generation = explicit request for new material
-4. **Learning Chain**: Introduction → Learning → Review → Retention
-
-## Implementation Strategy
-
-### Phase 1: Immediate Improvements (Ship Today)
-
-#### 1. Enhanced Success Toast
-```typescript
-// generation-modal.tsx:112
-toast.success(`✓ ${savedQuestionIds.length} questions generated`, {
-  description: topic,
-  duration: 4000,
-})
-
-// Dispatch event for UI coordination
-window.dispatchEvent(new CustomEvent('questions-generated', {
-  detail: { count: savedQuestionIds.length, topic }
-}))
-```
-
-#### 2. Aggressive Polling
-```typescript
-// review-flow.tsx
-const [pollInterval, setPollInterval] = useState(30000)
-
-useEffect(() => {
-  const handleGeneration = () => {
-    setPollInterval(1000) // Aggressive for 5 seconds
-    setTimeout(() => setPollInterval(30000), 5000)
-  }
-  window.addEventListener('questions-generated', handleGeneration)
-  return () => window.removeEventListener('questions-generated', handleGeneration)
-}, [])
-```
-
-#### 3. "New" Badge
-```typescript
-// In question display
-{question.createdAt > Date.now() - 3600000 && (
-  <Badge variant="secondary" size="sm">
-    New
-  </Badge>
-)}
-```
-
-#### 4. Honest Progress Display
-```typescript
-// No limits, show reality
-<div className="space-y-2">
-  <div className="flex justify-between text-sm">
-    <span>{completed} reviewed</span>
-    <span className="font-medium">
-      {totalDue} total due
-    </span>
-  </div>
-  <Progress value={(completed / totalDue) * 100} />
-  {totalDue > 100 && (
-    <p className="text-xs text-muted-foreground">
-      This is your real learning debt. Each review matters.
-    </p>
-  )}
-</div>
-```
-
-### Phase 2: Smart Scheduling (Week 1)
-
-#### 5. Freshness Decay
-```typescript
-// Exponential decay over 24 hours
-const getFreshnessPriority = (createdAt) => {
-  const hoursSinceCreation = (Date.now() - createdAt) / 3600000
-  return Math.exp(-hoursSinceCreation / 24) * 1000
+/* Apply variables to elements */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 ```
 
-#### 6. Intelligent Interleaving
+### 2. FOUC Prevention (Critical)
+Prevent flash of unstyled content with an inline render-blocking script:
+
+```html
+<!-- In <head> before any CSS -->
+<script>
+  (function() {
+    try {
+      var theme = localStorage.getItem('theme');
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.style.colorScheme = 'dark';
+      } else if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.style.colorScheme = 'light';
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    } catch (e) { /* Ignore */ }
+  })();
+</script>
+```
+
+### 3. Next.js Implementation Pattern
+
+**Theme Provider (app/theme-provider.tsx):**
 ```typescript
-// Prevent topic fatigue
-function interleaveQuestions(fresh, reviews) {
-  const result = []
-  let consecutiveNew = 0
-  
-  while (fresh.length || reviews.length) {
-    if (consecutiveNew >= 3 && reviews.length) {
-      result.push(reviews.shift())
-      consecutiveNew = 0
-    } else if (fresh.length) {
-      result.push(fresh.shift())
-      consecutiveNew++
-    } else {
-      result.push(...reviews)
-      break
-    }
-  }
-  return result
+'use client'
+
+import * as React from 'react'
+import { ThemeProvider as NextThemesProvider } from 'next-themes'
+import { type ThemeProviderProps } from 'next-themes/dist/types'
+
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }
 ```
 
-#### 7. Visual Cues
-- Review button pulse animation after generation
-- Subtle highlight on first new question
-- Progress bar segments showing new vs due
+**Root Layout (app/layout.tsx):**
+```tsx
+import './globals.css'
+import { ThemeProvider } from './theme-provider'
 
-### Phase 3: Intelligence Layer (Week 2+)
-- Learn optimal new/review ratios per user
-- Topic fatigue detection
-- Predictive queue generation
-- Performance-based interleaving
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <ThemeProvider
+          attribute="data-theme"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange={false}
+        >
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+```
 
-## Technical Requirements
+**Theme Switcher Component:**
+```tsx
+'use client'
 
-### Backend (Convex)
-- Modify `getNextReview` to prioritize by retrievability
-- Add freshness calculation to queue generation
-- No schema changes required (use existing `createdAt`)
+import * as React from 'react'
+import { Moon, Sun } from 'lucide-react'
+import { useTheme } from 'next-themes'
 
-### Frontend (React/Next.js)
-- Dynamic polling intervals in `usePollingQuery`
-- Event system for generation coordination
-- Enhanced toast notifications with Sonner
-- Badge component for new questions
+export function ThemeSwitcher() {
+  const { setTheme, theme } = useTheme()
 
-### Performance Targets
-- Queue update latency < 2 seconds
-- Polling overhead < 1% CPU
-- Support 1000+ questions efficiently
+  return (
+    <button
+      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+      className="p-2 rounded-md"
+    >
+      <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      <span className="sr-only">Toggle theme</span>
+    </button>
+  )
+}
+```
 
-## Success Metrics
+## Security Considerations
 
-### User Experience
-- 90% of generated questions reviewed immediately
-- Reduced support tickets about "missing" questions
-- Increased generation-to-review conversion
+### 1. XSS Prevention
+- **Use Allow-Lists**: Only accept `['light', 'dark', 'system']` as valid theme values
+- **Sanitize All Inputs**: Treat localStorage, cookies, and URL parameters as untrusted
+- **Avoid Direct DOM Manipulation**: Use well-vetted libraries like `next-themes`
 
-### Technical
-- Counter updates within 2 seconds of generation
-- No mid-question interruptions
-- Smooth queue regeneration between questions
+### 2. Content Security Policy (CSP)
+Configure strict CSP that works with class-based theme switching:
 
-### Learning Outcomes
-- Improved retention through immediate review
-- Natural pacing through self-regulation
-- Respect for memory science principles
+```javascript
+// next.config.mjs
+const securityHeaders = [
+  {
+    key: 'Content-Security-Policy',
+    value: "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; font-src 'self';",
+  },
+];
+```
 
-## The Beautiful Consequence
+### 3. Storage Security
+- **localStorage Only for Preferences**: Never store sensitive data
+- **Validate on Read**: Always validate data from localStorage before use
+- **Consider Cookie Alternatives**: Use the inline script approach instead of cookies
 
-This system creates powerful feedback loops:
-1. **Generate Responsibly**: Adding 50 questions means 50 reviews
-2. **Review Consistently**: Skip a day, face compound interest of memory
-3. **Natural Pacing**: Find sustainable rate through experience
-4. **True Learning**: No hiding from what needs to be learned
+## Common Failure Modes & Solutions
 
-The result: A spaced repetition system in its **purest form** - no compromises, no comfort features, just the algorithm and your commitment to learning.
+### 1. Flash of Unstyled Content (FOUC)
+**Problem**: Default theme appears briefly before correct theme loads
+**Solution**: Inline render-blocking script in `<head>`
+**Debug**: Use network throttling to make FOUC visible
+
+### 2. Hydration Mismatches
+**Problem**: Server renders different theme than client expects
+**Solution**: Use `suppressHydrationWarning` selectively and ensure inline script runs before React hydration
+**Debug**: Check browser console for hydration warnings
+
+### 3. Performance Issues
+**Problem**: Theme switching causes lag or broken animations
+**Solution**: Use CSS variables, single point of truth (one attribute change), smooth transitions
+**Debug**: Use Performance profiler to identify style recalculation bottlenecks
+
+### 4. Accessibility Problems
+**Problem**: Poor color contrast, missing focus states
+**Solution**: Use contrast checkers, test with WCAG standards (4.5:1 ratio minimum)
+**Debug**: Use browser accessibility inspector and axe-core
+
+### 5. Multi-Tab Sync Issues
+**Problem**: Theme changes don't sync across open tabs
+**Solution**: Listen to `storage` event for localStorage changes
+**Debug**: Open multiple tabs and test theme switching
+
+## Performance Optimization
+
+### CSS Variables vs Class-Based Switching
+- **Winner**: CSS Variables (better performance, less code duplication)
+- **Mechanism**: Single attribute change triggers variable updates
+- **Transitions**: Apply to paint-only properties (`color`, `background-color`)
+
+### Bundle Size Impact
+- **Minimal Impact**: Both approaches have similar bundle sizes when optimized
+- **Best Practice**: Define light theme as default, dark as overrides
+- **Media Query First**: Use `prefers-color-scheme` for system respect
+
+### Mobile Considerations
+- **OLED Optimization**: Use true black (`#000000`) for battery savings
+- **Performance Critical**: Single point of truth prevents thrashing
+- **Keep Simple**: Fewer property changes = faster switching
+
+## Architecture Decisions for Scry
+
+Based on this research, the recommended implementation for Scry:
+
+1. **Use `next-themes`** - Industry standard, handles edge cases
+2. **CSS Variables** - Performance and maintainability benefits
+3. **Tailwind Integration** - Configure `darkMode: 'class'` in tailwind.config.js
+4. **System Preference First** - Respect user's OS setting by default
+5. **Manual Override** - Allow explicit light/dark selection
+6. **Security Focus** - Strict validation, no custom CSS injection
+7. **Accessibility Priority** - Proper contrast ratios, focus states
+
+## Implementation Checklist
+
+- [ ] Install and configure `next-themes`
+- [ ] Set up CSS variables in globals.css
+- [ ] Add theme provider to root layout
+- [ ] Create theme switcher component
+- [ ] Configure Tailwind for dark mode
+- [ ] Add inline script for FOUC prevention
+- [ ] Test accessibility with contrast checkers
+- [ ] Verify multi-tab synchronization
+- [ ] Performance test on mobile devices
+- [ ] Security review of theme handling
+
+## References
+
+- [next-themes Documentation](https://github.com/pacocoursey/next-themes)
+- [WCAG Color Contrast Guidelines](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html)
+- [CSS Custom Properties Specification](https://www.w3.org/TR/css-variables-1/)
+- [prefers-color-scheme Media Query](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme)

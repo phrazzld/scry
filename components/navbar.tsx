@@ -8,6 +8,7 @@ import { getNavbarClassName } from '@/lib/layout-mode'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
 import { Settings, Sparkles } from 'lucide-react'
+import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
 
 export function Navbar() {
@@ -78,6 +79,7 @@ export function Navbar() {
                     <Settings className="h-4 w-4" />
                   </Link>
                 )}
+                <ThemeToggle />
                 <UserButton afterSignOutUrl="/" />
               </>
             )}
