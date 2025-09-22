@@ -11,7 +11,6 @@ import { Plus, Settings } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
-import { useButtonPress } from '@/hooks/use-button-press'
 
 export function Navbar() {
   const { isLoaded, isSignedIn } = useUser()
@@ -20,7 +19,6 @@ export function Navbar() {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-  const { isPressing: isGeneratePressed, handlePressStart: handleGeneratePressStart } = useButtonPress()
 
   // Listen for review question changes
   useEffect(() => {
@@ -70,20 +68,9 @@ export function Navbar() {
                       setCurrentQuestion(reviewQuestion)
                       setGenerateOpen(true)
                     }}
-                    onPointerDown={handleGeneratePressStart}
                     title="Generate questions (G)"
                   >
-                    <span
-                      aria-hidden
-                      className={`pointer-events-none absolute inset-0 rounded-full bg-primary/20 transition-all duration-300 ease-out ${
-                        isGeneratePressed ? "scale-100 opacity-100" : "scale-75 opacity-0"
-                      }`}
-                    />
-                    <Plus
-                      className={`relative h-4 w-4 transition-transform duration-300 ease-out ${
-                        isGeneratePressed ? "rotate-180 scale-125" : "rotate-0 scale-100"
-                      }`}
-                    />
+                    <Plus className="relative h-4 w-4" />
                     <span className="sr-only">Generate questions</span>
                   </Button>
                 ) : (
