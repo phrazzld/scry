@@ -7,7 +7,7 @@ import { useUser, UserButton } from '@clerk/nextjs'
 import { getNavbarClassName } from '@/lib/layout-mode'
 import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
-import { Settings, Sparkles } from 'lucide-react'
+import { Plus, Settings } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
@@ -62,14 +62,15 @@ export function Navbar() {
                 {isHomepage ? (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
                     onClick={() => {
                       setCurrentQuestion(reviewQuestion)
                       setGenerateOpen(true)
                     }}
                     title="Generate questions (G)"
                   >
-                    <Sparkles className="h-4 w-4" />
+                    <Plus className="relative h-4 w-4" />
                     <span className="sr-only">Generate questions</span>
                   </Button>
                 ) : (

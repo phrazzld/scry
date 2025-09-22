@@ -1,5 +1,16 @@
 # BACKLOG
 
+- [ ] create favicon
+- [ ] make question generation more sophisticated
+    * really grok user intent before determining what questions to generate
+    * check existing questions of the user for context
+    * check performance of the user for context
+    * generate dynamic number of questions (eg "nato alphabet" should not gen 5 questions it should at least gen 26)
+- [ ] subscription paywall
+- [ ] support different question types
+    * free response with rubric and llm grading
+- [ ] email notifications when it's time to review
+
 ## High Priority (HIGH) — Code Health & Developer Experience
 
 ### Testing Infrastructure Rollout (Incremental PRs)

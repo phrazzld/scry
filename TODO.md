@@ -1,33 +1,6 @@
-# TODO: Dark Mode Implementation
-
-## Phase 1: Make it Work [30 minutes]
-Core functionality - Ship working dark mode TODAY
-
-### Setup Infrastructure [5 min]
-- [ ] Add suppressHydrationWarning to html element
-- [ ] Create theme-provider.tsx wrapper component
-- [ ] Integrate ThemeProvider in root layout
-
-### CSS Foundation [10 min]
-- [ ] Add dark mode CSS variables to globals.css
-- [ ] Configure Tailwind dark variant
-
-### User Interface [10 min]
-- [ ] Create theme toggle component
-- [ ] Add theme toggle to navbar
-
-### Verification [5 min]
-- [ ] Test FOUC prevention (hard refresh)
-- [ ] Verify cross-tab synchronization
-
-## Success Criteria
-- ✅ No flash on page load
-- ✅ Theme persists across sessions
-- ✅ Toggle switches between light/dark/system
-- ✅ Changes sync across tabs
-
-## NOT in this PR
-- Animations/transitions
-- Custom theme colors
-- Per-page theme overrides
-- Theme-aware images
+- [ ] Update Vercel production environment variables with new Clerk credentials and trigger a redeploy.
+- [ ] Configure Clerk production domains and redirect URLs (sign-in, sign-up, after sign-in/out) to point at the live site.
+- [ ] Add production origins to Clerk Allowed Origins & Redirects to cover the main domain and any required subdomains.
+- [ ] Create the Clerk → Convex webhook targeting the production `/clerk` endpoint and store its secret in `CLERK_WEBHOOK_SECRET`.
+- [ ] Mirror dev OAuth/social providers, organization settings, and email/SMS templates in the Clerk production instance.
+- [ ] Execute end-to-end auth regression in production (sign up, sign in, sign out, delete) to confirm syncing and webhook handling.

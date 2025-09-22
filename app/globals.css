@@ -79,6 +79,14 @@
   --radius: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+
+  /* Animation timing */
+  --duration-fast: 200ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elegant: cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 :root {
@@ -488,6 +496,80 @@
     will-change: transform;
   }
 
+  /* Icon switch animation for theme toggle - subtle scale pulse */
+  @keyframes iconSwitch {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(0.85);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Button ripple animation */
+  @keyframes buttonRipple {
+    0% {
+      transform: scale(0.75);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 0.5;
+    }
+    100% {
+      transform: scale(1.25);
+      opacity: 0;
+    }
+  }
+
+  /* Button pulse animation for emphasis */
+  @keyframes buttonPulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+
+  /* Smooth icon rotation */
+  @keyframes smoothRotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Utility classes for button animations */
+  .animate-icon-switch {
+    animation: iconSwitch 200ms var(--ease-elegant);
+  }
+
+  /* Dark mode moon glow effect */
+  .dark .moon-glow {
+    filter: drop-shadow(0 0 6px rgba(203, 213, 225, 0.4));
+  }
+
+  .button-ripple {
+    animation: buttonRipple 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .button-pulse {
+    animation: buttonPulse 300ms cubic-bezier(0.4, 0, 0.6, 1);
+  }
+
+  .icon-rotate {
+    animation: smoothRotate 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   /* Gradient background animation */
   @keyframes gradient-shift {
     0%, 100% { background-position: 0% 50%; }
@@ -533,6 +615,18 @@
       animation: none;
       opacity: 1;
       transform: none;
+    }
+
+    .animate-icon-switch,
+    .button-ripple,
+    .button-pulse,
+    .icon-rotate {
+      animation: none;
+    }
+
+    /* Disable hover scale effects for reduced motion */
+    button:hover {
+      transform: none !important;
     }
   }
 }
