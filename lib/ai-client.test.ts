@@ -92,7 +92,7 @@ describe('AI Client', () => {
 
       // Verify sanitization was called
       expect(sanitizeTopic).toHaveBeenCalledWith('JavaScript')
-      expect(createSafePrompt).toHaveBeenCalledWith('JavaScript', 10)
+      expect(createSafePrompt).toHaveBeenCalledWith('JavaScript')
 
       // Verify logging
       expect(aiLogger.info).toHaveBeenCalledWith(
