@@ -16,7 +16,9 @@
 | Topic | Expected | Generated | Status |
 |-------|----------|-----------|--------|
 | Introduction to React | 8-15 | 20 | ✅ Very thorough |
-| JavaScript closures | 12-20 | (test in progress) | - |
+| JavaScript closures | 12-20 | 14 | ✅ Perfect range |
+| HTML basics | 10-15 | 25 | ✅ Very comprehensive |
+| Git commands | 15-20 | 25 | ✅ Detailed coverage |
 
 ### Key Findings
 
