@@ -70,3 +70,7 @@ tsconfig.tsbuildinfo
 test-results/
 playwright-report/
 .playwright-mcp/
+
+# Local planning files
+test-*.js
+test-results-*.md

@@ -141,24 +141,25 @@ export function validateQuizInput(input: unknown) {
  * Create a safe prompt for AI generation
  * Wraps the user input in a controlled context
  */
-export function createSafePrompt(topic: string, questionCount: number = 10): string {
+export function createSafePrompt(topic: string): string {
   // Additional validation
   const sanitized = sanitizeTopic(topic);
-  
+
   // Wrap the topic in a controlled prompt structure
   // This helps prevent the AI from interpreting the topic as instructions
-  return `You are a quiz generation assistant. Generate exactly ${questionCount} educational quiz questions.
+  return `You are a quiz generation assistant. Your task is to create comprehensive educational quiz questions.
+
+First, consider the topic and determine how many questions would provide thorough coverage.
+Be generous - it's better to have too many questions than too few.
+For example: 'NATO alphabet' needs at least 26 questions, 'primary colors' needs 3, 'React hooks' might need 15-20.
 
 TOPIC TO CREATE QUESTIONS ABOUT: "${sanitized}"
 
-Requirements:
-- Create ${questionCount} questions total
-- Mix of question types: multiple-choice and true/false
-- Each multiple-choice question must have exactly 4 options
-- Each true/false question must have exactly 2 options: "True" and "False"
-- Include educational explanations for each answer
-- Focus only on the topic provided above
-- Do not include any content outside the specified topic
+Generate enough questions to ensure complete coverage of this topic.
+Mix question types: multiple-choice and true/false.
+Each multiple-choice question must have exactly 4 options.
+Each true/false question must have exactly 2 options: "True" and "False".
+Include educational explanations for each answer.
 
 Generate the questions now:`;
 }

@@ -1,6 +1,0 @@
-- [ ] Update Vercel production environment variables with new Clerk credentials and trigger a redeploy.
-- [ ] Configure Clerk production domains and redirect URLs (sign-in, sign-up, after sign-in/out) to point at the live site.
-- [ ] Add production origins to Clerk Allowed Origins & Redirects to cover the main domain and any required subdomains.
-- [ ] Create the Clerk → Convex webhook targeting the production `/clerk` endpoint and store its secret in `CLERK_WEBHOOK_SECRET`.
-- [ ] Mirror dev OAuth/social providers, organization settings, and email/SMS templates in the Clerk production instance.
-- [ ] Execute end-to-end auth regression in production (sign up, sign in, sign out, delete) to confirm syncing and webhook handling.

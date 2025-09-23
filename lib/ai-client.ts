@@ -26,7 +26,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
   const sanitizedTopic = sanitizeTopic(topic);
 
   // Create a safe prompt that prevents injection
-  const prompt = createSafePrompt(sanitizedTopic, 10);
+  const prompt = createSafePrompt(sanitizedTopic);
 
   try {
     const timer = loggers.time(`ai.quiz-generation.${sanitizedTopic}`, 'ai')
@@ -35,8 +35,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
       event: 'ai.quiz-generation.start',
       topic: sanitizedTopic,
       originalTopic: topic !== sanitizedTopic ? topic : undefined,
-      model: 'gemini-2.5-flash',
-      questionCount: 10
+      model: 'gemini-2.5-flash'
     }, `Starting quiz generation for topic: ${sanitizedTopic}`)
 
     const { object } = await generateObject({

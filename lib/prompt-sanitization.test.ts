@@ -75,14 +75,14 @@ describe('Prompt Sanitization', () => {
 
   describe('createSafePrompt', () => {
     it('should wrap topic in controlled prompt structure', () => {
-      const prompt = createSafePrompt('JavaScript', 5);
+      const prompt = createSafePrompt('JavaScript');
       expect(prompt).toContain('You are a quiz generation assistant');
       expect(prompt).toContain('TOPIC TO CREATE QUESTIONS ABOUT: "JavaScript"');
-      expect(prompt).toContain('Generate exactly 5 educational quiz questions');
+      expect(prompt).toContain('Generate enough questions to ensure complete coverage');
     });
 
     it('should sanitize topic before including in prompt', () => {
-      const prompt = createSafePrompt('<script>alert("xss")</script>JavaScript', 10);
+      const prompt = createSafePrompt('<script>alert("xss")</script>JavaScript');
       expect(prompt).toContain('"JavaScript"');
       expect(prompt).not.toContain('<script>');
     });
