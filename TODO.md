@@ -26,8 +26,17 @@
   - max-w-3xl is mobile-safe: w-full ensures 100% on small screens
   - Updated: quiz-mode, review-mode, index auth message
   ```
-- [ ] Add responsive padding that scales: `px-4 sm:px-6 lg:px-8` for better edge spacing on larger screens
-- [ ] Test true/false question layout without card container - ensure 2-column grid still works visually
+- [x] Add responsive padding that scales: `px-4 sm:px-6 lg:px-8` for better edge spacing on larger screens
+- [x] Test true/false question layout without card container - ensure 2-column grid still works visually
+  ```
+  Work Log:
+  - Created test page at /test-layout to verify true/false questions
+  - Confirmed 2-column grid layout working properly without Card components
+  - Buttons display correctly in grid with proper spacing
+  - Visual feedback (checkmarks/crosses) working as expected
+  - No layout issues detected - grid renders cleanly
+  - Screenshot captured for reference: true-false-layout-test.png
+  ```
 - [ ] Verify touch targets remain 44x44px minimum after card removal - critical for mobile usability
 - [ ] Measure and fix any layout shift between state transitions - particularly quiz -> complete states
 
