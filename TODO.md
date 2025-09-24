@@ -45,7 +45,15 @@
   - Fixed by updating icon button size from size-10 to size-11 in button.tsx
   - Verified all buttons now meet 44px minimum requirement
   ```
-- [ ] Measure and fix any layout shift between state transitions - particularly quiz -> complete states
+- [x] Measure and fix any layout shift between state transitions - particularly quiz -> complete states
+  ```
+  Work Log:
+  - Identified issue: QuizMode and ReviewMode components lacked consistent wrapper
+  - Each state component rendered directly, causing height/width changes
+  - Fixed by adding wrapper div with min-height to maintain consistent dimensions
+  - Applied to both quiz-mode.tsx and review-mode.tsx
+  - Layout now stable during state transitions
+  ```
 
 ### Visual Polish
 - [ ] Replace card shadows with subtle border-b dividers where logical separation needed

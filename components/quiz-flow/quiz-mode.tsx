@@ -76,40 +76,33 @@ export function QuizMode({ topic, difficulty }: QuizModeProps) {
     setState("complete");
   };
 
-  switch (state) {
-    case "ready":
-      return (
+  return (
+    <div className="min-h-[400px] flex items-start justify-center">
+      {state === "ready" && (
         <QuizReadyState
           topic={topic}
           difficulty={difficulty}
           error={error}
           onStart={generateQuiz}
         />
-      );
-    
-    case "generating":
-      return <QuizGeneratingState topic={topic} />;
-    
-    case "quiz":
-      if (!quiz) return null;
-      return (
+      )}
+
+      {state === "generating" && <QuizGeneratingState topic={topic} />}
+
+      {state === "quiz" && quiz && (
         <QuizSessionManager
           quiz={quiz}
           onComplete={handleQuizComplete}
         />
-      );
-    
-    case "complete":
-      if (!quiz) return null;
-      return (
+      )}
+
+      {state === "complete" && quiz && (
         <QuizCompleteState
           score={quiz.score}
           totalQuestions={quiz.questions.length}
           onRetake={() => window.location.reload()}
         />
-      );
-    
-    default:
-      return null;
-  }
+      )}
+    </div>
+  );
 }

@@ -9,7 +9,7 @@ import { ReviewReadyState } from "./review-ready-state";
 import { ReviewEmptyState } from "./review-empty-state";
 import { ReviewCompleteState } from "./review-complete-state";
 import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
-import type { SimpleQuiz, SimpleQuestion } from "@/types/quiz";
+import type { SimpleQuestion } from "@/types/quiz";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
 
 type ReviewState = "loading" | "empty" | "ready" | "quiz" | "complete";
@@ -63,34 +63,21 @@ export function ReviewMode() {
     window.location.reload(); // Simple way to refetch the next review
   };
 
-  switch (state) {
-    case "loading":
-      return <QuizFlowSkeleton />;
-    
-    case "empty":
-      return <ReviewEmptyState />;
-    
-    case "ready":
-      if (!reviewQuestion) return null;
-      return (
+  return (
+    <div className="min-h-[400px] flex items-start justify-center">
+      {state === "loading" && <QuizFlowSkeleton />}
+
+      {state === "empty" && <ReviewEmptyState />}
+
+      {state === "ready" && reviewQuestion && (
         <ReviewReadyState
           dueCount={dueCount?.totalReviewable ?? 0}
           questionPreview={reviewQuestion.question.substring(0, 100) + "..."}
           onStart={() => setState("quiz")}
         />
-      );
-    
-    case "quiz":
-      if (!reviewQuestion) return null;
-      const quizData: SimpleQuiz = {
-        topic: "Review Session",
-        questions: [reviewQuestion],
-        questionIds: reviewQuestionId ? [reviewQuestionId] : [],
-        currentIndex: 0,
-        score: 0
-      };
+      )}
 
-      return (
+      {state === "quiz" && reviewQuestion && (
         <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 space-y-4">
           {reviewInteractions && (
             <QuestionHistory
@@ -100,21 +87,24 @@ export function ReviewMode() {
           )}
 
           <QuizSessionManager
-            quiz={quizData}
+            quiz={{
+              topic: "Review Session",
+              questions: [reviewQuestion],
+              questionIds: reviewQuestionId ? [reviewQuestionId] : [],
+              currentIndex: 0,
+              score: 0
+            }}
             onComplete={handleReviewComplete}
           />
         </div>
-      );
-    
-    case "complete":
-      return (
+      )}
+
+      {state === "complete" && (
         <ReviewCompleteState
           remainingReviews={(dueCount?.totalReviewable ?? 1) - 1}
           onNextReview={startNextReview}
         />
-      );
-    
-    default:
-      return null;
-  }
+      )}
+    </div>
+  );
 }
