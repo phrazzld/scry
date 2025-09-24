@@ -126,7 +126,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                   <button
                     key={index}
                     onClick={() => handleAnswerSelect(option)}
-                    className={`p-6 rounded-lg border-2 transition-all font-medium ${
+                    className={`p-6 rounded-lg border-2 transition-all font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                       selectedAnswer === option
                         ? showFeedback
                           ? option === currentQuestion.correctAnswer
@@ -155,7 +155,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(option)}
-                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                  className={`w-full text-left p-4 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                     selectedAnswer === option
                       ? showFeedback
                         ? option === currentQuestion.correctAnswer

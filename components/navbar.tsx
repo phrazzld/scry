@@ -52,7 +52,7 @@ export function Navbar() {
     <>
       <nav className={`${getNavbarClassName()} h-16 bg-background/80 backdrop-blur-sm border-b border-border`}>
         <div className="h-full max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
-          <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-foreground/80 hover:text-foreground border-b-0 transition-colors">
+          <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-foreground/80 hover:text-foreground border-b-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm">
             Scry.
           </Link>
 
@@ -76,7 +76,7 @@ export function Navbar() {
                 ) : (
                   <Link
                     href="/settings"
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     aria-label="Settings"
                   >
                     <Settings className="h-4 w-4" />
