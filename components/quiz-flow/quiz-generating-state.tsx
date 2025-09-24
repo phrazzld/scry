@@ -1,6 +1,5 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 interface QuizGeneratingStateProps {
@@ -9,16 +8,16 @@ interface QuizGeneratingStateProps {
 
 export function QuizGeneratingState({ topic }: QuizGeneratingStateProps) {
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardContent className="pt-12 pb-8">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <h3 className="text-lg font-semibold">Generating your quiz...</h3>
-          <p className="text-sm text-muted-foreground text-center">
-            Creating thoughtful questions about {topic}
-          </p>
+    <article className="w-full max-w-3xl px-4 py-6">
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <h2 className="text-xl font-semibold">Generating your quiz...</h2>
         </div>
-      </CardContent>
-    </Card>
+        <p className="text-muted-foreground">
+          Creating thoughtful questions about {topic}
+        </p>
+      </div>
+    </article>
   );
 }
