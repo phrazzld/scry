@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface QuizCompleteStateProps {
   score: number;
@@ -15,26 +14,27 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
   const percentage = Math.round((score / totalQuestions) * 100);
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Quiz Complete!</CardTitle>
-        <CardDescription>
-          You scored {score} out of {totalQuestions}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <article className="w-full max-w-3xl px-4 py-6">
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold">Quiz Complete!</h2>
+          <p className="text-muted-foreground">
+            You scored {score} out of {totalQuestions}
+          </p>
+        </div>
+
         <div className="space-y-6">
           <div className="text-center">
             <p className="text-5xl font-bold">{percentage}%</p>
             <p className="text-muted-foreground mt-2">
-              {percentage >= 80 ? "Excellent work!" : 
-               percentage >= 60 ? "Good job!" : 
+              {percentage >= 80 ? "Excellent work!" :
+               percentage >= 60 ? "Good job!" :
                "Keep practicing!"}
             </p>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
+            <Button
               onClick={onRetake}
               variant="default"
               className="flex-1"
@@ -53,7 +53,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
             >
               New Quiz
             </Button>
-            <Button 
+            <Button
               onClick={() => router.push("/")}
               variant="outline"
               className="flex-1"
@@ -62,7 +62,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }
