@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { SimpleQuiz } from '@/types/quiz'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 
@@ -126,15 +127,25 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                   <button
                     key={index}
                     onClick={() => handleAnswerSelect(option)}
-                    className={`p-6 rounded-lg border-2 transition-all font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                      selectedAnswer === option
-                        ? showFeedback
-                          ? option === currentQuestion.correctAnswer
-                            ? 'border-success-border bg-success-background text-success'
-                            : 'border-error-border bg-error-background text-error'
-                          : 'border-info-border bg-info-background text-info'
-                        : 'border-input hover:bg-accent/50 hover:border-accent'
-                    } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
+                    className={cn(
+                      // Base styles
+                      "p-6 rounded-lg border-2 transition-all font-medium",
+                      "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      // Default state
+                      "border-input hover:bg-accent/50 hover:border-accent",
+                      // Selected state
+                      selectedAnswer === option && !showFeedback && [
+                        "border-info-border bg-info-background text-info"
+                      ],
+                      // Feedback state - correct answer
+                      showFeedback && option === currentQuestion.correctAnswer && [
+                        "border-success-border bg-success-background text-success"
+                      ],
+                      // Feedback state - wrong answer selected
+                      showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && [
+                        "border-error-border bg-error-background text-error"
+                      ]
+                    )}
                     disabled={showFeedback}
                   >
                     <div className="flex flex-col items-center justify-center space-y-2">
@@ -155,15 +166,25 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(option)}
-                  className={`w-full text-left p-4 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                    selectedAnswer === option
-                      ? showFeedback
-                        ? option === currentQuestion.correctAnswer
-                          ? 'border-success-border bg-success-background'
-                          : 'border-error-border bg-error-background'
-                        : 'border-info-border bg-info-background'
-                      : 'border-input hover:bg-accent/50 hover:border-accent'
-                  } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
+                  className={cn(
+                    // Base styles
+                    "w-full text-left p-4 rounded-lg border transition-colors",
+                    "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    // Default state
+                    "border-input hover:bg-accent/50 hover:border-accent",
+                    // Selected state
+                    selectedAnswer === option && !showFeedback && [
+                      "border-info-border bg-info-background"
+                    ],
+                    // Feedback state - correct answer
+                    showFeedback && option === currentQuestion.correctAnswer && [
+                      "border-success-border bg-success-background"
+                    ],
+                    // Feedback state - wrong answer selected
+                    showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && [
+                      "border-error-border bg-error-background"
+                    ]
+                  )}
                   disabled={showFeedback}
                 >
                   <div className="flex items-center justify-between">
