@@ -13,18 +13,18 @@ interface UnifiedQuizFlowProps {
 /**
  * Unified quiz flow component that handles both quiz and review modes.
  * Delegates to specialized components based on mode.
- * 
+ *
  * Component breakdown:
  * - QuizMode: Handles quiz generation and completion (114 lines)
  * - ReviewMode: Handles spaced repetition reviews (109 lines)
  * - State components: Small, focused UI components (<50 lines each)
- * 
+ *
  * Total: Reduced from 385 lines to <40 lines in main component
  */
-export function UnifiedQuizFlow({ 
-  topic = "general knowledge", 
+export default function UnifiedQuizFlow({
+  topic = "general knowledge",
   difficulty = "medium",
-  mode = "quiz" 
+  mode = "quiz"
 }: UnifiedQuizFlowProps) {
   const { isSignedIn } = useUser();
 
@@ -33,7 +33,7 @@ export function UnifiedQuizFlow({
     if (!isSignedIn) {
       // Review mode requires authentication
       return (
-        <div className="w-full max-w-2xl mx-auto p-4 text-center">
+        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-muted-foreground">
             Please sign in to access review mode.
           </p>
@@ -46,9 +46,6 @@ export function UnifiedQuizFlow({
   // Default to quiz mode
   return <QuizMode topic={topic} difficulty={difficulty} />;
 }
-
-// Default export for module
-export default UnifiedQuizFlow;
 
 // Re-export all components for external use
 export { QuizMode } from "./quiz-mode";

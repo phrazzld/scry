@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import type { SimpleQuiz } from '@/types/quiz'
@@ -103,25 +102,23 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-muted-foreground">
-              Question {currentIndex + 1} of {quiz.questions.length}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              Score: {score}/{currentIndex}
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
+    <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">
+            Question {currentIndex + 1} of {quiz.questions.length}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            Score: {score}/{currentIndex}
+          </span>
         </div>
+        <Progress value={progress} className="h-2" />
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-xl">{currentQuestion.question}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <article className="space-y-6">
+        <h2 className="text-xl font-semibold">{currentQuestion.question}</h2>
+
+        <div className="space-y-3">
             {currentQuestion.type === 'true-false' ? (
               // True/False specific layout
               <div className="grid grid-cols-2 gap-4">
@@ -235,9 +232,8 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                 </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      </article>
     </div>
   )
 }

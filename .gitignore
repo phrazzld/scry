@@ -74,3 +74,4 @@ playwright-report/
 # Local planning files
 test-*.js
 test-results-*.md
+components/quiz-flow.old.tsx

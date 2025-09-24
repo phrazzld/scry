@@ -91,14 +91,14 @@ export function ReviewMode() {
       };
 
       return (
-        <div className="w-full max-w-2xl mx-auto space-y-4">
+        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 space-y-4">
           {reviewInteractions && (
-            <QuestionHistory 
+            <QuestionHistory
               interactions={reviewInteractions}
               loading={false}
             />
           )}
-          
+
           <QuizSessionManager
             quiz={quizData}
             onComplete={handleReviewComplete}

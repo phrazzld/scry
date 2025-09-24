@@ -93,12 +93,10 @@ export function QuizMode({ topic, difficulty }: QuizModeProps) {
     case "quiz":
       if (!quiz) return null;
       return (
-        <div className="w-full max-w-2xl mx-auto">
-          <QuizSessionManager
-            quiz={quiz}
-            onComplete={handleQuizComplete}
-          />
-        </div>
+        <QuizSessionManager
+          quiz={quiz}
+          onComplete={handleQuizComplete}
+        />
       );
     
     case "complete":
