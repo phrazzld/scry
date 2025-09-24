@@ -8,7 +8,7 @@ interface QuizGeneratingStateProps {
 
 export function QuizGeneratingState({ topic }: QuizGeneratingStateProps) {
   return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 animate-spin text-primary" />

@@ -14,7 +14,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
   const percentage = Math.round((score / totalQuestions) * 100);
 
   return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
       <div className="space-y-6">
         <div className="space-y-2 pb-6 border-b">
           <h2 className="text-xl font-semibold">Quiz Complete!</h2>
@@ -25,7 +25,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
 
         <div className="space-y-6">
           <div className="text-center pb-6 border-b">
-            <p className="text-5xl font-bold">{percentage}%</p>
+            <p className="text-5xl font-bold animate-scaleIn">{percentage}%</p>
             <p className="text-muted-foreground mt-2">
               {percentage >= 80 ? "Excellent work!" :
                percentage >= 60 ? "Good job!" :

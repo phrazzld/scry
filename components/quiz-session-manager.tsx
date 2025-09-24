@@ -151,10 +151,10 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <span className="text-lg">{option}</span>
                       {showFeedback && option === currentQuestion.correctAnswer && (
-                        <CheckCircle className="h-6 w-6 text-success" />
+                        <CheckCircle className="h-6 w-6 text-success animate-scaleIn" />
                       )}
                       {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
-                        <XCircle className="h-6 w-6 text-error" />
+                        <XCircle className="h-6 w-6 text-error animate-scaleIn" />
                       )}
                     </div>
                   </button>
@@ -190,10 +190,10 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                   <div className="flex items-center justify-between">
                     <span>{option}</span>
                     {showFeedback && option === currentQuestion.correctAnswer && (
-                      <CheckCircle className="h-5 w-5 text-success" />
+                      <CheckCircle className="h-5 w-5 text-success animate-scaleIn" />
                     )}
                     {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
-                      <XCircle className="h-5 w-5 text-error" />
+                      <XCircle className="h-5 w-5 text-error animate-scaleIn" />
                     )}
                   </div>
                 </button>
@@ -201,13 +201,13 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
             )}
 
             {showFeedback && currentQuestion.explanation && (
-              <div className="mt-4 p-4 bg-info-background rounded-lg border border-info-border">
+              <div className="mt-4 p-4 bg-info-background rounded-lg border border-info-border animate-fadeIn">
                 <p className="text-sm text-foreground/80">{currentQuestion.explanation}</p>
               </div>
             )}
             
             {showFeedback && nextReviewInfo && nextReviewInfo.nextReview && (
-              <div className="mt-4 p-4 bg-accent rounded-lg border border-border">
+              <div className="mt-4 p-4 bg-accent rounded-lg border border-border animate-fadeIn">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-accent-foreground" />
                   <p className="text-sm font-medium text-accent-foreground">

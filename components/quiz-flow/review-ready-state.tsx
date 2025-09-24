@@ -11,7 +11,7 @@ interface ReviewReadyStateProps {
 
 export function ReviewReadyState({ dueCount, questionPreview, onStart }: ReviewReadyStateProps) {
   return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
       <div className="space-y-6">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold flex items-center gap-2">
