@@ -100,7 +100,12 @@ export function QuizMode({ topic, difficulty }: QuizModeProps) {
         <QuizCompleteState
           score={quiz.score}
           totalQuestions={quiz.questions.length}
-          onRetake={() => window.location.reload()}
+          onRetake={() => {
+            // Reset state to allow generating a new quiz
+            setQuiz(null);
+            setError(null);
+            setState("ready");
+          }}
         />
       )}
     </div>

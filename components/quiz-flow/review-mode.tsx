@@ -26,7 +26,7 @@ export function ReviewMode() {
     {},
     30000 // Poll every 30 seconds
   );
-  
+
   const dueCount = usePollingQuery(
     api.spacedRepetition.getDueCount,
     {},
@@ -58,9 +58,13 @@ export function ReviewMode() {
   };
 
   const startNextReview = () => {
+    // Reset all state to trigger a fresh review load
     setState("loading");
     setReviewQuestion(null);
-    window.location.reload(); // Simple way to refetch the next review
+    setReviewQuestionId(null);
+    setReviewInteractions([]);
+    // The useEffect will automatically update when nextReview changes
+    // No need for window.location.reload()
   };
 
   return (
