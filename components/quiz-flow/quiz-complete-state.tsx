@@ -16,7 +16,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
   return (
     <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
       <div className="space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-2 pb-6 border-b">
           <h2 className="text-xl font-semibold">Quiz Complete!</h2>
           <p className="text-muted-foreground">
             You scored {score} out of {totalQuestions}
@@ -24,7 +24,7 @@ export function QuizCompleteState({ score, totalQuestions, onRetake }: QuizCompl
         </div>
 
         <div className="space-y-6">
-          <div className="text-center">
+          <div className="text-center pb-6 border-b">
             <p className="text-5xl font-bold">{percentage}%</p>
             <p className="text-muted-foreground mt-2">
               {percentage >= 80 ? "Excellent work!" :

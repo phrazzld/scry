@@ -103,7 +103,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
 
   return (
     <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-      <div className="mb-6">
+      <div className="mb-6 pb-6 border-b">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-muted-foreground">
             Question {currentIndex + 1} of {quiz.questions.length}

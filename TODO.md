@@ -56,7 +56,14 @@
   ```
 
 ### Visual Polish
-- [ ] Replace card shadows with subtle border-b dividers where logical separation needed
+- [x] Replace card shadows with subtle border-b dividers where logical separation needed
+  ```
+  Work Log:
+  - Added border-b divider to quiz progress header section
+  - Added border-b between header and score sections in quiz complete states
+  - Applied consistent border-b styling to review complete state
+  - Provides visual separation without shadows or card components
+  ```
 - [ ] Implement focus-visible styles on all interactive elements - lost Card's default focus handling
 - [ ] Add explicit hover state to option buttons: `hover:bg-accent/50` for better affordance
 - [ ] Ensure error/success states have sufficient contrast without card background - test with color blindness simulators
