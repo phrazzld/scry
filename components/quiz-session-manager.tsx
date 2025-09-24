@@ -133,7 +133,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                             ? 'border-success-border bg-success-background text-success'
                             : 'border-error-border bg-error-background text-error'
                           : 'border-info-border bg-info-background text-info'
-                        : 'border-input hover:bg-accent hover:border-input'
+                        : 'border-input hover:bg-accent/50 hover:border-accent'
                     } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
                     disabled={showFeedback}
                   >
@@ -162,7 +162,7 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                           ? 'border-success-border bg-success-background'
                           : 'border-error-border bg-error-background'
                         : 'border-info-border bg-info-background'
-                      : 'border-input hover:bg-accent'
+                      : 'border-input hover:bg-accent/50 hover:border-accent'
                   } ${showFeedback && option === currentQuestion.correctAnswer ? 'border-success-border bg-success-background' : ''}`}
                   disabled={showFeedback}
                 >
