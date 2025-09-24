@@ -114,12 +114,12 @@
 
   /* Semantic state colors - Light mode */
   --success: 142 76% 36%;
-  --success-foreground: 142 76% 96%;
+  --success-foreground: 142 76% 20%;
   --success-background: 142 76% 96%;
   --success-border: 142 76% 86%;
 
   --error: 0 72% 51%;
-  --error-foreground: 0 86% 97%;
+  --error-foreground: 0 72% 35%;
   --error-background: 0 86% 97%;
   --error-border: 0 72% 91%;
 
@@ -158,12 +158,12 @@
 
   /* Semantic state colors - Dark mode */
   --success: 142 84% 61%;
-  --success-foreground: 142 31% 11%;
+  --success-foreground: 142 84% 85%;
   --success-background: 142 31% 11%;
   --success-border: 142 31% 21%;
 
   --error: 0 91% 71%;
-  --error-foreground: 0 31% 11%;
+  --error-foreground: 0 91% 85%;
   --error-background: 0 31% 11%;
   --error-border: 0 31% 21%;
 
