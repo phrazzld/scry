@@ -16,7 +16,7 @@
 - [x] Update `/app/page.tsx` to directly use ReviewFlow component
   - Remove UnifiedQuizFlow wrapper
   - No mode prop needed - always review
-- [ ] Update ReviewMode to handle empty state when no questions exist
+- [x] Update ReviewMode to handle empty state when no questions exist
   - Show "Generate Questions" button when queue empty
   - Auto-start reviewing when questions appear
 

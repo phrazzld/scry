@@ -34,7 +34,7 @@ export function ReviewEmptyState() {
               }}
               variant="default"
             >
-              Create New Quiz
+              Generate Questions
             </Button>
             <Button
               onClick={() => router.push("/")}
