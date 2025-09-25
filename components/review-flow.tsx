@@ -238,9 +238,9 @@ export function ReviewFlow() {
     }
   }, [currentReview, showingFeedback, shouldStartReview]);
   
-  // Broadcast current question for generation context
+  // Broadcast current question for generation context using universal event
   useEffect(() => {
-    const event = new CustomEvent('review-question-changed', {
+    const event = new CustomEvent('current-question-changed', {
       detail: { question: currentQuestion?.question || null }
     });
     window.dispatchEvent(event);

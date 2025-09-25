@@ -42,10 +42,10 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   const isCorrect = selectedAnswer === currentQuestion.correctAnswer
   const progress = ((currentIndex) / quiz.questions.length) * 100
 
-  // Emit event when current question changes for generation modal context
+  // Emit universal event when current question changes for generation modal context
   useEffect(() => {
     if (currentQuestion) {
-      const event = new CustomEvent('quiz-question-changed', {
+      const event = new CustomEvent('current-question-changed', {
         detail: { question: currentQuestion }
       })
       window.dispatchEvent(event)

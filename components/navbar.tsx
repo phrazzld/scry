@@ -20,15 +20,15 @@ export function Navbar() {
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
   const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
 
-  // Listen for review question changes
+  // Listen for current question changes using universal event
   useEffect(() => {
-    const handleReviewQuestionChanged = (event: Event) => {
+    const handleCurrentQuestionChanged = (event: Event) => {
       const customEvent = event as CustomEvent
       setReviewQuestion(customEvent.detail?.question || undefined)
     }
 
-    window.addEventListener('review-question-changed', handleReviewQuestionChanged)
-    return () => window.removeEventListener('review-question-changed', handleReviewQuestionChanged)
+    window.addEventListener('current-question-changed', handleCurrentQuestionChanged)
+    return () => window.removeEventListener('current-question-changed', handleCurrentQuestionChanged)
   }, [])
 
   // Listen for keyboard shortcut to open generation modal

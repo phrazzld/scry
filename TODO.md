@@ -35,11 +35,11 @@
   - Keep only Question and Interaction types
 
 ### Single Event System
-- [ ] Create universal `current-question-changed` event
-- [ ] Update ReviewFlow to emit `current-question-changed` (not review-specific)
-- [ ] Delete quiz-question-changed event from quiz-session-manager
-- [ ] Update navbar to listen for single `current-question-changed` event
-- [ ] Remove all dual-event handling code
+- [x] Create universal `current-question-changed` event
+- [x] Update ReviewFlow to emit `current-question-changed` (not review-specific)
+- [x] Delete quiz-question-changed event from review-session (formerly quiz-session-manager)
+- [x] Update navbar to listen for single `current-question-changed` event
+- [x] Remove all dual-event handling code
 
 ## PHASE 2: Fix Generation Modal Context (Now Trivial)
 - [ ] Ensure GenerationModal receives context from single event system
