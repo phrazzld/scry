@@ -39,7 +39,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -174,7 +174,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

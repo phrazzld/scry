@@ -21,7 +21,7 @@
   - Auto-start reviewing when questions appear
 
 ### Rename Core Files (No More Quiz)
-- [ ] Rename `/api/generate-quiz/` to `/api/generate-questions/`
+- [x] Rename `/api/generate-quiz/` to `/api/generate-questions/`
   - Update route to return questions array, not quiz object
   - Remove quiz bundling/grouping logic
 - [ ] Rename `quiz-session-manager.tsx` to `review-session.tsx`

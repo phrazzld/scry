@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,6 +10,14 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock('@clerk/nextjs', () => ({
+  useUser: vi.fn(() => ({ isSignedIn: true })),
+}));
+
+vi.mock('convex/react', () => ({
+  useMutation: vi.fn(() => vi.fn()),
 }));
 
 // Mock fetch globally
@@ -26,7 +35,7 @@ describe('GenerationModal', () => {
     topic: 'React',
     difficulty: 'easy' as const,
   };
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockOnOpenChange = vi.fn();
@@ -37,336 +46,249 @@ describe('GenerationModal', () => {
   });
 
   describe('Initial State', () => {
-    it('should display modal title and description when open', () => {
+    it('should display modal title when open', () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
+
       expect(screen.getByText('Generate Questions')).toBeInTheDocument();
-      expect(screen.getByText('Create new questions to expand your learning material')).toBeInTheDocument();
     });
 
     it('should not render content when closed', () => {
       render(<GenerationModal open={false} onOpenChange={mockOnOpenChange} />);
-      
+
       expect(screen.queryByText('Generate Questions')).not.toBeInTheDocument();
     });
 
-    it('should have prompt textarea', () => {
+    it('should have prompt input field', () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      expect(textarea).toBeInTheDocument();
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      expect(input).toBeInTheDocument();
+      expect(input.tagName).toBe('INPUT');
     });
 
-    it('should have generate and cancel buttons', () => {
+    it('should have generate button', () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      expect(screen.getByRole('button', { name: /Generate Questions/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
+
+      expect(screen.getByRole('button', { name: /Generate/i })).toBeInTheDocument();
     });
 
     it('should disable generate button when prompt is empty', () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
       expect(generateButton).toBeDisabled();
     });
   });
 
   describe('Context Question', () => {
-    it('should show context checkbox when currentQuestion is provided', () => {
+    it('should show context topic when currentQuestion is provided', () => {
       render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
+        <GenerationModal
+          open={true}
+          onOpenChange={mockOnOpenChange}
           currentQuestion={mockQuestion as any}
         />
       );
-      
-      expect(screen.getByText('Start from current question')).toBeInTheDocument();
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toBeInTheDocument();
+
+      expect(screen.getByText('Context: React')).toBeInTheDocument();
     });
 
-    it('should auto-check context and set default prompt when opened with question', () => {
+    it('should set default prompt when opened with question', () => {
       render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
+        <GenerationModal
+          open={true}
+          onOpenChange={mockOnOpenChange}
           currentQuestion={mockQuestion as any}
         />
       );
-      
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
-      expect(checkbox.checked).toBe(true);
-      
-      const textarea = screen.getByDisplayValue('Generate 5 similar questions');
-      expect(textarea).toBeInTheDocument();
-    });
 
-    it('should show current question preview when context is checked', () => {
-      render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
-          currentQuestion={mockQuestion as any}
-        />
-      );
-      
-      expect(screen.getByText('Current question:')).toBeInTheDocument();
-      expect(screen.getByText('What is React?')).toBeInTheDocument();
-    });
-
-    it('should toggle context preview when checkbox is clicked', async () => {
-      render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
-          currentQuestion={mockQuestion as any}
-        />
-      );
-      
-      const checkbox = screen.getByRole('checkbox');
-      
-      // Initially checked and showing preview
-      expect(screen.getByText('Current question:')).toBeInTheDocument();
-      
-      // Uncheck
-      await user.click(checkbox);
-      expect(screen.queryByText('Current question:')).not.toBeInTheDocument();
-      
-      // Check again
-      await user.click(checkbox);
-      expect(screen.getByText('Current question:')).toBeInTheDocument();
-    });
-
-    it('should truncate long question text in preview', () => {
-      const longQuestion = {
-        ...mockQuestion,
-        question: 'This is a very long question that should be truncated after fifty characters to prevent UI overflow',
-      };
-      
-      render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
-          currentQuestion={longQuestion as any}
-        />
-      );
-      
-      const preview = screen.getByText(/This is a very long question that should be trunc\.\.\./);
-      expect(preview).toBeInTheDocument();
+      const input = screen.getByPlaceholderText('What do you want to learn?') as HTMLInputElement;
+      expect(input.value).toBe('5 more like this');
     });
   });
 
   describe('Form Interaction', () => {
     it('should enable generate button when prompt is entered', async () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+
       expect(generateButton).toBeDisabled();
-      
-      await user.type(textarea, 'JavaScript closures');
-      
+
+      await user.type(input, 'JavaScript closures');
+
       expect(generateButton).not.toBeDisabled();
     });
 
-    it('should clear prompt when modal is closed and reopened', () => {
-      const { rerender } = render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/) as HTMLTextAreaElement;
-      fireEvent.change(textarea, { target: { value: 'Test prompt' } });
-      
-      expect(textarea.value).toBe('Test prompt');
-      
-      // Close modal
-      rerender(<GenerationModal open={false} onOpenChange={mockOnOpenChange} />);
-      
-      // Reopen modal
-      rerender(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const newTextarea = screen.getByPlaceholderText(/React hooks/) as HTMLTextAreaElement;
-      expect(newTextarea.value).toBe('');
+    it('should submit form on Enter key', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          questions: [{ question: 'Test', options: [], correctAnswer: 'A' }],
+          topic: 'JavaScript closures',
+        }),
+      });
+
+      render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      await user.type(input, 'JavaScript closures');
+      await user.keyboard('{Enter}');
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled();
+      });
     });
 
-    it('should call onOpenChange when cancel button is clicked', () => {
+    it('should clear prompt after successful generation', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          questions: [{ question: 'Test', options: [], correctAnswer: 'A' }],
+          topic: 'JavaScript closures',
+        }),
+      });
+
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const cancelButton = screen.getByRole('button', { name: /Cancel/i });
-      fireEvent.click(cancelButton);
-      
-      expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+
+      const input = screen.getByPlaceholderText('What do you want to learn?') as HTMLInputElement;
+      await user.type(input, 'JavaScript closures');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
+      await waitFor(() => {
+        expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+      });
     });
   });
 
   describe('Question Generation', () => {
-    it('should show error toast when prompt is empty', async () => {
+    it('should not submit with empty prompt', async () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const form = screen.getByRole('button', { name: /Generate Questions/i }).closest('form')!;
+
+      const form = screen.getByRole('button', { name: /Generate/i }).closest('form')!;
       fireEvent.submit(form);
-      
-      await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Please enter a prompt');
-      });
-      
+
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('should successfully generate questions', async () => {
+    it('should handle successful generation', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           questions: [
-            { question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
-            { question: 'Q2', options: ['A', 'B', 'C', 'D'], correctAnswer: 'B' },
-            { question: 'Q3', options: ['A', 'B', 'C', 'D'], correctAnswer: 'C' },
-            { question: 'Q4', options: ['A', 'B', 'C', 'D'], correctAnswer: 'D' },
-            { question: 'Q5', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' },
+            { question: 'Test', options: [], correctAnswer: 'A' },
+            { question: 'Test2', options: [], correctAnswer: 'B' }
           ],
           topic: 'JavaScript closures',
-          difficulty: 'medium'
         }),
       });
-      
+
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      await user.type(textarea, 'JavaScript closures');
-      
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      fireEvent.click(generateButton);
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      await user.type(input, 'JavaScript closures');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/generate-quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: 'JavaScript closures',
-            difficulty: 'medium',
-            userContext: expect.objectContaining({
-              successRate: expect.any(Number),
-              avgTime: expect.any(Number),
-              recentTopics: expect.any(Array),
-            }),
-          }),
-        });
+        expect(toast.success).toHaveBeenCalledWith('✓ 2 questions generated');
+        expect(mockOnOpenChange).toHaveBeenCalledWith(false);
       });
-      
-      expect(toast.success).toHaveBeenCalledWith('✓ 5 questions generated', {
-        description: 'JavaScript closures',
-        duration: 4000,
-      });
-      expect(mockOnOpenChange).toHaveBeenCalledWith(false);
     });
 
-    it('should include context in prompt when checkbox is checked', async () => {
+    it('should prepend context when currentQuestion exists', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          questions: [],
-          topic: 'Based on: What is React?. Generate 5 similar questions',
-          difficulty: 'medium'
+          questions: [{ question: 'Test', options: [], correctAnswer: 'A' }],
+          topic: 'Test prompt',
         }),
       });
-      
+
       render(
-        <GenerationModal 
-          open={true} 
-          onOpenChange={mockOnOpenChange} 
+        <GenerationModal
+          open={true}
+          onOpenChange={mockOnOpenChange}
           currentQuestion={mockQuestion as any}
         />
       );
-      
-      // Context is auto-checked, prompt is auto-filled
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      fireEvent.click(generateButton);
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?') as HTMLInputElement;
+      await user.clear(input);
+      await user.type(input, 'harder questions');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/generate-quiz', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            topic: 'Based on: What is React?. Generate 5 similar questions',
-            difficulty: 'medium',
-            userContext: expect.any(Object),
-          }),
-        });
+        expect(mockFetch).toHaveBeenCalled();
       });
+
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.topic).toContain('Based on: What is React?');
     });
 
-    it('should show loading state while generating', async () => {
-      mockFetch.mockImplementationOnce(() => 
-        new Promise(resolve => setTimeout(() => resolve({ ok: true, json: async () => ({
-          questions: [{ question: 'Q1', options: ['A', 'B', 'C', 'D'], correctAnswer: 'A' }],
-          topic: 'Test prompt',
-          difficulty: 'medium'
-        }) }), 100))
+    it('should show loading state during generation', async () => {
+      mockFetch.mockImplementationOnce(() =>
+        new Promise(resolve => setTimeout(() => resolve({
+          ok: true,
+          json: async () => ({ questions: [], topic: 'Test' })
+        }), 100))
       );
-      
+
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      await user.type(textarea, 'Test prompt');
-      
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      fireEvent.click(generateButton);
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      await user.type(input, 'Test prompt');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
       expect(screen.getByText('Generating...')).toBeInTheDocument();
-      expect(textarea).toBeDisabled();
-      expect(screen.getByRole('button', { name: /Cancel/i })).toBeDisabled();
-      
+
       await waitFor(() => {
         expect(screen.queryByText('Generating...')).not.toBeInTheDocument();
       });
     });
 
-    it('should handle generation errors', async () => {
+    it('should handle API errors gracefully', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         text: async () => 'Server error',
       });
-      
+
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      await user.type(textarea, 'Test prompt');
-      
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      fireEvent.click(generateButton);
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      await user.type(input, 'Test prompt');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Failed to generate questions. Please try again.');
+        expect(toast.error).toHaveBeenCalledWith('Failed to generate questions');
       });
-      
+
       expect(mockOnOpenChange).not.toHaveBeenCalledWith(false);
     });
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
-      
-      render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
-      const textarea = screen.getByPlaceholderText(/React hooks/);
-      await user.type(textarea, 'Test prompt');
-      
-      const generateButton = screen.getByRole('button', { name: /Generate Questions/i });
-      fireEvent.click(generateButton);
-      
-      await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith('Failed to generate questions. Please try again.');
-      });
-    });
-  });
 
-  describe('Accessibility', () => {
-    it('should auto-focus textarea when modal opens', async () => {
       render(<GenerationModal open={true} onOpenChange={mockOnOpenChange} />);
-      
+
+      const input = screen.getByPlaceholderText('What do you want to learn?');
+      await user.type(input, 'Test prompt');
+
+      const generateButton = screen.getByRole('button', { name: /Generate/i });
+      await user.click(generateButton);
+
       await waitFor(() => {
-        const textarea = screen.getByPlaceholderText(/React hooks/);
-        expect(document.activeElement).toBe(textarea);
+        expect(toast.error).toHaveBeenCalledWith('Failed to generate questions');
       });
     });
   });

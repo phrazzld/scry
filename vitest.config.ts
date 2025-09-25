@@ -31,7 +31,7 @@ export default defineConfig({
     },
 
     // Test organization
-    include: ['**/*.{test,spec}.{js,ts}'],
+    include: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],
     exclude: [
       'node_modules/',
       'dist/',

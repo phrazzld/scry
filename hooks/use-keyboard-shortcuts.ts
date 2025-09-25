@@ -114,6 +114,7 @@ export function useReviewShortcuts({
   onEdit,
   onDelete,
   onUndo,
+  onGenerateFromContext,
   showingFeedback,
   isAnswering,
   canSubmit,
@@ -124,6 +125,7 @@ export function useReviewShortcuts({
   onEdit?: () => void;
   onDelete?: () => void;
   onUndo?: () => void;
+  onGenerateFromContext?: () => void;
   showingFeedback?: boolean;
   isAnswering?: boolean;
   canSubmit?: boolean;
@@ -233,6 +235,16 @@ export function useReviewShortcuts({
     },
     context: 'review',
   });
-  
+
+  // Generate new questions from current context
+  if (onGenerateFromContext) {
+    shortcuts.push({
+      key: 'n',
+      description: 'Generate new questions from this one',
+      action: onGenerateFromContext,
+      context: 'review',
+    });
+  }
+
   return useKeyboardShortcuts(shortcuts, true);
 }

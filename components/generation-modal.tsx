@@ -102,7 +102,7 @@ export function GenerationModal({
         }
       }
 
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

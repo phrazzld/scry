@@ -513,6 +513,13 @@ export function ReviewFlow() {
         setIsDeleteDialogOpen(true);
       }
     },
+    onGenerateFromContext: () => {
+      if (currentQuestion?.question) {
+        window.dispatchEvent(new CustomEvent('open-generation-modal', {
+          detail: { currentQuestion: currentQuestion.question }
+        }));
+      }
+    },
     onUndo: () => {
       // Implement undo logic if there's a recent deletion
       toast.info('Undo not available');
