@@ -7,13 +7,13 @@
 - [x] Delete `/components/quiz-flow/quiz-ready-state.tsx` - use review empty state
 - [x] Delete `/components/quiz-flow/quiz-complete-state.tsx` - use review complete state
 - [x] Delete `/components/quiz-flow/quiz-generating-state.tsx` - questions generate in background
-- [~] Update `/components/quiz-flow/index.tsx` to ONLY export ReviewMode
+- [x] Update `/components/quiz-flow/index.tsx` to ONLY export ReviewMode
   - Remove `mode` prop entirely from UnifiedQuizFlow
   - Remove all conditional logic checking mode
   - Component should just render ReviewMode directly
 
 ### Make Homepage Pure Review
-- [ ] Update `/app/page.tsx` to directly use ReviewFlow component
+- [x] Update `/app/page.tsx` to directly use ReviewFlow component
   - Remove UnifiedQuizFlow wrapper
   - No mode prop needed - always review
 - [ ] Update ReviewMode to handle empty state when no questions exist
