@@ -206,46 +206,44 @@ export function QuizSessionManager({ quiz, onComplete, mode = 'quiz', questionHi
               ))
             )}
 
-            {showFeedback && currentQuestion.explanation && (
-              <div className="mt-4 p-4 bg-info-background rounded-lg border border-info-border animate-fadeIn">
-                <p className="text-sm text-foreground/80">{currentQuestion.explanation}</p>
-              </div>
-            )}
+            {showFeedback && (currentQuestion.explanation || (mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
+              <div className="mt-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
+                {/* Explanation */}
+                {currentQuestion.explanation && (
+                  <p className="text-sm text-foreground/90">{currentQuestion.explanation}</p>
+                )}
 
-            {showFeedback && mode === 'review' && questionHistory && (
-              <div className="mt-4 animate-fadeIn">
-                <QuestionHistory
-                  interactions={questionHistory}
-                  loading={false}
-                />
-              </div>
-            )}
+                {/* Divider between explanation and other content */}
+                {currentQuestion.explanation && ((mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
+                  <hr className="border-border/30" />
+                )}
 
-            {showFeedback && nextReviewInfo && nextReviewInfo.nextReview && (
-              <div className="mt-4 p-4 bg-accent rounded-lg border border-border animate-fadeIn">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-accent-foreground" />
-                  <p className="text-sm font-medium text-accent-foreground">
-                    Next Review Scheduled
-                  </p>
-                </div>
-                <p className="text-sm text-accent-foreground mt-1">
-                  {nextReviewInfo.scheduledDays === 0 
-                    ? "Review again today"
-                    : nextReviewInfo.scheduledDays === 1 
-                    ? "Review tomorrow"
-                    : `Review in ${nextReviewInfo.scheduledDays} days`}
-                </p>
-                <p className="text-xs text-accent-foreground/70 mt-1">
-                  {new Date(nextReviewInfo.nextReview).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit'
-                  })}
-                </p>
+                {/* Question History - simplified styling */}
+                {mode === 'review' && questionHistory && (
+                  <QuestionHistory
+                    interactions={questionHistory}
+                    loading={false}
+                  />
+                )}
+
+                {/* Next Review - inline and subtle */}
+                {nextReviewInfo && nextReviewInfo.nextReview && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>
+                      Next review: {nextReviewInfo.scheduledDays === 0
+                        ? "Today"
+                        : nextReviewInfo.scheduledDays === 1
+                        ? "Tomorrow"
+                        : `In ${nextReviewInfo.scheduledDays} days`}
+                      {' at '}
+                      {new Date(nextReviewInfo.nextReview).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

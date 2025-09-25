@@ -19,8 +19,8 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
   if (!interactions || interactions.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-background/80 p-6">
-        <p className="text-sm font-medium text-muted-foreground">No previous attempts yet.</p>
+      <div>
+        <p className="text-sm text-muted-foreground">No previous attempts yet.</p>
       </div>
     )
   }
@@ -35,14 +35,11 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
   const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0
 
   return (
-    <div className="rounded-2xl border border-border bg-background/80 p-6">
+    <div>
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previous attempts</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {totalAttempts} {totalAttempts === 1 ? 'attempt' : 'attempts'} • {successRate}% correct
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Previous attempts: {totalAttempts} • {successRate}% success rate
+        </p>
         {hasMore && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -62,30 +59,24 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
           </button>
         )}
       </div>
-      <div className="mt-4 divide-y divide-border">
+      <div className="mt-2 divide-y divide-border/30">
         {recentInteractions.map((interaction) => (
           <div
             key={interaction._id}
-            className="flex items-start gap-3 py-3"
+            className="flex items-start gap-2 py-2 first:pt-0"
           >
-            <div
-              className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full border ${
-                interaction.isCorrect
-                  ? 'border-success-border bg-success-background text-success'
-                  : 'border-error-border bg-error-background text-error'
-              }`}
-            >
+            <div className="mt-0.5">
               {interaction.isCorrect ? (
-                <CheckCircle className="h-3.5 w-3.5" />
+                <CheckCircle className="h-4 w-4 text-success" />
               ) : (
-                <XCircle className="h-3.5 w-3.5" />
+                <XCircle className="h-4 w-4 text-error" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">
+              <p className="text-sm text-foreground/80 truncate">
                 {interaction.userAnswer}
               </p>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>{formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}</span>
                 {interaction.timeSpent && (
                   <>
@@ -104,18 +95,15 @@ export function QuestionHistory({ interactions, loading }: QuestionHistoryProps)
 
 function QuestionHistorySkeleton() {
   return (
-    <div className="rounded-2xl border border-border bg-background/80 p-6">
-      <div className="space-y-2">
-        <div className="h-4 w-32 rounded bg-muted animate-pulse" />
-        <div className="h-3 w-48 rounded bg-muted animate-pulse" />
-      </div>
-      <div className="mt-4 space-y-3">
+    <div>
+      <div className="h-4 w-48 rounded bg-muted animate-pulse" />
+      <div className="mt-2 space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-start gap-3">
-            <div className="h-7 w-7 rounded-full bg-muted animate-pulse" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 w-40 rounded bg-muted animate-pulse" />
-              <div className="h-3 w-24 rounded bg-muted animate-pulse" />
+          <div key={i} className="flex items-start gap-2">
+            <div className="h-4 w-4 rounded-full bg-muted animate-pulse mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <div className="h-3 w-32 rounded bg-muted animate-pulse" />
+              <div className="h-3 w-20 rounded bg-muted animate-pulse" />
             </div>
           </div>
         ))}
