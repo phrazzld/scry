@@ -3,9 +3,10 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { QuizSessionManager } from "@/components/quiz-session-manager";
-import { QuizReadyState } from "@/components/quiz-flow/quiz-ready-state";
-import { QuizGeneratingState } from "@/components/quiz-flow/quiz-generating-state";
-import { QuizCompleteState } from "@/components/quiz-flow/quiz-complete-state";
+// Quiz-specific components have been removed - everything is review mode now
+// import { QuizReadyState } from "@/components/quiz-flow/quiz-ready-state";
+// import { QuizGeneratingState } from "@/components/quiz-flow/quiz-generating-state";
+// import { QuizCompleteState } from "@/components/quiz-flow/quiz-complete-state";
 
 export default function ProfilingTestPage() {
   const [testCase, setTestCase] = useState<string>("none");
@@ -96,25 +97,23 @@ export default function ProfilingTestPage() {
       </div>
 
       <div className="border-t pt-8">
+        {/* Quiz-specific states removed - everything is review mode now */}
         {testCase === "ready" && (
-          <QuizReadyState
-            topic="Performance Testing"
-            difficulty="medium"
-            error={null}
-            onStart={() => {}}
-          />
+          <div className="text-center text-muted-foreground py-12">
+            Ready state removed - use review empty state
+          </div>
         )}
 
         {testCase === "generating" && (
-          <QuizGeneratingState topic="Performance Testing" />
+          <div className="text-center text-muted-foreground py-12">
+            Generating state removed - questions generate in background
+          </div>
         )}
 
         {testCase === "complete" && (
-          <QuizCompleteState
-            score={mockQuizResult.correctAnswers}
-            totalQuestions={mockQuizResult.totalQuestions}
-            onRetake={() => {}}
-          />
+          <div className="text-center text-muted-foreground py-12">
+            Complete state removed - use review complete state
+          </div>
         )}
 
         {testCase === "manager" && (

@@ -1,5 +1,5 @@
 import UnifiedQuizFlow from '@/components/quiz-flow'
 
 export default function Home() {
-  return <UnifiedQuizFlow mode="review" />
+  return <UnifiedQuizFlow />
 }
