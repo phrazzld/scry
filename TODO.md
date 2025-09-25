@@ -42,9 +42,9 @@
 - [x] Remove all dual-event handling code
 
 ## PHASE 2: Fix Generation Modal Context (Now Trivial)
-- [ ] Ensure GenerationModal receives context from single event system
-- [ ] Remove quiz/review distinction in context handling
-- [ ] Test generation modal works from any question view
+- [x] Ensure GenerationModal receives context from single event system
+- [x] Remove quiz/review distinction in context handling
+- [x] Test generation modal works from any question view
 
 ## PHASE 3: Pure FSRS Implementation
 - [ ] Generated questions immediately enter review queue as "new" cards

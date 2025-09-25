@@ -18,13 +18,12 @@ export function Navbar() {
   const pathname = usePathname()
   const [generateOpen, setGenerateOpen] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-  const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
 
   // Listen for current question changes using universal event
   useEffect(() => {
     const handleCurrentQuestionChanged = (event: Event) => {
       const customEvent = event as CustomEvent
-      setReviewQuestion(customEvent.detail?.question || undefined)
+      setCurrentQuestion(customEvent.detail?.question || undefined)
     }
 
     window.addEventListener('current-question-changed', handleCurrentQuestionChanged)
@@ -33,15 +32,13 @@ export function Navbar() {
 
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
-    const handleOpenGenerationModal = (event: Event) => {
-      const customEvent = event as CustomEvent
-      setCurrentQuestion(customEvent.detail?.currentQuestion || reviewQuestion)
+    const handleOpenGenerationModal = () => {
       setGenerateOpen(true)
     }
 
     window.addEventListener('open-generation-modal', handleOpenGenerationModal)
     return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal)
-  }, [reviewQuestion])
+  }, [])
 
   const isHomepage = pathname === '/'
 
@@ -64,10 +61,7 @@ export function Navbar() {
                     variant="ghost"
                     size="icon"
                     className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
-                    onClick={() => {
-                      setCurrentQuestion(reviewQuestion)
-                      setGenerateOpen(true)
-                    }}
+                    onClick={() => setGenerateOpen(true)}
                     title="Generate questions (G)"
                   >
                     <Plus className="relative h-4 w-4" />
