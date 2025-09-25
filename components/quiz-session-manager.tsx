@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
@@ -41,6 +41,16 @@ export function QuizSessionManager({ quiz, onComplete, mode = 'quiz', questionHi
   const isLastQuestion = currentIndex === quiz.questions.length - 1
   const isCorrect = selectedAnswer === currentQuestion.correctAnswer
   const progress = ((currentIndex) / quiz.questions.length) * 100
+
+  // Emit event when current question changes for generation modal context
+  useEffect(() => {
+    if (currentQuestion) {
+      const event = new CustomEvent('quiz-question-changed', {
+        detail: { question: currentQuestion }
+      })
+      window.dispatchEvent(event)
+    }
+  }, [currentIndex, currentQuestion])
 
   const handleAnswerSelect = (answer: string) => {
     if (showFeedback) return
@@ -261,7 +271,7 @@ export function QuizSessionManager({ quiz, onComplete, mode = 'quiz', questionHi
                   onClick={handleNext}
                   size="lg"
                 >
-                  {isLastQuestion ? 'Finish' : 'Next'}
+                  Next
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               )}
