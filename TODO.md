@@ -3,8 +3,8 @@
 ## PHASE 1: DELETE QUIZ CONCEPT - Everything is Review Mode
 
 ### Immediate: Remove Quiz Components
-- [~] Delete `/components/quiz-flow/quiz-mode.tsx` - everything is review mode
-- [ ] Delete `/components/quiz-flow/quiz-ready-state.tsx` - use review empty state
+- [x] Delete `/components/quiz-flow/quiz-mode.tsx` - everything is review mode
+- [~] Delete `/components/quiz-flow/quiz-ready-state.tsx` - use review empty state
 - [ ] Delete `/components/quiz-flow/quiz-complete-state.tsx` - use review complete state
 - [ ] Delete `/components/quiz-flow/quiz-generating-state.tsx` - questions generate in background
 - [ ] Update `/components/quiz-flow/index.tsx` to ONLY export ReviewMode
