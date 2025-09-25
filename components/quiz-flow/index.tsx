@@ -53,6 +53,6 @@ export { ReviewMode } from "./review-mode";
 export { QuizReadyState } from "./quiz-ready-state";
 export { QuizGeneratingState } from "./quiz-generating-state";
 export { QuizCompleteState } from "./quiz-complete-state";
-export { ReviewReadyState } from "./review-ready-state";
+// ReviewReadyState removed - we go directly to questions
 export { ReviewEmptyState } from "./review-empty-state";
 export { ReviewCompleteState } from "./review-complete-state";

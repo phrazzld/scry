@@ -6,14 +6,18 @@ import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SimpleQuiz } from '@/types/quiz'
+import type { Doc } from '@/convex/_generated/dataModel'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
+import { QuestionHistory } from '@/components/question-history'
 
 interface QuizSessionManagerProps {
   quiz: SimpleQuiz
   onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
+  mode?: 'quiz' | 'review'
+  questionHistory?: Doc<"interactions">[] // History of previous attempts for review mode
 }
 
-export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps) {
+export function QuizSessionManager({ quiz, onComplete, mode = 'quiz', questionHistory }: QuizSessionManagerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
@@ -104,17 +108,19 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
 
   return (
     <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-      <div className="mb-6 pb-6 border-b">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-muted-foreground">
-            Question {currentIndex + 1} of {quiz.questions.length}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            Score: {score}/{currentIndex}
-          </span>
+      {mode === 'quiz' && (
+        <div className="mb-6 pb-6 border-b">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-muted-foreground">
+              Question {currentIndex + 1} of {quiz.questions.length}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Score: {score}/{currentIndex}
+            </span>
+          </div>
+          <Progress value={progress} className="h-2" />
         </div>
-        <Progress value={progress} className="h-2" />
-      </div>
+      )}
 
       <article className="space-y-6">
         <h2 className="text-xl font-semibold">{currentQuestion.question}</h2>
@@ -205,7 +211,16 @@ export function QuizSessionManager({ quiz, onComplete }: QuizSessionManagerProps
                 <p className="text-sm text-foreground/80">{currentQuestion.explanation}</p>
               </div>
             )}
-            
+
+            {showFeedback && mode === 'review' && questionHistory && (
+              <div className="mt-4 animate-fadeIn">
+                <QuestionHistory
+                  interactions={questionHistory}
+                  loading={false}
+                />
+              </div>
+            )}
+
             {showFeedback && nextReviewInfo && nextReviewInfo.nextReview && (
               <div className="mt-4 p-4 bg-accent rounded-lg border border-border animate-fadeIn">
                 <div className="flex items-center gap-2">

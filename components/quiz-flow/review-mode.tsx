@@ -4,15 +4,14 @@ import { useState, useEffect } from "react";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { api } from "@/convex/_generated/api";
 import { QuizSessionManager } from "@/components/quiz-session-manager";
-import { QuestionHistory } from "@/components/question-history";
-import { ReviewReadyState } from "./review-ready-state";
+// ReviewReadyState removed - we go directly to questions
 import { ReviewEmptyState } from "./review-empty-state";
 import { ReviewCompleteState } from "./review-complete-state";
 import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
 import type { SimpleQuestion } from "@/types/quiz";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
 
-type ReviewState = "loading" | "empty" | "ready" | "quiz" | "complete";
+type ReviewState = "loading" | "empty" | "quiz" | "complete";
 
 export function ReviewMode() {
   const [state, setState] = useState<ReviewState>("loading");
@@ -49,12 +48,22 @@ export function ReviewMode() {
       setReviewQuestion(question);
       setReviewQuestionId(nextReview.question._id);
       setReviewInteractions(nextReview.interactions || []);
-      setState("ready");
+      setState("quiz"); // Go directly to quiz, no ready state
     }
   }, [nextReview]);
 
   const handleReviewComplete = async () => {
-    setState("complete");
+    // Check if there are more reviews
+    if ((dueCount?.totalReviewable ?? 0) > 1) {
+      // More reviews available - load the next one immediately
+      setState("loading");
+      setReviewQuestion(null);
+      setReviewQuestionId(null);
+      setReviewInteractions([]);
+    } else {
+      // No more reviews
+      setState("complete");
+    }
   };
 
   const startNextReview = () => {
@@ -63,8 +72,6 @@ export function ReviewMode() {
     setReviewQuestion(null);
     setReviewQuestionId(null);
     setReviewInteractions([]);
-    // The useEffect will automatically update when nextReview changes
-    // No need for window.location.reload()
   };
 
   return (
@@ -73,23 +80,8 @@ export function ReviewMode() {
 
       {state === "empty" && <ReviewEmptyState />}
 
-      {state === "ready" && reviewQuestion && (
-        <ReviewReadyState
-          dueCount={dueCount?.totalReviewable ?? 0}
-          questionPreview={reviewQuestion.question.substring(0, 100) + "..."}
-          onStart={() => setState("quiz")}
-        />
-      )}
-
       {state === "quiz" && reviewQuestion && (
-        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 space-y-4">
-          {reviewInteractions && (
-            <QuestionHistory
-              interactions={reviewInteractions}
-              loading={false}
-            />
-          )}
-
+        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
           <QuizSessionManager
             quiz={{
               topic: "Review Session",
@@ -99,6 +91,8 @@ export function ReviewMode() {
               score: 0
             }}
             onComplete={handleReviewComplete}
+            mode="review"
+            questionHistory={reviewInteractions}
           />
         </div>
       )}
