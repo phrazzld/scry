@@ -116,7 +116,17 @@
   - Guide documents how to use React DevTools Profiler effectively
   - Provides checklist and benchmarks for performance verification
   ```
-- [ ] Test Time to Interactive (TTI) improvement from simpler DOM structure
+- [x] Test Time to Interactive (TTI) improvement from simpler DOM structure
+  ```
+  Work Log:
+  - Created automated Lighthouse TTI testing script at /scripts/lighthouse-tti-test.js
+  - Built comprehensive TTI testing documentation at /docs/tti-performance-testing.md
+  - Added npm scripts for quick testing: test:lighthouse and test:tti
+  - Script measures TTI, FCP, LCP, TBT, CLS across all key pages
+  - Includes automatic comparison with previous runs to track improvements
+  - Documents expected 20-30% TTI improvement from Card removal
+  - Provides CI/CD integration example for automated performance regression testing
+  ```
 - [ ] Measure Cumulative Layout Shift (CLS) score - should improve without centered layout
 
 ### Testing Requirements
