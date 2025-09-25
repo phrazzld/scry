@@ -1,20 +1,72 @@
 # TODO.md
 
-## UI Architecture Refactor - Card Aesthetic Removal
+## PHASE 1: DELETE QUIZ CONCEPT - Everything is Review Mode
 
-### Completed
-- [x] Remove Card component imports from QuizSessionManager (`components/quiz-session-manager.tsx:5`)
-- [x] Replace Card wrapper with semantic article element for better HTML structure
-- [x] Eliminate centered flexbox layout (`min-h-screen flex items-center justify-center`) in favor of left-aligned content
-- [x] Flatten component hierarchy by removing CardContent/CardHeader wrappers
-- [x] Apply consistent spacing using Tailwind space utilities instead of card padding
+### Immediate: Remove Quiz Components
+- [ ] Delete `/components/quiz-flow/quiz-mode.tsx` - everything is review mode
+- [ ] Delete `/components/quiz-flow/quiz-ready-state.tsx` - use review empty state
+- [ ] Delete `/components/quiz-flow/quiz-complete-state.tsx` - use review complete state
+- [ ] Delete `/components/quiz-flow/quiz-generating-state.tsx` - questions generate in background
+- [ ] Update `/components/quiz-flow/index.tsx` to ONLY export ReviewMode
+  - Remove `mode` prop entirely from UnifiedQuizFlow
+  - Remove all conditional logic checking mode
+  - Component should just render ReviewMode directly
 
-### Critical Path - Consistency Pass
-- [x] Audit ReviewCompleteState component for remaining Card usage - must match QuizSessionManager's new pattern
-- [x] Strip Card components from QuizCompleteState (`components/quiz-flow/quiz-complete-state.tsx`) - use same article/h2 pattern
-- [x] Remove Card from ReviewReadyState and ReviewEmptyState components - maintain visual hierarchy with typography alone
-- [x] Update QuizGeneratingState skeleton to match new left-aligned layout - no centered card shimmer
-- [x] Verify QuizReadyState component alignment - should left-align like active quiz state
+### Make Homepage Pure Review
+- [ ] Update `/app/page.tsx` to directly use ReviewFlow component
+  - Remove UnifiedQuizFlow wrapper
+  - No mode prop needed - always review
+- [ ] Update ReviewMode to handle empty state when no questions exist
+  - Show "Generate Questions" button when queue empty
+  - Auto-start reviewing when questions appear
+
+### Rename Core Files (No More Quiz)
+- [ ] Rename `/api/generate-quiz/` to `/api/generate-questions/`
+  - Update route to return questions array, not quiz object
+  - Remove quiz bundling/grouping logic
+- [ ] Rename `quiz-session-manager.tsx` to `review-session.tsx`
+  - Remove `quiz` prop, accept single question
+  - Remove score tracking and quiz completion
+- [ ] Rename `/components/quiz-flow/` to `/components/review/`
+  - Use `git mv` to preserve history
+- [ ] Rename `types/quiz.ts` to `types/questions.ts`
+  - Delete `SimpleQuiz` interface
+  - Delete `QuizSession` interface
+  - Keep only Question and Interaction types
+
+### Single Event System
+- [ ] Create universal `current-question-changed` event
+- [ ] Update ReviewFlow to emit `current-question-changed` (not review-specific)
+- [ ] Delete quiz-question-changed event from quiz-session-manager
+- [ ] Update navbar to listen for single `current-question-changed` event
+- [ ] Remove all dual-event handling code
+
+## PHASE 2: Fix Generation Modal Context (Now Trivial)
+- [ ] Ensure GenerationModal receives context from single event system
+- [ ] Remove quiz/review distinction in context handling
+- [ ] Test generation modal works from any question view
+
+## PHASE 3: Pure FSRS Implementation
+- [ ] Generated questions immediately enter review queue as "new" cards
+- [ ] No "start quiz" button - just continuous review
+- [ ] Remove progress bars that imply session completion
+- [ ] Remove score calculations - only track per-question success
+- [ ] No session boundaries - infinite review loop
+
+## PHASE 4: Database Cleanup
+- [ ] Stop writing to `quizResults` table entirely
+- [ ] Mark `quizResults` as deprecated in schema
+- [ ] Delete `convex/quiz.ts` file
+- [ ] Move any needed functions to `questions.ts`
+
+## PHASE 5: UI Text Updates
+- [ ] "Generate Quiz" → "Generate Questions" everywhere
+- [ ] "Quiz Complete" → "No More Reviews"
+- [ ] "Start Quiz" → "Review"
+- [ ] "Quiz Score" → "Success Rate"
+- [ ] Update all tooltips and help text
+
+## PHASE 6: Continue UI Improvements (Card Removal)
 
 ### Layout Refinement
 - [~] Implement consistent max-width across all quiz flow states - currently using `max-w-3xl`, verify this doesn't break mobile
@@ -130,22 +182,11 @@
 - [ ] Measure Cumulative Layout Shift (CLS) score - should improve without centered layout
 
 ### Testing Requirements
-- [ ] Screenshot test all quiz states in both light/dark modes without cards
+- [ ] Screenshot test all states in both light/dark modes without cards
 - [ ] Verify keyboard navigation still works through all options - Tab order must be logical
 - [ ] Test with screen reader - ensure heading hierarchy makes sense without Card structure
-- [ ] Load test with 50+ question quiz - ensure layout performs without card virtualization
+- [ ] Load test with 50+ questions - ensure layout performs without card virtualization
 - [ ] Cross-browser test - Safari, Firefox, Chrome, Edge for layout consistency
-
-### Documentation Updates
-- [ ] Update component documentation to reflect new structure
-- [ ] Add ADR (Architecture Decision Record) explaining card removal rationale
-- [ ] Update Storybook stories if they exist - remove Card wrapper examples
-
-### Future Considerations
-- [ ] Investigate replacing remaining shadcn/ui components with vanilla implementations - further simplification
-- [ ] Consider CSS Grid for question layout instead of flexbox - more control, less wrapper divs
-- [ ] Evaluate removing Progress component in favor of text-only indicator - "3 of 10"
-- [ ] Research optimal reading line length - current `max-w-3xl` may be too wide for comfortable reading
 
 ## Technical Debt
 - [x] ReviewMode component uses `window.location.reload()` for next review - implement proper state reset instead
@@ -177,13 +218,13 @@
   - Animations use existing keyframes from globals.css
   - Provides smooth transitions between all quiz states
   ```
-- [ ] No error boundary around quiz components - add graceful degradation
+- [ ] No error boundary around review components - add graceful degradation
 
 ## Performance Metrics Baseline
 - [ ] Record current Lighthouse scores before further optimizations
 - [ ] Measure initial bundle size with Card components removed
 - [ ] Document current FCP, LCP, TTI metrics for comparison
-- [ ] Profile memory usage during long quiz sessions
+- [ ] Profile memory usage during long review sessions
 
 ## Accessibility Audit
 - [ ] Ensure all interactive elements have proper ARIA labels
@@ -193,4 +234,4 @@
 - [ ] Implement proper focus management between questions
 
 ---
-*Last Updated: 2025-09-23*
+*Last Updated: 2025-09-25*
