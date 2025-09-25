@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SimpleQuiz } from '@/types/questions'
@@ -40,7 +39,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   const currentQuestion = quiz.questions[currentIndex]
   const isLastQuestion = currentIndex === quiz.questions.length - 1
   const isCorrect = selectedAnswer === currentQuestion.correctAnswer
-  const progress = ((currentIndex) / quiz.questions.length) * 100
 
   // Emit universal event when current question changes for generation modal context
   useEffect(() => {
@@ -118,20 +116,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
 
   return (
     <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-      {mode === 'quiz' && (
-        <div className="mb-6 pb-6 border-b">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-muted-foreground">
-              Question {currentIndex + 1} of {quiz.questions.length}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              Score: {score}/{currentIndex}
-            </span>
-          </div>
-          <Progress value={progress} className="h-2" />
-        </div>
-      )}
-
       <article className="space-y-6">
         <h2 className="text-xl font-semibold">{currentQuestion.question}</h2>
 

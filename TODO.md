@@ -47,9 +47,23 @@
 - [x] Test generation modal works from any question view
 
 ## PHASE 3: Pure FSRS Implementation
-- [ ] Generated questions immediately enter review queue as "new" cards
-- [ ] No "start quiz" button - just continuous review
-- [ ] Remove progress bars that imply session completion
+- [x] Generated questions immediately enter review queue as "new" cards
+  ```
+  Work Log:
+  - Verified saveGeneratedQuestions initializes FSRS card state as "new"
+  - Confirmed getNextReview query fetches new questions (nextReview === undefined)
+  - New questions get priority -2 to -1 with freshness decay over 24 hours
+  - System already implements pure FSRS - no changes needed
+  ```
+- [x] No "start quiz" button - just continuous review
+  ```
+  Work Log:
+  - ReviewReadyState already removed per code comment
+  - ReviewMode goes directly to questions (line 57: "Go directly to quiz, no ready state")
+  - No "start" action required - questions appear automatically
+  - System already implements continuous review
+  ```
+- [x] Remove progress bars that imply session completion
 - [ ] Remove score calculations - only track per-question success
 - [ ] No session boundaries - infinite review loop
 
