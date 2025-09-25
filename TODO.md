@@ -27,7 +27,7 @@
 - [x] Rename `quiz-session-manager.tsx` to `review-session.tsx`
   - Remove `quiz` prop, accept single question
   - Remove score tracking and quiz completion
-- [ ] Rename `/components/quiz-flow/` to `/components/review/`
+- [x] Rename `/components/quiz-flow/` to `/components/review/`
   - Use `git mv` to preserve history
 - [ ] Rename `types/quiz.ts` to `types/questions.ts`
   - Delete `SimpleQuiz` interface

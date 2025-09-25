@@ -1,3 +1,3 @@
-// This file is deprecated - use components/quiz-flow instead
+// This file is deprecated - use components/review instead
 // Keeping for backward compatibility
-export { default as UnifiedQuizFlow } from "./quiz-flow/index";
+export { default as UnifiedQuizFlow } from "./review/index";
