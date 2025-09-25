@@ -10,6 +10,8 @@ export interface SimpleQuestion {
   explanation?: string
 }
 
+// Legacy interface kept for backward compatibility during refactor
+// TODO: Remove once all references to SimpleQuiz are eliminated
 export interface SimpleQuiz {
   topic: string
   questions: SimpleQuestion[]
@@ -61,13 +63,4 @@ export interface InteractionStats {
   totalInteractions: number
   correctInteractions: number
   accuracy: number
-}
-
-// Type for quiz session tracking
-export interface QuizSession {
-  sessionId: string
-  startTime: number
-  endTime?: number
-  questionIds: string[]
-  currentQuestionIndex: number
 }

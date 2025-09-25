@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { generateQuizWithAI } from '@/lib/ai-client'
-import type { SimpleQuestion } from '@/types/quiz'
+import type { SimpleQuestion } from '@/types/questions'
 import { createRequestLogger, loggers } from '@/lib/logger'
 import {
   sanitizedQuizRequestSchema,

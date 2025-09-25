@@ -1,7 +1,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import type { SimpleQuestion } from '@/types/quiz'
+import type { SimpleQuestion } from '@/types/questions'
 import { aiLogger, loggers } from './logger'
 import { createSafePrompt, sanitizeTopic } from './prompt-sanitization'
 

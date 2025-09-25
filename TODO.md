@@ -29,7 +29,7 @@
   - Remove score tracking and quiz completion
 - [x] Rename `/components/quiz-flow/` to `/components/review/`
   - Use `git mv` to preserve history
-- [ ] Rename `types/quiz.ts` to `types/questions.ts`
+- [x] Rename `types/quiz.ts` to `types/questions.ts`
   - Delete `SimpleQuiz` interface
   - Delete `QuizSession` interface
   - Keep only Question and Interaction types

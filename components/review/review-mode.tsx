@@ -8,7 +8,7 @@ import { ReviewSession } from "@/components/review-session";
 import { ReviewEmptyState } from "./review-empty-state";
 import { ReviewCompleteState } from "./review-complete-state";
 import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
-import type { SimpleQuestion } from "@/types/quiz";
+import type { SimpleQuestion } from "@/types/questions";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
 
 type ReviewState = "loading" | "empty" | "quiz" | "complete";

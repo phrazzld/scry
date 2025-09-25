@@ -7,7 +7,7 @@ import { Loader2, ArrowLeft } from 'lucide-react'
 import { ReviewSession } from '@/components/review-session'
 import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
-import type { SimpleQuiz } from '@/types/quiz'
+import type { SimpleQuiz } from '@/types/questions'
 
 type QuizFlowState = 'generating' | 'ready' | 'quiz' | 'complete'
 
