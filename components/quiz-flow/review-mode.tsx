@@ -18,6 +18,7 @@ export function ReviewMode() {
   const [reviewQuestion, setReviewQuestion] = useState<SimpleQuestion | null>(null);
   const [reviewQuestionId, setReviewQuestionId] = useState<Id<"questions"> | null>(null);
   const [reviewInteractions, setReviewInteractions] = useState<Doc<"interactions">[]>([]);
+  const [isReviewing, setIsReviewing] = useState(false); // Lock to prevent updates during active review
 
   // Queries - use polling for time-sensitive review queries
   const nextReview = usePollingQuery(
@@ -33,6 +34,11 @@ export function ReviewMode() {
   );
 
   useEffect(() => {
+    // Only update if we're not actively reviewing a question
+    if (isReviewing) {
+      return; // Don't update while user is reviewing
+    }
+
     if (nextReview === undefined) {
       setState("loading");
     } else if (nextReview === null) {
@@ -49,13 +55,15 @@ export function ReviewMode() {
       setReviewQuestionId(nextReview.question._id);
       setReviewInteractions(nextReview.interactions || []);
       setState("quiz"); // Go directly to quiz, no ready state
+      setIsReviewing(true); // Lock updates while reviewing this question
     }
-  }, [nextReview]);
+  }, [nextReview, isReviewing]);
 
   const handleReviewComplete = async () => {
     // Check if there are more reviews
     if ((dueCount?.totalReviewable ?? 0) > 1) {
       // More reviews available - load the next one immediately
+      setIsReviewing(false); // Release lock to allow next question to load
       setState("loading");
       setReviewQuestion(null);
       setReviewQuestionId(null);
@@ -68,6 +76,7 @@ export function ReviewMode() {
 
   const startNextReview = () => {
     // Reset all state to trigger a fresh review load
+    setIsReviewing(false); // Release lock for next question
     setState("loading");
     setReviewQuestion(null);
     setReviewQuestionId(null);
