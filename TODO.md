@@ -24,7 +24,7 @@
 - [x] Rename `/api/generate-quiz/` to `/api/generate-questions/`
   - Update route to return questions array, not quiz object
   - Remove quiz bundling/grouping logic
-- [ ] Rename `quiz-session-manager.tsx` to `review-session.tsx`
+- [x] Rename `quiz-session-manager.tsx` to `review-session.tsx`
   - Remove `quiz` prop, accept single question
   - Remove score tracking and quiz completion
 - [ ] Rename `/components/quiz-flow/` to `/components/review/`

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { QuizSessionManager } from "@/components/quiz-session-manager";
+import { ReviewSession } from "@/components/review-session";
 // Quiz-specific components have been removed - everything is review mode now
 // import { QuizReadyState } from "@/components/quiz-flow/quiz-ready-state";
 // import { QuizGeneratingState } from "@/components/quiz-flow/quiz-generating-state";
@@ -118,7 +118,7 @@ export default function ProfilingTestPage() {
 
         {testCase === "manager" && (
           <div className="max-w-3xl">
-            <QuizSessionManager
+            <ReviewSession
               quiz={mockQuizResult}
               onComplete={() => {}}
             />

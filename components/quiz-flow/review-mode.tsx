@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePollingQuery } from "@/hooks/use-polling-query";
 import { api } from "@/convex/_generated/api";
-import { QuizSessionManager } from "@/components/quiz-session-manager";
+import { ReviewSession } from "@/components/review-session";
 // ReviewReadyState removed - we go directly to questions
 import { ReviewEmptyState } from "./review-empty-state";
 import { ReviewCompleteState } from "./review-complete-state";
@@ -91,7 +91,7 @@ export function ReviewMode() {
 
       {state === "quiz" && reviewQuestion && (
         <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-          <QuizSessionManager
+          <ReviewSession
             quiz={{
               topic: "Review Session",
               questions: [reviewQuestion],

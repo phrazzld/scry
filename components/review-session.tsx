@@ -10,14 +10,14 @@ import type { Doc } from '@/convex/_generated/dataModel'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 import { QuestionHistory } from '@/components/question-history'
 
-interface QuizSessionManagerProps {
+interface ReviewSessionProps {
   quiz: SimpleQuiz
   onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
   mode?: 'quiz' | 'review'
   questionHistory?: Doc<"interactions">[] // History of previous attempts for review mode
 }
 
-export function QuizSessionManager({ quiz, onComplete, mode = 'quiz', questionHistory }: QuizSessionManagerProps) {
+export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory }: ReviewSessionProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
