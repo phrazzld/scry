@@ -36,7 +36,6 @@ export default function ProfilingTestPage() {
         type: "multiple-choice" as const,
       }
     ],
-    score: 100,
     totalQuestions: 1,
     correctAnswers: 1,
     timeSpent: 5000,

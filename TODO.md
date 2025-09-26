@@ -64,7 +64,7 @@
   - System already implements continuous review
   ```
 - [x] Remove progress bars that imply session completion
-- [ ] Remove score calculations - only track per-question success
+- [x] Remove score calculations - only track per-question success
 - [ ] No session boundaries - infinite review loop
 
 ## PHASE 4: Database Cleanup

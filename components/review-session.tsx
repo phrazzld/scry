@@ -11,7 +11,7 @@ import { QuestionHistory } from '@/components/question-history'
 
 interface ReviewSessionProps {
   quiz: SimpleQuiz
-  onComplete: (score: number, answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
+  onComplete: (answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
   mode?: 'quiz' | 'review'
   questionHistory?: Doc<"interactions">[] // History of previous attempts for review mode
 }
@@ -20,7 +20,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
-  const [score, setScore] = useState(0)
   const [answers, setAnswers] = useState<Array<{
     questionId?: string
     userAnswer: string
@@ -70,10 +69,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
       }
       setAnswers([...answers, newAnswer])
     }
-    
-    if (isCorrect) {
-      setScore(score + 1)
-    }
 
     // Track interaction if we have question IDs
     if (quiz.questionIds && quiz.questionIds[currentIndex]) {
@@ -104,7 +99,7 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
         isCorrect,
         timeTaken: Date.now() - questionStartTime
       }]
-      onComplete(score, finalAnswers, sessionId)
+      onComplete(finalAnswers, sessionId)
     } else {
       setCurrentIndex(currentIndex + 1)
       setSelectedAnswer('')

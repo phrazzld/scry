@@ -96,8 +96,7 @@ export function ReviewMode() {
               topic: "Review Session",
               questions: [reviewQuestion],
               questionIds: reviewQuestionId ? [reviewQuestionId] : [],
-              currentIndex: 0,
-              score: 0
+              currentIndex: 0
             }}
             onComplete={handleReviewComplete}
             mode="review"

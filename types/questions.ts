@@ -17,7 +17,6 @@ export interface SimpleQuiz {
   questions: SimpleQuestion[]
   questionIds?: string[] // IDs of persisted questions
   currentIndex: number
-  score: number
 }
 
 export interface QuizGenerationRequest {
