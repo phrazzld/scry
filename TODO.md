@@ -84,8 +84,20 @@
   - Specified that table is read-only for historical access
   - Noted table will be removed in future release
   ```
-- [ ] Delete `convex/quiz.ts` file
-- [ ] Move any needed functions to `questions.ts`
+- [x] Delete `convex/quiz.ts` file
+  ```
+  Work Log:
+  - Analyzed all functions in quiz.ts - all work with deprecated quizResults table
+  - Confirmed no imports or usage of quiz.ts functions in codebase
+  - Safely deleted the entire file
+  ```
+- [x] Move any needed functions to `questions.ts`
+  ```
+  Work Log:
+  - No functions needed to be moved
+  - All quiz.ts functions were quiz-specific concepts incompatible with FSRS
+  - Functions like getQuizHistory, getQuizStats don't apply to individual question tracking
+  ```
 
 ## PHASE 5: UI Text Updates
 - [ ] "Generate Quiz" → "Generate Questions" everywhere
