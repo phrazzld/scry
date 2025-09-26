@@ -1,317 +1,209 @@
 # TODO.md
 
-## PHASE 1: DELETE QUIZ CONCEPT - Everything is Review Mode
+## CRITICAL: Fix Review Flow Render Performance (Erroneous Rerenders)
 
-### Immediate: Remove Quiz Components
-- [x] Delete `/components/quiz-flow/quiz-mode.tsx` - everything is review mode
-- [x] Delete `/components/quiz-flow/quiz-ready-state.tsx` - use review empty state
-- [x] Delete `/components/quiz-flow/quiz-complete-state.tsx` - use review complete state
-- [x] Delete `/components/quiz-flow/quiz-generating-state.tsx` - questions generate in background
-- [x] Update `/components/quiz-flow/index.tsx` to ONLY export ReviewMode
-  - Remove `mode` prop entirely from UnifiedQuizFlow
-  - Remove all conditional logic checking mode
-  - Component should just render ReviewMode directly
+### Immediate: Performance Visibility Infrastructure
+- [x] Create `hooks/use-render-tracker.ts` with frame-accurate render logging (16ms budget per frame at 60fps)
+  * Log component name, render timestamp, render reason (props vs state change)
+  * Track cumulative render count per component instance
+  * Measure render duration using `performance.now()` start/end timestamps
+  * Export data structure: `{ component: string, count: number, avgMs: number, reasons: string[] }`
+  * Wrap in `if (process.env.NODE_ENV === 'development')` to eliminate production overhead
+  * Expected impact: Identify which specific state/prop changes trigger unnecessary renders
 
-### Make Homepage Pure Review
-- [x] Update `/app/page.tsx` to directly use ReviewFlow component
-  - Remove UnifiedQuizFlow wrapper
-  - No mode prop needed - always review
-- [x] Update ReviewMode to handle empty state when no questions exist
-  - Show "Generate Questions" button when queue empty
-  - Auto-start reviewing when questions appear
+- [x] Add `components/debug-panel.tsx` overlay showing real-time performance metrics
+  * Position: fixed bottom-right, z-index 9999, semi-transparent black background
+  * Display: Current FPS, render count last 60 seconds, active timers count
+  * Show ReviewMode state machine status: `loading | empty | quiz` with transition count
+  * List all active intervals/timeouts with their IDs and remaining time
+  * Toggle via Ctrl+Shift+D keyboard shortcut using `useHotkeys` hook
+  * Store visibility preference in localStorage key `scry:debug-panel-visible`
+  * Expected impact: Real-time visibility into performance issues during testing
 
-### Rename Core Files (No More Quiz)
-- [x] Rename `/api/generate-quiz/` to `/api/generate-questions/`
-  - Update route to return questions array, not quiz object
-  - Remove quiz bundling/grouping logic
-- [x] Rename `quiz-session-manager.tsx` to `review-session.tsx`
-  - Remove `quiz` prop, accept single question
-  - Remove score tracking and quiz completion
-- [x] Rename `/components/quiz-flow/` to `/components/review/`
-  - Use `git mv` to preserve history
-- [x] Rename `types/quiz.ts` to `types/questions.ts`
-  - Delete `SimpleQuiz` interface
-  - Delete `QuizSession` interface
-  - Keep only Question and Interaction types
+- [ ] Instrument `ReviewMode` component with render tracking at lines 15, 30, 63
+  * Add `useRenderTracker('ReviewMode')` after all hooks
+  * Log state transitions: `console.time('ReviewMode.setState')` before setState calls
+  * Add performance marks: `performance.mark('review-question-loaded')` when question changes
+  * Track polling query execution count vs actual data changes
+  * Expected impact: Identify if polling causes renders even without data changes
 
-### Single Event System
-- [x] Create universal `current-question-changed` event
-- [x] Update ReviewFlow to emit `current-question-changed` (not review-specific)
-- [x] Delete quiz-question-changed event from review-session (formerly quiz-session-manager)
-- [x] Update navbar to listen for single `current-question-changed` event
-- [x] Remove all dual-event handling code
+- [ ] Add performance timing to `ReviewSession` component answer flow
+  * Mark `performance.mark('answer-selected')` in handleAnswerSelect (line 52)
+  * Mark `performance.mark('answer-submitted')` in handleSubmit (line 57)
+  * Mark `performance.mark('feedback-shown')` when showFeedback becomes true
+  * Mark `performance.mark('next-question')` in handleNext (line 93)
+  * Measure time between marks: `performance.measure('submit-to-feedback', 'answer-submitted', 'feedback-shown')`
+  * Expected impact: Identify if state updates cluster and cause multiple renders
 
-## PHASE 2: Fix Generation Modal Context (Now Trivial)
-- [x] Ensure GenerationModal receives context from single event system
-- [x] Remove quiz/review distinction in context handling
-- [x] Test generation modal works from any question view
+### Fix: Polling Architecture Root Cause
+- [ ] Create `hooks/use-simple-poll.ts` to replace complex `usePollingQuery` (eliminate 90 lines of complexity)
+  * Simple setInterval with manual query refetch - no visibility API, no debouncing
+  * Implementation: `useEffect` with `setInterval`, return cleanup function
+  * Store intervalId in useRef to prevent recreation on each render
+  * Accept query + args + intervalMs, return { data, isLoading, refetch }
+  * Expected impact: Remove 6 state variables that trigger renders (refreshTimestamp, isVisible, etc.)
 
-## PHASE 3: Pure FSRS Implementation
-- [x] Generated questions immediately enter review queue as "new" cards
-  ```
-  Work Log:
-  - Verified saveGeneratedQuestions initializes FSRS card state as "new"
-  - Confirmed getNextReview query fetches new questions (nextReview === undefined)
-  - New questions get priority -2 to -1 with freshness decay over 24 hours
-  - System already implements pure FSRS - no changes needed
-  ```
-- [x] No "start quiz" button - just continuous review
-  ```
-  Work Log:
-  - ReviewReadyState already removed per code comment
-  - ReviewMode goes directly to questions (line 57: "Go directly to quiz, no ready state")
-  - No "start" action required - questions appear automatically
-  - System already implements continuous review
-  ```
-- [x] Remove progress bars that imply session completion
-- [x] Remove score calculations - only track per-question success
-- [x] No session boundaries - infinite review loop
+- [ ] Replace `usePollingQuery` in ReviewMode line 24 with `useSimplePoll`
+  * Change from: `usePollingQuery(api.spacedRepetition.getNextReview, {}, 30000)`
+  * Change to: `useSimplePoll(api.spacedRepetition.getNextReview, {}, 30000)`
+  * Remove _refreshTimestamp hack from Convex query (no longer needed)
+  * Test that new questions still appear when generated
+  * Expected impact: Eliminate refreshTimestamp state updates every 30 seconds
 
-## PHASE 4: Database Cleanup
-- [x] Stop writing to `quizResults` table entirely
-  ```
-  Work Log:
-  - Found completeQuiz mutation in convex/quiz.ts was the only write operation
-  - Mutation was already orphaned (not called anywhere in codebase)
-  - Disabled the db.insert operation but kept mutation for backward compatibility
-  - Returns dummy ID to maintain API contract if legacy code calls it
-  ```
-- [x] Mark `quizResults` as deprecated in schema
-  ```
-  Work Log:
-  - Added comprehensive @deprecated JSDoc comment to quizResults table
-  - Documented migration path to questions and interactions tables
-  - Specified that table is read-only for historical access
-  - Noted table will be removed in future release
-  ```
-- [x] Delete `convex/quiz.ts` file
-  ```
-  Work Log:
-  - Analyzed all functions in quiz.ts - all work with deprecated quizResults table
-  - Confirmed no imports or usage of quiz.ts functions in codebase
-  - Safely deleted the entire file
-  ```
-- [x] Move any needed functions to `questions.ts`
-  ```
-  Work Log:
-  - No functions needed to be moved
-  - All quiz.ts functions were quiz-specific concepts incompatible with FSRS
-  - Functions like getQuizHistory, getQuizStats don't apply to individual question tracking
-  ```
+- [ ] Add explicit "last data hash" comparison to prevent unchanged data renders
+  * Create `useDataHash` hook using JSON.stringify + hash for deep comparison
+  * Store previous hash in useRef, only trigger update if hash changes
+  * Apply in ReviewMode useEffect (line 30) before any setState calls
+  * Log when data fetched but not changed: "Poll executed but data unchanged"
+  * Expected impact: Prevent renders when polling returns identical data
 
-## PHASE 5: UI Text Updates
-- [x] "Generate Quiz" → "Generate Questions" everywhere
-  ```
-  Work Log:
-  - Updated logging and error messages in lib/ai-client.ts
-  - Updated API route logging in app/api/generate-questions/route.ts
-  - Updated prompt generation in lib/prompt-sanitization.ts
-  - Updated rate limit config from quizGeneration to questionGeneration
-  - Updated all test files to use "Generate Questions" instead of "Generate Quiz"
-  - Updated schema.ts comment for rate limit operation types
-  ```
-- [x] "Quiz Complete" → "No More Reviews"
-  ```
-  Work Log:
-  - Updated ReviewCompleteState heading from "Review Complete!" to "No More Reviews"
-  - Updated ReviewEmptyState heading from "All Caught Up!" to "No Reviews Due"
-  - Updated test expectations from "Quiz Complete" to "No More Reviews"
-  - Updated test button text from "Complete Quiz" to "Finish Review"
-  - Aligns with pure FSRS infinite review loop concept
-  ```
-- [x] "Start Quiz" → "Review"
-  ```
-  Work Log:
-  - Renamed NoQuizHistoryEmptyState to NoReviewHistoryEmptyState
-  - Updated text from "No quiz history" to "No review history"
-  - Changed "Start taking quizzes" to "Start reviewing"
-  - Updated button text from "Get Started" to "Start Reviewing"
-  - Updated export in components/index.ts
-  - Test already uses correct "Start Review" terminology
-  ```
-- [x] "Quiz Score" → "Success Rate"
-  ```
-  Work Log:
-  - Found that score tracking was removed in Phase 3 refactor
-  - Removed outdated test expectation checking for "Score:" in spaced-repetition.local.test.ts
-  - Updated skeleton component comment from "Score display" to "Success rate display"
-  - Added @deprecated JSDoc to QuizResult type in convex/types.ts
-  ```
-- [x] Update all tooltips and help text
-  ```
-  Work Log:
-  - Updated delete account dialog: "quiz history" → "review history"
-  - Updated settings page: "quiz history" → "review history"
-  - Updated loading skeleton comments: "Quiz" → "Question/Review" where appropriate
-  - Verified no inappropriate "quiz" references in tooltips or aria-labels
-  ```
+### Fix: State Management Anti-Patterns
+- [ ] Consolidate ReviewMode's 6 state variables into single state machine object
+  * Current states: state, reviewQuestion, reviewQuestionId, reviewInteractions, isReviewing, prevReviewId
+  * New single state: `{ phase: 'loading'|'empty'|'reviewing', question: null|{...}, lockId: null|string }`
+  * Use reducer pattern: `useReducer(reviewReducer, initialState)`
+  * Actions: LOAD_START, LOAD_COMPLETE, QUESTION_RECEIVED, ANSWER_SUBMITTED, NEXT_QUESTION
+  * Expected impact: Single state update instead of 6 separate setState calls
 
-## PHASE 6: Continue UI Improvements (Card Removal)
+- [ ] Remove "isReviewing" lock pattern (lines 20, 32, 59, 67) - replace with lockId comparison
+  * Problem: Boolean lock doesn't prevent race conditions with multiple in-flight requests
+  * Solution: Generate unique lockId per question, ignore updates from old locks
+  * Implementation: `const lockId = useRef(null)`, set new ID when starting review
+  * Check in data receive: `if (lockId.current !== incomingLockId) return`
+  * Expected impact: Prevent delayed poll responses from overwriting current question
 
-### Layout Refinement
-- [~] Implement consistent max-width across all quiz flow states - currently using `max-w-3xl`, verify this doesn't break mobile
-  ```
-  Work Log:
-  - Unified all quiz flow states to use max-w-3xl (768px / 48rem)
-  - Removed redundant wrapper divs in quiz-mode and review-mode
-  - QuizSessionManager already handles its own layout
-  - max-w-3xl is mobile-safe: w-full ensures 100% on small screens
-  - Updated: quiz-mode, review-mode, index auth message
-  ```
-- [x] Add responsive padding that scales: `px-4 sm:px-6 lg:px-8` for better edge spacing on larger screens
-- [x] Test true/false question layout without card container - ensure 2-column grid still works visually
-  ```
-  Work Log:
-  - Created test page at /test-layout to verify true/false questions
-  - Confirmed 2-column grid layout working properly without Card components
-  - Buttons display correctly in grid with proper spacing
-  - Visual feedback (checkmarks/crosses) working as expected
-  - No layout issues detected - grid renders cleanly
-  - Screenshot captured for reference: true-false-layout-test.png
-  ```
-- [x] Verify touch targets remain 44x44px minimum after card removal - critical for mobile usability
-  ```
-  Work Log:
-  - Created touch target test page to measure all button sizes
-  - Found keyboard indicator button at 40x40px (below 44px minimum)
-  - Fixed by updating icon button size from size-10 to size-11 in button.tsx
-  - Verified all buttons now meet 44px minimum requirement
-  ```
-- [x] Measure and fix any layout shift between state transitions - particularly quiz -> complete states
-  ```
-  Work Log:
-  - Identified issue: QuizMode and ReviewMode components lacked consistent wrapper
-  - Each state component rendered directly, causing height/width changes
-  - Fixed by adding wrapper div with min-height to maintain consistent dimensions
-  - Applied to both quiz-mode.tsx and review-mode.tsx
-  - Layout now stable during state transitions
-  ```
+- [ ] Extract ReviewMode business logic to `hooks/use-review-flow.ts` custom hook
+  * Move all state management, data fetching, event handling to hook
+  * Return stable object: `{ question, state, handlers: { onAnswer, onNext } }`
+  * Wrap handlers in useCallback with proper dependencies
+  * Keep ReviewMode as pure presentation component
+  * Expected impact: Separate concerns, enable memoization of child components
 
-### Visual Polish
-- [x] Replace card shadows with subtle border-b dividers where logical separation needed
-  ```
-  Work Log:
-  - Added border-b divider to quiz progress header section
-  - Added border-b between header and score sections in quiz complete states
-  - Applied consistent border-b styling to review complete state
-  - Provides visual separation without shadows or card components
-  ```
-- [x] Implement focus-visible styles on all interactive elements - lost Card's default focus handling
-  ```
-  Work Log:
-  - Added focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 to quiz option buttons
-  - Updated Link components in navbar with focus-visible styles
-  - All Button components already had appropriate focus styles
-  - Verified keyboard navigation works throughout the application
-  ```
-- [x] Add explicit hover state to option buttons: `hover:bg-accent/50` for better affordance
-  ```
-  Work Log:
-  - Updated hover states from hover:bg-accent to hover:bg-accent/50
-  - Added hover:border-accent for better visual feedback
-  - Applied to both true/false and multiple choice option buttons
-  - Provides subtle visual feedback without being overly prominent
-  ```
-- [x] Ensure error/success states have sufficient contrast without card background - test with color blindness simulators
-  ```
-  Work Log:
-  - Identified critical issue: foreground and background colors were identical (no contrast)
-  - Fixed light mode: success-foreground 142 76% 20%, error-foreground 0 72% 35%
-  - Fixed dark mode: success-foreground 142 84% 85%, error-foreground 0 91% 85%
-  - Ensures WCAG AA compliance for text readability
-  - Provides proper contrast between text and background colors
-  ```
+### Fix: Component Hierarchy Inefficiencies
+- [ ] Flatten ReviewMode + ReviewSession into single `ReviewFlow` component
+  * Problem: Data passes through 3 layers with transformations at each level
+  * Merge ReviewMode state machine + ReviewSession UI into one component
+  * Direct Convex query without intermediate SimpleQuiz wrapper format
+  * Remove quiz.questions array wrapper - work with single question directly
+  * Expected impact: Eliminate prop drilling and intermediate state
 
-### Performance Optimization
-- [x] Remove unused Card component imports from bundle - check with bundle analyzer
-  ```
-  Work Log:
-  - Searched for Card component imports throughout codebase
-  - Found 6 files still actively using Card components:
-    * quiz-generation-skeleton.tsx - skeleton loaders
-    * review-flow.tsx - review question display
-    * empty-states.tsx - empty state displays
-    * settings-client.tsx - settings panels
-    * convex-error-boundary.tsx - error display
-    * loading-skeletons.tsx - loading states
-  - Card components ARE still needed and actively used
-  - The refactor only removed Cards from quiz flow components
-  - Bundle size: First Load JS 275 kB (acceptable)
-  - No unused imports to remove
-  ```
-- [x] Verify removal of Card doesn't trigger unnecessary re-renders - use React DevTools Profiler
-  ```
-  Work Log:
-  - Created performance testing guide at /docs/performance-testing.md
-  - Built profiling test page at /app/test-profiling/page.tsx
-  - Test page allows controlled component testing with force re-render buttons
-  - Guide documents how to use React DevTools Profiler effectively
-  - Provides checklist and benchmarks for performance verification
-  ```
-- [x] Test Time to Interactive (TTI) improvement from simpler DOM structure
-  ```
-  Work Log:
-  - Created automated Lighthouse TTI testing script at /scripts/lighthouse-tti-test.js
-  - Built comprehensive TTI testing documentation at /docs/tti-performance-testing.md
-  - Added npm scripts for quick testing: test:lighthouse and test:tti
-  - Script measures TTI, FCP, LCP, TBT, CLS across all key pages
-  - Includes automatic comparison with previous runs to track improvements
-  - Documents expected 20-30% TTI improvement from Card removal
-  - Provides CI/CD integration example for automated performance regression testing
-  ```
-- [ ] Measure Cumulative Layout Shift (CLS) score - should improve without centered layout
+- [ ] Create memoized `ReviewQuestionDisplay` pure component for question rendering
+  * Extract question display UI from ReviewSession (lines 113-237)
+  * Props: `{ question, selectedAnswer, showFeedback, onAnswerSelect }`
+  * Wrap in React.memo with custom comparison function
+  * Compare only question.id, selectedAnswer, showFeedback for re-render decision
+  * Expected impact: Question UI won't re-render during parent state changes
 
-### Testing Requirements
+- [ ] Memoize QuestionHistory component with React.memo
+  * Wrap existing component: `export default React.memo(QuestionHistory)`
+  * Add custom comparison: only re-render if interactions array length changes
+  * Or use deep comparison on interactions array if content changes matter
+  * Expected impact: Prevent history re-render during answer selection
+
+### Fix: Event System Overhead
+- [ ] Replace DOM events with direct prop passing for question context
+  * Remove `window.dispatchEvent('current-question-changed')` from ReviewSession line 47
+  * Pass question directly to GenerationModal via ReviewMode props
+  * Use React Context if truly needed for deep prop drilling
+  * Expected impact: Eliminate DOM event overhead and indirection
+
+- [ ] Batch state updates in ReviewSession handleSubmit (line 57-90)
+  * Problem: Multiple setState calls trigger multiple renders
+  * Use unstable_batchedUpdates or React 18 automatic batching
+  * Group: setShowFeedback + setAnswers + setNextReviewInfo in single update
+  * Expected impact: Single render instead of 3 renders per answer submission
+
+### Performance Measurement Baseline
+- [ ] Create `scripts/measure-review-performance.js` automated performance test
+  * Use Puppeteer to navigate to review page
+  * Answer 10 questions while collecting Performance API data
+  * Measure: Time to first question, time between questions, total renders
+  * Output JSON report: `{ avgRenderMs: X, totalRenders: Y, p95RenderMs: Z }`
+  * Run before and after each optimization to track impact
+  * Expected baseline: >50 renders per question, >100ms between questions
+
+- [ ] Add React Profiler API integration to ReviewMode
+  * Wrap in `<Profiler id="ReviewMode" onRender={logProfileData}>`
+  * Log: actualDuration, baseDuration, startTime, commitTime
+  * Store last 100 renders in circular buffer for analysis
+  * Export data via window.__REVIEW_PERF_DATA for automated testing
+  * Expected data: Identify which renders exceed 16ms frame budget
+
+- [ ] Document render flow in `docs/review-render-flow.md`
+  * Diagram component hierarchy with data flow arrows
+  * List all state variables and what triggers their updates
+  * Map user actions to resulting state changes and renders
+  * Include timing diagram of typical question answer flow
+  * Expected outcome: Clear mental model for future optimization
+
+## UI Testing & Validation
+
+### Visual Testing
 - [ ] Screenshot test all states in both light/dark modes without cards
+- [ ] Measure Cumulative Layout Shift (CLS) score - should improve without centered layout
+- [ ] Cross-browser test - Safari, Firefox, Chrome, Edge for layout consistency
+
+### Interaction Testing
 - [ ] Verify keyboard navigation still works through all options - Tab order must be logical
 - [ ] Test with screen reader - ensure heading hierarchy makes sense without Card structure
 - [ ] Load test with 50+ questions - ensure layout performs without card virtualization
-- [ ] Cross-browser test - Safari, Firefox, Chrome, Edge for layout consistency
 
 ## Technical Debt
-- [x] ReviewMode component uses `window.location.reload()` for next review - implement proper state reset instead
-  ```
-  Work Log:
-  - Found window.location.reload() in both ReviewMode and QuizMode
-  - ReviewMode: Reset component state to trigger re-fetch via usePollingQuery
-  - QuizMode: Reset state back to "ready" for quiz retake functionality
-  - Both components now properly reset state without page reloads
-  - Better UX with no jarring interruptions
-  ```
-- [x] QuizSessionManager has inline styles for option buttons - extract to consistent class names
-  ```
-  Work Log:
-  - Found complex inline className expressions using template literals
-  - Imported cn utility from @/lib/utils for cleaner class composition
-  - Refactored both true/false and multiple choice button styles
-  - Separated base styles, default state, and conditional states
-  - Improved readability with clearly labeled style groups
-  - No visual changes, purely code organization improvement
-  ```
-- [x] Feedback animations are missing - add subtle transitions for state changes
-  ```
-  Work Log:
-  - Added animate-fadeIn to all quiz/review state components (ready, generating, complete, empty)
-  - Added animate-scaleIn to feedback icons (CheckCircle/XCircle) for visual feedback
-  - Added animate-scaleIn to quiz completion percentage for impact
-  - Added animate-fadeIn to explanation and review schedule sections
-  - Animations use existing keyframes from globals.css
-  - Provides smooth transitions between all quiz states
-  ```
-- [ ] No error boundary around review components - add graceful degradation
+- [ ] Add error boundary around review components for graceful degradation
+- [ ] Fix test failures: React import issues in `review-flow.test.tsx` (15 tests failing)
+- [ ] Update test expectations after "quiz" → "question" terminology refactoring
 
-## Performance Metrics Baseline
+## Performance Metrics
 - [ ] Record current Lighthouse scores before further optimizations
 - [ ] Measure initial bundle size with Card components removed
 - [ ] Document current FCP, LCP, TTI metrics for comparison
 - [ ] Profile memory usage during long review sessions
 
-## Accessibility Audit
+## Accessibility
 - [ ] Ensure all interactive elements have proper ARIA labels
 - [ ] Verify color contrast ratios meet WCAG AA standards
-- [ ] Test with keyboard-only navigation
 - [ ] Add skip links for screen reader users
 - [ ] Implement proper focus management between questions
 
+## Completed Work Archive
+
+<details>
+<summary>✅ Completed Phases (Click to expand)</summary>
+
+### PHASE 1: DELETE QUIZ CONCEPT ✅
+- Removed all quiz-specific components
+- Made homepage pure review mode
+- Renamed all files from quiz to review/questions
+
+### PHASE 2: Fix Generation Modal Context ✅
+- Unified event system for question context
+- Modal now receives context from single event
+
+### PHASE 3: Pure FSRS Implementation ✅
+- Questions enter review queue as "new" cards
+- Continuous review with no session boundaries
+- Removed progress bars and score tracking
+
+### PHASE 4: Database Cleanup ✅
+- Stopped writing to deprecated quizResults table
+- Deleted quiz.ts file
+- Marked legacy tables as deprecated
+
+### PHASE 5: UI Text Updates ✅
+- "Generate Quiz" → "Generate Questions"
+- "Quiz Complete" → "No More Reviews"
+- "Start Quiz" → "Review"
+- "Quiz Score" → "Success Rate"
+
+### PHASE 6: Card Component Removal ✅
+- Unified layout with max-w-3xl
+- Added responsive padding
+- Fixed touch targets (44px minimum)
+- Added focus-visible styles
+- Fixed color contrast for WCAG AA
+- Added subtle animations
+
+</details>
+
 ---
-*Last Updated: 2025-09-25*
+*Last Updated: 2025-09-26*
