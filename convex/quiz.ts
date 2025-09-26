@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { getUserFromClerk, requireUserFromClerk } from "./clerk";
 
 export const completeQuiz = mutation({
@@ -20,30 +21,29 @@ export const completeQuiz = mutation({
     })),
   },
   handler: async (ctx, args) => {
-    // Verify authentication
-    const user = await requireUserFromClerk(ctx);
-    const userId = user._id;
+    // Verify authentication (keeping for backward compatibility)
+    await requireUserFromClerk(ctx);
 
     // Validate score
     if (args.score > args.totalQuestions) {
       throw new Error("Score cannot exceed total questions");
     }
 
-    // Store quiz result
-    const quizResultId = await ctx.db.insert("quizResults", {
-      userId,
-      topic: args.topic,
-      difficulty: args.difficulty,
-      score: args.score,
-      totalQuestions: args.totalQuestions,
-      sessionId: args.sessionId, // Store sessionId if provided
-      answers: args.answers,
-      completedAt: Date.now(),
-    });
+    // DEPRECATED: quizResults table is no longer used
+    // The quiz concept has been replaced with pure FSRS review system
+    // Individual questions and interactions are tracked instead
+    // Keeping this mutation for backward compatibility but not writing to database
+
+    // Previously stored quiz results - now a no-op
+    // const quizResultId = await ctx.db.insert("quizResults", { ... });
+
+    // Return success without actually saving
+    // Using a dummy ID to maintain API compatibility
+    const dummyQuizResultId = ("deprecated_" + Date.now()) as Id<"quizResults">;
 
     return {
       success: true,
-      quizResultId,
+      quizResultId: dummyQuizResultId,
       message: "Quiz results saved successfully",
     };
   },

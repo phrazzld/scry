@@ -68,7 +68,14 @@
 - [x] No session boundaries - infinite review loop
 
 ## PHASE 4: Database Cleanup
-- [ ] Stop writing to `quizResults` table entirely
+- [x] Stop writing to `quizResults` table entirely
+  ```
+  Work Log:
+  - Found completeQuiz mutation in convex/quiz.ts was the only write operation
+  - Mutation was already orphaned (not called anywhere in codebase)
+  - Disabled the db.insert operation but kept mutation for backward compatibility
+  - Returns dummy ID to maintain API contract if legacy code calls it
+  ```
 - [ ] Mark `quizResults` as deprecated in schema
 - [ ] Delete `convex/quiz.ts` file
 - [ ] Move any needed functions to `questions.ts`
