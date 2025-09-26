@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
-// Quiz Generation Flow Skeletons
+// Question Generation Flow Skeletons
 export function QuizGenerationSkeleton() {
   return (
     <div className="space-y-4" aria-hidden="true" aria-busy="true">
@@ -112,7 +112,7 @@ export function RecentTopicsSkeleton() {
   )
 }
 
-// Quiz Question Skeleton
+// Review Question Skeleton
 export function QuizQuestionSkeleton() {
   return (
     <Card aria-hidden="true" aria-busy="true">
@@ -145,7 +145,7 @@ export function ServiceWorkerUpdateSkeleton() {
   )
 }
 
-// Quiz Session Skeleton
+// Review Session Skeleton
 export function QuizSessionSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true" aria-busy="true">

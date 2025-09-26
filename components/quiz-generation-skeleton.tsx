@@ -77,7 +77,7 @@ export function QuizResultsSkeleton() {
         <Skeleton className="h-6 w-32 mx-auto" />
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Score display skeleton */}
+        {/* Success rate display skeleton */}
         <div className="text-center">
           <Skeleton className="h-16 w-24 mx-auto mb-2" />
           <Skeleton className="h-4 w-40 mx-auto" />

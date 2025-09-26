@@ -129,8 +129,22 @@
   - Updated export in components/index.ts
   - Test already uses correct "Start Review" terminology
   ```
-- [ ] "Quiz Score" → "Success Rate"
-- [ ] Update all tooltips and help text
+- [x] "Quiz Score" → "Success Rate"
+  ```
+  Work Log:
+  - Found that score tracking was removed in Phase 3 refactor
+  - Removed outdated test expectation checking for "Score:" in spaced-repetition.local.test.ts
+  - Updated skeleton component comment from "Score display" to "Success rate display"
+  - Added @deprecated JSDoc to QuizResult type in convex/types.ts
+  ```
+- [x] Update all tooltips and help text
+  ```
+  Work Log:
+  - Updated delete account dialog: "quiz history" → "review history"
+  - Updated settings page: "quiz history" → "review history"
+  - Updated loading skeleton comments: "Quiz" → "Question/Review" where appropriate
+  - Verified no inappropriate "quiz" references in tooltips or aria-labels
+  ```
 
 ## PHASE 6: Continue UI Improvements (Card Removal)
 

@@ -84,11 +84,9 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     // 5. Finish the review
     await page.getByRole('button', { name: /Finish Review/i }).click();
     await expect(page.getByRole('heading', { name: /No More Reviews/i })).toBeVisible();
-    
-    // Verify score
-    const scoreText = await page.getByText(/Score:.*3.*5/i).textContent();
-    expect(scoreText).toContain('3');
-    expect(scoreText).toContain('5');
+
+    // Note: Score tracking was removed in pure FSRS implementation
+    // Reviews now track individual question success rates instead
 
     // 6. Navigate to review page
     await page.goto('/');
