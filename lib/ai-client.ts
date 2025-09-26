@@ -29,14 +29,14 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
   const prompt = createSafePrompt(sanitizedTopic);
 
   try {
-    const timer = loggers.time(`ai.quiz-generation.${sanitizedTopic}`, 'ai')
+    const timer = loggers.time(`ai.question-generation.${sanitizedTopic}`, 'ai')
 
     aiLogger.info({
-      event: 'ai.quiz-generation.start',
+      event: 'ai.question-generation.start',
       topic: sanitizedTopic,
       originalTopic: topic !== sanitizedTopic ? topic : undefined,
       model: 'gemini-2.5-flash'
-    }, `Starting quiz generation for topic: ${sanitizedTopic}`)
+    }, `Starting question generation for topic: ${sanitizedTopic}`)
 
     const { object } = await generateObject({
       model: google('gemini-2.5-flash'),
@@ -51,7 +51,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
     })
 
     aiLogger.info({
-      event: 'ai.quiz-generation.success',
+      event: 'ai.question-generation.success',
       topic: sanitizedTopic,
       questionCount: object.questions.length,
       duration
@@ -73,17 +73,17 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
       error as Error,
       'ai',
       {
-        event: 'ai.quiz-generation.failure',
+        event: 'ai.question-generation.failure',
         topic: sanitizedTopic,
         model: 'gemini-2.5-flash',
         errorType: isApiKeyError ? 'api-key-error' : 'generation-error',
         errorMessage
       },
-      `Failed to generate quiz questions: ${errorMessage}`
+      `Failed to generate questions: ${errorMessage}`
     )
 
     aiLogger.warn({
-      event: 'ai.quiz-generation.fallback',
+      event: 'ai.question-generation.fallback',
       topic: sanitizedTopic,
       fallbackQuestionCount: 2,
       reason: errorMessage

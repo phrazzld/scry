@@ -146,13 +146,13 @@ test.describe('Spaced Repetition Flow', () => {
       // 1. Sign in with test account
       // await signInWithTestAccount(page);
 
-      // 2. Create a quiz - TODO: Update to use generation modal instead of /create route
+      // 2. Generate questions - TODO: Update to use generation modal instead of /create route
       // await page.goto('/create');
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
-      await page.getByRole('button', { name: /Generate Quiz/i }).click();
+      await page.getByRole('button', { name: /Generate Questions/i }).click();
       
-      // 3. Wait for quiz generation
+      // 3. Wait for question generation
       await expect(page.getByRole('heading', { name: /Question 1/i })).toBeVisible({ timeout: 30000 });
       
       // 4. Answer questions (mix of correct and incorrect)

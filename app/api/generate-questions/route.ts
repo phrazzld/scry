@@ -30,19 +30,19 @@ export async function POST(request: NextRequest) {
     ip: ipAddress
   })
   
-  const timer = loggers.time('api.generate-quiz', 'api')
-  
+  const timer = loggers.time('api.generate-questions', 'api')
+
   try {
     logger.info({
-      event: 'api.generate-quiz.start',
-    }, 'Starting quiz generation request')
+      event: 'api.generate-questions.start',
+    }, 'Starting question generation request')
 
     let body;
     try {
       body = await request.json()
     } catch (parseError) {
       logger.warn({
-        event: 'api.generate-quiz.json-parse-error',
+        event: 'api.generate-questions.json-parse-error',
         error: (parseError as Error).message,
       }, 'Failed to parse request body')
       
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       
       // Rate limit injection attempts more aggressively
       logger.warn({
-        event: 'api.generate-quiz.injection-blocked',
+        event: 'api.generate-questions.injection-blocked',
         ip: ipAddress,
         topic: body.topic?.substring(0, 100), // Log first 100 chars only
       }, 'Prompt injection attempt blocked');
@@ -86,10 +86,10 @@ export async function POST(request: NextRequest) {
     
     if (!validationResult.success) {
       logger.warn({
-        event: 'api.generate-quiz.validation-error',
+        event: 'api.generate-questions.validation-error',
         errors: validationResult.error.issues,
         body
-      }, 'Invalid request body for quiz generation')
+      }, 'Invalid request body for question generation')
       
       return new Response(
         JSON.stringify({ 
@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
     const { topic, difficulty } = validationResult.data
     
     logger.info({
-      event: 'api.generate-quiz.params',
+      event: 'api.generate-questions.params',
       topic,
       difficulty
-    }, `Generating quiz for topic: ${topic}`)
+    }, `Generating questions for topic: ${topic}`)
     
     // Generate questions using AI
     const questions: SimpleQuestion[] = await generateQuizWithAI(topic)
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       success: true
     })
     
-    loggers.apiRequest('POST', '/api/generate-quiz', 200, duration, {
+    loggers.apiRequest('POST', '/api/generate-questions', 200, duration, {
       topic,
       difficulty,
       questionCount: questions.length
@@ -152,18 +152,18 @@ export async function POST(request: NextRequest) {
       error as Error,
       'api',
       {
-        event: 'api.generate-quiz.error',
+        event: 'api.generate-questions.error',
         duration
       },
-      'Unexpected error during quiz generation'
+      'Unexpected error during question generation'
     )
     
-    loggers.apiRequest('POST', '/api/generate-quiz', 500, duration, {
+    loggers.apiRequest('POST', '/api/generate-questions', 500, duration, {
       error: (error as Error).message
     })
     
     return new Response(
-      JSON.stringify({ error: 'Quiz generation failed. Please try again.' }),
+      JSON.stringify({ error: 'Question generation failed. Please try again.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }

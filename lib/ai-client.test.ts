@@ -25,7 +25,7 @@ vi.mock('./logger', () => ({
 }))
 
 vi.mock('./prompt-sanitization', () => ({
-  createSafePrompt: vi.fn((topic: string) => `Generate quiz about ${topic}`),
+  createSafePrompt: vi.fn((topic: string) => `Generate questions about ${topic}`),
   sanitizeTopic: vi.fn((topic: string) => topic.trim())
 }))
 
@@ -58,7 +58,7 @@ describe('AI Client', () => {
   })
 
   describe('generateQuizWithAI', () => {
-    it('should generate quiz questions successfully', async () => {
+    it('should generate questions successfully', async () => {
       const mockQuestions = {
         questions: [
           {
@@ -160,10 +160,10 @@ describe('AI Client', () => {
         error,
         'ai',
         expect.objectContaining({
-          event: 'ai.quiz-generation.failure',
+          event: 'ai.question-generation.failure',
           topic: 'Mathematics'
         }),
-        'Failed to generate quiz questions: AI service unavailable'
+        'Failed to generate questions: AI service unavailable'
       )
 
       expect(aiLogger.warn).toHaveBeenCalledWith(

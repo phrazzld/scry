@@ -100,7 +100,16 @@
   ```
 
 ## PHASE 5: UI Text Updates
-- [ ] "Generate Quiz" → "Generate Questions" everywhere
+- [x] "Generate Quiz" → "Generate Questions" everywhere
+  ```
+  Work Log:
+  - Updated logging and error messages in lib/ai-client.ts
+  - Updated API route logging in app/api/generate-questions/route.ts
+  - Updated prompt generation in lib/prompt-sanitization.ts
+  - Updated rate limit config from quizGeneration to questionGeneration
+  - Updated all test files to use "Generate Questions" instead of "Generate Quiz"
+  - Updated schema.ts comment for rate limit operation types
+  ```
 - [ ] "Quiz Complete" → "No More Reviews"
 - [ ] "Start Quiz" → "Review"
 - [ ] "Quiz Score" → "Success Rate"

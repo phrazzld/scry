@@ -126,7 +126,7 @@ export default defineSchema({
 
   rateLimits: defineTable({
     identifier: v.string(), // Email address or IP address
-    operation: v.string(), // Type of operation (magicLink, quizGeneration, etc.)
+    operation: v.string(), // Type of operation (magicLink, questionGeneration, etc.)
     timestamp: v.number(), // When the attempt was made
     metadata: v.optional(v.any()), // Additional data about the attempt
   }).index("by_identifier", ["identifier", "timestamp"])

@@ -12,10 +12,10 @@ export const RATE_LIMITS = {
     windowMs: 3600000, // 1 hour
     errorMessage: "Too many login attempts. Please try again in 1 hour.",
   },
-  quizGeneration: {
+  questionGeneration: {
     maxAttempts: 100,
     windowMs: 3600000, // 1 hour per IP
-    errorMessage: "Too many quiz generation requests. Please try again later.",
+    errorMessage: "Too many question generation requests. Please try again later.",
   },
   default: {
     maxAttempts: 100,

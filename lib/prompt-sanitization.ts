@@ -64,7 +64,7 @@ export const sanitizedTopicSchema = z
   .transform((topic) => sanitizeTopic(topic));
 
 /**
- * Zod schema for the complete quiz generation request
+ * Zod schema for the complete question generation request
  */
 export const sanitizedQuizRequestSchema = z.object({
   topic: sanitizedTopicSchema,
@@ -72,7 +72,7 @@ export const sanitizedQuizRequestSchema = z.object({
 });
 
 /**
- * Sanitize a quiz topic by removing potentially harmful content
+ * Sanitize a question topic by removing potentially harmful content
  */
 export function sanitizeTopic(topic: string): string {
   // Trim whitespace
@@ -131,7 +131,7 @@ export function containsInjectionAttempt(topic: string): boolean {
 }
 
 /**
- * Validate and sanitize quiz generation input
+ * Validate and sanitize question generation input
  */
 export function validateQuizInput(input: unknown) {
   return sanitizedQuizRequestSchema.parse(input);
@@ -147,7 +147,7 @@ export function createSafePrompt(topic: string): string {
 
   // Wrap the topic in a controlled prompt structure
   // This helps prevent the AI from interpreting the topic as instructions
-  return `You are a quiz generation assistant. Your task is to create comprehensive educational quiz questions.
+  return `You are a question generation assistant. Your task is to create comprehensive educational questions.
 
 First, consider the topic and determine how many questions would provide thorough coverage.
 Be generous - it's better to have too many questions than too few.

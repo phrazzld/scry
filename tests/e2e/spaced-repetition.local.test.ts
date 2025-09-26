@@ -39,18 +39,18 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     // await page.goto('/create');
     await waitForConvexQuery(page);
 
-    // 2. Create a quiz
-    await expect(page.getByRole('heading', { name: /Create Quiz/i })).toBeVisible();
+    // 2. Generate questions
+    await expect(page.getByRole('heading', { name: /Generate Questions/i })).toBeVisible();
     
     // Fill in quiz details
     await page.getByLabel(/Topic/i).fill('JavaScript Fundamentals');
     await page.getByLabel(/Difficulty/i).selectOption('easy');
     
-    // Generate quiz
-    await page.getByRole('button', { name: /Generate Quiz/i }).click();
+    // Generate questions
+    await page.getByRole('button', { name: /Generate Questions/i }).click();
     
-    // 3. Wait for quiz generation
-    await expect(page.getByText(/Generating quiz/i)).toBeVisible();
+    // 3. Wait for question generation
+    await expect(page.getByText(/Generating questions/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /Question 1/i })).toBeVisible({ 
       timeout: 30000 // AI generation can take time
     });
@@ -188,7 +188,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
 test.describe('Spaced Repetition Edge Cases (Local)', () => {
   test.skip(({ baseURL }) => !baseURL?.includes('localhost'), 'Local tests only');
 
-  test('handles quiz generation failure gracefully', async () => {
+  test('handles question generation failure gracefully', async () => {
     // Test error handling when AI generation fails
   });
 
@@ -236,8 +236,8 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     // Start timing
     const generationStartTime = Date.now();
     
-    // Generate quiz
-    await page.getByRole('button', { name: /Generate Quiz/i }).click();
+    // Generate questions
+    await page.getByRole('button', { name: /Generate Questions/i }).click();
     
     // 3. Wait for generation to complete
     await expect(page.getByText(/Generating quiz/i)).toBeVisible();
