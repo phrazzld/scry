@@ -50,7 +50,7 @@
   * Test that new questions still appear when generated
   * Expected impact: Eliminate refreshTimestamp state updates every 30 seconds
 
-- [ ] Add explicit "last data hash" comparison to prevent unchanged data renders
+- [x] Add explicit "last data hash" comparison to prevent unchanged data renders
   * Create `useDataHash` hook using JSON.stringify + hash for deep comparison
   * Store previous hash in useRef, only trigger update if hash changes
   * Apply in ReviewMode useEffect (line 30) before any setState calls

@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import { useSimplePoll } from "@/hooks/use-simple-poll";
 import { useRenderTracker } from "@/hooks/use-render-tracker";
+import { useDataHash } from "@/hooks/use-data-hash";
 import { api } from "@/convex/_generated/api";
 import { ReviewSession } from "@/components/review-session";
 import { ReviewEmptyState } from "./review-empty-state";
@@ -102,6 +103,9 @@ export function ReviewMode() {
     30000 // Poll every 30 seconds
   );
 
+  // Check if data has actually changed to prevent unnecessary renders
+  const { hasChanged: dataHasChanged } = useDataHash(nextReview, 'ReviewMode.nextReview');
+
   // Add render tracking after all hooks
   useRenderTracker('ReviewMode', {
     phase: state.phase,
@@ -119,8 +123,15 @@ export function ReviewMode() {
         isNull: nextReview === null,
         questionId: nextReview?.question?._id,
         currentLockId: state.lockId,
-        lastQuestionId: lastQuestionIdRef.current
+        lastQuestionId: lastQuestionIdRef.current,
+        dataHasChanged
       });
+    }
+
+    // If data hasn't actually changed, skip processing
+    if (!dataHasChanged) {
+      dispatch({ type: 'IGNORE_UPDATE', reason: 'Data unchanged from previous poll' });
+      return;
     }
 
     // If there's an active lock (user is reviewing), ignore updates
@@ -198,7 +209,7 @@ export function ReviewMode() {
         });
       }
     }
-  }, [nextReview, state.lockId, state.phase]);
+  }, [nextReview, state.lockId, state.phase, dataHasChanged]);
 
   const handleReviewComplete = async () => {
     // Release lock to allow next question to load
