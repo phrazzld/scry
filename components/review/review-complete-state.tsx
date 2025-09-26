@@ -15,7 +15,7 @@ export function ReviewCompleteState({ remainingReviews, onNextReview }: ReviewCo
     <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
       <div className="space-y-6">
         <div className="space-y-2 pb-6 border-b">
-          <h2 className="text-xl font-semibold">Review Complete!</h2>
+          <h2 className="text-xl font-semibold">No More Reviews</h2>
           <p className="text-muted-foreground">
             Great job! Your review has been recorded and the next review time has been scheduled.
           </p>

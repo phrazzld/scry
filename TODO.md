@@ -110,7 +110,15 @@
   - Updated all test files to use "Generate Questions" instead of "Generate Quiz"
   - Updated schema.ts comment for rate limit operation types
   ```
-- [ ] "Quiz Complete" → "No More Reviews"
+- [x] "Quiz Complete" → "No More Reviews"
+  ```
+  Work Log:
+  - Updated ReviewCompleteState heading from "Review Complete!" to "No More Reviews"
+  - Updated ReviewEmptyState heading from "All Caught Up!" to "No Reviews Due"
+  - Updated test expectations from "Quiz Complete" to "No More Reviews"
+  - Updated test button text from "Complete Quiz" to "Finish Review"
+  - Aligns with pure FSRS infinite review loop concept
+  ```
 - [ ] "Start Quiz" → "Review"
 - [ ] "Quiz Score" → "Success Rate"
 - [ ] Update all tooltips and help text

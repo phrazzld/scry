@@ -13,7 +13,7 @@ export function ReviewEmptyState() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Target className="h-5 w-5" />
-            All Caught Up!
+            No Reviews Due
           </h2>
           <p className="text-muted-foreground">
             You have no questions due for review right now. Great job staying on top of your learning!

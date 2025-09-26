@@ -175,9 +175,9 @@ test.describe('Spaced Repetition Flow', () => {
         await expect(page.getByText(/Correct|Incorrect/i)).toBeVisible();
       }
       
-      // 5. Complete quiz
-      await page.getByRole('button', { name: /Complete Quiz/i }).click();
-      await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
+      // 5. Finish review
+      await page.getByRole('button', { name: /Finish Review/i }).click();
+      await expect(page.getByRole('heading', { name: /No More Reviews/i })).toBeVisible();
       
       // 6. Navigate to review page
       await page.goto('/');

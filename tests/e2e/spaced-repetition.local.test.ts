@@ -81,9 +81,9 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
       }
     }
 
-    // 5. Complete the quiz
-    await page.getByRole('button', { name: /Complete Quiz/i }).click();
-    await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
+    // 5. Finish the review
+    await page.getByRole('button', { name: /Finish Review/i }).click();
+    await expect(page.getByRole('heading', { name: /No More Reviews/i })).toBeVisible();
     
     // Verify score
     const scoreText = await page.getByText(/Score:.*3.*5/i).textContent();
