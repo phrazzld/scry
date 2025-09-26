@@ -27,7 +27,7 @@
   * Track polling query execution count vs actual data changes
   * Expected impact: Identify if polling causes renders even without data changes
 
-- [ ] Add performance timing to `ReviewSession` component answer flow
+- [x] Add performance timing to `ReviewSession` component answer flow
   * Mark `performance.mark('answer-selected')` in handleAnswerSelect (line 52)
   * Mark `performance.mark('answer-submitted')` in handleSubmit (line 57)
   * Mark `performance.mark('feedback-shown')` when showFeedback becomes true
