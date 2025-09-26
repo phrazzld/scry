@@ -94,7 +94,7 @@
   * Compare only question.id, selectedAnswer, showFeedback for re-render decision
   * Expected impact: Question UI won't re-render during parent state changes
 
-- [ ] Memoize QuestionHistory component with React.memo
+- [x] Memoize QuestionHistory component with React.memo
   * Wrap existing component: `export default React.memo(QuestionHistory)`
   * Add custom comparison: only re-render if interactions array length changes
   * Or use deep comparison on interactions array if content changes matter

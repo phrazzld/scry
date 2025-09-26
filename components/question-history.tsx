@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns'
 import { CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
-import { useState } from "react"
+import { useState, memo } from "react"
 import { Doc } from "@/convex/_generated/dataModel"
 
 interface QuestionHistoryProps {
@@ -10,7 +10,7 @@ interface QuestionHistoryProps {
   loading?: boolean
 }
 
-export function QuestionHistory({ interactions, loading }: QuestionHistoryProps) {
+function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (loading) {
@@ -121,3 +121,51 @@ function formatTimeSpent(milliseconds: number): string {
   const remainingSeconds = seconds % 60
   return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`
 }
+
+/**
+ * Custom comparison function for React.memo
+ * Only re-renders if:
+ * - Loading state changes
+ * - Interactions array length changes
+ * - Or if any interaction data has actually changed
+ */
+function arePropsEqual(
+  prevProps: QuestionHistoryProps,
+  nextProps: QuestionHistoryProps
+): boolean {
+  // Check if loading state changed
+  if (prevProps.loading !== nextProps.loading) {
+    return false; // Props changed, re-render needed
+  }
+
+  // Check if interactions array reference changed
+  if (prevProps.interactions === nextProps.interactions) {
+    return true; // Same reference, no re-render needed
+  }
+
+  // Check array length
+  if (prevProps.interactions?.length !== nextProps.interactions?.length) {
+    return false; // Length changed, re-render needed
+  }
+
+  // If both are empty or null, they're equal
+  if (!prevProps.interactions && !nextProps.interactions) {
+    return true;
+  }
+
+  // Deep comparison of interaction IDs to detect actual changes
+  // This is more efficient than comparing full objects
+  if (prevProps.interactions && nextProps.interactions) {
+    for (let i = 0; i < prevProps.interactions.length; i++) {
+      if (prevProps.interactions[i]._id !== nextProps.interactions[i]._id ||
+          prevProps.interactions[i].isCorrect !== nextProps.interactions[i].isCorrect) {
+        return false; // Content changed, re-render needed
+      }
+    }
+  }
+
+  return true; // Props are functionally equal, no re-render needed
+}
+
+// Export the memoized component
+export const QuestionHistory = memo(QuestionHistoryComponent, arePropsEqual);
