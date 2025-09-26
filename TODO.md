@@ -119,7 +119,16 @@
   - Updated test button text from "Complete Quiz" to "Finish Review"
   - Aligns with pure FSRS infinite review loop concept
   ```
-- [ ] "Start Quiz" → "Review"
+- [x] "Start Quiz" → "Review"
+  ```
+  Work Log:
+  - Renamed NoQuizHistoryEmptyState to NoReviewHistoryEmptyState
+  - Updated text from "No quiz history" to "No review history"
+  - Changed "Start taking quizzes" to "Start reviewing"
+  - Updated button text from "Get Started" to "Start Reviewing"
+  - Updated export in components/index.ts
+  - Test already uses correct "Start Review" terminology
+  ```
 - [ ] "Quiz Score" → "Success Rate"
 - [ ] Update all tooltips and help text
 

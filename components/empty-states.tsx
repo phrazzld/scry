@@ -305,18 +305,18 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
 
 // Deprecated components removed - use NothingDueEmptyState for seamless transitions
 
-export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
+export function NoReviewHistoryEmptyState({ className }: EmptyStateProps) {
   return (
     <Card className={`text-center py-8 ${className || ""}`}>
       <CardContent>
         <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-        <h3 className="text-base font-semibold mb-2">No quiz history</h3>
+        <h3 className="text-base font-semibold mb-2">No review history</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Start taking quizzes to track your progress
+          Start reviewing to track your progress
         </p>
         <Button asChild size="sm">
           <Link href="/">
-            Get Started
+            Start Reviewing
             <ArrowRight className="h-3 w-3 ml-1" />
           </Link>
         </Button>
