@@ -72,7 +72,7 @@
   * Check in data receive: `if (lockId.current !== incomingLockId) return`
   * Expected impact: Prevent delayed poll responses from overwriting current question
 
-- [ ] Extract ReviewMode business logic to `hooks/use-review-flow.ts` custom hook
+- [x] Extract ReviewMode business logic to `hooks/use-review-flow.ts` custom hook
   * Move all state management, data fetching, event handling to hook
   * Return stable object: `{ question, state, handlers: { onAnswer, onNext } }`
   * Wrap handlers in useCallback with proper dependencies
