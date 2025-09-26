@@ -18,6 +18,7 @@ export function ReviewMode() {
   const [reviewQuestionId, setReviewQuestionId] = useState<Id<"questions"> | null>(null);
   const [reviewInteractions, setReviewInteractions] = useState<Doc<"interactions">[]>([]);
   const [isReviewing, setIsReviewing] = useState(false); // Lock to prevent updates during active review
+  const [prevReviewId, setPrevReviewId] = useState<string | null>(null);
 
   // Query - use polling for time-sensitive review queries
   const nextReview = usePollingQuery(
@@ -33,32 +34,39 @@ export function ReviewMode() {
     }
 
     if (nextReview === undefined) {
-      setState("loading");
+      // Only show loading on initial load
+      if (state === "loading" && !prevReviewId) {
+        setState("loading");
+      }
     } else if (nextReview === null) {
       setState("empty");
     } else {
-      // Convert to quiz format for compatibility
-      const question: SimpleQuestion = {
-        question: nextReview.question.question,
-        options: nextReview.question.options,
-        correctAnswer: nextReview.question.correctAnswer,
-        explanation: nextReview.question.explanation || ""
-      };
-      setReviewQuestion(question);
-      setReviewQuestionId(nextReview.question._id);
-      setReviewInteractions(nextReview.interactions || []);
-      setState("quiz"); // Go directly to quiz, no ready state
-      setIsReviewing(true); // Lock updates while reviewing this question
+      // Check if this is a new question
+      const isNewQuestion = nextReview.question._id !== prevReviewId;
+
+      if (isNewQuestion) {
+        // Convert to quiz format for compatibility
+        const question: SimpleQuestion = {
+          question: nextReview.question.question,
+          options: nextReview.question.options,
+          correctAnswer: nextReview.question.correctAnswer,
+          explanation: nextReview.question.explanation || ""
+        };
+        setReviewQuestion(question);
+        setReviewQuestionId(nextReview.question._id);
+        setReviewInteractions(nextReview.interactions || []);
+        setState("quiz"); // Go directly to quiz, no ready state
+        setIsReviewing(true); // Lock updates while reviewing this question
+        setPrevReviewId(nextReview.question._id);
+      }
     }
-  }, [nextReview, isReviewing]);
+  }, [nextReview, isReviewing, state, prevReviewId]);
 
   const handleReviewComplete = async () => {
-    // Always load the next question - infinite review loop
-    setIsReviewing(false); // Release lock to allow next question to load
-    setState("loading");
-    setReviewQuestion(null);
-    setReviewQuestionId(null);
-    setReviewInteractions([]);
+    // Release lock to allow next question to load
+    setIsReviewing(false);
+    // Don't clear state immediately - keep showing current question until next one loads
+    // This prevents the loading state flash between questions
   };
 
 

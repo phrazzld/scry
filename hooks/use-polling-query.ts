@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import type { FunctionReference, FunctionReturnType } from "convex/server";
 
@@ -27,28 +27,47 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
   // Track document visibility to pause polling when tab is hidden
   const [isVisible, setIsVisible] = useState(typeof document !== 'undefined' ? !document.hidden : true);
-  
-  // Listen for visibility changes
+  // Track last update time to avoid aggressive refreshes
+  const lastUpdateRef = useRef(Date.now());
+
+  // Listen for visibility changes with debouncing
   useEffect(() => {
     if (typeof document === 'undefined') return;
+
+    let debounceTimer: NodeJS.Timeout;
 
     const handleVisibilityChange = () => {
       const nowVisible = !document.hidden;
       setIsVisible(nowVisible);
 
-      // If becoming visible, immediately refresh data
+      // If becoming visible, refresh data with debounce to avoid flicker
       if (nowVisible) {
-        setRefreshTimestamp(Date.now());
+        // Only refresh if data is stale (older than 30 seconds)
+        const timeSinceLastUpdate = Date.now() - lastUpdateRef.current;
+        const isStale = timeSinceLastUpdate > 30000;
+
+        if (isStale) {
+          // Debounce the refresh by 500ms to avoid immediate flicker
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            setRefreshTimestamp(Date.now());
+            lastUpdateRef.current = Date.now();
+          }, 500);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(debounceTimer);
+    };
   }, []);
   
   // Set up polling interval with visibility-aware battery efficiency
   useEffect(() => {
-    if (args === "skip") return;
+    const isSkip = args === "skip";
+    if (isSkip) return;
 
     let interval: NodeJS.Timeout;
 
@@ -57,7 +76,9 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
       interval = setInterval(() => {
         // Double-check visibility before updating (defensive programming)
         if (!document.hidden) {
-          setRefreshTimestamp(Date.now());
+          const now = Date.now();
+          setRefreshTimestamp(now);
+          lastUpdateRef.current = now;
         }
       }, intervalMs);
     }
@@ -65,7 +86,8 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [args === "skip", intervalMs, isVisible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalMs, isVisible]);
   
   // Add the refresh timestamp to the query args
   const queryArgs = args === "skip" 

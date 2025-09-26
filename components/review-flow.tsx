@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
@@ -39,6 +38,8 @@ interface ReviewQuestion {
   correctCount: number;
   successRate: number | null;
   serverTime?: number; // Server's current time for accurate "New" badge display
+  interactionsHash?: string; // Hash for efficient comparison
+  optionsHash?: string; // Hash for efficient comparison
 }
 
 interface ReviewFeedback {
@@ -128,7 +129,6 @@ const formatNextReviewWindow = (scheduledDays: number, nextReview: number | null
  * @returns Review interface with question cards and progress tracking
  */
 export function ReviewFlow() {
-  const router = useRouter();
   const { isSignedIn } = useUser();
   const clerkAppearance = useClerkAppearance();
   const [currentQuestion, setCurrentQuestion] = useState<ReviewQuestion | null>(null);
@@ -180,54 +180,58 @@ export function ReviewFlow() {
   const updateQuestion = useMutation(api.questions.updateQuestion);
   const deleteQuestion = useMutation(api.questions.softDeleteQuestion);
   const restoreQuestion = useMutation(api.questions.restoreQuestion);
-  
+
+  // Memoize the current review to avoid deep comparisons on every render
+   
+  const memoizedCurrentReview = useMemo(() => {
+    if (!currentReview) return null;
+
+    // Create a stable reference with only the essential fields
+    return {
+      ...currentReview,
+      // Create a stable hash for interactions to avoid array comparisons
+      interactionsHash: currentReview.interactions
+        .map((i: Doc<"interactions">) => `${i._id}-${i.isCorrect}-${i.userAnswer}`)
+        .join(','),
+      // Create a stable hash for options to avoid array comparisons
+      optionsHash: currentReview.question.options.join('|'),
+    };
+  }, [
+    currentReview?.question._id,
+    currentReview?.question.question,
+    currentReview?.question.correctAnswer,
+    currentReview?.question.explanation,
+    currentReview?.interactions?.length,
+    currentReview?.attemptCount,
+    currentReview?.correctCount,
+    currentReview?.successRate,
+  ]);
+
   // Set initial question or auto-start after generation
   useEffect(() => {
-    if (!currentReview || showingFeedback) {
+    if (!memoizedCurrentReview || showingFeedback) {
       return;
     }
 
     setCurrentQuestion((prev) => {
       const needsInitialQuestion = !prev || shouldStartReview;
-      const isDifferentQuestion = prev?.question._id !== currentReview.question._id;
+      const isDifferentQuestion = prev?.question._id !== memoizedCurrentReview.question._id;
 
       if (needsInitialQuestion || isDifferentQuestion) {
         setQuestionStartTime(Date.now());
-        return currentReview;
+        return memoizedCurrentReview;
       }
 
-      const interactionsChanged =
-        prev.interactions.length !== currentReview.interactions.length ||
-        prev.interactions.some((interaction, index) => {
-          const nextInteraction = currentReview.interactions[index];
-          if (!nextInteraction) return true;
-          return (
-            interaction._id !== nextInteraction._id ||
-            interaction.isCorrect !== nextInteraction.isCorrect ||
-            interaction.userAnswer !== nextInteraction.userAnswer ||
-            interaction.attemptedAt !== nextInteraction.attemptedAt ||
-            interaction.timeSpent !== nextInteraction.timeSpent
-          );
-        });
+      // Use the memoized hashes for comparison instead of deep comparisons
+      const hasChanges =
+        prev.interactionsHash !== memoizedCurrentReview.interactionsHash ||
+        prev.optionsHash !== memoizedCurrentReview.optionsHash ||
+        prev.attemptCount !== memoizedCurrentReview.attemptCount ||
+        prev.correctCount !== memoizedCurrentReview.correctCount ||
+        prev.successRate !== memoizedCurrentReview.successRate;
 
-      const questionContentChanged =
-        prev.question.question !== currentReview.question.question ||
-        prev.question.correctAnswer !== currentReview.question.correctAnswer ||
-        prev.question.explanation !== currentReview.question.explanation ||
-        prev.question.options.length !== currentReview.question.options.length ||
-        prev.question.options.some((option, index) => option !== currentReview.question.options[index]);
-
-      const progressChanged =
-        prev.attemptCount !== currentReview.attemptCount ||
-        prev.correctCount !== currentReview.correctCount ||
-        prev.successRate !== currentReview.successRate ||
-        prev.serverTime !== currentReview.serverTime;
-
-      if (interactionsChanged || questionContentChanged || progressChanged) {
-        return {
-          ...prev,
-          ...currentReview,
-        };
+      if (hasChanges) {
+        return memoizedCurrentReview;
       }
 
       return prev;
@@ -236,7 +240,7 @@ export function ReviewFlow() {
     if (shouldStartReview) {
       setShouldStartReview(false);
     }
-  }, [currentReview, showingFeedback, shouldStartReview]);
+  }, [memoizedCurrentReview, showingFeedback, shouldStartReview]);
   
   // Broadcast current question for generation context using universal event
   useEffect(() => {
@@ -252,9 +256,10 @@ export function ReviewFlow() {
     const nextDueTime = cardStats?.nextReviewTime || null;
     const newInterval = getPollingInterval(nextDueTime);
 
-    // Only update if interval has changed significantly (avoid unnecessary re-renders)
+    // Only update if interval has changed by more than 50% to avoid frequent re-renders
     setPollingInterval((currentInterval) => {
-      if (Math.abs(newInterval - currentInterval) > 1000) {
+      const percentChange = Math.abs(newInterval - currentInterval) / currentInterval;
+      if (percentChange > 0.5) {
         return newInterval;
       }
       return currentInterval;
@@ -426,10 +431,11 @@ export function ReviewFlow() {
                 next.delete(questionId);
                 return next;
               });
-              
-              // Refresh to show restored question
-              router.refresh();
-              
+
+              // Convex will automatically update the question list via real-time subscription
+              // No need for router.refresh() which causes flickering
+              toast.success("Question restored");
+
               // Clear the timeout
               if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
             } catch (error) {
@@ -476,7 +482,7 @@ export function ReviewFlow() {
     } finally {
       // setIsMutating(false); // Not needed anymore
     }
-  }, [isSignedIn, deleteQuestion, restoreQuestion, router]);
+  }, [isSignedIn, deleteQuestion, restoreQuestion]);
 
   const confirmDelete = useCallback(async () => {
     if (!currentQuestion) return;

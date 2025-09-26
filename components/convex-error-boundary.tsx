@@ -36,9 +36,12 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
   }
 
   handleReset = () => {
+    // Reset error state without reloading the page
+    // This will trigger a re-render and allow components to retry
     this.setState({ hasError: false, error: null })
-    // Reload the page to reset all state
-    window.location.reload()
+
+    // Optionally dispatch a custom event to notify components to retry
+    window.dispatchEvent(new CustomEvent('error-boundary-reset'))
   }
 
   render() {
@@ -70,13 +73,13 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
               )}
               
               <div className="space-y-3">
-                <Button 
+                <Button
                   onClick={this.handleReset}
                   className="w-full"
                   variant="default"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Page
+                  Try Again
                 </Button>
                 
                 {isConvexError && (
