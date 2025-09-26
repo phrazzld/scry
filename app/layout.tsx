@@ -31,6 +31,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
 import { ThemeProvider } from '@/components/theme-provider'
+import { DebugPanel } from '@/components/debug-panel'
 
 export default function RootLayout({
   children,
@@ -56,6 +57,7 @@ export default function RootLayout({
               <Footer />
             </div>
             <Toaster />
+            <DebugPanel />
             <Analytics />
             <SpeedInsights />
           </ClerkConvexProvider>
