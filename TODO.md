@@ -58,14 +58,14 @@
   * Expected impact: Prevent renders when polling returns identical data
 
 ### Fix: State Management Anti-Patterns
-- [ ] Consolidate ReviewMode's 6 state variables into single state machine object
+- [x] Consolidate ReviewMode's 6 state variables into single state machine object
   * Current states: state, reviewQuestion, reviewQuestionId, reviewInteractions, isReviewing, prevReviewId
   * New single state: `{ phase: 'loading'|'empty'|'reviewing', question: null|{...}, lockId: null|string }`
   * Use reducer pattern: `useReducer(reviewReducer, initialState)`
   * Actions: LOAD_START, LOAD_COMPLETE, QUESTION_RECEIVED, ANSWER_SUBMITTED, NEXT_QUESTION
   * Expected impact: Single state update instead of 6 separate setState calls
 
-- [ ] Remove "isReviewing" lock pattern (lines 20, 32, 59, 67) - replace with lockId comparison
+- [x] Remove "isReviewing" lock pattern (lines 20, 32, 59, 67) - replace with lockId comparison
   * Problem: Boolean lock doesn't prevent race conditions with multiple in-flight requests
   * Solution: Generate unique lockId per question, ignore updates from old locks
   * Implementation: `const lockId = useRef(null)`, set new ID when starting review
