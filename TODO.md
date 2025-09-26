@@ -36,14 +36,14 @@
   * Expected impact: Identify if state updates cluster and cause multiple renders
 
 ### Fix: Polling Architecture Root Cause
-- [ ] Create `hooks/use-simple-poll.ts` to replace complex `usePollingQuery` (eliminate 90 lines of complexity)
+- [x] Create `hooks/use-simple-poll.ts` to replace complex `usePollingQuery` (eliminate 90 lines of complexity)
   * Simple setInterval with manual query refetch - no visibility API, no debouncing
   * Implementation: `useEffect` with `setInterval`, return cleanup function
   * Store intervalId in useRef to prevent recreation on each render
   * Accept query + args + intervalMs, return { data, isLoading, refetch }
   * Expected impact: Remove 6 state variables that trigger renders (refreshTimestamp, isVisible, etc.)
 
-- [ ] Replace `usePollingQuery` in ReviewMode line 24 with `useSimplePoll`
+- [x] Replace `usePollingQuery` in ReviewMode line 24 with `useSimplePoll`
   * Change from: `usePollingQuery(api.spacedRepetition.getNextReview, {}, 30000)`
   * Change to: `useSimplePoll(api.spacedRepetition.getNextReview, {}, 30000)`
   * Remove _refreshTimestamp hack from Convex query (no longer needed)

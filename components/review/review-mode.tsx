@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePollingQuery } from "@/hooks/use-polling-query";
+import { useSimplePoll } from "@/hooks/use-simple-poll";
 import { useRenderTracker } from "@/hooks/use-render-tracker";
 import { api } from "@/convex/_generated/api";
 import { ReviewSession } from "@/components/review-session";
@@ -21,8 +21,8 @@ export function ReviewMode() {
   const [isReviewing, setIsReviewing] = useState(false); // Lock to prevent updates during active review
   const [prevReviewId, setPrevReviewId] = useState<string | null>(null);
 
-  // Query - use polling for time-sensitive review queries
-  const nextReview = usePollingQuery(
+  // Query - use simple polling for time-sensitive review queries
+  const { data: nextReview } = useSimplePoll(
     api.spacedRepetition.getNextReview,
     {},
     30000 // Poll every 30 seconds
