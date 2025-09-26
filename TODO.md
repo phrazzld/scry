@@ -20,7 +20,7 @@
   * Store visibility preference in localStorage key `scry:debug-panel-visible`
   * Expected impact: Real-time visibility into performance issues during testing
 
-- [ ] Instrument `ReviewMode` component with render tracking at lines 15, 30, 63
+- [x] Instrument `ReviewMode` component with render tracking at lines 15, 30, 63
   * Add `useRenderTracker('ReviewMode')` after all hooks
   * Log state transitions: `console.time('ReviewMode.setState')` before setState calls
   * Add performance marks: `performance.mark('review-question-loaded')` when question changes
