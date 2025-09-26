@@ -6,12 +6,11 @@ import { api } from "@/convex/_generated/api";
 import { ReviewSession } from "@/components/review-session";
 // ReviewReadyState removed - we go directly to questions
 import { ReviewEmptyState } from "./review-empty-state";
-import { ReviewCompleteState } from "./review-complete-state";
 import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
 import type { SimpleQuestion } from "@/types/questions";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
 
-type ReviewState = "loading" | "empty" | "quiz" | "complete";
+type ReviewState = "loading" | "empty" | "quiz";
 
 export function ReviewMode() {
   const [state, setState] = useState<ReviewState>("loading");
@@ -20,15 +19,9 @@ export function ReviewMode() {
   const [reviewInteractions, setReviewInteractions] = useState<Doc<"interactions">[]>([]);
   const [isReviewing, setIsReviewing] = useState(false); // Lock to prevent updates during active review
 
-  // Queries - use polling for time-sensitive review queries
+  // Query - use polling for time-sensitive review queries
   const nextReview = usePollingQuery(
     api.spacedRepetition.getNextReview,
-    {},
-    30000 // Poll every 30 seconds
-  );
-
-  const dueCount = usePollingQuery(
-    api.spacedRepetition.getDueCount,
     {},
     30000 // Poll every 30 seconds
   );
@@ -60,28 +53,14 @@ export function ReviewMode() {
   }, [nextReview, isReviewing]);
 
   const handleReviewComplete = async () => {
-    // Check if there are more reviews
-    if ((dueCount?.totalReviewable ?? 0) > 1) {
-      // More reviews available - load the next one immediately
-      setIsReviewing(false); // Release lock to allow next question to load
-      setState("loading");
-      setReviewQuestion(null);
-      setReviewQuestionId(null);
-      setReviewInteractions([]);
-    } else {
-      // No more reviews
-      setState("complete");
-    }
-  };
-
-  const startNextReview = () => {
-    // Reset all state to trigger a fresh review load
-    setIsReviewing(false); // Release lock for next question
+    // Always load the next question - infinite review loop
+    setIsReviewing(false); // Release lock to allow next question to load
     setState("loading");
     setReviewQuestion(null);
     setReviewQuestionId(null);
     setReviewInteractions([]);
   };
+
 
   return (
     <div className="min-h-[400px] flex items-start justify-center">
@@ -103,13 +82,6 @@ export function ReviewMode() {
             questionHistory={reviewInteractions}
           />
         </div>
-      )}
-
-      {state === "complete" && (
-        <ReviewCompleteState
-          remainingReviews={(dueCount?.totalReviewable ?? 1) - 1}
-          onNextReview={startNextReview}
-        />
       )}
     </div>
   );

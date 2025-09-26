@@ -65,7 +65,7 @@
   ```
 - [x] Remove progress bars that imply session completion
 - [x] Remove score calculations - only track per-question success
-- [ ] No session boundaries - infinite review loop
+- [x] No session boundaries - infinite review loop
 
 ## PHASE 4: Database Cleanup
 - [ ] Stop writing to `quizResults` table entirely
