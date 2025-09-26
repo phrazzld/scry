@@ -76,7 +76,14 @@
   - Disabled the db.insert operation but kept mutation for backward compatibility
   - Returns dummy ID to maintain API contract if legacy code calls it
   ```
-- [ ] Mark `quizResults` as deprecated in schema
+- [x] Mark `quizResults` as deprecated in schema
+  ```
+  Work Log:
+  - Added comprehensive @deprecated JSDoc comment to quizResults table
+  - Documented migration path to questions and interactions tables
+  - Specified that table is read-only for historical access
+  - Noted table will be removed in future release
+  ```
 - [ ] Delete `convex/quiz.ts` file
 - [ ] Move any needed functions to `questions.ts`
 
