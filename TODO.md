@@ -42,13 +42,13 @@
 ## Low Priority: Optional Cleanup
 
 ### Debug Infrastructure (Keep for Development)
-- [ ] Add NODE_ENV check to `components/debug-panel.tsx` - Only render in development environment
-- [ ] Add NODE_ENV check to `app/test-profiling/page.tsx` route - Return 404 in production builds
+- [x] Add NODE_ENV check to `components/debug-panel.tsx` - Only render in development environment
+- [x] Add NODE_ENV check to `app/test-profiling/page.tsx` route - Return 404 in production builds
 - [ ] Document debug panel keyboard shortcuts in README.md - Currently uses Cmd+Shift+D to toggle
 
 ### Documentation
-- [ ] Add comment explaining why debug-panel.tsx is kept - "Development-only performance monitoring tool"
-- [ ] Add comment explaining why test-profiling page is kept - "Manual performance regression testing interface"
+- [x] Add comment explaining why debug-panel.tsx is kept - "Development-only performance monitoring tool"
+- [x] Add comment explaining why test-profiling page is kept - "Manual performance regression testing interface"
 
 ## Verification Checklist
 - [x] Run `git diff master..HEAD | grep -E "console\.(log|error|warn|debug)" | wc -l` - Returns 86 (from other files in branch, not cleanup targets)

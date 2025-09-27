@@ -1,5 +1,20 @@
 "use client"
 
+/**
+ * Development-only performance monitoring tool
+ *
+ * This component provides real-time performance metrics and debugging information
+ * during development. It is automatically excluded from production builds.
+ *
+ * Features:
+ * - FPS counter
+ * - Component render tracking
+ * - Active timer monitoring
+ * - State transition tracking
+ *
+ * Keyboard shortcut: Cmd/Ctrl + Shift + D to toggle visibility
+ */
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import { X } from "lucide-react"
 import { getAllRenderData, getRenderSummary } from "@/hooks/use-render-tracker"

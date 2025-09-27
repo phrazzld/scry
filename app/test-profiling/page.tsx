@@ -1,6 +1,21 @@
 "use client";
 
+/**
+ * Manual performance regression testing interface
+ *
+ * This page provides a controlled environment for testing component performance
+ * and render behavior during development. It is automatically excluded from
+ * production builds to prevent exposure of debugging tools.
+ *
+ * Use this page to:
+ * - Profile component render performance
+ * - Test state transition behavior
+ * - Identify unnecessary re-renders
+ * - Validate React.memo optimizations
+ */
+
 import { useState, useCallback } from "react";
+import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ReviewSession } from "@/components/review-session";
 // Quiz-specific components have been removed - everything is review mode now
@@ -9,6 +24,11 @@ import { ReviewSession } from "@/components/review-session";
 // import { QuizCompleteState } from "@/components/quiz-flow/quiz-complete-state";
 
 export default function ProfilingTestPage() {
+  // Return 404 in production to prevent exposure of testing tools
+  if (process.env.NODE_ENV === 'production') {
+    notFound();
+  }
+
   const [testCase, setTestCase] = useState<string>("none");
   const [renderCount, setRenderCount] = useState(0);
   const [stateTransition, setStateTransition] = useState(0);
@@ -44,6 +64,9 @@ export default function ProfilingTestPage() {
   return (
     <div className="container mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Performance Profiling Test Page</h1>
+      <p className="text-sm text-muted-foreground mb-4">
+        This page is only available in development mode.
+      </p>
 
       <div className="mb-8 space-y-4">
         <div className="flex gap-4 flex-wrap">
