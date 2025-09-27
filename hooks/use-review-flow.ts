@@ -42,11 +42,6 @@ const initialState: ReviewModeState = {
 
 // Reducer function to manage state transitions
 export function reviewReducer(state: ReviewModeState, action: ReviewAction): ReviewModeState {
-  if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
-    console.log(`[ReviewMode Reducer] Action: ${action.type}`, action);
-  }
-
   switch (action.type) {
     case 'LOAD_START':
       return { ...state, phase: 'loading' };
@@ -92,11 +87,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
       };
 
     case 'IGNORE_UPDATE':
-      // No state change, just log in development
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewMode] Update ignored: ${action.reason}`);
-      }
+      // No state change
       return state;
 
     default:
@@ -160,18 +151,6 @@ export function useReviewFlow() {
 
   // Process polling data and update state
   useEffect(() => {
-    // Track polling query execution vs actual data changes
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log('[ReviewMode] useEffect triggered - polling query result:', {
-        hasData: nextReview !== undefined,
-        isNull: nextReview === null,
-        questionId: nextReview?.question?._id,
-        currentLockId: state.lockId,
-        lastQuestionId: lastQuestionIdRef.current,
-        dataHasChanged
-      });
-    }
 
     // If data hasn't actually changed, skip processing (unless transitioning from loading)
     // Special case: after REVIEW_COMPLETE, we need to process even if same question returns
@@ -189,22 +168,10 @@ export function useReviewFlow() {
     if (nextReview === undefined) {
       // Only show loading on initial load
       if (state.phase === "loading" && !lastQuestionIdRef.current) {
-        if (process.env.NODE_ENV === 'development') {
-          console.time('ReviewMode.dispatch.LOAD_START');
-        }
         dispatch({ type: 'LOAD_START' });
-        if (process.env.NODE_ENV === 'development') {
-          console.timeEnd('ReviewMode.dispatch.LOAD_START');
-        }
       }
     } else if (nextReview === null) {
-      if (process.env.NODE_ENV === 'development') {
-        console.time('ReviewMode.dispatch.LOAD_EMPTY');
-      }
       dispatch({ type: 'LOAD_EMPTY' });
-      if (process.env.NODE_ENV === 'development') {
-        console.timeEnd('ReviewMode.dispatch.LOAD_EMPTY');
-      }
     } else {
       // Check if this is a new question
       const isNewQuestion = nextReview.question._id !== lastQuestionIdRef.current;
@@ -213,8 +180,6 @@ export function useReviewFlow() {
         if (process.env.NODE_ENV === 'development') {
           // Mark performance when a new question loads
           performance.mark('review-question-loaded');
-          // eslint-disable-next-line no-console
-          console.log('[ReviewMode] New question loaded:', nextReview.question._id);
         }
 
         // Convert to quiz format for compatibility
@@ -227,10 +192,6 @@ export function useReviewFlow() {
 
         // Generate unique lock ID for this question
         const lockId = `${nextReview.question._id}-${Date.now()}`;
-
-        if (process.env.NODE_ENV === 'development') {
-          console.time('ReviewMode.dispatch.QUESTION_RECEIVED');
-        }
 
         dispatch({
           type: 'QUESTION_RECEIVED',
@@ -245,10 +206,6 @@ export function useReviewFlow() {
         // Update last question ID even if it's the same (immediate re-review case)
         // This ensures UI resets properly when incorrect answers trigger immediate review
         lastQuestionIdRef.current = nextReview.question._id;
-
-        if (process.env.NODE_ENV === 'development') {
-          console.timeEnd('ReviewMode.dispatch.QUESTION_RECEIVED');
-        }
       } else {
         dispatch({
           type: 'IGNORE_UPDATE',
