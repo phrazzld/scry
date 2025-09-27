@@ -114,7 +114,7 @@
   * Expected impact: Single render instead of 3 renders per answer submission
 
 ### Performance Measurement Baseline
-- [ ] Create `scripts/measure-review-performance.js` automated performance test
+- [x] Create `scripts/measure-review-performance.js` automated performance test
   * Use Puppeteer to navigate to review page
   * Answer 10 questions while collecting Performance API data
   * Measure: Time to first question, time between questions, total renders
