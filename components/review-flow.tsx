@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ArrowRight, Calendar } from 'lucide-react'
 import { useReviewFlow } from '@/hooks/use-review-flow'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 import { QuestionHistory } from '@/components/question-history'
+import { ReviewQuestionDisplay } from '@/components/review-question-display'
 import { ReviewEmptyState } from '@/components/review/review-empty-state'
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons'
 import { useRenderTracker } from '@/hooks/use-render-tracker'
@@ -167,88 +167,16 @@ export function ReviewFlow() {
       <div className="min-h-[400px] flex items-start justify-center">
         <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
           <article className="space-y-6">
-            <h2 className="text-xl font-semibold">{question.question}</h2>
+            {/* Use memoized component for question display */}
+            <ReviewQuestionDisplay
+              question={question}
+              questionId={questionId}
+              selectedAnswer={selectedAnswer}
+              showFeedback={showFeedback}
+              onAnswerSelect={handleAnswerSelect}
+            />
 
             <div className="space-y-3">
-              {question.type === 'true-false' ? (
-                // True/False specific layout
-                <div className="grid grid-cols-2 gap-4">
-                  {question.options.map((option, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleAnswerSelect(option)}
-                      className={cn(
-                        // Base styles
-                        "p-6 rounded-lg border-2 transition-all font-medium",
-                        "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                        // Default state
-                        "border-input hover:bg-accent/50 hover:border-accent",
-                        // Selected state
-                        selectedAnswer === option && !showFeedback && [
-                          "border-info-border bg-info-background text-info"
-                        ],
-                        // Feedback state - correct answer
-                        showFeedback && option === question.correctAnswer && [
-                          "border-success-border bg-success-background text-success"
-                        ],
-                        // Feedback state - wrong answer selected
-                        showFeedback && selectedAnswer === option && option !== question.correctAnswer && [
-                          "border-error-border bg-error-background text-error"
-                        ]
-                      )}
-                      disabled={showFeedback}
-                    >
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <span className="text-lg">{option}</span>
-                        {showFeedback && option === question.correctAnswer && (
-                          <CheckCircle className="h-6 w-6 text-success animate-scaleIn" />
-                        )}
-                        {showFeedback && selectedAnswer === option && option !== question.correctAnswer && (
-                          <XCircle className="h-6 w-6 text-error animate-scaleIn" />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                // Multiple choice layout
-                question.options.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAnswerSelect(option)}
-                    className={cn(
-                      // Base styles
-                      "w-full text-left p-4 rounded-lg border transition-colors",
-                      "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      // Default state
-                      "border-input hover:bg-accent/50 hover:border-accent",
-                      // Selected state
-                      selectedAnswer === option && !showFeedback && [
-                        "border-info-border bg-info-background"
-                      ],
-                      // Feedback state - correct answer
-                      showFeedback && option === question.correctAnswer && [
-                        "border-success-border bg-success-background"
-                      ],
-                      // Feedback state - wrong answer selected
-                      showFeedback && selectedAnswer === option && option !== question.correctAnswer && [
-                        "border-error-border bg-error-background"
-                      ]
-                    )}
-                    disabled={showFeedback}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{option}</span>
-                      {showFeedback && option === question.correctAnswer && (
-                        <CheckCircle className="h-5 w-5 text-success animate-scaleIn" />
-                      )}
-                      {showFeedback && selectedAnswer === option && option !== question.correctAnswer && (
-                        <XCircle className="h-5 w-5 text-error animate-scaleIn" />
-                      )}
-                    </div>
-                  </button>
-                ))
-              )}
 
               {showFeedback && (question.explanation || interactions.length > 0 || nextReviewInfo?.nextReview) && (
                 <div className="mt-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
