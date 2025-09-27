@@ -43,14 +43,14 @@
 ## ⚡ Quick Wins (30 min each, high impact)
 
 ### Code Formatting Consistency
-- [ ] Install and configure Prettier
+- [x] Install and configure Prettier
   ```bash
   pnpm add -D prettier eslint-config-prettier
   echo '{"semi": true, "singleQuote": true, "trailingComma": "es5"}' > .prettierrc
   ```
   - Update `.eslintrc.json`: Add "prettier" to extends array
   - Success: `pnpm prettier --check .` runs without errors
-- [ ] Add Prettier to pre-commit hooks in `.husky/pre-commit`
+- [x] Add Prettier to pre-commit hooks in `.husky/pre-commit`
   ```bash
   npx lint-staged --concurrent false
   # Add to lint-staged in package.json:
