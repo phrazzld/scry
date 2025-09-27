@@ -22,7 +22,7 @@
   - Remove: Firefox, Safari, Mobile Safari
   - Rationale: 5× test runs for marginal browser coverage is waste
   - Success: Test runs drop from 145 to 58 (27 tests × 2 browsers + 4 skipped)
-- [ ] Mark non-critical E2E tests with `test.skip()` - keep only:
+- [x] Mark non-critical E2E tests with `test.skip()` - keep only:
   1. Quiz generation → completion flow
   2. Spaced repetition review cycle
   3. Mobile responsive check

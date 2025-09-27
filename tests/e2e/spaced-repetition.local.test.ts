@@ -33,6 +33,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     await mockAuthentication(page);
   });
 
+  // CRITICAL: Full E2E flow - quiz generation to review
   test('complete spaced repetition flow', async ({ page }) => {
     // 1. Navigate to home and open generation modal
     await page.goto('/');
@@ -128,7 +129,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     }
   });
 
-  test('review queue prioritization', async ({ page }) => {
+  test.skip('review queue prioritization', async ({ page }) => {
     // This test would require setting up multiple questions with different states
     // and verifying they appear in the correct order
     
@@ -147,7 +148,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     // 3. Test that new questions appear before overdue ones
   });
 
-  test('FSRS interval progression', async () => {
+  test.skip('FSRS interval progression', async () => {
     // This test would verify that intervals increase/decrease appropriately
     // based on correct/incorrect answers
     
@@ -159,6 +160,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     // 5. Verifying interval resets
   });
 
+  // CRITICAL: Mobile responsive check - ensures touch-friendly UX
   test('mobile responsive review interface', async ({ page, isMobile }) => {
     if (!isMobile) {
       test.skip();
@@ -186,19 +188,19 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
 test.describe('Spaced Repetition Edge Cases (Local)', () => {
   test.skip(({ baseURL }) => !baseURL?.includes('localhost'), 'Local tests only');
 
-  test('handles question generation failure gracefully', async () => {
+  test.skip('handles question generation failure gracefully', async () => {
     // Test error handling when AI generation fails
   });
 
-  test('preserves progress on page refresh', async () => {
+  test.skip('preserves progress on page refresh', async () => {
     // Test that quiz progress is saved and restored
   });
 
-  test('handles concurrent review sessions', async () => {
+  test.skip('handles concurrent review sessions', async () => {
     // Test multiple tabs/windows reviewing simultaneously
   });
 
-  test('validates answer persistence across sessions', async () => {
+  test.skip('validates answer persistence across sessions', async () => {
     // Test that answers and scheduling persist after logout/login
   });
 
@@ -302,6 +304,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     await expect(reviewPage.getByText(/Next review:/i)).toBeVisible();
   });
 
+  // CRITICAL: Generation to immediate review - validates real-time updates
   test('complete generation and immediate review flow', async ({ page }) => {
     // Test the full user journey: generate questions and immediately review them
     // This verifies the critical UX requirement that new questions are instantly accessible
