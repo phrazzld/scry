@@ -20,11 +20,11 @@
 - [ ] Update `components/review-session.tsx` to remove SimpleQuiz type dependency - Replace with proper Question type
 
 ### Test Updates
-- [ ] Update E2E test in `tests/e2e/spaced-repetition.test.ts:53` - Replace /create route navigation with generation modal trigger
-- [ ] Update E2E test in `tests/e2e/spaced-repetition.test.ts:149` - Replace /create route navigation with generation modal trigger
-- [ ] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:36` - Replace /create route navigation with generation modal trigger
-- [ ] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:205` - Replace /create route navigation with generation modal trigger
-- [ ] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:304` - Replace /create route navigation with generation modal trigger
+- [x] Update E2E test in `tests/e2e/spaced-repetition.test.ts:53` - Replace /create route navigation with generation modal trigger
+- [x] Update E2E test in `tests/e2e/spaced-repetition.test.ts:149` - Replace /create route navigation with generation modal trigger
+- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:36` - Replace /create route navigation with generation modal trigger
+- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:205` - Replace /create route navigation with generation modal trigger
+- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:304` - Replace /create route navigation with generation modal trigger
 
 ## Medium Priority: Code Quality
 

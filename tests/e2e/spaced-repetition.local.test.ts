@@ -33,10 +33,10 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     await mockAuthentication(page);
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('complete spaced repetition flow', async ({ page }) => {
-    // 1. Navigate to quiz creation - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+  test('complete spaced repetition flow', async ({ page }) => {
+    // 1. Navigate to home and open generation modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
 
     // 2. Generate questions
@@ -223,8 +223,9 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
       initialQuestionCount = parseInt(countText?.match(/\d+/)?.[0] || '0');
     }
 
-    // 2. Generate new questions in main page - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+    // 2. Generate new questions via modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
     
     // Fill quiz form
@@ -301,13 +302,13 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     await expect(reviewPage.getByText(/Next review:/i)).toBeVisible();
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('complete generation and immediate review flow', async ({ page }) => {
+  test('complete generation and immediate review flow', async ({ page }) => {
     // Test the full user journey: generate questions and immediately review them
     // This verifies the critical UX requirement that new questions are instantly accessible
 
-    // 1. Start on the create page - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+    // 1. Start on home page and open generation modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
     
     // 2. Generate a quiz with a unique topic to ensure we're reviewing the right questions

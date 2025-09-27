@@ -50,9 +50,11 @@ test.describe('Spaced Repetition Flow', () => {
     }
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('should validate quiz creation flow elements', async ({ page }) => {
-    await page.goto('/create');
+  test('should validate quiz creation flow elements', async ({ page }) => {
+    await page.goto('/');
+
+    // Open the generation modal
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     
     // Check the response status
     const response = await page.waitForResponse(response => response.url().includes('/create'));
@@ -146,8 +148,13 @@ test.describe('Spaced Repetition Flow', () => {
       // 1. Sign in with test account
       // await signInWithTestAccount(page);
 
-      // 2. Generate questions - TODO: Update to use generation modal instead of /create route
-      // await page.goto('/create');
+      // 2. Generate questions via modal
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+
+      // Wait for modal to appear
+      await page.waitForSelector('[role="dialog"]', { state: 'visible' });
+
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
       await page.getByRole('button', { name: /Generate Questions/i }).click();
