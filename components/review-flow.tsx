@@ -30,11 +30,18 @@ export function ReviewFlow() {
 
   // Local UI state for answer selection and feedback
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
-  const [showFeedback, setShowFeedback] = useState(false)
-  const [nextReviewInfo, setNextReviewInfo] = useState<{
-    nextReview: Date | null
-    scheduledDays: number
-  } | null>(null)
+
+  // Combined feedback state to batch updates
+  const [feedbackState, setFeedbackState] = useState<{
+    showFeedback: boolean
+    nextReviewInfo: {
+      nextReview: Date | null
+      scheduledDays: number
+    } | null
+  }>({
+    showFeedback: false,
+    nextReviewInfo: null
+  })
 
   const { trackAnswer } = useQuizInteractions()
   const [sessionId] = useState(() => Math.random().toString(36).substring(7))
@@ -58,14 +65,16 @@ export function ReviewFlow() {
   useEffect(() => {
     if (questionId) {
       setSelectedAnswer('')
-      setShowFeedback(false)
-      setNextReviewInfo(null)
+      setFeedbackState({
+        showFeedback: false,
+        nextReviewInfo: null
+      })
       setQuestionStartTime(Date.now())
     }
   }, [questionId])
 
   const handleAnswerSelect = useCallback((answer: string) => {
-    if (showFeedback) return
+    if (feedbackState.showFeedback) return
 
     if (process.env.NODE_ENV === 'development') {
       performance.mark('answer-selected')
@@ -74,7 +83,7 @@ export function ReviewFlow() {
     }
 
     setSelectedAnswer(answer)
-  }, [showFeedback])
+  }, [feedbackState.showFeedback])
 
   const handleSubmit = useCallback(async () => {
     if (!selectedAnswer || !question || !questionId) return
@@ -87,8 +96,24 @@ export function ReviewFlow() {
 
     const isCorrect = selectedAnswer === question.correctAnswer
 
-    // Batch state updates for single render
-    setShowFeedback(true)
+    // Track interaction with FSRS scheduling (before showing feedback)
+    const timeSpent = Date.now() - questionStartTime
+    const reviewInfo = await trackAnswer(
+      questionId,
+      selectedAnswer,
+      isCorrect,
+      timeSpent,
+      sessionId
+    )
+
+    // Batch state updates into a single render
+    setFeedbackState({
+      showFeedback: true,
+      nextReviewInfo: reviewInfo ? {
+        nextReview: reviewInfo.nextReview,
+        scheduledDays: reviewInfo.scheduledDays
+      } : null
+    })
 
     if (process.env.NODE_ENV === 'development') {
       performance.mark('feedback-shown')
@@ -100,23 +125,6 @@ export function ReviewFlow() {
       } catch {
         // Ignore if marks don't exist
       }
-    }
-
-    // Track interaction with FSRS scheduling
-    const timeSpent = Date.now() - questionStartTime
-    const reviewInfo = await trackAnswer(
-      questionId,
-      selectedAnswer,
-      isCorrect,
-      timeSpent,
-      sessionId
-    )
-
-    if (reviewInfo) {
-      setNextReviewInfo({
-        nextReview: reviewInfo.nextReview,
-        scheduledDays: reviewInfo.scheduledDays
-      })
     }
   }, [selectedAnswer, question, questionId, questionStartTime, trackAnswer, sessionId])
 
@@ -176,13 +184,13 @@ export function ReviewFlow() {
               question={question}
               questionId={questionId}
               selectedAnswer={selectedAnswer}
-              showFeedback={showFeedback}
+              showFeedback={feedbackState.showFeedback}
               onAnswerSelect={handleAnswerSelect}
             />
 
             <div className="space-y-3">
 
-              {showFeedback && (question.explanation || interactions.length > 0 || nextReviewInfo?.nextReview) && (
+              {feedbackState.showFeedback && (question.explanation || interactions.length > 0 || feedbackState.nextReviewInfo?.nextReview) && (
                 <div className="mt-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
                   {/* Explanation */}
                   {question.explanation && (
@@ -190,7 +198,7 @@ export function ReviewFlow() {
                   )}
 
                   {/* Divider between explanation and other content */}
-                  {question.explanation && (interactions.length > 0 || nextReviewInfo?.nextReview) && (
+                  {question.explanation && (interactions.length > 0 || feedbackState.nextReviewInfo?.nextReview) && (
                     <hr className="border-border/30" />
                   )}
 
@@ -203,17 +211,17 @@ export function ReviewFlow() {
                   )}
 
                   {/* Next Review - inline and subtle */}
-                  {nextReviewInfo && nextReviewInfo.nextReview && (
+                  {feedbackState.nextReviewInfo && feedbackState.nextReviewInfo.nextReview && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
                       <Calendar className="h-3.5 w-3.5" />
                       <span>
-                        Next review: {nextReviewInfo.scheduledDays === 0
+                        Next review: {feedbackState.nextReviewInfo.scheduledDays === 0
                           ? "Today"
-                          : nextReviewInfo.scheduledDays === 1
+                          : feedbackState.nextReviewInfo.scheduledDays === 1
                           ? "Tomorrow"
-                          : `In ${nextReviewInfo.scheduledDays} days`}
+                          : `In ${feedbackState.nextReviewInfo.scheduledDays} days`}
                         {' at '}
-                        {new Date(nextReviewInfo.nextReview).toLocaleTimeString('en-US', {
+                        {new Date(feedbackState.nextReviewInfo.nextReview).toLocaleTimeString('en-US', {
                           hour: 'numeric',
                           minute: '2-digit'
                         })}
@@ -224,7 +232,7 @@ export function ReviewFlow() {
               )}
 
               <div className="flex justify-end mt-6">
-                {!showFeedback ? (
+                {!feedbackState.showFeedback ? (
                   <Button
                     onClick={handleSubmit}
                     disabled={!selectedAnswer}
