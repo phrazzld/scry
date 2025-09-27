@@ -6,7 +6,7 @@
 - [x] Delete `tests/e2e/auth.test.ts` completely - tests NextAuth UI that no longer exists (Clerk replaced it)
   - Impact: Removes 45 failing test runs (9 tests × 5 browsers)
   - Success: `rm tests/e2e/auth.test.ts && npx playwright test` shows fewer failures
-- [ ] Add `CLERK_TEST_MODE=true` to `.env.test.local` for E2E test authentication bypass
+- [x] Add `CLERK_TEST_MODE=true` to `.env.test.local` for E2E test authentication bypass
   - Context: Clerk provides test mode to skip real auth in tests
   - Success: Tests can authenticate without real email flow
 - [ ] Create `tests/fixtures/test-auth.ts` with Clerk test token generation
