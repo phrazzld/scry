@@ -41,34 +41,13 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
 
   const handleAnswerSelect = (answer: string) => {
     if (showFeedback) return
-
-    // Performance tracking in development
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('answer-selected')
-    }
-
     setSelectedAnswer(answer)
   }
 
   const handleSubmit = async () => {
     if (!selectedAnswer) return
 
-    // Performance tracking in development
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('answer-submitted')
-    }
-
     setShowFeedback(true)
-
-    // Mark when feedback is shown and measure submission-to-feedback time
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('feedback-shown')
-      try {
-        performance.measure('submit-to-feedback', 'answer-submitted', 'feedback-shown')
-      } catch {
-        // Ignore if marks don't exist
-      }
-    }
     
     // Add answer to array for non-last questions
     if (!isLastQuestion) {
@@ -102,25 +81,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   }
 
   const handleNext = () => {
-    // Performance tracking in development
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('next-question')
-
-      // Measure time from answer submission to next question
-      try {
-        performance.measure('feedback-to-next', 'feedback-shown', 'next-question')
-      } catch {
-        // Ignore if marks don't exist
-      }
-
-      // Measure full answer cycle
-      try {
-        performance.measure('full-answer-cycle', 'answer-selected', 'next-question')
-      } catch {
-        // Ignore if marks don't exist
-      }
-    }
-
     if (isLastQuestion) {
       // Include the current answer in final results
       const finalAnswers = [...answers, {

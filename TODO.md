@@ -10,7 +10,7 @@
 
 ### Performance Instrumentation Removal
 - [x] Remove 4 performance.mark() calls from `components/review-flow.tsx` - Markers: 'answer-selected', 'answer-submitted', 'feedback-shown', 'next-question'
-- [ ] Remove 4 performance.mark() calls from `components/review-session.tsx` - Duplicate markers matching review-flow.tsx
+- [x] Remove 4 performance.mark() calls from `components/review-session.tsx` - Duplicate markers matching review-flow.tsx
 - [ ] Remove 3 console.time() and 3 console.timeEnd() pairs from `hooks/use-review-flow.ts` - Timing blocks: 'ReviewMode.dispatch.LOAD_START', 'ReviewMode.dispatch.LOAD_EMPTY', 'ReviewMode.dispatch.QUESTION_RECEIVED'
 
 ## High Priority: Temporary Code
