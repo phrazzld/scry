@@ -137,9 +137,33 @@
 - [ ] Query performance dashboards (P50/P95/P99)
 - [ ] Error rate tracking with categorization
 
+## Moved from TODO.md (Low Priority/Overengineering)
+
+### Review Flow Edge Cases (Manual Testing Only)
+- [ ] Test when only one question exists in the system (continuous loop)
+- [ ] Test when network is slow (loading state should remain visible)
+- [ ] Test when Convex backend returns null (no more questions)
+- [ ] Verify error boundary catches any state transition errors
+
+### Performance Monitoring (Only if Issues Arise)
+- [ ] Monitor render count in development console
+- [ ] Verify no memory leaks from incomplete state cleanup
+- [ ] Check that polling continues working after multiple transitions
+- [ ] Confirm loading state duration is acceptable (<500ms typical)
+
+### Same-Question Transition UX (Polish)
+- [ ] Consider adding subtle animation for same-question reload
+- [ ] Implement crossfade transition instead of loading state for same question
+- [ ] Add audio/haptic feedback for incorrect answers that trigger immediate review
+
+### Testing Infrastructure (Overengineering)
+- [ ] Create performance benchmark for question transitions
+- [ ] Add regression test to prevent future locking issues (E2E test already covers this)
+
 ## Completed (Archive)
 
 ### Recently Completed
+- ✅ [2025-09-27] Review Flow "Next" button fix with full state reset
 - ✅ [2024-01-15] Basic spaced repetition implementation
 - ✅ [2024-01-10] Magic link authentication setup
 - ✅ [2024-01-05] Initial AI quiz generation with Google Gemini

@@ -9,17 +9,19 @@ import type { Id, Doc } from "@/convex/_generated/dataModel";
 
 // State machine definition
 interface ReviewModeState {
-  phase: 'loading' | 'empty' | 'reviewing';
+  phase: 'loading' | 'empty' | 'reviewing' | 'error';
   question: SimpleQuestion | null;
   questionId: Id<"questions"> | null;
   interactions: Doc<"interactions">[];
   lockId: string | null; // Unique ID per question to prevent race conditions
+  errorMessage?: string; // Error message for timeout or other issues
 }
 
 // Action types for state machine
 type ReviewAction =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_EMPTY' }
+  | { type: 'LOAD_TIMEOUT' }
   | { type: 'QUESTION_RECEIVED'; payload: {
       question: SimpleQuestion;
       questionId: Id<"questions">;
@@ -56,7 +58,15 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         question: null,
         questionId: null,
         interactions: [],
-        lockId: null
+        lockId: null,
+        errorMessage: undefined
+      };
+
+    case 'LOAD_TIMEOUT':
+      return {
+        ...state,
+        phase: 'error',
+        errorMessage: 'Loading is taking longer than expected. Please refresh the page to try again.'
       };
 
     case 'QUESTION_RECEIVED':
@@ -65,7 +75,8 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         question: action.payload.question,
         questionId: action.payload.questionId,
         interactions: action.payload.interactions,
-        lockId: action.payload.lockId
+        lockId: action.payload.lockId,
+        errorMessage: undefined
       };
 
     case 'REVIEW_COMPLETE':
@@ -106,6 +117,9 @@ export function useReviewFlow() {
   // Use ref to track the last seen question ID
   const lastQuestionIdRef = useRef<string | null>(null);
 
+  // Use ref for loading timeout
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Query - use simple polling for time-sensitive review queries
   const { data: nextReview } = useSimplePoll(
     api.spacedRepetition.getNextReview,
@@ -115,6 +129,34 @@ export function useReviewFlow() {
 
   // Check if data has actually changed to prevent unnecessary renders
   const { hasChanged: dataHasChanged } = useDataHash(nextReview, 'ReviewMode.nextReview');
+
+  // Set up loading timeout (5 seconds)
+  useEffect(() => {
+    if (state.phase === 'loading') {
+      // Clear any existing timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+
+      // Set new timeout
+      loadingTimeoutRef.current = setTimeout(() => {
+        dispatch({ type: 'LOAD_TIMEOUT' });
+      }, 5000);
+    } else {
+      // Clear timeout when not loading
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, [state.phase]);
 
   // Process polling data and update state
   useEffect(() => {
@@ -230,6 +272,7 @@ export function useReviewFlow() {
     question: state.question,
     questionId: state.questionId,
     interactions: state.interactions,
+    errorMessage: state.errorMessage,
     handlers: {
       onReviewComplete: handleReviewComplete
     }
