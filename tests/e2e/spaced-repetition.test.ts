@@ -50,9 +50,11 @@ test.describe('Spaced Repetition Flow', () => {
     }
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('should validate quiz creation flow elements', async ({ page }) => {
-    await page.goto('/create');
+  test('should validate quiz creation flow elements', async ({ page }) => {
+    await page.goto('/');
+
+    // Open the generation modal
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     
     // Check the response status
     const response = await page.waitForResponse(response => response.url().includes('/create'));
@@ -146,13 +148,18 @@ test.describe('Spaced Repetition Flow', () => {
       // 1. Sign in with test account
       // await signInWithTestAccount(page);
 
-      // 2. Create a quiz - TODO: Update to use generation modal instead of /create route
-      // await page.goto('/create');
+      // 2. Generate questions via modal
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+
+      // Wait for modal to appear
+      await page.waitForSelector('[role="dialog"]', { state: 'visible' });
+
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
-      await page.getByRole('button', { name: /Generate Quiz/i }).click();
+      await page.getByRole('button', { name: /Generate Questions/i }).click();
       
-      // 3. Wait for quiz generation
+      // 3. Wait for question generation
       await expect(page.getByRole('heading', { name: /Question 1/i })).toBeVisible({ timeout: 30000 });
       
       // 4. Answer questions (mix of correct and incorrect)
@@ -175,9 +182,9 @@ test.describe('Spaced Repetition Flow', () => {
         await expect(page.getByText(/Correct|Incorrect/i)).toBeVisible();
       }
       
-      // 5. Complete quiz
-      await page.getByRole('button', { name: /Complete Quiz/i }).click();
-      await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
+      // 5. Finish review
+      await page.getByRole('button', { name: /Finish Review/i }).click();
+      await expect(page.getByRole('heading', { name: /No More Reviews/i })).toBeVisible();
       
       // 6. Navigate to review page
       await page.goto('/');

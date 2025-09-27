@@ -10,13 +10,6 @@ export interface SimpleQuestion {
   explanation?: string
 }
 
-export interface SimpleQuiz {
-  topic: string
-  questions: SimpleQuestion[]
-  questionIds?: string[] // IDs of persisted questions
-  currentIndex: number
-  score: number
-}
 
 export interface QuizGenerationRequest {
   topic: string
@@ -61,13 +54,4 @@ export interface InteractionStats {
   totalInteractions: number
   correctInteractions: number
   accuracy: number
-}
-
-// Type for quiz session tracking
-export interface QuizSession {
-  sessionId: string
-  startTime: number
-  endTime?: number
-  questionIds: string[]
-  currentQuestionIndex: number
 }

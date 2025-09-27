@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import { IMMINENT_REVIEW_THRESHOLD_MS } from "@/lib/constants/timing";
 
 interface EmptyStateProps {
   className?: string;
@@ -39,7 +40,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
     const diff = timestamp - now;
 
     // Never return "Now" - show "< 1 minute" for imminent reviews
-    if (diff <= 60000) return "< 1 minute";
+    if (diff <= IMMINENT_REVIEW_THRESHOLD_MS) return "< 1 minute";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -174,7 +175,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,7 +228,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
   const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
 
   // Check if cards are due within 1 minute
-  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= 60000;
+  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= IMMINENT_REVIEW_THRESHOLD_MS;
 
   return (
     <div className="max-w-xl mx-auto px-4">
@@ -305,18 +306,18 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
 
 // Deprecated components removed - use NothingDueEmptyState for seamless transitions
 
-export function NoQuizHistoryEmptyState({ className }: EmptyStateProps) {
+export function NoReviewHistoryEmptyState({ className }: EmptyStateProps) {
   return (
     <Card className={`text-center py-8 ${className || ""}`}>
       <CardContent>
         <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-        <h3 className="text-base font-semibold mb-2">No quiz history</h3>
+        <h3 className="text-base font-semibold mb-2">No review history</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Start taking quizzes to track your progress
+          Start reviewing to track your progress
         </p>
         <Button asChild size="sm">
           <Link href="/">
-            Get Started
+            Start Reviewing
             <ArrowRight className="h-3 w-3 ml-1" />
           </Link>
         </Button>
@@ -407,7 +408,7 @@ export function ZenEmptyState({
     const diff = timestamp - now;
 
     // Never return "Now" - show "< 1 minute" for imminent reviews
-    if (diff <= 60000) return "< 1 minute";
+    if (diff <= IMMINENT_REVIEW_THRESHOLD_MS) return "< 1 minute";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));

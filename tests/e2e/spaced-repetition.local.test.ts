@@ -33,24 +33,24 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     await mockAuthentication(page);
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('complete spaced repetition flow', async ({ page }) => {
-    // 1. Navigate to quiz creation - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+  test('complete spaced repetition flow', async ({ page }) => {
+    // 1. Navigate to home and open generation modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
 
-    // 2. Create a quiz
-    await expect(page.getByRole('heading', { name: /Create Quiz/i })).toBeVisible();
+    // 2. Generate questions
+    await expect(page.getByRole('heading', { name: /Generate Questions/i })).toBeVisible();
     
     // Fill in quiz details
     await page.getByLabel(/Topic/i).fill('JavaScript Fundamentals');
     await page.getByLabel(/Difficulty/i).selectOption('easy');
     
-    // Generate quiz
-    await page.getByRole('button', { name: /Generate Quiz/i }).click();
+    // Generate questions
+    await page.getByRole('button', { name: /Generate Questions/i }).click();
     
-    // 3. Wait for quiz generation
-    await expect(page.getByText(/Generating quiz/i)).toBeVisible();
+    // 3. Wait for question generation
+    await expect(page.getByText(/Generating questions/i)).toBeVisible();
     await expect(page.getByRole('heading', { name: /Question 1/i })).toBeVisible({ 
       timeout: 30000 // AI generation can take time
     });
@@ -81,14 +81,12 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
       }
     }
 
-    // 5. Complete the quiz
-    await page.getByRole('button', { name: /Complete Quiz/i }).click();
-    await expect(page.getByRole('heading', { name: /Quiz Complete/i })).toBeVisible();
-    
-    // Verify score
-    const scoreText = await page.getByText(/Score:.*3.*5/i).textContent();
-    expect(scoreText).toContain('3');
-    expect(scoreText).toContain('5');
+    // 5. Finish the review
+    await page.getByRole('button', { name: /Finish Review/i }).click();
+    await expect(page.getByRole('heading', { name: /No More Reviews/i })).toBeVisible();
+
+    // Note: Score tracking was removed in pure FSRS implementation
+    // Reviews now track individual question success rates instead
 
     // 6. Navigate to review page
     await page.goto('/');
@@ -188,7 +186,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
 test.describe('Spaced Repetition Edge Cases (Local)', () => {
   test.skip(({ baseURL }) => !baseURL?.includes('localhost'), 'Local tests only');
 
-  test('handles quiz generation failure gracefully', async () => {
+  test('handles question generation failure gracefully', async () => {
     // Test error handling when AI generation fails
   });
 
@@ -225,8 +223,9 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
       initialQuestionCount = parseInt(countText?.match(/\d+/)?.[0] || '0');
     }
 
-    // 2. Generate new questions in main page - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+    // 2. Generate new questions via modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
     
     // Fill quiz form
@@ -236,8 +235,8 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     // Start timing
     const generationStartTime = Date.now();
     
-    // Generate quiz
-    await page.getByRole('button', { name: /Generate Quiz/i }).click();
+    // Generate questions
+    await page.getByRole('button', { name: /Generate Questions/i }).click();
     
     // 3. Wait for generation to complete
     await expect(page.getByText(/Generating quiz/i)).toBeVisible();
@@ -303,13 +302,13 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     await expect(reviewPage.getByText(/Next review:/i)).toBeVisible();
   });
 
-  // TODO: Update this test to use the generation modal instead of /create route
-  test.skip('complete generation and immediate review flow', async ({ page }) => {
+  test('complete generation and immediate review flow', async ({ page }) => {
     // Test the full user journey: generate questions and immediately review them
     // This verifies the critical UX requirement that new questions are instantly accessible
 
-    // 1. Start on the create page - SKIPPED: /create route no longer exists
-    // await page.goto('/create');
+    // 1. Start on home page and open generation modal
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
     await waitForConvexQuery(page);
     
     // 2. Generate a quiz with a unique topic to ensure we're reviewing the right questions

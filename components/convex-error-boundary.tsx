@@ -25,20 +25,25 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to console in development
-    console.error('Convex Error Boundary caught:', error, errorInfo)
-    
-    // Check if this is a Convex-related error
-    if (error.message?.includes('CONVEX') || error.message?.includes('Server Error')) {
-      console.error('Convex backend error detected:', error.message)
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
+    // Error boundary will handle the error display in UI
+    // The error state is already captured via getDerivedStateFromError
+    // In development, the error details will be shown in the UI (see render method)
+
+    // Optionally, you could send error to an error tracking service here:
+    // if (process.env.NODE_ENV === 'production') {
+    //   errorTrackingService.logError(error, errorInfo);
+    // }
   }
 
   handleReset = () => {
+    // Reset error state without reloading the page
+    // This will trigger a re-render and allow components to retry
     this.setState({ hasError: false, error: null })
-    // Reload the page to reset all state
-    window.location.reload()
+
+    // Optionally dispatch a custom event to notify components to retry
+    window.dispatchEvent(new CustomEvent('error-boundary-reset'))
   }
 
   render() {
@@ -70,13 +75,13 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
               )}
               
               <div className="space-y-3">
-                <Button 
+                <Button
                   onClick={this.handleReset}
                   className="w-full"
                   variant="default"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Page
+                  Try Again
                 </Button>
                 
                 {isConvexError && (

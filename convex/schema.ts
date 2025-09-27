@@ -66,6 +66,21 @@ export default defineSchema({
     .index("by_question", ["questionId", "attemptedAt"])
     .index("by_user_question", ["userId", "questionId"]),
 
+  /**
+   * @deprecated This table is deprecated and should not be used.
+   *
+   * The quiz concept has been replaced with a pure FSRS review system.
+   * Individual questions and interactions are tracked in the following tables:
+   * - `questions`: Stores individual question data with FSRS parameters
+   * - `interactions`: Records each user answer attempt
+   *
+   * Migration notes:
+   * - No new data should be written to this table
+   * - Existing data can be accessed read-only for historical purposes
+   * - Use `questions` and `interactions` tables for all new functionality
+   *
+   * This table will be removed in a future release.
+   */
   quizResults: defineTable({
     userId: v.id("users"),
     topic: v.string(),
@@ -111,7 +126,7 @@ export default defineSchema({
 
   rateLimits: defineTable({
     identifier: v.string(), // Email address or IP address
-    operation: v.string(), // Type of operation (magicLink, quizGeneration, etc.)
+    operation: v.string(), // Type of operation (magicLink, questionGeneration, etc.)
     timestamp: v.number(), // When the attempt was made
     metadata: v.optional(v.any()), // Additional data about the attempt
   }).index("by_identifier", ["identifier", "timestamp"])

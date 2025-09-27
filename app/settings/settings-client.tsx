@@ -83,7 +83,7 @@ export function SettingsPageClient() {
                     </p>
                     <ul className="text-error text-sm ml-4 list-disc space-y-1 mb-4">
                       <li>Your profile and account information</li>
-                      <li>All quiz history and results</li>
+                      <li>All review history and results</li>
                       <li>Account settings and preferences</li>
                       <li>All authentication sessions</li>
                     </ul>

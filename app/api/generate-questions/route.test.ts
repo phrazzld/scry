@@ -56,9 +56,9 @@ describe('/api/generate-quiz', () => {
     ])
   })
 
-  describe('Successful Quiz Generation', () => {
-    it('should generate quiz successfully with valid input', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+  describe('Successful Question Generation', () => {
+    it('should generate questions successfully with valid input', async () => {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

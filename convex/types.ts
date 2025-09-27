@@ -21,6 +21,10 @@ export type User = {
   image?: string
 }
 
+/**
+ * @deprecated The quizResults table is deprecated. Use questions and interactions tables instead.
+ * This type is kept for backward compatibility but should not be used for new features.
+ */
 export type QuizResult = {
   _id: Id<'quizResults'>
   _creationTime: number

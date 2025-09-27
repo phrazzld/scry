@@ -116,7 +116,7 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
               <strong>What will be deleted:</strong>
               <ul className="mt-2 ml-4 list-disc space-y-1">
                 <li>Your profile information</li>
-                <li>All your quiz history and results</li>
+                <li>All your review history and results</li>
                 <li>Your account settings and preferences</li>
                 <li>All associated authentication data</li>
               </ul>

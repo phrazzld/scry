@@ -25,7 +25,7 @@ vi.mock('./logger', () => ({
 }))
 
 vi.mock('./prompt-sanitization', () => ({
-  createSafePrompt: vi.fn((topic: string) => `Generate quiz about ${topic}`),
+  createSafePrompt: vi.fn((topic: string) => `Generate questions about ${topic}`),
   sanitizeTopic: vi.fn((topic: string) => topic.trim())
 }))
 
@@ -58,7 +58,7 @@ describe('AI Client', () => {
   })
 
   describe('generateQuizWithAI', () => {
-    it('should generate quiz questions successfully', async () => {
+    it('should generate questions successfully', async () => {
       const mockQuestions = {
         questions: [
           {
@@ -97,7 +97,7 @@ describe('AI Client', () => {
       // Verify logging
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.start',
+          event: 'ai.question-generation.start',
           topic: 'JavaScript'
         }),
         expect.any(String)
@@ -160,15 +160,15 @@ describe('AI Client', () => {
         error,
         'ai',
         expect.objectContaining({
-          event: 'ai.quiz-generation.failure',
+          event: 'ai.question-generation.failure',
           topic: 'Mathematics'
         }),
-        'Failed to generate quiz questions: AI service unavailable'
+        'Failed to generate questions: AI service unavailable'
       )
 
       expect(aiLogger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.fallback',
+          event: 'ai.question-generation.fallback',
           topic: 'Mathematics'
         }),
         expect.stringContaining('Using fallback questions')
@@ -206,7 +206,7 @@ describe('AI Client', () => {
 
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.start',
+          event: 'ai.question-generation.start',
           topic: 'sanitized-topic',
           originalTopic: '  Unsafe <script> Topic  '
         }),
@@ -235,7 +235,7 @@ describe('AI Client', () => {
       await generateQuizWithAI('Performance Test')
 
       expect(loggers.time).toHaveBeenCalledWith(
-        'ai.quiz-generation.Performance Test',
+        'ai.question-generation.Performance Test',
         'ai'
       )
 

@@ -21,7 +21,6 @@ import type * as http from "../http.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
-import type * as quiz from "../quiz.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as spacedRepetition from "../spacedRepetition.js";
 import type * as types from "../types.js";
@@ -43,7 +42,6 @@ declare const fullApi: ApiFromModules<{
   "lib/logger": typeof lib_logger;
   migrations: typeof migrations;
   questions: typeof questions;
-  quiz: typeof quiz;
   rateLimit: typeof rateLimit;
   spacedRepetition: typeof spacedRepetition;
   types: typeof types;
