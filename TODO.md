@@ -72,9 +72,9 @@
 - [x] Update ReviewFlow component comment if it references the old behavior
 
 ### Documentation
-- [ ] Update `docs/review-render-flow.md` section on state transitions
-- [ ] Add note about FSRS immediate re-review behavior for incorrect answers
-- [ ] Document that loading state is intentional UX for question transitions
+- [x] Update `docs/review-render-flow.md` section on state transitions
+- [x] Add note about FSRS immediate re-review behavior for incorrect answers
+- [x] Document that loading state is intentional UX for question transitions
 
 ## Future Improvements
 
