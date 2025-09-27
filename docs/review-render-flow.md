@@ -115,14 +115,22 @@ State Changes (Batched):
 User Action: Click "Next Question"
 ↓
 State Changes:
-1. selectedAnswer: "optionA" → null
-2. showFeedback: true → false
-3. isCorrect: true/false → null
-4. Trigger data refresh
-5. phase: "reviewing" → "loading"
-6. Fetch next question
-7. phase: "loading" → "reviewing" or "empty"
+1. REVIEW_COMPLETE action dispatched
+2. Full state reset in reducer:
+   - phase: "reviewing" → "loading" (immediate)
+   - question: Question → null
+   - questionId: Id → null
+   - interactions: Array → []
+   - lockId: string → null
+3. Loading state displayed (intentional UX)
+4. Polling detects state.phase === "loading"
+5. Data processing allowed (special case)
+6. Fetch next question (may be same question if incorrect)
+7. QUESTION_RECEIVED action with new/same data
+8. phase: "loading" → "reviewing" or "empty"
 ```
+
+**Note on FSRS Immediate Re-review**: When a user answers incorrectly, FSRS may immediately reschedule the same question. The full state reset ensures clean UI transition even when the same question returns.
 
 ## Render Timing Diagram
 
@@ -154,13 +162,17 @@ Timeline (ms)    Component            Action/State
 2100            Convex Response      Confirmation
 
 3000            User                 Click "Next"
-3010            ReviewSession        Reset states
-3020            useReviewFlow        Fetch next question
-3030            ReviewMode           phase="loading"
-3040            QuizFlowSkeleton     Show loading
-3300            Convex Response      Next question data
-3310            ReviewMode           phase="reviewing"
-3320            ReviewSession        Render new question
+3010            useReviewFlow        REVIEW_COMPLETE action
+3015            Reducer              Full state reset
+3020            ReviewMode           phase="loading" (intentional)
+3030            QuizFlowSkeleton     Show loading state
+3040            useReviewFlow        Poll detects loading phase
+3050            useReviewFlow        Allow data processing
+3300            Convex Response      Next question (may be same)
+3310            useReviewFlow        QUESTION_RECEIVED action
+3315            Reducer              Set new question state
+3320            ReviewMode           phase="reviewing"
+3330            ReviewSession        Render question (fresh state)
 ```
 
 ## Performance Optimizations
@@ -198,7 +210,8 @@ Timeline (ms)    Component            Action/State
 
 - **Frame Budget**: 16ms (60fps target)
 - **P95 Render Time**: Target <16ms
-- **Time Between Questions**: Target <100ms
+- **Time Between Questions**: Target <100ms (includes intentional loading state)
+- **Loading State Duration**: <500ms typical (provides transition feedback)
 - **First Question Load**: Target <1000ms
 - **WebSocket Latency**: <100ms (Convex real-time)
 
@@ -221,6 +234,23 @@ pnpm test:perf
 # Analyze bundle size impact
 pnpm build && pnpm analyze
 ```
+
+## FSRS Immediate Re-review Behavior
+
+When users answer incorrectly, the FSRS (Free Spaced Repetition Scheduler) algorithm may immediately reschedule the same question for review. This is intentional behavior designed to reinforce learning through immediate repetition of failed items.
+
+### Implementation Details:
+- The REVIEW_COMPLETE reducer performs a full state reset
+- Loading state is shown briefly even for same-question transitions
+- This provides consistent UX and prevents UI lockup
+- The `dataHasChanged` check has special handling for `phase === 'loading'`
+
+### User Experience:
+- Brief loading spinner appears (typically <500ms)
+- Question appears fresh without previous feedback shown
+- Selected answer is cleared
+- Interaction count increments
+- Smooth transition even when same question returns
 
 ## Common Performance Issues
 
@@ -262,5 +292,5 @@ pnpm build && pnpm analyze
 
 ---
 
-*Last Updated: 2025-09-26*
-*Performance baseline established after optimization phase*
+*Last Updated: 2025-09-27*
+*Added FSRS immediate re-review documentation and state transition updates*
