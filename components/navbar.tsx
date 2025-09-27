@@ -66,7 +66,9 @@ export function Navbar() {
                   </Link>
                 )}
                 <ThemeToggle />
-                <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
+                <div data-testid="user-menu">
+                  <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
+                </div>
               </>
             )}
           </div>

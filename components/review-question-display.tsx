@@ -36,6 +36,7 @@ function ReviewQuestionDisplayComponent({
             {question.options.map((option, index) => (
               <button
                 key={index}
+                data-testid={`answer-option-${index}`}
                 onClick={() => onAnswerSelect(option)}
                 className={cn(
                   // Base styles
@@ -75,6 +76,7 @@ function ReviewQuestionDisplayComponent({
           question.options.map((option, index) => (
             <button
               key={index}
+              data-testid={`answer-option-${index}`}
               onClick={() => onAnswerSelect(option)}
               className={cn(
                 // Base styles

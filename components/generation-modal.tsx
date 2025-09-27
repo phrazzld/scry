@@ -250,6 +250,7 @@ export function GenerationModal({
               type="submit"
               disabled={!prompt.trim() || isGenerating}
               className="min-w-[120px]"
+              data-testid="generate-quiz-button"
             >
               {isGenerating ? (
                 <>
