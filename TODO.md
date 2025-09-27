@@ -9,7 +9,7 @@
 - [x] Remove console.error from `components/convex-error-boundary.tsx` - Line with 'Failed to save:' error output (replace with proper error handling if needed)
 
 ### Performance Instrumentation Removal
-- [ ] Remove 4 performance.mark() calls from `components/review-flow.tsx` - Markers: 'answer-selected', 'answer-submitted', 'feedback-shown', 'next-question'
+- [x] Remove 4 performance.mark() calls from `components/review-flow.tsx` - Markers: 'answer-selected', 'answer-submitted', 'feedback-shown', 'next-question'
 - [ ] Remove 4 performance.mark() calls from `components/review-session.tsx` - Duplicate markers matching review-flow.tsx
 - [ ] Remove 3 console.time() and 3 console.timeEnd() pairs from `hooks/use-review-flow.ts` - Timing blocks: 'ReviewMode.dispatch.LOAD_START', 'ReviewMode.dispatch.LOAD_EMPTY', 'ReviewMode.dispatch.QUESTION_RECEIVED'
 

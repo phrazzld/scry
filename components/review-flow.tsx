@@ -76,20 +76,11 @@ export function ReviewFlow() {
 
   const handleAnswerSelect = useCallback((answer: string) => {
     if (feedbackState.showFeedback) return
-
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('answer-selected')
-    }
-
     setSelectedAnswer(answer)
   }, [feedbackState.showFeedback])
 
   const handleSubmit = useCallback(async () => {
     if (!selectedAnswer || !question || !questionId) return
-
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('answer-submitted')
-    }
 
     const isCorrect = selectedAnswer === question.correctAnswer
 
@@ -111,34 +102,9 @@ export function ReviewFlow() {
         scheduledDays: reviewInfo.scheduledDays
       } : null
     })
-
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('feedback-shown')
-      try {
-        performance.measure('submit-to-feedback', 'answer-submitted', 'feedback-shown')
-      } catch {
-        // Ignore if marks don't exist
-      }
-    }
   }, [selectedAnswer, question, questionId, questionStartTime, trackAnswer, sessionId])
 
   const handleNext = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      performance.mark('next-question')
-
-      try {
-        performance.measure('feedback-to-next', 'feedback-shown', 'next-question')
-      } catch {
-        // Ignore if marks don't exist
-      }
-
-      try {
-        performance.measure('full-answer-cycle', 'answer-selected', 'next-question')
-      } catch {
-        // Ignore if marks don't exist
-      }
-    }
-
     // Tell the review flow we're done with this question
     handlers.onReviewComplete()
 
