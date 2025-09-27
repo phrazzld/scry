@@ -39,7 +39,7 @@ const initialState: ReviewModeState = {
 };
 
 // Reducer function to manage state transitions
-function reviewReducer(state: ReviewModeState, action: ReviewAction): ReviewModeState {
+export function reviewReducer(state: ReviewModeState, action: ReviewAction): ReviewModeState {
   if (process.env.NODE_ENV === 'development') {
     // eslint-disable-next-line no-console
     console.log(`[ReviewMode Reducer] Action: ${action.type}`, action);
@@ -69,8 +69,16 @@ function reviewReducer(state: ReviewModeState, action: ReviewAction): ReviewMode
       };
 
     case 'REVIEW_COMPLETE':
-      // Clear lock but keep showing current question
-      return { ...state, lockId: null };
+      // Reset full state to ensure clean transition even when same question returns
+      // This is critical for FSRS immediate re-review scenarios (incorrect answers)
+      return {
+        ...state,
+        phase: 'loading',
+        question: null,
+        questionId: null,
+        interactions: [],
+        lockId: null
+      };
 
     case 'IGNORE_UPDATE':
       // No state change, just log in development
@@ -123,8 +131,9 @@ export function useReviewFlow() {
       });
     }
 
-    // If data hasn't actually changed, skip processing
-    if (!dataHasChanged) {
+    // If data hasn't actually changed, skip processing (unless transitioning from loading)
+    // Special case: after REVIEW_COMPLETE, we need to process even if same question returns
+    if (!dataHasChanged && state.phase !== 'loading') {
       dispatch({ type: 'IGNORE_UPDATE', reason: 'Data unchanged from previous poll' });
       return;
     }
@@ -191,7 +200,8 @@ export function useReviewFlow() {
           }
         });
 
-        // Update ref to track this question
+        // Update last question ID even if it's the same (immediate re-review case)
+        // This ensures UI resets properly when incorrect answers trigger immediate review
         lastQuestionIdRef.current = nextReview.question._id;
 
         if (process.env.NODE_ENV === 'development') {
@@ -208,10 +218,10 @@ export function useReviewFlow() {
 
   // Memoized handler for review completion
   const handleReviewComplete = useCallback(async () => {
-    // Release lock to allow next question to load
+    // Release lock and reset state for clean transition to next question
     dispatch({ type: 'REVIEW_COMPLETE' });
-    // Don't clear state immediately - keep showing current question until next one loads
-    // This prevents the loading state flash between questions
+    // Intentional loading state provides visual feedback during transitions,
+    // especially important for FSRS immediate re-review of incorrect answers
   }, []);
 
   // Return stable object with all necessary data and handlers
