@@ -13,9 +13,8 @@
  * Or with pnpm:
  *   pnpm dlx lighthouse http://localhost:3000/quiz-mode --view
  */
-
 import { execSync } from 'child_process';
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const TEST_URLS = [
@@ -102,7 +101,6 @@ async function runLighthouse(url, name) {
     console.log(`\n✅ Full report saved: ${outputPath}.report.html`);
 
     return metrics;
-
   } catch (err) {
     console.error(`❌ Error testing ${name}:`, err.message);
     return null;
@@ -133,7 +131,7 @@ async function compareMetrics() {
 
     const ttiLatest = latest.metrics['TTI (Time to Interactive)'];
     const ttiPrevious = previous.metrics['TTI (Time to Interactive)'];
-    const ttiImprovement = ((ttiPrevious - ttiLatest) / ttiPrevious * 100).toFixed(1);
+    const ttiImprovement = (((ttiPrevious - ttiLatest) / ttiPrevious) * 100).toFixed(1);
 
     console.log(`  TTI Improvement: ${ttiImprovement}%`);
     console.log(`    Previous: ${(ttiPrevious / 1000).toFixed(2)}s`);

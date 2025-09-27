@@ -70,7 +70,7 @@
   ```
 
 ### Import Organization
-- [ ] Install import sorting plugin
+- [x] Install import sorting plugin
   ```bash
   pnpm add -D @ianvs/prettier-plugin-sort-imports
   ```

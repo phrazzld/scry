@@ -1,5 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Simple SVG icon for Scry
 const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
@@ -22,7 +26,7 @@ if (!fs.existsSync(iconDir)) {
 fs.writeFileSync(path.join(iconDir, 'icon.svg'), svgIcon);
 
 // Create placeholder PNG files (these would normally be generated from the SVG)
-sizes.forEach(size => {
+sizes.forEach((size) => {
   const filename = `icon-${size}x${size}.png`;
   const placeholder = `# Placeholder for ${filename}
 # This would be a ${size}x${size} PNG icon generated from the SVG

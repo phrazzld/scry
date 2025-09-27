@@ -1,6 +1,6 @@
 interface PerformanceRenderEntry {
   id: string;
-  phase: "mount" | "update" | "nested-update";
+  phase: 'mount' | 'update' | 'nested-update';
   actualDuration: number;
   baseDuration: number;
   startTime: number;

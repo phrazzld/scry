@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef } from "react";
-import { useQuery } from "convex/react";
-import type { FunctionReference, FunctionReturnType } from "convex/server";
-import { DEFAULT_POLLING_INTERVAL_MS, DATA_STALENESS_THRESHOLD_MS } from "@/lib/constants/timing";
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
+import type { FunctionReference, FunctionReturnType } from 'convex/server';
+
+import { DATA_STALENESS_THRESHOLD_MS, DEFAULT_POLLING_INTERVAL_MS } from '@/lib/constants/timing';
 
 /**
  * A custom hook that wraps Convex's useQuery with polling functionality.
@@ -19,15 +20,17 @@ import { DEFAULT_POLLING_INTERVAL_MS, DATA_STALENESS_THRESHOLD_MS } from "@/lib/
  * @param intervalMs The polling interval in milliseconds (default: 60 seconds)
  * @returns The query result, which updates both on data changes and periodically
  */
-export function usePollingQuery<Query extends FunctionReference<"query">>(
+export function usePollingQuery<Query extends FunctionReference<'query'>>(
   query: Query,
-  args: Omit<Query["_args"], "_refreshTimestamp"> | "skip",
+  args: Omit<Query['_args'], '_refreshTimestamp'> | 'skip',
   intervalMs: number = DEFAULT_POLLING_INTERVAL_MS
 ): FunctionReturnType<Query> | undefined {
   // Use a timestamp to force query re-evaluation
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
   // Track document visibility to pause polling when tab is hidden
-  const [isVisible, setIsVisible] = useState(typeof document !== 'undefined' ? !document.hidden : true);
+  const [isVisible, setIsVisible] = useState(
+    typeof document !== 'undefined' ? !document.hidden : true
+  );
   // Track last update time to avoid aggressive refreshes
   const lastUpdateRef = useRef(Date.now());
 
@@ -64,10 +67,10 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
       clearTimeout(debounceTimer);
     };
   }, []);
-  
+
   // Set up polling interval with visibility-aware battery efficiency
   useEffect(() => {
-    const isSkip = args === "skip";
+    const isSkip = args === 'skip';
     if (isSkip) return;
 
     let interval: NodeJS.Timeout;
@@ -89,19 +92,17 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intervalMs, isVisible]);
-  
+
   // Add the refresh timestamp to the query args
-  const queryArgs = args === "skip" 
-    ? "skip" 
-    : { ...args, _refreshTimestamp: refreshTimestamp };
-  
+  const queryArgs = args === 'skip' ? 'skip' : { ...args, _refreshTimestamp: refreshTimestamp };
+
   // Use the query with the augmented args
   // @ts-expect-error - TypeScript can't infer that we're adding the required _refreshTimestamp field
   const result = useQuery(query, queryArgs);
-  
+
   // Note: Convex queries throw errors that are caught by error boundaries
   // We can't catch them here directly, but components using this hook
   // should wrap their usage in error boundaries or handle undefined results
-  
+
   return result;
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from 'react';
 
 /**
  * Simple string hash function for data comparison
@@ -7,7 +7,7 @@ import { useRef, useEffect } from "react";
 function hashString(str: string): number {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = (hash << 5) + hash + str.charCodeAt(i);
   }
   return hash >>> 0; // Convert to unsigned 32-bit integer
 }
@@ -55,7 +55,9 @@ export function useDataHash<T>(
         hasChanged = true;
         if (process.env.NODE_ENV === 'development' && label) {
           // eslint-disable-next-line no-console
-          console.log(`[${label}] Data changed - Previous hash: ${previousHashRef.current}, New hash: ${currentHash}`);
+          console.log(
+            `[${label}] Data changed - Previous hash: ${previousHashRef.current}, New hash: ${currentHash}`
+          );
         }
       } else {
         // Data unchanged
@@ -99,6 +101,6 @@ export function useDataHash<T>(
     hasChanged,
     previousHash: previousHashRef.current,
     currentHash,
-    update
+    update,
   };
 }

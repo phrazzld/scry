@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 /**
  * Development-only performance monitoring tool
@@ -14,130 +14,145 @@
  *
  * Keyboard shortcut: Cmd/Ctrl + Shift + D to toggle visibility
  */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { X } from "lucide-react"
-import { getAllRenderData, getRenderSummary } from "@/hooks/use-render-tracker"
-import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
-import { cn } from "@/lib/utils"
-import { FRAME_UPDATE_INTERVAL_MS, POLLING_INTERVAL_MS, TIMER_CLEANUP_THRESHOLD_MS } from "@/lib/constants/timing"
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { getAllRenderData, getRenderSummary } from '@/hooks/use-render-tracker';
+import {
+  FRAME_UPDATE_INTERVAL_MS,
+  POLLING_INTERVAL_MS,
+  TIMER_CLEANUP_THRESHOLD_MS,
+} from '@/lib/constants/timing';
+import { cn } from '@/lib/utils';
 
 interface DebugPanelProps {
-  reviewModeState?: "loading" | "empty" | "quiz"
-  className?: string
+  reviewModeState?: 'loading' | 'empty' | 'quiz';
+  className?: string;
 }
 
 interface TimerInfo {
-  id: number
-  type: "interval" | "timeout"
-  created: number
-  delay: number
-  remaining?: number
+  id: number;
+  type: 'interval' | 'timeout';
+  created: number;
+  delay: number;
+  remaining?: number;
 }
 
 export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
   // State - hooks must be called unconditionally
   const [isVisible, setIsVisible] = useState(() => {
     if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      const stored = localStorage.getItem('scry:debug-panel-visible')
-      return stored === 'true'
+      const stored = localStorage.getItem('scry:debug-panel-visible');
+      return stored === 'true';
     }
-    return false
-  })
+    return false;
+  });
 
-  const [fps, setFps] = useState(0)
-  const [renderCount60s, setRenderCount60s] = useState(0)
-  const [activeTimers, setActiveTimers] = useState<TimerInfo[]>([])
-  const [stateTransitions, setStateTransitions] = useState(0)
-  const [renderData, setRenderData] = useState<ReturnType<typeof getRenderSummary> | null>(null)
+  const [fps, setFps] = useState(0);
+  const [renderCount60s, setRenderCount60s] = useState(0);
+  const [activeTimers, setActiveTimers] = useState<TimerInfo[]>([]);
+  const [stateTransitions, setStateTransitions] = useState(0);
+  const [renderData, setRenderData] = useState<ReturnType<typeof getRenderSummary> | null>(null);
 
   // Refs for tracking
-  const frameCountRef = useRef(0)
-  const lastFrameTimeRef = useRef(performance.now())
-  const prevStateRef = useRef(reviewModeState)
+  const frameCountRef = useRef(0);
+  const lastFrameTimeRef = useRef(performance.now());
+  const prevStateRef = useRef(reviewModeState);
 
   // Track state transitions
   useEffect(() => {
     if (prevStateRef.current !== reviewModeState && reviewModeState) {
-      setStateTransitions(prev => prev + 1)
-      prevStateRef.current = reviewModeState
+      setStateTransitions((prev) => prev + 1);
+      prevStateRef.current = reviewModeState;
     }
-  }, [reviewModeState])
+  }, [reviewModeState]);
 
   // FPS calculation
   const calculateFPS = useCallback(() => {
-    const now = performance.now()
-    frameCountRef.current++
+    const now = performance.now();
+    frameCountRef.current++;
 
     // Update FPS every second
     if (now - lastFrameTimeRef.current >= FRAME_UPDATE_INTERVAL_MS) {
-      setFps(frameCountRef.current)
-      frameCountRef.current = 0
-      lastFrameTimeRef.current = now
+      setFps(frameCountRef.current);
+      frameCountRef.current = 0;
+      lastFrameTimeRef.current = now;
     }
 
     if (isVisible) {
-      requestAnimationFrame(calculateFPS)
+      requestAnimationFrame(calculateFPS);
     }
-  }, [isVisible])
+  }, [isVisible]);
 
   // Monitor timers - simplified to just count active timers
   useEffect(() => {
-    if (!isVisible || process.env.NODE_ENV === 'production') return
+    if (!isVisible || process.env.NODE_ENV === 'production') return;
 
     // Simple timer counting - just simulate some data for now
     const updateTimers = () => {
       // In a real implementation, we'd need to hook into the actual timer system
       // For now, just show that some timers are active
       const mockTimers: TimerInfo[] = [
-        { id: 1, type: 'interval', created: Date.now() - POLLING_INTERVAL_MS, delay: POLLING_INTERVAL_MS }, // Polling interval
-        { id: 2, type: 'timeout', created: Date.now() - 500, delay: FRAME_UPDATE_INTERVAL_MS, remaining: 500 }
-      ]
-      setActiveTimers(mockTimers)
-    }
+        {
+          id: 1,
+          type: 'interval',
+          created: Date.now() - POLLING_INTERVAL_MS,
+          delay: POLLING_INTERVAL_MS,
+        }, // Polling interval
+        {
+          id: 2,
+          type: 'timeout',
+          created: Date.now() - 500,
+          delay: FRAME_UPDATE_INTERVAL_MS,
+          remaining: 500,
+        },
+      ];
+      setActiveTimers(mockTimers);
+    };
 
-    const timerUpdateInterval = setInterval(updateTimers, FRAME_UPDATE_INTERVAL_MS)
-    updateTimers() // Initial update
+    const timerUpdateInterval = setInterval(updateTimers, FRAME_UPDATE_INTERVAL_MS);
+    updateTimers(); // Initial update
 
     // Cleanup
     return () => {
-      clearInterval(timerUpdateInterval)
-    }
-  }, [isVisible])
+      clearInterval(timerUpdateInterval);
+    };
+  }, [isVisible]);
 
   // Track render counts for last 60 seconds
   useEffect(() => {
-    if (!isVisible || process.env.NODE_ENV === 'production') return
+    if (!isVisible || process.env.NODE_ENV === 'production') return;
 
     const interval = setInterval(() => {
-      const now = Date.now()
-      const cutoff = now - TIMER_CLEANUP_THRESHOLD_MS
+      const now = Date.now();
+      const cutoff = now - TIMER_CLEANUP_THRESHOLD_MS;
 
       // Get all render data
-      const allData = getAllRenderData()
-      let recentRenderCount = 0
+      const allData = getAllRenderData();
+      let recentRenderCount = 0;
 
-      allData.forEach(data => {
-        data.renders.forEach(render => {
+      allData.forEach((data) => {
+        data.renders.forEach((render) => {
           if (render.timestamp > cutoff) {
-            recentRenderCount++
+            recentRenderCount++;
           }
-        })
-      })
+        });
+      });
 
-      setRenderCount60s(recentRenderCount)
-      setRenderData(getRenderSummary())
-    }, FRAME_UPDATE_INTERVAL_MS)
+      setRenderCount60s(recentRenderCount);
+      setRenderData(getRenderSummary());
+    }, FRAME_UPDATE_INTERVAL_MS);
 
-    return () => clearInterval(interval)
-  }, [isVisible])
+    return () => clearInterval(interval);
+  }, [isVisible]);
 
   // Start FPS tracking
   useEffect(() => {
     if (isVisible) {
-      requestAnimationFrame(calculateFPS)
+      requestAnimationFrame(calculateFPS);
     }
-  }, [isVisible, calculateFPS])
+  }, [isVisible, calculateFPS]);
 
   // Keyboard shortcut to toggle panel
   useKeyboardShortcuts([
@@ -147,25 +162,25 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
       shift: true,
       description: 'Toggle debug panel',
       action: () => {
-        setIsVisible(prev => {
-          const newValue = !prev
-          localStorage.setItem('scry:debug-panel-visible', String(newValue))
-          return newValue
-        })
-      }
-    }
-  ])
+        setIsVisible((prev) => {
+          const newValue = !prev;
+          localStorage.setItem('scry:debug-panel-visible', String(newValue));
+          return newValue;
+        });
+      },
+    },
+  ]);
 
   // Skip rendering in production or when not visible
-  if (process.env.NODE_ENV === 'production' || !isVisible) return null
+  if (process.env.NODE_ENV === 'production' || !isVisible) return null;
 
   return (
     <div
       className={cn(
-        "fixed bottom-4 right-4 w-96 max-h-[600px] overflow-auto",
-        "bg-black/90 backdrop-blur-sm text-white text-xs font-mono",
-        "rounded-lg border border-white/20 shadow-2xl",
-        "z-[9999] p-4 space-y-3",
+        'fixed bottom-4 right-4 w-96 max-h-[600px] overflow-auto',
+        'bg-black/90 backdrop-blur-sm text-white text-xs font-mono',
+        'rounded-lg border border-white/20 shadow-2xl',
+        'z-[9999] p-4 space-y-3',
         className
       )}
     >
@@ -174,8 +189,8 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
         <h3 className="text-sm font-semibold">Debug Panel</h3>
         <button
           onClick={() => {
-            setIsVisible(false)
-            localStorage.setItem('scry:debug-panel-visible', 'false')
+            setIsVisible(false);
+            localStorage.setItem('scry:debug-panel-visible', 'false');
           }}
           className="p-1 hover:bg-white/10 rounded transition-colors"
           aria-label="Close debug panel"
@@ -190,13 +205,19 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
         <div className="grid grid-cols-2 gap-2">
           <div className="flex justify-between">
             <span className="text-white/60">FPS:</span>
-            <span className={cn(
-              fps < 30 ? "text-red-400" : fps < 50 ? "text-yellow-400" : "text-green-400"
-            )}>{fps}</span>
+            <span
+              className={cn(
+                fps < 30 ? 'text-red-400' : fps < 50 ? 'text-yellow-400' : 'text-green-400'
+              )}
+            >
+              {fps}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-white/60">Renders (60s):</span>
-            <span className={renderCount60s > 100 ? "text-yellow-400" : "text-white"}>{renderCount60s}</span>
+            <span className={renderCount60s > 100 ? 'text-yellow-400' : 'text-white'}>
+              {renderCount60s}
+            </span>
           </div>
         </div>
       </div>
@@ -207,12 +228,14 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
           <div className="text-white/60 text-[10px] uppercase tracking-wider">Review State</div>
           <div className="flex justify-between items-center">
             <span className="text-white/60">Current:</span>
-            <span className={cn(
-              "px-2 py-0.5 rounded text-[10px]",
-              reviewModeState === 'loading' && "bg-blue-500/20 text-blue-300",
-              reviewModeState === 'empty' && "bg-gray-500/20 text-gray-300",
-              reviewModeState === 'quiz' && "bg-green-500/20 text-green-300"
-            )}>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded text-[10px]',
+                reviewModeState === 'loading' && 'bg-blue-500/20 text-blue-300',
+                reviewModeState === 'empty' && 'bg-gray-500/20 text-gray-300',
+                reviewModeState === 'quiz' && 'bg-green-500/20 text-green-300'
+              )}
+            >
               {reviewModeState}
             </span>
           </div>
@@ -230,7 +253,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
         </div>
         {activeTimers.length > 0 ? (
           <div className="space-y-0.5 max-h-32 overflow-y-auto">
-            {activeTimers.slice(0, 10).map(timer => (
+            {activeTimers.slice(0, 10).map((timer) => (
               <div key={timer.id} className="flex justify-between text-[10px]">
                 <span className="text-white/40">
                   {timer.type === 'interval' ? '🔄' : '⏱️'} #{timer.id}
@@ -240,8 +263,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
                     ? `every ${timer.delay}ms`
                     : timer.remaining !== undefined
                       ? `${timer.remaining}ms left`
-                      : `${timer.delay}ms`
-                  }
+                      : `${timer.delay}ms`}
                 </span>
               </div>
             ))}
@@ -286,8 +308,10 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
                 {renderData.componentsOverBudget.length > 0 && (
                   <div className="mt-1">
                     <div className="text-red-400 text-[10px] mb-0.5">Over 16ms budget:</div>
-                    {renderData.componentsOverBudget.map(comp => (
-                      <div key={comp} className="text-red-300 text-[10px] pl-2">• {comp}</div>
+                    {renderData.componentsOverBudget.map((comp) => (
+                      <div key={comp} className="text-red-300 text-[10px] pl-2">
+                        • {comp}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -299,8 +323,9 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
 
       {/* Instructions */}
       <div className="text-white/40 text-[10px] border-t border-white/20 pt-2">
-        Press <kbd className="px-1 py-0.5 bg-white/10 rounded text-[9px]">Ctrl+Shift+D</kbd> to toggle
+        Press <kbd className="px-1 py-0.5 bg-white/10 rounded text-[9px]">Ctrl+Shift+D</kbd> to
+        toggle
       </div>
     </div>
-  )
+  );
 }

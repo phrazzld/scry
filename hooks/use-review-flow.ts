@@ -1,19 +1,20 @@
-"use client";
+'use client';
 
-import { useEffect, useReducer, useRef, useCallback } from "react";
-import { useSimplePoll } from "@/hooks/use-simple-poll";
-import { useDataHash } from "@/hooks/use-data-hash";
-import { api } from "@/convex/_generated/api";
-import type { SimpleQuestion } from "@/types/questions";
-import type { Id, Doc } from "@/convex/_generated/dataModel";
-import { POLLING_INTERVAL_MS, LOADING_TIMEOUT_MS } from "@/lib/constants/timing";
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+
+import { api } from '@/convex/_generated/api';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
+import { useDataHash } from '@/hooks/use-data-hash';
+import { useSimplePoll } from '@/hooks/use-simple-poll';
+import { LOADING_TIMEOUT_MS, POLLING_INTERVAL_MS } from '@/lib/constants/timing';
+import type { SimpleQuestion } from '@/types/questions';
 
 // State machine definition
 interface ReviewModeState {
   phase: 'loading' | 'empty' | 'reviewing' | 'error';
   question: SimpleQuestion | null;
-  questionId: Id<"questions"> | null;
-  interactions: Doc<"interactions">[];
+  questionId: Id<'questions'> | null;
+  interactions: Doc<'interactions'>[];
   lockId: string | null; // Unique ID per question to prevent race conditions
   errorMessage?: string; // Error message for timeout or other issues
 }
@@ -23,12 +24,15 @@ type ReviewAction =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_EMPTY' }
   | { type: 'LOAD_TIMEOUT' }
-  | { type: 'QUESTION_RECEIVED'; payload: {
-      question: SimpleQuestion;
-      questionId: Id<"questions">;
-      interactions: Doc<"interactions">[];
-      lockId: string;
-    }}
+  | {
+      type: 'QUESTION_RECEIVED';
+      payload: {
+        question: SimpleQuestion;
+        questionId: Id<'questions'>;
+        interactions: Doc<'interactions'>[];
+        lockId: string;
+      };
+    }
   | { type: 'REVIEW_COMPLETE' }
   | { type: 'IGNORE_UPDATE'; reason: string };
 
@@ -38,7 +42,7 @@ const initialState: ReviewModeState = {
   question: null,
   questionId: null,
   interactions: [],
-  lockId: null
+  lockId: null,
 };
 
 // Reducer function to manage state transitions
@@ -55,14 +59,15 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         questionId: null,
         interactions: [],
         lockId: null,
-        errorMessage: undefined
+        errorMessage: undefined,
       };
 
     case 'LOAD_TIMEOUT':
       return {
         ...state,
         phase: 'error',
-        errorMessage: 'Loading is taking longer than expected. Please refresh the page to try again.'
+        errorMessage:
+          'Loading is taking longer than expected. Please refresh the page to try again.',
       };
 
     case 'QUESTION_RECEIVED':
@@ -72,7 +77,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         questionId: action.payload.questionId,
         interactions: action.payload.interactions,
         lockId: action.payload.lockId,
-        errorMessage: undefined
+        errorMessage: undefined,
       };
 
     case 'REVIEW_COMPLETE':
@@ -84,7 +89,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         question: null,
         questionId: null,
         interactions: [],
-        lockId: null
+        lockId: null,
       };
 
     case 'IGNORE_UPDATE':
@@ -152,7 +157,6 @@ export function useReviewFlow() {
 
   // Process polling data and update state
   useEffect(() => {
-
     // If data hasn't actually changed, skip processing (unless transitioning from loading)
     // Special case: after REVIEW_COMPLETE, we need to process even if same question returns
     if (!dataHasChanged && state.phase !== 'loading') {
@@ -168,7 +172,7 @@ export function useReviewFlow() {
 
     if (nextReview === undefined) {
       // Only show loading on initial load
-      if (state.phase === "loading" && !lastQuestionIdRef.current) {
+      if (state.phase === 'loading' && !lastQuestionIdRef.current) {
         dispatch({ type: 'LOAD_START' });
       }
     } else if (nextReview === null) {
@@ -188,7 +192,7 @@ export function useReviewFlow() {
           question: nextReview.question.question,
           options: nextReview.question.options,
           correctAnswer: nextReview.question.correctAnswer,
-          explanation: nextReview.question.explanation || ""
+          explanation: nextReview.question.explanation || '',
         };
 
         // Generate unique lock ID for this question
@@ -200,8 +204,8 @@ export function useReviewFlow() {
             question,
             questionId: nextReview.question._id,
             interactions: nextReview.interactions || [],
-            lockId
-          }
+            lockId,
+          },
         });
 
         // Update last question ID even if it's the same (immediate re-review case)
@@ -210,7 +214,7 @@ export function useReviewFlow() {
       } else {
         dispatch({
           type: 'IGNORE_UPDATE',
-          reason: 'Poll executed but data unchanged - same question ID'
+          reason: 'Poll executed but data unchanged - same question ID',
         });
       }
     }
@@ -232,7 +236,7 @@ export function useReviewFlow() {
     interactions: state.interactions,
     errorMessage: state.errorMessage,
     handlers: {
-      onReviewComplete: handleReviewComplete
-    }
+      onReviewComplete: handleReviewComplete,
+    },
   };
 }

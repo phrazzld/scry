@@ -1,4 +1,4 @@
-import { HomepageStatsSkeleton } from '@/components/ui/loading-skeletons'
+import { HomepageStatsSkeleton } from '@/components/ui/loading-skeletons';
 
 export default function Loading() {
   return (
@@ -22,5 +22,5 @@ export default function Loading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

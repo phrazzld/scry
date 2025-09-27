@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { ReviewFlow } from '@/components/review-flow'
-import { ReviewErrorBoundary } from '@/components/review/review-error-boundary'
+import { ReviewFlow } from '@/components/review-flow';
+import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
 
 export default function Home() {
   return (
@@ -10,11 +10,11 @@ export default function Home() {
       onReset={() => {
         // Optional: Clear any cached state or perform cleanup
         if (typeof window !== 'undefined') {
-          window.location.href = '/'
+          window.location.href = '/';
         }
       }}
     >
       <ReviewFlow />
     </ReviewErrorBoundary>
-  )
+  );
 }

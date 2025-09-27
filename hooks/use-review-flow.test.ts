@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { reviewReducer } from './use-review-flow';
+import { describe, expect, it } from 'vitest';
+
 import type { Id } from '../convex/_generated/dataModel';
+import { reviewReducer } from './use-review-flow';
 
 describe('reviewReducer', () => {
   describe('REVIEW_COMPLETE action', () => {
@@ -9,7 +10,7 @@ describe('reviewReducer', () => {
       const initialState = {
         phase: 'reviewing' as const,
         question: {
-          _id: 'q1' as Id<"questions">,
+          _id: 'q1' as Id<'questions'>,
           question: 'What is the NATO phonetic alphabet for S?',
           options: ['Sierra', 'Snake', 'Sugar', 'Solar'],
           correctAnswer: 'Sierra',
@@ -17,21 +18,21 @@ describe('reviewReducer', () => {
           difficulty: 'easy' as const,
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          userId: 'user123'
+          userId: 'user123',
         },
-        questionId: 'q1' as Id<"questions">,
+        questionId: 'q1' as Id<'questions'>,
         interactions: [
           {
-            _id: 'i1' as Id<"interactions">,
+            _id: 'i1' as Id<'interactions'>,
             _creationTime: Date.now(),
-            questionId: 'q1' as Id<"questions">,
+            questionId: 'q1' as Id<'questions'>,
             userAnswer: 'Snake',
             isCorrect: false,
             attemptedAt: Date.now(),
-            userId: 'user123' as Id<"users">
-          }
+            userId: 'user123' as Id<'users'>,
+          },
         ],
-        lockId: 'lock123'
+        lockId: 'lock123',
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
@@ -52,7 +53,7 @@ describe('reviewReducer', () => {
         question: null,
         questionId: null,
         interactions: [],
-        lockId: 'lock456'
+        lockId: 'lock456',
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
@@ -72,7 +73,7 @@ describe('reviewReducer', () => {
         question: null,
         questionId: null,
         interactions: [],
-        lockId: null
+        lockId: null,
       };
 
       // The reducer should accept QUESTION_RECEIVED when in loading phase
@@ -80,7 +81,7 @@ describe('reviewReducer', () => {
         type: 'QUESTION_RECEIVED' as const,
         payload: {
           question: {
-            _id: 'q2' as Id<"questions">,
+            _id: 'q2' as Id<'questions'>,
             question: 'New question after review complete',
             options: ['A', 'B', 'C', 'D'],
             correctAnswer: 'A',
@@ -88,12 +89,12 @@ describe('reviewReducer', () => {
             difficulty: 'medium' as const,
             createdAt: Date.now(),
             updatedAt: Date.now(),
-            userId: 'user123'
+            userId: 'user123',
           },
-          questionId: 'q2' as Id<"questions">,
+          questionId: 'q2' as Id<'questions'>,
           interactions: [],
-          lockId: 'newLock'
-        }
+          lockId: 'newLock',
+        },
       };
 
       const newState = reviewReducer(stateInLoading, questionReceivedAction);
@@ -101,7 +102,7 @@ describe('reviewReducer', () => {
       // Should successfully transition to reviewing with new question
       expect(newState.phase).toBe('reviewing');
       expect(newState.question).toBeDefined();
-      expect(newState.questionId).toBe('q2' as Id<"questions">);
+      expect(newState.questionId).toBe('q2' as Id<'questions'>);
     });
   });
 });

@@ -30,6 +30,7 @@ yarn.lock
 # Misc
 .DS_Store
 *.log
+.claude/
 
 # Markdown files (optional - remove if you want to format markdown)
 *.md

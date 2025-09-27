@@ -1,15 +1,14 @@
 #!/usr/bin/env node
-
-import { chromium } from '@playwright/test';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { chromium } from '@playwright/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function measureReviewPerformance() {
   const browser = await chromium.launch({
-    headless: process.env.HEADLESS !== 'false'
+    headless: process.env.HEADLESS !== 'false',
   });
 
   const context = await browser.newContext();
@@ -22,7 +21,7 @@ async function measureReviewPerformance() {
       questionTimings: [],
       questionStartTime: null,
       firstQuestionTime: null,
-      pageLoadTime: performance.now()
+      pageLoadTime: performance.now(),
     };
 
     // Override React's render tracking if available
@@ -30,10 +29,10 @@ async function measureReviewPerformance() {
       const internals = window.React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
       const originalRender = internals.ReactCurrentDispatcher.current?.render;
       if (originalRender) {
-        internals.ReactCurrentDispatcher.current.render = function(...args) {
+        internals.ReactCurrentDispatcher.current.render = function (...args) {
           window.__PERF_DATA.renders.push({
             timestamp: performance.now(),
-            component: this?.constructor?.name || 'Unknown'
+            component: this?.constructor?.name || 'Unknown',
           });
           return originalRender.apply(this, args);
         };
@@ -45,7 +44,7 @@ async function measureReviewPerformance() {
       if (mutations.length > 0) {
         window.__PERF_DATA.renders.push({
           timestamp: performance.now(),
-          mutations: mutations.length
+          mutations: mutations.length,
         });
       }
     });
@@ -56,7 +55,7 @@ async function measureReviewPerformance() {
         childList: true,
         subtree: true,
         attributes: true,
-        characterData: true
+        characterData: true,
       });
     }
   });
@@ -66,15 +65,20 @@ async function measureReviewPerformance() {
 
   // Navigate to the review page
   await page.goto('http://localhost:3000', {
-    waitUntil: 'networkidle'
+    waitUntil: 'networkidle',
   });
 
   // Wait for the review interface to load
-  await page.waitForSelector('[data-testid="review-question"], [data-testid="question-display"], .review-question, h2', {
-    timeout: 10000
-  }).catch(() => {
-    console.log('⚠️  No questions found, might need to generate some first');
-  });
+  await page
+    .waitForSelector(
+      '[data-testid="review-question"], [data-testid="question-display"], .review-question, h2',
+      {
+        timeout: 10000,
+      }
+    )
+    .catch(() => {
+      console.log('⚠️  No questions found, might need to generate some first');
+    });
 
   // Record time to first question
   await page.evaluate(() => {
@@ -88,7 +92,7 @@ async function measureReviewPerformance() {
     renderCounts: [],
     renderDurations: [],
     totalRenders: 0,
-    errors: []
+    errors: [],
   };
 
   // Answer 10 questions (or until no more questions)
@@ -110,7 +114,7 @@ async function measureReviewPerformance() {
         'button:has-text("C)")',
         'button:has-text("D)")',
         '[role="radio"]',
-        '.answer-option'
+        '.answer-option',
       ];
 
       let answered = false;
@@ -137,7 +141,7 @@ async function measureReviewPerformance() {
         'button:has-text("Submit")',
         'button:has-text("Check Answer")',
         'button[type="submit"]',
-        'button:has-text("Next")'
+        'button:has-text("Next")',
       ];
 
       for (const selector of submitSelectors) {
@@ -155,12 +159,12 @@ async function measureReviewPerformance() {
       const nextSelectors = [
         'button:has-text("Next Question")',
         'button:has-text("Continue")',
-        'button:has-text("Next")'
+        'button:has-text("Next")',
       ];
 
       for (const selector of nextSelectors) {
         const nextBtn = await page.$(selector);
-        if (nextBtn && await nextBtn.isVisible()) {
+        if (nextBtn && (await nextBtn.isVisible())) {
           await nextBtn.click();
           break;
         }
@@ -173,7 +177,7 @@ async function measureReviewPerformance() {
         return {
           renders: window.__PERF_DATA.renders.length,
           duration: duration,
-          renderTimestamps: window.__PERF_DATA.renders.map(r => r.timestamp)
+          renderTimestamps: window.__PERF_DATA.renders.map((r) => r.timestamp),
         };
       });
 
@@ -185,19 +189,19 @@ async function measureReviewPerformance() {
       // Calculate render durations if we have timestamps
       if (questionMetrics.renderTimestamps.length > 1) {
         for (let j = 1; j < questionMetrics.renderTimestamps.length; j++) {
-          const duration = questionMetrics.renderTimestamps[j] - questionMetrics.renderTimestamps[j-1];
+          const duration =
+            questionMetrics.renderTimestamps[j] - questionMetrics.renderTimestamps[j - 1];
           metrics.renderDurations.push(duration);
         }
       }
 
       // Wait before next question
       await page.waitForTimeout(200);
-
     } catch (error) {
       console.error(`❌ Error on question ${i + 1}:`, error.message);
       metrics.errors.push({
         question: i + 1,
-        error: error.message
+        error: error.message,
       });
       // Try to continue with next question
     }
@@ -208,28 +212,33 @@ async function measureReviewPerformance() {
     return {
       firstQuestionTime: window.__PERF_DATA.firstQuestionTime,
       navigationTiming: performance.getEntriesByType('navigation')[0],
-      resourceCount: performance.getEntriesByType('resource').length
+      resourceCount: performance.getEntriesByType('resource').length,
     };
   });
 
   await browser.close();
 
   // Calculate statistics
-  const avgRenderMs = metrics.renderDurations.length > 0
-    ? metrics.renderDurations.reduce((a, b) => a + b, 0) / metrics.renderDurations.length
-    : 0;
+  const avgRenderMs =
+    metrics.renderDurations.length > 0
+      ? metrics.renderDurations.reduce((a, b) => a + b, 0) / metrics.renderDurations.length
+      : 0;
 
-  const p95RenderMs = metrics.renderDurations.length > 0
-    ? metrics.renderDurations.sort((a, b) => a - b)[Math.floor(metrics.renderDurations.length * 0.95)]
-    : 0;
+  const p95RenderMs =
+    metrics.renderDurations.length > 0
+      ? metrics.renderDurations.sort((a, b) => a - b)[
+          Math.floor(metrics.renderDurations.length * 0.95)
+        ]
+      : 0;
 
-  const avgTimeBetweenQuestions = metrics.timeBetweenQuestions.length > 0
-    ? metrics.timeBetweenQuestions.reduce((a, b) => a + b, 0) / metrics.timeBetweenQuestions.length
-    : 0;
+  const avgTimeBetweenQuestions =
+    metrics.timeBetweenQuestions.length > 0
+      ? metrics.timeBetweenQuestions.reduce((a, b) => a + b, 0) /
+        metrics.timeBetweenQuestions.length
+      : 0;
 
-  const avgRendersPerQuestion = metrics.questionsAnswered > 0
-    ? metrics.totalRenders / metrics.questionsAnswered
-    : 0;
+  const avgRendersPerQuestion =
+    metrics.questionsAnswered > 0 ? metrics.totalRenders / metrics.questionsAnswered : 0;
 
   const report = {
     summary: {
@@ -239,24 +248,24 @@ async function measureReviewPerformance() {
       p95RenderMs: Math.round(p95RenderMs * 100) / 100,
       avgRendersPerQuestion: Math.round(avgRendersPerQuestion * 100) / 100,
       avgTimeBetweenQuestions: Math.round(avgTimeBetweenQuestions),
-      timeToFirstQuestion: Math.round(perfData.firstQuestionTime)
+      timeToFirstQuestion: Math.round(perfData.firstQuestionTime),
     },
     details: {
       renderCounts: metrics.renderCounts,
-      timeBetweenQuestions: metrics.timeBetweenQuestions.map(t => Math.round(t)),
-      errors: metrics.errors
+      timeBetweenQuestions: metrics.timeBetweenQuestions.map((t) => Math.round(t)),
+      errors: metrics.errors,
     },
     performance: {
       domContentLoaded: Math.round(perfData.navigationTiming?.domContentLoadedEventEnd),
       pageLoad: Math.round(perfData.navigationTiming?.loadEventEnd),
-      resourceCount: perfData.resourceCount
+      resourceCount: perfData.resourceCount,
     },
     timestamp: new Date().toISOString(),
     baseline: {
       expectedRendersPerQuestion: 50,
       expectedTimeBetweenQuestions: 100,
-      framebudget: 16
-    }
+      framebudget: 16,
+    },
   };
 
   // Save report
@@ -271,20 +280,21 @@ async function measureReviewPerformance() {
   console.log(`📉 Avg Renders/Question: ${report.summary.avgRendersPerQuestion} (baseline: >50)`);
   console.log(`⏱️  Avg Render Duration: ${report.summary.avgRenderMs}ms (frame budget: 16ms)`);
   console.log(`⏱️  P95 Render Duration: ${report.summary.p95RenderMs}ms`);
-  console.log(`⏱️  Time Between Questions: ${report.summary.avgTimeBetweenQuestions}ms (baseline: >100ms)`);
+  console.log(
+    `⏱️  Time Between Questions: ${report.summary.avgTimeBetweenQuestions}ms (baseline: >100ms)`
+  );
   console.log(`🚀 Time to First Question: ${report.summary.timeToFirstQuestion}ms`);
 
   if (metrics.errors.length > 0) {
     console.log(`\n⚠️  Errors encountered: ${metrics.errors.length}`);
-    metrics.errors.forEach(e => console.log(`   - Question ${e.question}: ${e.error}`));
+    metrics.errors.forEach((e) => console.log(`   - Question ${e.question}: ${e.error}`));
   }
 
   console.log(`\n💾 Full report saved to: ${reportPath}`);
 
   // Exit with appropriate code
   const meetsBaseline =
-    report.summary.avgRendersPerQuestion <= 50 &&
-    report.summary.avgTimeBetweenQuestions <= 100;
+    report.summary.avgRendersPerQuestion <= 50 && report.summary.avgTimeBetweenQuestions <= 100;
 
   if (meetsBaseline) {
     console.log('\n✅ Performance meets or exceeds baseline!');
@@ -296,7 +306,7 @@ async function measureReviewPerformance() {
 }
 
 // Run the measurement
-measureReviewPerformance().catch(error => {
+measureReviewPerformance().catch((error) => {
   console.error('❌ Fatal error:', error);
   process.exit(1);
 });

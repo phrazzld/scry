@@ -4,23 +4,22 @@
  * Migration script template for converting quiz results to individual questions.
  * This is an example script showing the migration logic.
  * The actual migration runs via Convex internal mutation.
- * 
+ *
  * To run the migration:
  * npx convex run migrations:migrateQuizResultsToQuestions --dryRun true --batchSize 10
  */
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
-import { ConvexHttpClient } from "convex/browser";
 // import { api } from "../convex/_generated/api";
-import { createHash } from "crypto";
+import { createHash } from 'crypto';
+import { ConvexHttpClient } from 'convex/browser';
 
 // Configuration
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL;
-const DRY_RUN = process.env.DRY_RUN !== "false"; // Default to dry run for safety
+const DRY_RUN = process.env.DRY_RUN !== 'false'; // Default to dry run for safety
 
 if (!CONVEX_URL) {
-  console.error("Error: NEXT_PUBLIC_CONVEX_URL environment variable is required");
+  console.error('Error: NEXT_PUBLIC_CONVEX_URL environment variable is required');
   process.exit(1);
 }
 
@@ -62,14 +61,14 @@ async function migrateQuizResults() {
     // 1. Create a Convex function that can access all quiz results
     // 2. Process them in batches
     // 3. Handle authentication properly
-    
+
     console.log('\nMigration script ready.');
     console.log('\nTo run the actual migration, you need to:');
     console.log('1. Create a Convex migration function that can access all quizResults');
     console.log('2. Implement batch processing to handle large datasets');
     console.log('3. Add proper authentication for admin access');
     console.log('4. Implement rollback functionality');
-    
+
     console.log('\nExample migration logic:');
     console.log(`
 // For each quiz result:
@@ -117,7 +116,6 @@ for (const answer of quizResult.answers) {
     console.log('- Interactions created');
     console.log('- Duplicate questions found');
     console.log('- Errors encountered');
-
   } catch (error) {
     console.error('Migration error:', error);
     process.exit(1);
@@ -130,9 +128,11 @@ function generateSessionId(quizResultId: string): string {
 }
 
 // Run migration
-migrateQuizResults().then(() => {
-  console.log('\nMigration script completed');
-}).catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+migrateQuizResults()
+  .then(() => {
+    console.log('\nMigration script completed');
+  })
+  .catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });

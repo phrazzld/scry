@@ -1,18 +1,19 @@
-'use client'
+'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
-import type { Doc } from '@/convex/_generated/dataModel'
+import React, { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+
+import type { Doc } from '@/convex/_generated/dataModel';
 
 interface CurrentQuestionContextType {
-  currentQuestion: Doc<"questions"> | undefined
-  setCurrentQuestion: (question: Doc<"questions"> | undefined) => void
-  clearCurrentQuestion: () => void
+  currentQuestion: Doc<'questions'> | undefined;
+  setCurrentQuestion: (question: Doc<'questions'> | undefined) => void;
+  clearCurrentQuestion: () => void;
 }
 
-const CurrentQuestionContext = createContext<CurrentQuestionContextType | undefined>(undefined)
+const CurrentQuestionContext = createContext<CurrentQuestionContextType | undefined>(undefined);
 
 interface CurrentQuestionProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 /**
@@ -20,27 +21,29 @@ interface CurrentQuestionProviderProps {
  * Replaces DOM events with React Context for better performance and type safety
  */
 export function CurrentQuestionProvider({ children }: CurrentQuestionProviderProps) {
-  const [currentQuestion, setCurrentQuestionState] = useState<Doc<"questions"> | undefined>(undefined)
+  const [currentQuestion, setCurrentQuestionState] = useState<Doc<'questions'> | undefined>(
+    undefined
+  );
 
-  const setCurrentQuestion = useCallback((question: Doc<"questions"> | undefined) => {
-    setCurrentQuestionState(question)
-  }, [])
+  const setCurrentQuestion = useCallback((question: Doc<'questions'> | undefined) => {
+    setCurrentQuestionState(question);
+  }, []);
 
   const clearCurrentQuestion = useCallback(() => {
-    setCurrentQuestionState(undefined)
-  }, [])
+    setCurrentQuestionState(undefined);
+  }, []);
 
   return (
     <CurrentQuestionContext.Provider
       value={{
         currentQuestion,
         setCurrentQuestion,
-        clearCurrentQuestion
+        clearCurrentQuestion,
       }}
     >
       {children}
     </CurrentQuestionContext.Provider>
-  )
+  );
 }
 
 /**
@@ -48,9 +51,9 @@ export function CurrentQuestionProvider({ children }: CurrentQuestionProviderPro
  * Throws an error if used outside of CurrentQuestionProvider
  */
 export function useCurrentQuestion() {
-  const context = useContext(CurrentQuestionContext)
+  const context = useContext(CurrentQuestionContext);
   if (context === undefined) {
-    throw new Error('useCurrentQuestion must be used within a CurrentQuestionProvider')
+    throw new Error('useCurrentQuestion must be used within a CurrentQuestionProvider');
   }
-  return context
+  return context;
 }

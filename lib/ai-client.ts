@@ -1,13 +1,15 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { generateObject } from 'ai'
-import { z } from 'zod'
-import type { SimpleQuestion } from '@/types/questions'
-import { aiLogger, loggers } from './logger'
-import { createSafePrompt, sanitizeTopic } from './prompt-sanitization'
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+
+import type { SimpleQuestion } from '@/types/questions';
+
+import { aiLogger, loggers } from './logger';
+import { createSafePrompt, sanitizeTopic } from './prompt-sanitization';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_AI_API_KEY || '',
-})
+});
 
 const questionSchema = z.object({
   question: z.string(),
@@ -15,11 +17,11 @@ const questionSchema = z.object({
   options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
   explanation: z.string().optional(),
-})
+});
 
 const questionsSchema = z.object({
-  questions: z.array(questionSchema)
-})
+  questions: z.array(questionSchema),
+});
 
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
   // Sanitize the topic before using it
@@ -29,45 +31,56 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
   const prompt = createSafePrompt(sanitizedTopic);
 
   try {
-    const timer = loggers.time(`ai.question-generation.${sanitizedTopic}`, 'ai')
+    const timer = loggers.time(`ai.question-generation.${sanitizedTopic}`, 'ai');
 
-    aiLogger.info({
-      event: 'ai.question-generation.start',
-      topic: sanitizedTopic,
-      originalTopic: topic !== sanitizedTopic ? topic : undefined,
-      model: 'gemini-2.5-flash'
-    }, `Starting question generation for topic: ${sanitizedTopic}`)
+    aiLogger.info(
+      {
+        event: 'ai.question-generation.start',
+        topic: sanitizedTopic,
+        originalTopic: topic !== sanitizedTopic ? topic : undefined,
+        model: 'gemini-2.5-flash',
+      },
+      `Starting question generation for topic: ${sanitizedTopic}`
+    );
 
     const { object } = await generateObject({
       model: google('gemini-2.5-flash'),
       schema: questionsSchema,
       prompt,
-    })
+    });
 
     const duration = timer.end({
       topic: sanitizedTopic,
       questionCount: object.questions.length,
-      success: true
-    })
+      success: true,
+    });
 
-    aiLogger.info({
-      event: 'ai.question-generation.success',
-      topic: sanitizedTopic,
-      questionCount: object.questions.length,
-      duration
-    }, `Successfully generated ${object.questions.length} questions for ${sanitizedTopic}`)
+    aiLogger.info(
+      {
+        event: 'ai.question-generation.success',
+        topic: sanitizedTopic,
+        questionCount: object.questions.length,
+        duration,
+      },
+      `Successfully generated ${object.questions.length} questions for ${sanitizedTopic}`
+    );
 
     // Validate and ensure all required properties are present
-    return object.questions.map((q): SimpleQuestion => ({
-      question: q.question || '',
-      type: q.type || 'multiple-choice',
-      options: q.options || [],
-      correctAnswer: q.correctAnswer || '',
-      explanation: q.explanation
-    }))
+    return object.questions.map(
+      (q): SimpleQuestion => ({
+        question: q.question || '',
+        type: q.type || 'multiple-choice',
+        options: q.options || [],
+        correctAnswer: q.correctAnswer || '',
+        explanation: q.explanation,
+      })
+    );
   } catch (error) {
-    const errorMessage = (error as Error).message || 'Unknown error'
-    const isApiKeyError = errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')
+    const errorMessage = (error as Error).message || 'Unknown error';
+    const isApiKeyError =
+      errorMessage.includes('API key') ||
+      errorMessage.includes('401') ||
+      errorMessage.includes('Unauthorized');
 
     loggers.error(
       error as Error,
@@ -77,17 +90,20 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
         topic: sanitizedTopic,
         model: 'gemini-2.5-flash',
         errorType: isApiKeyError ? 'api-key-error' : 'generation-error',
-        errorMessage
+        errorMessage,
       },
       `Failed to generate questions: ${errorMessage}`
-    )
+    );
 
-    aiLogger.warn({
-      event: 'ai.question-generation.fallback',
-      topic: sanitizedTopic,
-      fallbackQuestionCount: 2,
-      reason: errorMessage
-    }, `Using fallback questions for topic: ${sanitizedTopic} - Error: ${errorMessage}`)
+    aiLogger.warn(
+      {
+        event: 'ai.question-generation.fallback',
+        topic: sanitizedTopic,
+        fallbackQuestionCount: 2,
+        reason: errorMessage,
+      },
+      `Using fallback questions for topic: ${sanitizedTopic} - Error: ${errorMessage}`
+    );
 
     // Return some default questions as fallback
     return [
@@ -96,15 +112,15 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
         type: 'multiple-choice' as const,
         options: ['Option A', 'Option B', 'Option C', 'Option D'],
         correctAnswer: 'Option A',
-        explanation: 'This is a placeholder multiple-choice question.'
+        explanation: 'This is a placeholder multiple-choice question.',
       },
       {
         question: `${sanitizedTopic} is an important subject to study.`,
         type: 'true-false' as const,
         options: ['True', 'False'],
         correctAnswer: 'True',
-        explanation: 'This is a placeholder true/false question.'
-      }
-    ]
+        explanation: 'This is a placeholder true/false question.',
+      },
+    ];
   }
 }

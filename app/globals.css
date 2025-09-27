@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Configure Tailwind for class-based dark mode */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -51,13 +51,13 @@
   --color-info-foreground: hsl(var(--info-foreground));
   --color-info-background: hsl(var(--info-background));
   --color-info-border: hsl(var(--info-border));
-  
+
   /* Spacing scale */
   --spacing-prose: 1.5em;
   --spacing-section: 4rem;
   --spacing-component: 2rem;
   --navbar-height: 4rem; /* 64px - matches h-16 class */
-  
+
   /* Type scale */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -68,13 +68,13 @@
   --font-size-3xl: 1.875rem;
   --font-size-4xl: 2.25rem;
   --font-size-5xl: 3rem;
-  
+
   /* Line heights */
   --line-height-tight: 1.1;
   --line-height-heading: 1.25;
   --line-height-body: 1.7;
   --line-height-relaxed: 1.875;
-  
+
   /* Border radius */
   --radius: 0.5rem;
   --radius-lg: 0.75rem;
@@ -182,7 +182,7 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
@@ -191,7 +191,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   /* CSS Grid Layout System (New) */
   .layout-grid {
     display: grid;
@@ -210,7 +210,7 @@
     /* Ensure grid children respect layout boundaries */
     min-width: 0;
   }
-  
+
   /* Legacy Layout System (Rollback) */
   .layout-legacy {
     display: flex;
@@ -218,7 +218,7 @@
     min-height: 100vh;
     min-height: 100dvh; /* Dynamic viewport height for mobile */
   }
-  
+
   .layout-legacy > main {
     flex: 1;
     display: flex;
@@ -227,57 +227,62 @@
     /* Add padding to account for fixed navbar when in legacy mode */
     padding-top: 0; /* Spacer div handles this */
   }
-  
+
   .layout-legacy > footer {
     margin-top: auto; /* Push footer to bottom */
   }
-  
+
   /* Typography hierarchy */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-sans);
     font-weight: 700;
     line-height: var(--line-height-heading);
     letter-spacing: -0.025em;
   }
-  
+
   h1 {
     font-size: var(--font-size-4xl);
     margin-bottom: 1rem;
   }
-  
+
   h2 {
     font-size: var(--font-size-3xl);
     margin-top: var(--spacing-section);
     margin-bottom: 1rem;
   }
-  
+
   h3 {
     font-size: var(--font-size-2xl);
     margin-top: var(--spacing-component);
     margin-bottom: 0.75rem;
   }
-  
+
   h4 {
     font-size: var(--font-size-xl);
     margin-top: var(--spacing-component);
     margin-bottom: 0.5rem;
   }
-  
+
   p {
     margin-bottom: var(--spacing-prose);
   }
-  
+
   /* Links */
   a {
     color: hsl(var(--primary));
     text-decoration: none;
     transition: opacity 0.2s ease;
   }
-  
+
   a:hover {
     opacity: 0.8;
   }
-  
+
   /* Code elements */
   code {
     font-family: var(--font-mono);
@@ -286,7 +291,7 @@
     padding: 0.125rem 0.375rem;
     border-radius: var(--radius);
   }
-  
+
   pre {
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
@@ -297,23 +302,24 @@
     overflow-x: auto;
     line-height: var(--line-height-body);
   }
-  
+
   pre code {
     background-color: transparent;
     padding: 0;
     font-size: inherit;
   }
-  
+
   /* Lists */
-  ul, ol {
+  ul,
+  ol {
     margin-bottom: var(--spacing-prose);
     padding-left: 1.5rem;
   }
-  
+
   li {
     margin-bottom: 0.5rem;
   }
-  
+
   /* Blockquotes */
   blockquote {
     margin: 2rem 0;
@@ -331,11 +337,11 @@
     margin-left: auto;
     margin-right: auto;
   }
-  
+
   .prose > * + * {
     margin-top: var(--spacing-prose);
   }
-  
+
   /* Technical diagram styling */
   .technical-diagram {
     margin: var(--spacing-section) 0;
@@ -343,7 +349,7 @@
     max-width: 100%;
     height: auto;
   }
-  
+
   .technical-diagram path,
   .technical-diagram line,
   .technical-diagram polyline {
@@ -351,7 +357,7 @@
     stroke-width: 2;
     fill: none;
   }
-  
+
   .technical-diagram rect,
   .technical-diagram circle,
   .technical-diagram ellipse {
@@ -359,13 +365,13 @@
     stroke-width: 2;
     fill: var(--color-gray-100);
   }
-  
+
   .technical-diagram text {
     font-family: var(--font-mono);
     font-size: 14px;
     fill: var(--color-ink);
   }
-  
+
   /* Documentation layout wrapper */
   .doc-layout {
     width: 100%;
@@ -373,38 +379,38 @@
     margin: 0 auto;
     padding: var(--spacing-section) 2rem;
   }
-  
+
   /* Clean button style */
   .btn-primary {
     @apply px-6 py-3 bg-gray-900 text-white font-medium rounded-lg;
     @apply hover:bg-gray-800 transition-colors;
   }
-  
+
   .btn-secondary {
     @apply px-6 py-3 border border-gray-300 text-gray-900 font-medium rounded-lg;
     @apply hover:bg-gray-100 transition-colors;
   }
-  
+
   /* Clean card style */
   .card-technical {
     @apply bg-white border border-gray-200 rounded-lg p-6;
   }
-  
+
   /* Form elements */
   .input-technical {
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg;
     @apply focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent;
   }
-  
+
   /* Alert/Info boxes */
   .info-box {
     @apply bg-gray-50 border-l-4 border-gray-300 p-4 my-6;
   }
-  
+
   .info-box p:last-child {
     margin-bottom: 0;
   }
-  
+
   /* Loading skeleton animations */
   @keyframes shimmer {
     0% {
@@ -530,7 +536,8 @@
 
   /* Button pulse animation for emphasis */
   @keyframes buttonPulse {
-    0%, 100% {
+    0%,
+    100% {
       transform: scale(1);
     }
     50% {
@@ -572,12 +579,24 @@
 
   /* Gradient background animation */
   @keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
   }
 
   .gradient-bg {
-    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 25%, #fafafa 50%, #f0f0f0 75%, #fafafa 100%);
+    background: linear-gradient(
+      135deg,
+      #fafafa 0%,
+      #f5f5f5 25%,
+      #fafafa 50%,
+      #f0f0f0 75%,
+      #fafafa 100%
+    );
     background-size: 400% 400%;
     animation: gradient-shift 30s ease infinite;
     position: relative;
@@ -587,8 +606,13 @@
     content: '';
     position: absolute;
     inset: 0;
-    background-image:
-      repeating-radial-gradient(circle at 50% 50%, transparent, transparent 50px, rgba(0, 0, 0, 0.015) 50px, rgba(0, 0, 0, 0.015) 51px);
+    background-image: repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent,
+      transparent 50px,
+      rgba(0, 0, 0, 0.015) 50px,
+      rgba(0, 0, 0, 0.015) 51px
+    );
     pointer-events: none;
   }
 
@@ -636,19 +660,19 @@
   .font-mono {
     font-family: var(--font-mono);
   }
-  
+
   .font-serif {
     font-family: var(--font-serif);
   }
-  
+
   /* Remove legacy color utilities - use Tailwind's gray scale instead */
-  
+
   /* Hero text size for landing page */
   .text-hero {
     font-size: clamp(3.5rem, 10vw, 7rem);
     letter-spacing: 0.02em;
   }
-  
+
   /* Ensure minimal layout works well */
   .min-h-screen {
     min-height: 100vh;
@@ -662,16 +686,22 @@
     font-size: 12pt;
     line-height: 1.5;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     page-break-after: avoid;
     page-break-inside: avoid;
   }
-  
-  pre, blockquote {
+
+  pre,
+  blockquote {
     page-break-inside: avoid;
   }
-  
+
   .no-print {
     display: none !important;
   }

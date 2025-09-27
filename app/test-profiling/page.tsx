@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Manual performance regression testing interface
@@ -13,11 +13,12 @@
  * - Identify unnecessary re-renders
  * - Validate React.memo optimizations
  */
+import { useCallback, useState } from 'react';
+import { notFound } from 'next/navigation';
 
-import { useState, useCallback } from "react";
-import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ReviewSession } from "@/components/review-session";
+import { ReviewSession } from '@/components/review-session';
+import { Button } from '@/components/ui/button';
+
 // Quiz-specific components have been removed - everything is review mode now
 // import { QuizReadyState } from "@/components/quiz-flow/quiz-ready-state";
 // import { QuizGeneratingState } from "@/components/quiz-flow/quiz-generating-state";
@@ -29,32 +30,32 @@ export default function ProfilingTestPage() {
     notFound();
   }
 
-  const [testCase, setTestCase] = useState<string>("none");
+  const [testCase, setTestCase] = useState<string>('none');
   const [renderCount, setRenderCount] = useState(0);
   const [stateTransition, setStateTransition] = useState(0);
 
   // Force re-render without changing props
   const forceRender = useCallback(() => {
-    setRenderCount(prev => prev + 1);
+    setRenderCount((prev) => prev + 1);
   }, []);
 
   // Simulate state transitions
   const triggerStateTransition = useCallback(() => {
-    setStateTransition(prev => prev + 1);
+    setStateTransition((prev) => prev + 1);
   }, []);
 
   const mockQuizResult = {
-    topic: "Performance Testing",
-    difficulty: "medium" as const,
+    topic: 'Performance Testing',
+    difficulty: 'medium' as const,
     questions: [
       {
-        id: "test-1",
-        question: "Does Card removal improve performance?",
-        options: ["Yes", "No", "Maybe", "Depends"],
-        correctAnswer: "Yes",
-        explanation: "Simpler DOM = better performance",
-        type: "multiple-choice" as const,
-      }
+        id: 'test-1',
+        question: 'Does Card removal improve performance?',
+        options: ['Yes', 'No', 'Maybe', 'Depends'],
+        correctAnswer: 'Yes',
+        explanation: 'Simpler DOM = better performance',
+        type: 'multiple-choice' as const,
+      },
     ],
     totalQuestions: 1,
     correctAnswers: 1,
@@ -71,26 +72,26 @@ export default function ProfilingTestPage() {
       <div className="mb-8 space-y-4">
         <div className="flex gap-4 flex-wrap">
           <Button
-            onClick={() => setTestCase("ready")}
-            variant={testCase === "ready" ? "default" : "outline"}
+            onClick={() => setTestCase('ready')}
+            variant={testCase === 'ready' ? 'default' : 'outline'}
           >
             Test Ready State
           </Button>
           <Button
-            onClick={() => setTestCase("generating")}
-            variant={testCase === "generating" ? "default" : "outline"}
+            onClick={() => setTestCase('generating')}
+            variant={testCase === 'generating' ? 'default' : 'outline'}
           >
             Test Generating State
           </Button>
           <Button
-            onClick={() => setTestCase("complete")}
-            variant={testCase === "complete" ? "default" : "outline"}
+            onClick={() => setTestCase('complete')}
+            variant={testCase === 'complete' ? 'default' : 'outline'}
           >
             Test Complete State
           </Button>
           <Button
-            onClick={() => setTestCase("manager")}
-            variant={testCase === "manager" ? "default" : "outline"}
+            onClick={() => setTestCase('manager')}
+            variant={testCase === 'manager' ? 'default' : 'outline'}
           >
             Test Full Manager
           </Button>
@@ -111,7 +112,9 @@ export default function ProfilingTestPage() {
             <li>Open React DevTools Profiler</li>
             <li>Start recording</li>
             <li>Click test buttons above</li>
-            <li>Use &quot;Force Parent Re-render&quot; to test if children re-render unnecessarily</li>
+            <li>
+              Use &quot;Force Parent Re-render&quot; to test if children re-render unnecessarily
+            </li>
             <li>Stop recording and analyze flame graph</li>
           </ol>
         </div>
@@ -119,34 +122,31 @@ export default function ProfilingTestPage() {
 
       <div className="border-t pt-8">
         {/* Quiz-specific states removed - everything is review mode now */}
-        {testCase === "ready" && (
+        {testCase === 'ready' && (
           <div className="text-center text-muted-foreground py-12">
             Ready state removed - use review empty state
           </div>
         )}
 
-        {testCase === "generating" && (
+        {testCase === 'generating' && (
           <div className="text-center text-muted-foreground py-12">
             Generating state removed - questions generate in background
           </div>
         )}
 
-        {testCase === "complete" && (
+        {testCase === 'complete' && (
           <div className="text-center text-muted-foreground py-12">
             Complete state removed - use review complete state
           </div>
         )}
 
-        {testCase === "manager" && (
+        {testCase === 'manager' && (
           <div className="max-w-3xl">
-            <ReviewSession
-              question={mockQuizResult.questions[0]}
-              onComplete={() => {}}
-            />
+            <ReviewSession question={mockQuizResult.questions[0]} onComplete={() => {}} />
           </div>
         )}
 
-        {testCase === "none" && (
+        {testCase === 'none' && (
           <div className="text-center text-muted-foreground py-12">
             Select a test case above to begin profiling
           </div>

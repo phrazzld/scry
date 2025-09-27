@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Unit tests for CRUD mutations in questions.ts
- * 
+ *
  * Tests focus on business logic validation and permission checks
  * for updateQuestion, softDeleteQuestion, and restoreQuestion mutations.
- * 
+ *
  * Since Convex context mocking is complex, these tests validate
  * the expected behavior patterns and permission requirements.
  */
@@ -20,17 +20,17 @@ describe('Questions CRUD Mutations', () => {
           questionUserId: 'user123',
           authenticatedUserId: 'user123',
           shouldSucceed: true,
-          description: 'Creator can update their own question'
+          description: 'Creator can update their own question',
         },
         {
           questionUserId: 'user123',
           authenticatedUserId: 'user456',
           shouldSucceed: false,
-          description: 'Non-creator cannot update others questions'
+          description: 'Non-creator cannot update others questions',
         },
       ];
 
-      testScenarios.forEach(scenario => {
+      testScenarios.forEach((scenario) => {
         const hasPermission = scenario.questionUserId === scenario.authenticatedUserId;
         expect(hasPermission).toBe(scenario.shouldSucceed);
       });
@@ -41,17 +41,17 @@ describe('Questions CRUD Mutations', () => {
       const updateData = {
         question: 'Updated question text?',
         topic: 'JavaScript',
-        explanation: 'This tests your knowledge of JS fundamentals'
+        explanation: 'This tests your knowledge of JS fundamentals',
       };
 
       // Validate question length (should be between 10-500 chars)
       expect(updateData.question.length).toBeGreaterThanOrEqual(10);
       expect(updateData.question.length).toBeLessThanOrEqual(500);
-      
+
       // Validate topic length (should be between 2-100 chars)
       expect(updateData.topic.length).toBeGreaterThanOrEqual(2);
       expect(updateData.topic.length).toBeLessThanOrEqual(100);
-      
+
       // Validate explanation length (should be <= 1000 chars)
       expect(updateData.explanation.length).toBeLessThanOrEqual(1000);
     });
@@ -82,13 +82,21 @@ describe('Questions CRUD Mutations', () => {
       // Simulate an update (only content fields should change)
       const allowedUpdates = ['question', 'topic', 'explanation'];
       const protectedFields = [
-        'stability', 'fsrsDifficulty', 'elapsedDays', 'scheduledDays',
-        'reps', 'lapses', 'state', 'lastReview', 'nextReview',
-        'attemptCount', 'correctCount'
+        'stability',
+        'fsrsDifficulty',
+        'elapsedDays',
+        'scheduledDays',
+        'reps',
+        'lapses',
+        'state',
+        'lastReview',
+        'nextReview',
+        'attemptCount',
+        'correctCount',
       ];
 
       // Verify that protected fields are not in the allowed updates
-      protectedFields.forEach(field => {
+      protectedFields.forEach((field) => {
         expect(allowedUpdates).not.toContain(field);
       });
     });
@@ -115,17 +123,17 @@ describe('Questions CRUD Mutations', () => {
           questionUserId: 'user123',
           authenticatedUserId: 'user123',
           shouldSucceed: true,
-          description: 'Creator can delete their own question'
+          description: 'Creator can delete their own question',
         },
         {
           questionUserId: 'user123',
           authenticatedUserId: 'user456',
           shouldSucceed: false,
-          description: 'Non-creator cannot delete others questions'
+          description: 'Non-creator cannot delete others questions',
         },
       ];
 
-      testScenarios.forEach(scenario => {
+      testScenarios.forEach((scenario) => {
         const hasPermission = scenario.questionUserId === scenario.authenticatedUserId;
         expect(hasPermission).toBe(scenario.shouldSucceed);
       });
@@ -148,7 +156,7 @@ describe('Questions CRUD Mutations', () => {
       // Verify soft delete added deletedAt
       expect(softDeletedQuestion.deletedAt).toBeDefined();
       expect(typeof softDeletedQuestion.deletedAt).toBe('number');
-      
+
       // Verify all other fields preserved
       expect(softDeletedQuestion._id).toBe(originalQuestion._id);
       expect(softDeletedQuestion.question).toBe(originalQuestion.question);
@@ -198,17 +206,17 @@ describe('Questions CRUD Mutations', () => {
           questionUserId: 'user123',
           authenticatedUserId: 'user123',
           shouldSucceed: true,
-          description: 'Creator can restore their own question'
+          description: 'Creator can restore their own question',
         },
         {
           questionUserId: 'user123',
           authenticatedUserId: 'user456',
           shouldSucceed: false,
-          description: 'Non-creator cannot restore others questions'
+          description: 'Non-creator cannot restore others questions',
         },
       ];
 
-      testScenarios.forEach(scenario => {
+      testScenarios.forEach((scenario) => {
         const hasPermission = scenario.questionUserId === scenario.authenticatedUserId;
         expect(hasPermission).toBe(scenario.shouldSucceed);
       });
@@ -229,7 +237,7 @@ describe('Questions CRUD Mutations', () => {
 
       // Verify deletedAt removed
       expect('deletedAt' in restoredQuestion).toBe(false);
-      
+
       // Verify all other fields preserved
       expect(restoredQuestion._id).toBe(deletedQuestion._id);
       expect(restoredQuestion.question).toBe(deletedQuestion.question);
@@ -278,14 +286,14 @@ describe('Questions CRUD Mutations', () => {
   describe('Permission Model Consistency', () => {
     it('should consistently enforce creator-only permissions across all mutations', () => {
       const mutations = ['updateQuestion', 'softDeleteQuestion', 'restoreQuestion'];
-      
+
       mutations.forEach(() => {
         // Each mutation should:
         // 1. Authenticate the user
         // 2. Get the question
         // 3. Check question.userId === authenticatedUserId
         // 4. Throw error if not authorized
-        
+
         const permissionCheck = (questionUserId: string, authUserId: string) => {
           return questionUserId === authUserId;
         };
@@ -304,7 +312,7 @@ describe('Questions CRUD Mutations', () => {
         { question: { _id: 'q123', userId: 'user123' }, shouldThrow: false },
       ];
 
-      testCases.forEach(testCase => {
+      testCases.forEach((testCase) => {
         const isValid = testCase.question !== null && testCase.question !== undefined;
         expect(!isValid).toBe(testCase.shouldThrow);
       });
@@ -316,17 +324,17 @@ describe('Questions CRUD Mutations', () => {
       // Soft delete should not break references
       const question = { _id: 'q123' };
       const interaction = { questionId: 'q123' };
-      
+
       // After soft delete, the question ID remains the same
       const softDeletedQuestion = { ...question, deletedAt: Date.now() };
-      
+
       // Interactions can still reference the soft-deleted question
       expect(interaction.questionId).toBe(softDeletedQuestion._id);
     });
 
     it('should preserve audit trail through all operations', () => {
       const auditFields = ['createdAt', 'updatedAt'];
-      
+
       // These fields should be maintained through all operations
       const operations = [
         { name: 'create', preserves: ['createdAt'] },
@@ -335,9 +343,9 @@ describe('Questions CRUD Mutations', () => {
         { name: 'restore', preserves: ['createdAt'], updates: ['updatedAt'] },
       ];
 
-      operations.forEach(op => {
+      operations.forEach((op) => {
         if (op.preserves) {
-          op.preserves.forEach(field => {
+          op.preserves.forEach((field) => {
             expect(auditFields).toContain(field);
           });
         }

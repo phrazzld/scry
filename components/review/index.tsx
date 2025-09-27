@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { useUser } from "@clerk/nextjs";
-import { ReviewFlow } from "@/components/review-flow";
+import { useUser } from '@clerk/nextjs';
+
+import { ReviewFlow } from '@/components/review-flow';
 
 /**
  * Unified review flow component - everything is review mode.
@@ -14,9 +15,7 @@ export default function UnifiedQuizFlow() {
     // Review mode requires authentication
     return (
       <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
-        <p className="text-muted-foreground">
-          Please sign in to start reviewing.
-        </p>
+        <p className="text-muted-foreground">Please sign in to start reviewing.</p>
       </div>
     );
   }
@@ -25,6 +24,6 @@ export default function UnifiedQuizFlow() {
 }
 
 // Re-export review components for external use
-export { ReviewFlow } from "@/components/review-flow";
-export { ReviewEmptyState } from "./review-empty-state";
-export { ReviewCompleteState } from "./review-complete-state";
+export { ReviewFlow } from '@/components/review-flow';
+export { ReviewEmptyState } from './review-empty-state';
+export { ReviewCompleteState } from './review-complete-state';

@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 
 /**
  * E2E test for verifying the fix for the "Next" button being stuck after incorrect answers.
@@ -15,8 +15,10 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     // Wait for either a question to appear or empty state
     await Promise.race([
       page.getByRole('heading', { name: /Question/i }).waitFor({ timeout }),
-      page.getByText(/All Caught Up|No questions available|Generate your first quiz/i).waitFor({ timeout }),
-      page.getByText(/Authentication required/i).waitFor({ timeout })
+      page
+        .getByText(/All Caught Up|No questions available|Generate your first quiz/i)
+        .waitFor({ timeout }),
+      page.getByText(/Authentication required/i).waitFor({ timeout }),
     ]).catch(() => {
       // If none appear, continue anyway
     });
@@ -28,7 +30,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await waitForConvexQuery(page);
 
     // Check if we have questions available
-    const hasQuestion = await page.getByRole('heading', { name: /Question/i })
+    const hasQuestion = await page
+      .getByRole('heading', { name: /Question/i })
       .isVisible({ timeout: 3000 })
       .catch(() => false);
 
@@ -39,7 +42,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     }
 
     // Get the initial question text to track if same question returns
-    const initialQuestionText = await page.getByRole('heading', { name: /Question/i })
+    const initialQuestionText = await page
+      .getByRole('heading', { name: /Question/i })
       .locator('..')
       .textContent();
 
@@ -70,7 +74,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
 
     // Step 5: Verify state reset happens
     // Should see loading state briefly (may be too quick to catch)
-    await page.getByRole('progressbar')
+    await page
+      .getByRole('progressbar')
       .isVisible({ timeout: 1000 })
       .catch(() => false);
 
@@ -80,7 +85,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await waitForConvexQuery(page);
 
     // Step 7: Verify we're in a fresh state (no feedback showing)
-    await expect(page.getByText(/Correct answer|Incorrect/i)).not.toBeVisible({ timeout: 2000 })
+    await expect(page.getByText(/Correct answer|Incorrect/i))
+      .not.toBeVisible({ timeout: 2000 })
       .catch(() => {
         // If feedback is still visible, the fix didn't work
         throw new Error('Feedback still visible after clicking Next - state not reset');
@@ -90,7 +96,10 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     // Check if new answer options are visible
     const newFirstOption = page.getByTestId('answer-option-0');
     const hasNewQuestion = await newFirstOption.isVisible({ timeout: 1000 }).catch(() => false);
-    const isComplete = await page.getByText(/All Caught Up/i).isVisible({ timeout: 1000 }).catch(() => false);
+    const isComplete = await page
+      .getByText(/All Caught Up/i)
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
 
     expect(hasNewQuestion || isComplete).toBeTruthy();
 
@@ -103,7 +112,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
       expect(classes).not.toContain('bg-info-background');
 
       // Check if it's the same question (FSRS immediate re-review)
-      const newQuestionText = await page.getByRole('heading', { name: /Question/i })
+      const newQuestionText = await page
+        .getByRole('heading', { name: /Question/i })
         .locator('..')
         .textContent();
 
@@ -129,7 +139,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await page.goto('/');
     await waitForConvexQuery(page);
 
-    const hasQuestion = await page.getByRole('heading', { name: /Question/i })
+    const hasQuestion = await page
+      .getByRole('heading', { name: /Question/i })
       .isVisible({ timeout: 3000 })
       .catch(() => false);
 
@@ -152,9 +163,11 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     // Click Next multiple times rapidly
     const clickPromises = [];
     for (let i = 0; i < 3; i++) {
-      clickPromises.push(nextButton.click().catch(() => {
-        // Ignore errors from rapid clicking
-      }));
+      clickPromises.push(
+        nextButton.click().catch(() => {
+          // Ignore errors from rapid clicking
+        })
+      );
       await page.waitForTimeout(100); // Small delay between clicks
     }
 
@@ -164,9 +177,18 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await waitForConvexQuery(page);
 
     // Verify we're in a valid state (not stuck)
-    const hasNewQuestion = await page.getByTestId('answer-option-0').isVisible({ timeout: 1000 }).catch(() => false);
-    const isComplete = await page.getByText(/All Caught Up/i).isVisible({ timeout: 1000 }).catch(() => false);
-    const hasError = await page.getByText(/Error|Something went wrong/i).isVisible({ timeout: 1000 }).catch(() => false);
+    const hasNewQuestion = await page
+      .getByTestId('answer-option-0')
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    const isComplete = await page
+      .getByText(/All Caught Up/i)
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+    const hasError = await page
+      .getByText(/Error|Something went wrong/i)
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
 
     expect(hasError).toBeFalsy();
     expect(hasNewQuestion || isComplete).toBeTruthy();
@@ -176,7 +198,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await page.goto('/');
     await waitForConvexQuery(page);
 
-    const hasQuestion = await page.getByRole('heading', { name: /Question/i })
+    const hasQuestion = await page
+      .getByRole('heading', { name: /Question/i })
       .isVisible({ timeout: 3000 })
       .catch(() => false);
 
@@ -189,7 +212,7 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     // Try to select what might be a wrong answer (try last option - option 3)
     const lastOption = page.getByTestId('answer-option-3');
     // Fall back to first option if there are fewer than 4 options
-    const optionToClick = await lastOption.isVisible({ timeout: 500 }).catch(() => false)
+    const optionToClick = (await lastOption.isVisible({ timeout: 500 }).catch(() => false))
       ? lastOption
       : page.getByTestId('answer-option-0');
     await optionToClick.click();
@@ -199,7 +222,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await expect(page.getByText(/Correct answer|Incorrect/i)).toBeVisible({ timeout: 5000 });
 
     // Set up promise to catch loading state
-    const loadingPromise = page.getByRole('progressbar')
+    const loadingPromise = page
+      .getByRole('progressbar')
       .isVisible({ timeout: 2000 })
       .catch(() => false);
 
@@ -214,7 +238,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await waitForConvexQuery(page);
 
     // Should be in a fresh state now
-    const feedbackGone = await page.getByText(/Correct answer|Incorrect/i)
+    const feedbackGone = await page
+      .getByText(/Correct answer|Incorrect/i)
       .isVisible({ timeout: 500 })
       .then(() => false)
       .catch(() => true);
@@ -233,7 +258,8 @@ test.describe('FSRS Immediate Re-review Behavior', () => {
     // This test specifically validates that when FSRS immediately reschedules
     // the same question after an incorrect answer, the UI properly resets
 
-    const hasQuestion = await page.getByRole('heading', { name: /Question/i })
+    const hasQuestion = await page
+      .getByRole('heading', { name: /Question/i })
       .isVisible({ timeout: 5000 })
       .catch(() => false);
 
@@ -243,14 +269,15 @@ test.describe('FSRS Immediate Re-review Behavior', () => {
     }
 
     // Track interaction count if displayed
-    const interactionCountBefore = await page.getByText(/Attempt #\d+|Previous attempts: \d+/i)
+    const interactionCountBefore = await page
+      .getByText(/Attempt #\d+|Previous attempts: \d+/i)
       .textContent()
       .catch(() => null);
 
     // Answer incorrectly
     // Try to select last option (likely incorrect)
     const lastOption = page.getByTestId('answer-option-3');
-    const optionToClick = await lastOption.isVisible({ timeout: 500 }).catch(() => false)
+    const optionToClick = (await lastOption.isVisible({ timeout: 500 }).catch(() => false))
       ? lastOption
       : page.getByTestId('answer-option-0');
     await optionToClick.click(); // Choose last option if available
@@ -266,7 +293,8 @@ test.describe('FSRS Immediate Re-review Behavior', () => {
     await page.getByRole('heading', { name: /Question/i }).waitFor({ timeout: 5000 });
 
     // Check interaction count increased (if same question)
-    const interactionCountAfter = await page.getByText(/Attempt #\d+|Previous attempts: \d+/i)
+    const interactionCountAfter = await page
+      .getByText(/Attempt #\d+|Previous attempts: \d+/i)
       .textContent()
       .catch(() => null);
 

@@ -14,8 +14,8 @@ export {
   AlertCircle,
   CheckCircle,
   XCircle,
-  Info
-} from 'lucide-react'
+  Info,
+} from 'lucide-react';
 
 // Quiz-specific icons
 export {
@@ -27,8 +27,8 @@ export {
   RotateCcw,
   Sparkles,
   Clock,
-  Timer
-} from 'lucide-react'
+  Timer,
+} from 'lucide-react';
 
 // Navigation icons
 export {
@@ -39,8 +39,8 @@ export {
   ArrowDown,
   ExternalLink,
   Menu,
-  Settings
-} from 'lucide-react'
+  Settings,
+} from 'lucide-react';
 
 // Progress and stats icons
 export {
@@ -52,29 +52,11 @@ export {
   Award,
   Star,
   Zap,
-  BookOpen
-} from 'lucide-react'
+  BookOpen,
+} from 'lucide-react';
 
 // File and data icons
-export {
-  FileText,
-  Download,
-  Upload,
-  Save,
-  Share,
-  Copy,
-  Trash2,
-  Edit3
-} from 'lucide-react'
+export { FileText, Download, Upload, Save, Share, Copy, Trash2, Edit3 } from 'lucide-react';
 
-// User and account icons  
-export {
-  User,
-  Users,
-  UserPlus,
-  LogIn,
-  LogOut,
-  Shield,
-  Eye,
-  EyeOff
-} from 'lucide-react'
+// User and account icons
+export { User, Users, UserPlus, LogIn, LogOut, Shield, Eye, EyeOff } from 'lucide-react';

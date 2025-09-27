@@ -1,7 +1,8 @@
-import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
-import { GenericMutationCtx } from "convex/server";
-import { DataModel } from "./_generated/dataModel";
+import { GenericMutationCtx } from 'convex/server';
+import { v } from 'convex/values';
+
+import { DataModel } from './_generated/dataModel';
+import { internalMutation, mutation, query } from './_generated/server';
 
 /**
  * Rate limiting configuration for different operation types
@@ -10,17 +11,17 @@ export const RATE_LIMITS = {
   magicLink: {
     maxAttempts: 5,
     windowMs: 3600000, // 1 hour
-    errorMessage: "Too many login attempts. Please try again in 1 hour.",
+    errorMessage: 'Too many login attempts. Please try again in 1 hour.',
   },
   questionGeneration: {
     maxAttempts: 100,
     windowMs: 3600000, // 1 hour per IP
-    errorMessage: "Too many question generation requests. Please try again later.",
+    errorMessage: 'Too many question generation requests. Please try again later.',
   },
   default: {
     maxAttempts: 100,
     windowMs: 3600000, // 1 hour
-    errorMessage: "Too many requests. Please try again later.",
+    errorMessage: 'Too many requests. Please try again later.',
   },
 } as const;
 
@@ -33,24 +34,22 @@ export type RateLimitType = keyof typeof RATE_LIMITS;
 export async function checkEmailRateLimit(
   ctx: GenericMutationCtx<DataModel>,
   email: string,
-  limitType: RateLimitType = "magicLink"
+  limitType: RateLimitType = 'magicLink'
 ): Promise<{ allowed: boolean; retryAfter?: number }> {
   const limit = RATE_LIMITS[limitType];
   const windowStart = Date.now() - limit.windowMs;
 
   // Count recent attempts for this email
   const recentAttempts = await ctx.db
-    .query("rateLimits")
-    .withIndex("by_identifier", (q) => 
-      q.eq("identifier", email).gt("timestamp", windowStart)
-    )
+    .query('rateLimits')
+    .withIndex('by_identifier', (q) => q.eq('identifier', email).gt('timestamp', windowStart))
     .collect();
 
   if (recentAttempts.length >= limit.maxAttempts) {
     // Find the oldest attempt that would still be in the window
     const oldestInWindow = recentAttempts[recentAttempts.length - limit.maxAttempts];
     const retryAfter = oldestInWindow.timestamp + limit.windowMs - Date.now();
-    
+
     return {
       allowed: false,
       retryAfter: Math.max(0, Math.ceil(retryAfter / 1000)), // seconds
@@ -67,23 +66,21 @@ export async function checkEmailRateLimit(
 export async function checkIpRateLimit(
   ctx: GenericMutationCtx<DataModel>,
   ipAddress: string,
-  limitType: RateLimitType = "default"
+  limitType: RateLimitType = 'default'
 ): Promise<{ allowed: boolean; retryAfter?: number }> {
   const limit = RATE_LIMITS[limitType];
   const windowStart = Date.now() - limit.windowMs;
 
   // Count recent attempts for this IP
   const recentAttempts = await ctx.db
-    .query("rateLimits")
-    .withIndex("by_identifier", (q) => 
-      q.eq("identifier", ipAddress).gt("timestamp", windowStart)
-    )
+    .query('rateLimits')
+    .withIndex('by_identifier', (q) => q.eq('identifier', ipAddress).gt('timestamp', windowStart))
     .collect();
 
   if (recentAttempts.length >= limit.maxAttempts) {
     const oldestInWindow = recentAttempts[recentAttempts.length - limit.maxAttempts];
     const retryAfter = oldestInWindow.timestamp + limit.windowMs - Date.now();
-    
+
     return {
       allowed: false,
       retryAfter: Math.max(0, Math.ceil(retryAfter / 1000)), // seconds
@@ -102,7 +99,7 @@ export async function recordRateLimitAttempt(
   operation: string,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  await ctx.db.insert("rateLimits", {
+  await ctx.db.insert('rateLimits', {
     identifier,
     operation,
     timestamp: Date.now(),
@@ -110,15 +107,13 @@ export async function recordRateLimitAttempt(
   });
 
   // Clean up old entries outside any rate limit window
-  const maxWindowMs = Math.max(
-    ...Object.values(RATE_LIMITS).map(limit => limit.windowMs)
-  );
+  const maxWindowMs = Math.max(...Object.values(RATE_LIMITS).map((limit) => limit.windowMs));
   const cleanupThreshold = Date.now() - maxWindowMs * 2; // Keep 2x the max window for analysis
 
   const oldEntries = await ctx.db
-    .query("rateLimits")
-    .withIndex("by_identifier", (q) => 
-      q.eq("identifier", identifier).lt("timestamp", cleanupThreshold)
+    .query('rateLimits')
+    .withIndex('by_identifier', (q) =>
+      q.eq('identifier', identifier).lt('timestamp', cleanupThreshold)
     )
     .collect();
 
@@ -138,7 +133,7 @@ export async function enforceRateLimit(
   limitType: RateLimitType,
   isEmail: boolean = false
 ): Promise<void> {
-  const checkResult = isEmail 
+  const checkResult = isEmail
     ? await checkEmailRateLimit(ctx, identifier, limitType)
     : await checkIpRateLimit(ctx, identifier, limitType);
 
@@ -148,7 +143,7 @@ export async function enforceRateLimit(
       code: string;
       retryAfter: number;
     };
-    error.code = "RATE_LIMIT_EXCEEDED";
+    error.code = 'RATE_LIMIT_EXCEEDED';
     error.retryAfter = checkResult.retryAfter || 60;
     throw error;
   }
@@ -171,15 +166,15 @@ export const getRateLimitStatus = query({
     const windowStart = Date.now() - limit.windowMs;
 
     const recentAttempts = await ctx.db
-      .query("rateLimits")
-      .withIndex("by_identifier", (q) => 
-        q.eq("identifier", args.identifier).gt("timestamp", windowStart)
+      .query('rateLimits')
+      .withIndex('by_identifier', (q) =>
+        q.eq('identifier', args.identifier).gt('timestamp', windowStart)
       )
       .collect();
 
     const attemptsUsed = recentAttempts.length;
     const attemptsRemaining = Math.max(0, limit.maxAttempts - attemptsUsed);
-    
+
     let resetTime: number | null = null;
     if (recentAttempts.length > 0) {
       // Reset time is when the oldest attempt in the window expires
@@ -203,14 +198,12 @@ export const getRateLimitStatus = query({
 export const cleanupExpiredRateLimits = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const maxWindowMs = Math.max(
-      ...Object.values(RATE_LIMITS).map(limit => limit.windowMs)
-    );
+    const maxWindowMs = Math.max(...Object.values(RATE_LIMITS).map((limit) => limit.windowMs));
     const cleanupThreshold = Date.now() - maxWindowMs * 2;
 
     const expiredEntries = await ctx.db
-      .query("rateLimits")
-      .filter((q) => q.lt(q.field("timestamp"), cleanupThreshold))
+      .query('rateLimits')
+      .filter((q) => q.lt(q.field('timestamp'), cleanupThreshold))
       .collect();
 
     let deletedCount = 0;
@@ -239,16 +232,19 @@ export const checkApiRateLimit = mutation({
 
     // Count recent attempts for this IP
     const recentAttempts = await ctx.db
-      .query("rateLimits")
-      .withIndex("by_identifier", (q) => 
-        q.eq("identifier", args.ipAddress).gt("timestamp", windowStart)
+      .query('rateLimits')
+      .withIndex('by_identifier', (q) =>
+        q.eq('identifier', args.ipAddress).gt('timestamp', windowStart)
       )
       .collect();
 
     if (recentAttempts.length >= limit.maxAttempts) {
       const oldestInWindow = recentAttempts[recentAttempts.length - limit.maxAttempts];
-      const retryAfter = Math.max(0, Math.ceil((oldestInWindow.timestamp + limit.windowMs - Date.now()) / 1000));
-      
+      const retryAfter = Math.max(
+        0,
+        Math.ceil((oldestInWindow.timestamp + limit.windowMs - Date.now()) / 1000)
+      );
+
       return {
         allowed: false,
         retryAfter,
@@ -259,7 +255,7 @@ export const checkApiRateLimit = mutation({
     }
 
     // Record this attempt
-    await ctx.db.insert("rateLimits", {
+    await ctx.db.insert('rateLimits', {
       identifier: args.ipAddress,
       operation: args.operation,
       timestamp: Date.now(),

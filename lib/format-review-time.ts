@@ -11,7 +11,7 @@ export function formatNextReviewTime(nextReview: number, now: Date = new Date())
 
   // Less than 1 minute: "Now"
   if (diffMinutes < 1) {
-    return "Now";
+    return 'Now';
   }
 
   // Less than 1 hour: "In X minutes"
@@ -45,9 +45,9 @@ export function formatNextReviewTime(nextReview: number, now: Date = new Date())
 
   // Within 30 days: "Dec 27"
   if (diffDays < 30) {
-    return reviewDate.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
+    return reviewDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
     });
   }
 
@@ -62,7 +62,7 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
   });
 }
 
@@ -70,9 +70,11 @@ function formatTime(date: Date): string {
  * Check if two dates are on the same day
  */
 function isSameDay(date1: Date, date2: Date): boolean {
-  return date1.getFullYear() === date2.getFullYear() &&
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
     date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate();
+    date1.getDate() === date2.getDate()
+  );
 }
 
 /**
@@ -81,9 +83,9 @@ function isSameDay(date1: Date, date2: Date): boolean {
  */
 export function describeReviewInterval(scheduledDays: number): string {
   if (scheduledDays === 0) {
-    return "Later today";
+    return 'Later today';
   } else if (scheduledDays === 1) {
-    return "Tomorrow";
+    return 'Tomorrow';
   } else if (scheduledDays < 7) {
     return `In ${scheduledDays} days`;
   } else if (scheduledDays < 30) {

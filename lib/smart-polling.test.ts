@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
-  getPollingInterval,
+  createVisibilityAwareInterval,
   describePollingInterval,
   getOptimalPollingInterval,
+  getPollingInterval,
   shouldPausePolling,
-  createVisibilityAwareInterval
 } from './smart-polling';
 
 describe('getPollingInterval', () => {
@@ -51,7 +52,7 @@ describe('getPollingInterval', () => {
     });
 
     it('handles extremely large future timestamps', () => {
-      const farFuture = Date.now() + (365 * 24 * 60 * 60 * 1000); // 1 year from now
+      const farFuture = Date.now() + 365 * 24 * 60 * 60 * 1000; // 1 year from now
       expect(getPollingInterval(farFuture)).toBe(60 * 60 * 1000);
     });
   });
@@ -63,7 +64,7 @@ describe('getPollingInterval', () => {
     });
 
     it('returns 5 seconds for exactly 59 seconds away', () => {
-      const nearFuture = Date.now() + (59 * 1000);
+      const nearFuture = Date.now() + 59 * 1000;
       expect(getPollingInterval(nearFuture)).toBe(5 * 1000);
     });
 
@@ -83,7 +84,7 @@ describe('getPollingInterval', () => {
     });
 
     it('returns 30 minutes for exactly 23 hours 59 minutes away', () => {
-      const almostTomorrow = Date.now() + (23 * 60 * 60 * 1000) + (59 * 60 * 1000);
+      const almostTomorrow = Date.now() + 23 * 60 * 60 * 1000 + 59 * 60 * 1000;
       expect(getPollingInterval(almostTomorrow)).toBe(30 * 60 * 1000);
     });
   });
@@ -95,7 +96,7 @@ describe('getPollingInterval', () => {
     });
 
     it('handles timestamp numbers correctly', () => {
-      const futureTimestamp = Date.now() + (30 * 1000);
+      const futureTimestamp = Date.now() + 30 * 1000;
       expect(getPollingInterval(futureTimestamp)).toBe(5 * 1000);
     });
 
@@ -196,39 +197,39 @@ describe('shouldPausePolling', () => {
   it('returns true when document is hidden', () => {
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: true
+      value: true,
     });
 
     expect(shouldPausePolling()).toBe(true);
 
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
   });
 
   it('returns true when visibility state is hidden', () => {
     Object.defineProperty(document, 'visibilityState', {
       writable: true,
-      value: 'hidden'
+      value: 'hidden',
     });
 
     expect(shouldPausePolling()).toBe(true);
 
     Object.defineProperty(document, 'visibilityState', {
       writable: true,
-      value: 'visible'
+      value: 'visible',
     });
   });
 
   it('returns false when document is visible', () => {
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
     Object.defineProperty(document, 'visibilityState', {
       writable: true,
-      value: 'visible'
+      value: 'visible',
     });
 
     expect(shouldPausePolling()).toBe(false);
@@ -251,7 +252,7 @@ describe('createVisibilityAwareInterval', () => {
 
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
 
     const cleanup = createVisibilityAwareInterval(callback, getInterval);
@@ -276,7 +277,7 @@ describe('createVisibilityAwareInterval', () => {
 
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
 
     const cleanup = createVisibilityAwareInterval(callback, getInterval);
@@ -288,7 +289,7 @@ describe('createVisibilityAwareInterval', () => {
     // Hide the page
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: true
+      value: true,
     });
     document.dispatchEvent(new Event('visibilitychange'));
 
@@ -305,7 +306,7 @@ describe('createVisibilityAwareInterval', () => {
 
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
 
     const cleanup = createVisibilityAwareInterval(callback, getInterval);
@@ -313,14 +314,14 @@ describe('createVisibilityAwareInterval', () => {
     // Hide the page
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: true
+      value: true,
     });
     document.dispatchEvent(new Event('visibilitychange'));
 
     // Show the page again
     Object.defineProperty(document, 'hidden', {
       writable: true,
-      value: false
+      value: false,
     });
     document.dispatchEvent(new Event('visibilitychange'));
 

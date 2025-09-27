@@ -1,14 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { Rating, State } from 'ts-fsrs';
+import { beforeEach, describe, expect, it } from 'vitest';
+
 import type { Doc, Id } from './_generated/dataModel';
 import {
   calculateRatingFromCorrectness,
-  scheduleNextReview,
-  initializeCard,
-  dbToCard,
   cardToDb,
+  dbToCard,
   getRetrievability,
-  isDue
+  initializeCard,
+  isDue,
+  scheduleNextReview,
 } from './fsrs';
 
 describe('FSRS Automatic Rating Calculation', () => {
@@ -29,7 +30,7 @@ describe('FSRS Automatic Rating Calculation', () => {
       // Test with various truthy/falsy values that might occur
       expect(calculateRatingFromCorrectness(true)).toBe(Rating.Good);
       expect(calculateRatingFromCorrectness(false)).toBe(Rating.Again);
-      
+
       // TypeScript should prevent these, but good to be explicit
       expect(calculateRatingFromCorrectness(Boolean(1))).toBe(Rating.Good);
       expect(calculateRatingFromCorrectness(Boolean(0))).toBe(Rating.Again);
@@ -37,13 +38,13 @@ describe('FSRS Automatic Rating Calculation', () => {
   });
 
   describe('scheduleNextReview', () => {
-    let mockQuestion: Doc<"questions">;
+    let mockQuestion: Doc<'questions'>;
     const fixedDate = new Date('2025-01-16T12:00:00Z');
 
     beforeEach(() => {
       // Create a mock question with FSRS fields
       mockQuestion = {
-        _id: '123' as Id<"questions">,
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test question?',
         correctAnswer: 'Test answer',
@@ -54,7 +55,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'testing',
         attemptCount: 0,
         correctCount: 0,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         // FSRS fields
         nextReview: fixedDate.getTime(),
         state: 'new',
@@ -64,28 +65,28 @@ describe('FSRS Automatic Rating Calculation', () => {
         scheduledDays: 0,
         reps: 0,
         lapses: 0,
-        lastReview: undefined
+        lastReview: undefined,
       };
     });
 
     it('should apply correct rating for correct answer', () => {
       const result = scheduleNextReview(mockQuestion, true, fixedDate);
-      
+
       // Should use Rating.Good internally
       expect(result.updatedCard.reps).toBe(1);
       expect(result.updatedCard.state).not.toBe(State.New);
-      
+
       // Should schedule for future review
       expect(result.dbFields.nextReview).toBeGreaterThan(fixedDate.getTime());
     });
 
     it('should apply correct rating for incorrect answer', () => {
       const result = scheduleNextReview(mockQuestion, false, fixedDate);
-      
+
       // Should use Rating.Again internally
       expect(result.updatedCard.lapses).toBe(0); // New card doesn't increase lapses
       expect(result.updatedCard.state).toBe(State.Learning);
-      
+
       // Should schedule for sooner review than correct answer
       const correctResult = scheduleNextReview(mockQuestion, true, fixedDate);
       expect(result.dbFields.nextReview).toBeLessThan(correctResult.dbFields.nextReview!);
@@ -93,12 +94,12 @@ describe('FSRS Automatic Rating Calculation', () => {
 
     it('should handle cards in different states appropriately', () => {
       // Test with a card in review state
-      const reviewQuestion: Doc<"questions"> = {
+      const reviewQuestion: Doc<'questions'> = {
         ...mockQuestion,
         state: 'review',
         reps: 5,
         stability: 10,
-        nextReview: fixedDate.getTime() - 86400000 // 1 day overdue
+        nextReview: fixedDate.getTime() - 86400000, // 1 day overdue
       };
 
       const correctResult = scheduleNextReview(reviewQuestion, true, fixedDate);
@@ -107,7 +108,7 @@ describe('FSRS Automatic Rating Calculation', () => {
       // Incorrect answer should result in relearning state
       expect(incorrectResult.updatedCard.state).toBe(State.Relearning);
       expect(incorrectResult.updatedCard.lapses).toBe(1);
-      
+
       // Correct answer should maintain review state
       expect(correctResult.updatedCard.state).toBe(State.Review);
       expect(correctResult.updatedCard.lapses).toBe(0);
@@ -117,7 +118,7 @@ describe('FSRS Automatic Rating Calculation', () => {
       // Test deterministic behavior
       const result1 = scheduleNextReview(mockQuestion, true, fixedDate);
       const result2 = scheduleNextReview(mockQuestion, true, fixedDate);
-      
+
       expect(result1.dbFields.nextReview).toBe(result2.dbFields.nextReview);
       expect(result1.dbFields.stability).toBe(result2.dbFields.stability);
       expect(result1.dbFields.fsrsDifficulty).toBe(result2.dbFields.fsrsDifficulty);
@@ -127,7 +128,7 @@ describe('FSRS Automatic Rating Calculation', () => {
   describe('Card conversion functions', () => {
     it('should initialize new cards correctly', () => {
       const card = initializeCard();
-      
+
       expect(card.state).toBe(State.New);
       expect(card.reps).toBe(0);
       expect(card.lapses).toBe(0);
@@ -136,8 +137,8 @@ describe('FSRS Automatic Rating Calculation', () => {
     });
 
     it('should convert between DB and Card formats bidirectionally', () => {
-      const question: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      const question: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -146,7 +147,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 1,
         correctCount: 1,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
         nextReview: Date.now() + 86400000,
@@ -157,7 +158,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         scheduledDays: 1,
         reps: 3,
         lapses: 0,
-        lastReview: Date.now()
+        lastReview: Date.now(),
       };
 
       const card = dbToCard(question);
@@ -173,8 +174,8 @@ describe('FSRS Automatic Rating Calculation', () => {
     });
 
     it('should handle missing FSRS fields gracefully', () => {
-      const questionWithoutFsrs: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      const questionWithoutFsrs: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -183,13 +184,13 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 0,
         correctCount: 0,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
-        generatedAt: Date.now()
+        generatedAt: Date.now(),
       };
 
       const card = dbToCard(questionWithoutFsrs);
-      
+
       // Should return a new card
       expect(card.state).toBe(State.New);
       expect(card.reps).toBe(0);
@@ -201,8 +202,8 @@ describe('FSRS Automatic Rating Calculation', () => {
     const now = new Date('2025-01-16T12:00:00Z');
 
     it('should calculate retrievability correctly', () => {
-      const wellLearnedQuestion: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      const wellLearnedQuestion: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -211,7 +212,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 10,
         correctCount: 9,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
         nextReview: now.getTime() + 86400000 * 7, // 7 days in future
@@ -222,19 +223,19 @@ describe('FSRS Automatic Rating Calculation', () => {
         scheduledDays: 7,
         reps: 10,
         lapses: 1,
-        lastReview: now.getTime()
+        lastReview: now.getTime(),
       };
 
       const retrievability = getRetrievability(wellLearnedQuestion, now);
-      
+
       // Should be high (close to 1) for recently reviewed card
       expect(retrievability).toBeGreaterThan(0.9);
       expect(retrievability).toBeLessThanOrEqual(1);
     });
 
     it('should identify due questions correctly', () => {
-      const overdueQuestion: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      const overdueQuestion: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -243,7 +244,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 5,
         correctCount: 3,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
         nextReview: now.getTime() - 86400000, // 1 day overdue
@@ -254,18 +255,18 @@ describe('FSRS Automatic Rating Calculation', () => {
         scheduledDays: 1,
         reps: 5,
         lapses: 2,
-        lastReview: now.getTime() - 86400000 * 2
+        lastReview: now.getTime() - 86400000 * 2,
       };
 
-      const futureQuestion: Doc<"questions"> = {
+      const futureQuestion: Doc<'questions'> = {
         ...overdueQuestion,
-        nextReview: now.getTime() + 86400000 // 1 day in future
+        nextReview: now.getTime() + 86400000, // 1 day in future
       };
 
-      const newQuestion: Doc<"questions"> = {
+      const newQuestion: Doc<'questions'> = {
         ...overdueQuestion,
         nextReview: undefined,
-        state: 'new'
+        state: 'new',
       };
 
       expect(isDue(overdueQuestion, now)).toBe(true);
@@ -276,8 +277,8 @@ describe('FSRS Automatic Rating Calculation', () => {
 
   describe('Edge cases and error scenarios', () => {
     it('should handle extreme time values', () => {
-      const question: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      const question: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -286,7 +287,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 0,
         correctCount: 0,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
         nextReview: 0, // Very old timestamp
@@ -296,20 +297,20 @@ describe('FSRS Automatic Rating Calculation', () => {
         elapsedDays: 0,
         scheduledDays: 0,
         reps: 0,
-        lapses: 0
+        lapses: 0,
       };
 
       const farFuture = new Date('2030-01-01');
       const result = scheduleNextReview(question, true, farFuture);
-      
+
       // Should still produce valid results
       expect(result.dbFields.nextReview).toBeGreaterThan(farFuture.getTime());
       expect(result.updatedCard.state).not.toBe(State.New);
     });
 
     it('should maintain data integrity through multiple reviews', () => {
-      let question: Doc<"questions"> = {
-        _id: '123' as Id<"questions">,
+      let question: Doc<'questions'> = {
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test?',
         correctAnswer: 'Test',
@@ -318,26 +319,26 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'test',
         attemptCount: 0,
         correctCount: 0,
-        userId: 'user123' as Id<"users">,
+        userId: 'user123' as Id<'users'>,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
-        state: 'new'
+        state: 'new',
       };
 
       const baseTime = new Date('2025-01-01');
-      
+
       // Simulate multiple review cycles
       for (let i = 0; i < 5; i++) {
         const isCorrect = i !== 2; // Fail on third attempt
         const reviewTime = new Date(baseTime.getTime() + i * 86400000 * 7); // Weekly reviews
-        
+
         const result = scheduleNextReview(question, isCorrect, reviewTime);
-        
+
         // Update question with new FSRS fields
         question = {
           ...question,
-          ...result.dbFields
-        } as Doc<"questions">;
+          ...result.dbFields,
+        } as Doc<'questions'>;
 
         // Verify data consistency
         expect(result.dbFields.nextReview).toBeDefined();
@@ -353,10 +354,10 @@ describe('FSRS Automatic Rating Calculation', () => {
 
   describe('FSRS Scheduling Intervals', () => {
     const fixedDate = new Date('2025-01-16T12:00:00Z');
-    
-    function createMockQuestion(overrides: Partial<Doc<"questions">> = {}): Doc<"questions"> {
+
+    function createMockQuestion(overrides: Partial<Doc<'questions'>> = {}): Doc<'questions'> {
       return {
-        _id: '123' as Id<"questions">,
+        _id: '123' as Id<'questions'>,
         _creationTime: Date.now(),
         question: 'Test question?',
         correctAnswer: 'Test answer',
@@ -367,8 +368,8 @@ describe('FSRS Automatic Rating Calculation', () => {
         topic: 'testing',
         attemptCount: 0,
         correctCount: 0,
-        userId: 'user123' as Id<"users">,
-        ...overrides
+        userId: 'user123' as Id<'users'>,
+        ...overrides,
       };
     }
 
@@ -382,11 +383,14 @@ describe('FSRS Automatic Rating Calculation', () => {
 
     it('should schedule first review within minutes for new cards', () => {
       const newQuestion = createMockQuestion({ state: 'new' });
-      
+
       // First correct answer
       const result = scheduleNextReview(newQuestion, true, fixedDate);
-      const intervalMinutes = getIntervalInMinutes(fixedDate.getTime(), result.dbFields.nextReview!);
-      
+      const intervalMinutes = getIntervalInMinutes(
+        fixedDate.getTime(),
+        result.dbFields.nextReview!
+      );
+
       // FSRS typically schedules new cards for review within 1-10 minutes
       expect(intervalMinutes).toBeGreaterThan(0);
       expect(intervalMinutes).toBeLessThanOrEqual(10);
@@ -395,11 +399,14 @@ describe('FSRS Automatic Rating Calculation', () => {
 
     it('should schedule very short interval after first incorrect answer', () => {
       const newQuestion = createMockQuestion({ state: 'new' });
-      
+
       // First incorrect answer
       const result = scheduleNextReview(newQuestion, false, fixedDate);
-      const intervalMinutes = getIntervalInMinutes(fixedDate.getTime(), result.dbFields.nextReview!);
-      
+      const intervalMinutes = getIntervalInMinutes(
+        fixedDate.getTime(),
+        result.dbFields.nextReview!
+      );
+
       // Failed cards should be reviewed again within 1-5 minutes
       expect(intervalMinutes).toBeGreaterThan(0);
       expect(intervalMinutes).toBeLessThanOrEqual(5);
@@ -416,9 +423,9 @@ describe('FSRS Automatic Rating Calculation', () => {
         const result = scheduleNextReview(question, true, currentTime);
         const intervalDays = getIntervalInDays(currentTime.getTime(), result.dbFields.nextReview!);
         intervals.push(intervalDays);
-        
+
         // Update question with new FSRS fields for next iteration
-        question = { ...question, ...result.dbFields } as Doc<"questions">;
+        question = { ...question, ...result.dbFields } as Doc<'questions'>;
         currentTime = new Date(result.dbFields.nextReview!);
       }
 
@@ -438,12 +445,12 @@ describe('FSRS Automatic Rating Calculation', () => {
         stability: 10,
         reps: 5,
         nextReview: fixedDate.getTime() - 86400000, // 1 day overdue
-        lastReview: fixedDate.getTime() - 86400000 * 3
+        lastReview: fixedDate.getTime() - 86400000 * 3,
       });
 
       const result = scheduleNextReview(reviewQuestion, false, fixedDate);
       const intervalDays = getIntervalInDays(fixedDate.getTime(), result.dbFields.nextReview!);
-      
+
       // After failing a review card, interval should be much shorter than before
       expect(intervalDays).toBeLessThan(1); // Less than 1 day
       expect(result.updatedCard.state).toBe(State.Relearning);
@@ -458,12 +465,12 @@ describe('FSRS Automatic Rating Calculation', () => {
         reps: 20,
         lapses: 0,
         nextReview: fixedDate.getTime(),
-        lastReview: fixedDate.getTime() - 86400000 * 30 // 30 days ago
+        lastReview: fixedDate.getTime() - 86400000 * 30, // 30 days ago
       });
 
       const result = scheduleNextReview(wellLearnedQuestion, true, fixedDate);
       const intervalDays = getIntervalInDays(fixedDate.getTime(), result.dbFields.nextReview!);
-      
+
       // Even well-learned cards shouldn't exceed 365 days (as per DEFAULT_FSRS_PARAMS)
       expect(intervalDays).toBeGreaterThan(30); // Should be longer than previous
       expect(intervalDays).toBeLessThanOrEqual(365); // But not exceed maximum
@@ -475,17 +482,23 @@ describe('FSRS Automatic Rating Calculation', () => {
         state: 'review',
         stability: 5,
         reps: 3,
-        nextReview: fixedDate.getTime() - (86400000 * overdueDays), // 7 days overdue
-        lastReview: fixedDate.getTime() - (86400000 * 10)
+        nextReview: fixedDate.getTime() - 86400000 * overdueDays, // 7 days overdue
+        lastReview: fixedDate.getTime() - 86400000 * 10,
       });
 
       // Test correct answer on overdue card
       const correctResult = scheduleNextReview(overdueQuestion, true, fixedDate);
-      const correctIntervalDays = getIntervalInDays(fixedDate.getTime(), correctResult.dbFields.nextReview!);
-      
+      const correctIntervalDays = getIntervalInDays(
+        fixedDate.getTime(),
+        correctResult.dbFields.nextReview!
+      );
+
       // Test incorrect answer on overdue card
       const incorrectResult = scheduleNextReview(overdueQuestion, false, fixedDate);
-      const incorrectIntervalDays = getIntervalInDays(fixedDate.getTime(), incorrectResult.dbFields.nextReview!);
+      const incorrectIntervalDays = getIntervalInDays(
+        fixedDate.getTime(),
+        incorrectResult.dbFields.nextReview!
+      );
 
       // Correct answer should still result in reasonable interval
       expect(correctIntervalDays).toBeGreaterThan(1);
@@ -501,7 +514,7 @@ describe('FSRS Automatic Rating Calculation', () => {
       for (let run = 0; run < 2; run++) {
         let tempQuestion = { ...question };
         let tempTime = fixedDate;
-        
+
         for (let i = 0; i < 3; i++) {
           const result = scheduleNextReview(tempQuestion, true, tempTime);
           if (run === 0) {
@@ -510,7 +523,7 @@ describe('FSRS Automatic Rating Calculation', () => {
             // Second run should produce identical intervals
             expect(result.dbFields.nextReview).toBe(intervals[i]);
           }
-          tempQuestion = { ...tempQuestion, ...result.dbFields } as Doc<"questions">;
+          tempQuestion = { ...tempQuestion, ...result.dbFields } as Doc<'questions'>;
           tempTime = new Date(result.dbFields.nextReview!);
         }
       }
@@ -523,26 +536,29 @@ describe('FSRS Automatic Rating Calculation', () => {
 
       // Simulate learning phase with mixed results
       const answers = [true, true, false, true, true, true];
-      
+
       for (const isCorrect of answers) {
         const result = scheduleNextReview(question, isCorrect, currentTime);
-        const intervalMinutes = getIntervalInMinutes(currentTime.getTime(), result.dbFields.nextReview!);
-        
+        const intervalMinutes = getIntervalInMinutes(
+          currentTime.getTime(),
+          result.dbFields.nextReview!
+        );
+
         results.push({
           interval: intervalMinutes,
-          state: result.dbFields.state!
+          state: result.dbFields.state!,
         });
-        
-        question = { ...question, ...result.dbFields } as Doc<"questions">;
+
+        question = { ...question, ...result.dbFields } as Doc<'questions'>;
         currentTime = new Date(result.dbFields.nextReview!);
       }
 
       // Verify learning progression
       // After incorrect answer (index 2), interval should be shorter
       expect(results[3].interval).toBeLessThan(results[1].interval);
-      
+
       // Eventually should graduate to review state
-      const finalStates = results.map(r => r.state);
+      const finalStates = results.map((r) => r.state);
       expect(finalStates).toContain('review');
     });
 
@@ -556,7 +572,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         elapsedDays: 10,
         scheduledDays: 10,
         lastReview: fixedDate.getTime() - 86400000 * 10,
-        nextReview: fixedDate.getTime()
+        nextReview: fixedDate.getTime(),
       });
 
       const hardQuestion = createMockQuestion({
@@ -567,7 +583,7 @@ describe('FSRS Automatic Rating Calculation', () => {
         elapsedDays: 10,
         scheduledDays: 10,
         lastReview: fixedDate.getTime() - 86400000 * 10,
-        nextReview: fixedDate.getTime()
+        nextReview: fixedDate.getTime(),
       });
 
       const easyResult = scheduleNextReview(easyQuestion, true, fixedDate);
@@ -579,7 +595,7 @@ describe('FSRS Automatic Rating Calculation', () => {
       // With more extreme difficulty difference and proper card state,
       // intervals should differ, or at least not favor hard questions
       expect(easyInterval).toBeGreaterThanOrEqual(hardInterval);
-      
+
       // Also verify that difficulty is preserved
       expect(easyResult.dbFields.fsrsDifficulty).toBeLessThan(hardResult.dbFields.fsrsDifficulty!);
     });

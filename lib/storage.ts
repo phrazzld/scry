@@ -1,15 +1,13 @@
 export const safeStorage = {
   getItem(key: string): string | null {
     try {
-      return typeof window !== 'undefined' 
-        ? localStorage.getItem(key) 
-        : null;
+      return typeof window !== 'undefined' ? localStorage.getItem(key) : null;
     } catch (error) {
       console.error('Storage access failed:', error);
       return null;
     }
   },
-  
+
   setItem(key: string, value: string): boolean {
     try {
       if (typeof window !== 'undefined') {
@@ -22,7 +20,7 @@ export const safeStorage = {
       return false;
     }
   },
-  
+
   removeItem(key: string): void {
     try {
       if (typeof window !== 'undefined') {
@@ -31,5 +29,5 @@ export const safeStorage = {
     } catch (error) {
       console.error('Storage remove failed:', error);
     }
-  }
+  },
 };

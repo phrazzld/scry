@@ -1,15 +1,15 @@
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function QuizGenerationSkeleton() {
   return (
     <div className="space-y-6">
       {/* Title skeleton */}
       <Skeleton className="h-8 w-64 mx-auto" />
-      
+
       {/* Description skeleton */}
       <Skeleton className="h-4 w-96 mx-auto" />
-      
+
       {/* Form skeleton */}
       <Card className="w-full max-w-md mx-auto">
         <CardHeader>
@@ -21,7 +21,7 @@ export function QuizGenerationSkeleton() {
             <Skeleton className="h-4 w-16" />
             <Skeleton className="h-10 w-full" />
           </div>
-          
+
           {/* Difficulty selector skeleton */}
           <div className="space-y-2">
             <Skeleton className="h-4 w-20" />
@@ -31,13 +31,13 @@ export function QuizGenerationSkeleton() {
               <Skeleton className="h-8 w-16" />
             </div>
           </div>
-          
+
           {/* Generate button skeleton */}
           <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 export function QuizQuestionSkeleton() {
@@ -58,7 +58,7 @@ export function QuizQuestionSkeleton() {
             <Skeleton className="h-4 flex-1" />
           </div>
         ))}
-        
+
         {/* Navigation buttons skeleton */}
         <div className="flex justify-between mt-6">
           <Skeleton className="h-10 w-20" />
@@ -66,7 +66,7 @@ export function QuizQuestionSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export function QuizResultsSkeleton() {
@@ -82,7 +82,7 @@ export function QuizResultsSkeleton() {
           <Skeleton className="h-16 w-24 mx-auto mb-2" />
           <Skeleton className="h-4 w-40 mx-auto" />
         </div>
-        
+
         {/* Question results skeleton */}
         <div className="space-y-4">
           {Array.from({ length: 3 }, (_, i) => (
@@ -99,7 +99,7 @@ export function QuizResultsSkeleton() {
             </div>
           ))}
         </div>
-        
+
         {/* Action buttons skeleton */}
         <div className="flex gap-3 justify-center">
           <Skeleton className="h-10 w-32" />
@@ -107,5 +107,5 @@ export function QuizResultsSkeleton() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

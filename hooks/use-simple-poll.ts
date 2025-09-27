@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { useQuery } from "convex/react";
-import type { FunctionReference, FunctionReturnType } from "convex/server";
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
+import type { FunctionReference, FunctionReturnType } from 'convex/server';
 
 /**
  * A simple polling hook that refetches a Convex query at regular intervals.
@@ -11,9 +11,9 @@ import type { FunctionReference, FunctionReturnType } from "convex/server";
  * @param intervalMs The polling interval in milliseconds
  * @returns The query result with isLoading flag
  */
-export function useSimplePoll<Query extends FunctionReference<"query">>(
+export function useSimplePoll<Query extends FunctionReference<'query'>>(
   query: Query,
-  args: Query["_args"] | "skip",
+  args: Query['_args'] | 'skip',
   intervalMs: number
 ): {
   data: FunctionReturnType<Query> | undefined;
@@ -25,11 +25,11 @@ export function useSimplePoll<Query extends FunctionReference<"query">>(
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
 
   // Manual refetch function
-  const refetch = () => setRefreshCount(c => c + 1);
+  const refetch = () => setRefreshCount((c) => c + 1);
 
   // Set up simple interval
   useEffect(() => {
-    if (args === "skip" || intervalMs <= 0) return;
+    if (args === 'skip' || intervalMs <= 0) return;
 
     // Clear any existing interval
     if (intervalIdRef.current) {
@@ -49,9 +49,7 @@ export function useSimplePoll<Query extends FunctionReference<"query">>(
   }, [intervalMs, args]);
 
   // Add refresh trigger to force re-evaluation
-  const queryArgs = args === "skip"
-    ? "skip"
-    : { ...args, _refreshTimestamp: refreshCount };
+  const queryArgs = args === 'skip' ? 'skip' : { ...args, _refreshTimestamp: refreshCount };
 
   // Use the query with refresh trigger
   // @ts-expect-error - TypeScript can't infer that we're adding the _refreshTimestamp field
@@ -59,7 +57,7 @@ export function useSimplePoll<Query extends FunctionReference<"query">>(
 
   return {
     data,
-    isLoading: data === undefined && args !== "skip",
-    refetch
+    isLoading: data === undefined && args !== 'skip',
+    refetch,
   };
 }

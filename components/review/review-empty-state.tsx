@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Target } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { Target } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 export function ReviewEmptyState() {
   const router = useRouter();
@@ -16,7 +17,8 @@ export function ReviewEmptyState() {
             No Reviews Due
           </h2>
           <p className="text-muted-foreground">
-            You have no questions due for review right now. Great job staying on top of your learning!
+            You have no questions due for review right now. Great job staying on top of your
+            learning!
           </p>
         </div>
 
@@ -27,7 +29,7 @@ export function ReviewEmptyState() {
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               onClick={() => {
-                router.push("/");
+                router.push('/');
                 setTimeout(() => {
                   window.dispatchEvent(new CustomEvent('open-generation-modal'));
                 }, 100);
@@ -36,10 +38,7 @@ export function ReviewEmptyState() {
             >
               Generate Questions
             </Button>
-            <Button
-              onClick={() => router.push("/")}
-              variant="outline"
-            >
+            <Button onClick={() => router.push('/')} variant="outline">
               Go Home
             </Button>
           </div>

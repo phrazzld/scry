@@ -1,26 +1,26 @@
-'use client'
+'use client';
 
-import * as React from 'react'
+import * as React from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useMutation } from 'convex/react';
+import { Loader2, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { Loader2, Sparkles } from 'lucide-react'
-import type { Doc } from '@/convex/_generated/dataModel'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useUser } from '@clerk/nextjs'
-import { cn } from '@/lib/utils'
+  stripGeneratedQuestionMetadata,
+  type GeneratedQuestionPayload,
+} from '@/lib/strip-generated-questions';
+import { cn } from '@/lib/utils';
 
 interface GenerationModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  currentQuestion?: Doc<"questions">
-  onGenerationSuccess?: (count: number) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentQuestion?: Doc<'questions'>;
+  onGenerationSuccess?: (count: number) => void;
 }
 
 const QUICK_PROMPTS = [
@@ -28,77 +28,79 @@ const QUICK_PROMPTS = [
   'Similar but harder',
   'Explain the concept',
   'Real-world applications',
-]
+];
 
 export function GenerationModal({
   open,
   onOpenChange,
   currentQuestion,
-  onGenerationSuccess
+  onGenerationSuccess,
 }: GenerationModalProps) {
-  const [prompt, setPrompt] = React.useState('')
-  const [isGenerating, setIsGenerating] = React.useState(false)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-  const { isSignedIn } = useUser()
-  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)
+  const [prompt, setPrompt] = React.useState('');
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
 
   // Set smart defaults and auto-focus
   React.useEffect(() => {
     if (open) {
       // Smart default when we have context
       if (currentQuestion && !prompt) {
-        setPrompt('5 more like this')
+        setPrompt('5 more like this');
       }
       // Auto-focus after a brief delay
       setTimeout(() => {
-        textareaRef.current?.focus()
+        textareaRef.current?.focus();
         // Position cursor at end
         if (textareaRef.current) {
-          const len = textareaRef.current.value.length
-          textareaRef.current.setSelectionRange(len, len)
+          const len = textareaRef.current.value.length;
+          textareaRef.current.setSelectionRange(len, len);
         }
-      }, 50)
+      }, 50);
     } else {
       // Clear prompt when closing without context
       if (!currentQuestion) {
-        setPrompt('')
+        setPrompt('');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, currentQuestion])
+  }, [open, currentQuestion]);
 
   // Auto-resize textarea
   React.useEffect(() => {
-    const textarea = textareaRef.current
+    const textarea = textareaRef.current;
     if (textarea) {
       // Reset height to auto to get the correct scrollHeight
-      textarea.style.height = 'auto'
+      textarea.style.height = 'auto';
       // Set height based on content, with min and max
-      const newHeight = Math.min(Math.max(textarea.scrollHeight, 80), 200)
-      textarea.style.height = `${newHeight}px`
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, 80), 200);
+      textarea.style.height = `${newHeight}px`;
     }
-  }, [prompt])
+  }, [prompt]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!prompt.trim()) return
+    if (!prompt.trim()) return;
 
-    setIsGenerating(true)
+    setIsGenerating(true);
 
     try {
       // Auto-prepend context if available and not already referenced
-      let finalPrompt = prompt
+      let finalPrompt = prompt;
       if (currentQuestion) {
-        const lowerPrompt = prompt.toLowerCase()
-        if (!lowerPrompt.includes('like this') &&
-            !lowerPrompt.includes('similar') &&
-            !lowerPrompt.includes('these')) {
-          finalPrompt = `Based on: "${currentQuestion.question}" (${currentQuestion.topic}). ${prompt}`
+        const lowerPrompt = prompt.toLowerCase();
+        if (
+          !lowerPrompt.includes('like this') &&
+          !lowerPrompt.includes('similar') &&
+          !lowerPrompt.includes('these')
+        ) {
+          finalPrompt = `Based on: "${currentQuestion.question}" (${currentQuestion.topic}). ${prompt}`;
         } else if (lowerPrompt === '5 more like this' || lowerPrompt === 'more like this') {
           // For simple prompts, provide more context
-          finalPrompt = `Generate 5 more questions similar to: "${currentQuestion.question}" - Topic: ${currentQuestion.topic}, Difficulty: ${currentQuestion.difficulty}`
+          finalPrompt = `Generate 5 more questions similar to: "${currentQuestion.question}" - Topic: ${currentQuestion.topic}, Difficulty: ${currentQuestion.difficulty}`;
         }
       }
 
@@ -108,58 +110,59 @@ export function GenerationModal({
         body: JSON.stringify({
           topic: finalPrompt,
           difficulty: currentQuestion?.difficulty || 'medium',
-        })
-      })
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to generate questions')
+        throw new Error('Failed to generate questions');
       }
 
-      const result = await response.json()
-      const count = result.questions?.length || 0
+      const result = await response.json();
+      const count = result.questions?.length || 0;
 
       // Save questions if user is authenticated
-      if (isSignedIn && result.questions) {
+      if (isSignedIn && Array.isArray(result.questions)) {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const questionsForSave = result.questions.map(({ id, ...q }: { id?: number } & Record<string, unknown>) => q)
+          const questionsForSave = stripGeneratedQuestionMetadata(
+            result.questions as GeneratedQuestionPayload[]
+          );
           await saveQuestions({
             topic: result.topic || finalPrompt,
             difficulty: currentQuestion?.difficulty || 'medium',
-            questions: questionsForSave
-          })
-          toast.success(`✓ ${count} questions generated`)
-          onGenerationSuccess?.(count)
+            questions: questionsForSave,
+          });
+          toast.success(`✓ ${count} questions generated`);
+          onGenerationSuccess?.(count);
         } catch (saveError) {
-          console.error('Failed to save:', saveError)
-          toast.error('Generated but failed to save')
+          console.error('Failed to save:', saveError);
+          toast.error('Generated but failed to save');
         }
-      } else if (result.questions) {
-        toast.success(`✓ ${count} questions generated. Sign in to save.`)
+      } else if (Array.isArray(result.questions)) {
+        toast.success(`✓ ${count} questions generated. Sign in to save.`);
       }
 
-      setPrompt('') // Clear on success
-      onOpenChange(false)
+      setPrompt(''); // Clear on success
+      onOpenChange(false);
     } catch (error) {
-      console.error('Generation error:', error)
-      toast.error('Failed to generate questions')
+      console.error('Generation error:', error);
+      toast.error('Failed to generate questions');
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
   const handleQuickPrompt = (quickPrompt: string) => {
-    setPrompt(quickPrompt)
-    textareaRef.current?.focus()
-  }
+    setPrompt(quickPrompt);
+    textareaRef.current?.focus();
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Submit with Cmd/Ctrl + Enter
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isGenerating) {
-      e.preventDefault()
-      handleSubmit(e)
+      e.preventDefault();
+      handleSubmit(e);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -201,16 +204,17 @@ export function GenerationModal({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={currentQuestion
-                ? "How do you want to modify this question?"
-                : "What do you want to learn? Be as specific or creative as you like..."
+              placeholder={
+                currentQuestion
+                  ? 'How do you want to modify this question?'
+                  : 'What do you want to learn? Be as specific or creative as you like...'
               }
               className={cn(
-                "w-full resize-none rounded-lg border border-input bg-background px-3 py-2",
-                "text-sm ring-offset-background placeholder:text-muted-foreground",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-                "min-h-[80px] transition-all"
+                'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
+                'text-sm ring-offset-background placeholder:text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'min-h-[80px] transition-all'
               )}
               disabled={isGenerating}
               style={{ height: '80px' }}
@@ -223,17 +227,17 @@ export function GenerationModal({
           {/* Quick prompts */}
           {currentQuestion && (
             <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS.map(quickPrompt => (
+              {QUICK_PROMPTS.map((quickPrompt) => (
                 <button
                   key={quickPrompt}
                   type="button"
                   onClick={() => handleQuickPrompt(quickPrompt)}
                   className={cn(
-                    "inline-flex items-center gap-1 px-3 py-1.5 text-xs",
-                    "border border-input bg-background rounded-full",
-                    "hover:bg-accent hover:text-accent-foreground",
-                    "transition-colors cursor-pointer",
-                    prompt === quickPrompt && "bg-accent text-accent-foreground"
+                    'inline-flex items-center gap-1 px-3 py-1.5 text-xs',
+                    'border border-input bg-background rounded-full',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    'transition-colors cursor-pointer',
+                    prompt === quickPrompt && 'bg-accent text-accent-foreground'
                   )}
                   disabled={isGenerating}
                 >
@@ -265,5 +269,5 @@ export function GenerationModal({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

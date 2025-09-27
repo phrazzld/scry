@@ -1,20 +1,21 @@
-"use client"
+'use client';
 
-import { formatDistanceToNow } from 'date-fns'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
-import { useState, memo } from "react"
-import { Doc } from "@/convex/_generated/dataModel"
+import { memo, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { CheckCircle, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
+
+import { Doc } from '@/convex/_generated/dataModel';
 
 interface QuestionHistoryProps {
-  interactions: Doc<"interactions">[]
-  loading?: boolean
+  interactions: Doc<'interactions'>[];
+  loading?: boolean;
 }
 
 function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (loading) {
-    return <QuestionHistorySkeleton />
+    return <QuestionHistorySkeleton />;
   }
 
   if (!interactions || interactions.length === 0) {
@@ -22,17 +23,17 @@ function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProp
       <div>
         <p className="text-sm text-muted-foreground">No previous attempts yet.</p>
       </div>
-    )
+    );
   }
 
   // Sort interactions by most recent first
-  const sortedInteractions = [...interactions].sort((a, b) => b.attemptedAt - a.attemptedAt)
-  const recentInteractions = isExpanded ? sortedInteractions : sortedInteractions.slice(0, 3)
-  const hasMore = interactions.length > 3
+  const sortedInteractions = [...interactions].sort((a, b) => b.attemptedAt - a.attemptedAt);
+  const recentInteractions = isExpanded ? sortedInteractions : sortedInteractions.slice(0, 3);
+  const hasMore = interactions.length > 3;
 
-  const totalAttempts = interactions.length
-  const correctAttempts = interactions.filter(i => i.isCorrect).length
-  const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0
+  const totalAttempts = interactions.length;
+  const correctAttempts = interactions.filter((i) => i.isCorrect).length;
+  const successRate = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0;
 
   return (
     <div>
@@ -61,10 +62,7 @@ function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProp
       </div>
       <div className="mt-2 divide-y divide-border/30">
         {recentInteractions.map((interaction) => (
-          <div
-            key={interaction._id}
-            className="flex items-start gap-2 py-2 first:pt-0"
-          >
+          <div key={interaction._id} className="flex items-start gap-2 py-2 first:pt-0">
             <div className="mt-0.5">
               {interaction.isCorrect ? (
                 <CheckCircle className="h-4 w-4 text-success" />
@@ -73,11 +71,11 @@ function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProp
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-foreground/80 truncate">
-                {interaction.userAnswer}
-              </p>
+              <p className="text-sm text-foreground/80 truncate">{interaction.userAnswer}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}</span>
+                <span>
+                  {formatDistanceToNow(new Date(interaction.attemptedAt), { addSuffix: true })}
+                </span>
                 {interaction.timeSpent && (
                   <>
                     <span className="text-muted-foreground/50">•</span>
@@ -90,7 +88,7 @@ function QuestionHistoryComponent({ interactions, loading }: QuestionHistoryProp
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function QuestionHistorySkeleton() {
@@ -109,17 +107,17 @@ function QuestionHistorySkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 function formatTimeSpent(milliseconds: number): string {
-  const seconds = Math.round(milliseconds / 1000)
+  const seconds = Math.round(milliseconds / 1000);
   if (seconds < 60) {
-    return `${seconds}s`
+    return `${seconds}s`;
   }
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
 }
 
 /**
@@ -129,10 +127,7 @@ function formatTimeSpent(milliseconds: number): string {
  * - Interactions array length changes
  * - Or if any interaction data has actually changed
  */
-function arePropsEqual(
-  prevProps: QuestionHistoryProps,
-  nextProps: QuestionHistoryProps
-): boolean {
+function arePropsEqual(prevProps: QuestionHistoryProps, nextProps: QuestionHistoryProps): boolean {
   // Check if loading state changed
   if (prevProps.loading !== nextProps.loading) {
     return false; // Props changed, re-render needed
@@ -157,8 +152,10 @@ function arePropsEqual(
   // This is more efficient than comparing full objects
   if (prevProps.interactions && nextProps.interactions) {
     for (let i = 0; i < prevProps.interactions.length; i++) {
-      if (prevProps.interactions[i]._id !== nextProps.interactions[i]._id ||
-          prevProps.interactions[i].isCorrect !== nextProps.interactions[i].isCorrect) {
+      if (
+        prevProps.interactions[i]._id !== nextProps.interactions[i]._id ||
+        prevProps.interactions[i].isCorrect !== nextProps.interactions[i].isCorrect
+      ) {
         return false; // Content changed, re-render needed
       }
     }

@@ -1,14 +1,14 @@
-import { defineConfig } from 'vitest/config'
-import path from 'path'
+import path from 'path';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     // Global test settings
     globals: true,
-    
+
     // Use happy-dom for React component/hook testing
     environment: 'happy-dom',
-    
+
     // Setup file for React Testing Library
     setupFiles: ['./vitest.setup.ts'],
 
@@ -26,8 +26,8 @@ export default defineConfig({
         '**/test/**',
         '**/tests/**',
         'lib/generated/**',
-        'scripts/**'
-      ]
+        'scripts/**',
+      ],
     },
 
     // Test organization
@@ -37,12 +37,12 @@ export default defineConfig({
       'dist/',
       '.next/',
       'tests/e2e/**', // Keep Playwright E2E tests separate
-      'lib/generated/**'
+      'lib/generated/**',
     ],
 
     // Performance configuration
     testTimeout: 10000,
-    hookTimeout: 10000
+    hookTimeout: 10000,
   },
 
   // Path resolution for Next.js aliases
@@ -51,4 +51,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
-})
+});

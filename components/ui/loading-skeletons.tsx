@@ -1,7 +1,7 @@
-"use client"
+'use client';
 
-import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Question Generation Flow Skeletons
 export function QuizGenerationSkeleton() {
@@ -27,7 +27,7 @@ export function QuizGenerationSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // Review Stats Skeleton
@@ -45,7 +45,7 @@ export function ReviewStatsSkeleton() {
         </Card>
       ))}
     </div>
-  )
+  );
 }
 
 // Homepage Stats Skeleton
@@ -68,7 +68,7 @@ export function HomepageStatsSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Answer Submission Skeleton (inline)
@@ -82,7 +82,7 @@ export function AnswerFeedbackSkeleton() {
       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-4 w-3/4" />
     </div>
-  )
+  );
 }
 
 // Progress Update Skeleton (inline)
@@ -92,7 +92,7 @@ export function ProgressUpdateSkeleton() {
       <Skeleton className="h-4 w-4 rounded-full animate-pulse" />
       <Skeleton className="h-4 w-20" />
     </div>
-  )
+  );
 }
 
 // Recent Topics Skeleton
@@ -109,7 +109,7 @@ export function RecentTopicsSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // Review Question Skeleton
@@ -130,19 +130,23 @@ export function QuizQuestionSkeleton() {
         ))}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // Service Worker Update Skeleton
 export function ServiceWorkerUpdateSkeleton() {
   return (
-    <div className="fixed bottom-4 right-4 p-4 bg-background border rounded-lg shadow-lg" aria-hidden="true" aria-busy="true">
+    <div
+      className="fixed bottom-4 right-4 p-4 bg-background border rounded-lg shadow-lg"
+      aria-hidden="true"
+      aria-busy="true"
+    >
       <div className="flex items-center gap-3">
         <Skeleton className="h-4 w-4 rounded-full animate-spin" />
         <Skeleton className="h-4 w-32" />
       </div>
     </div>
-  )
+  );
 }
 
 // Review Session Skeleton
@@ -162,7 +166,7 @@ export function QuizSessionSkeleton() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
 // Technical Diagram Skeleton
@@ -176,7 +180,7 @@ export function TechnicalDiagramSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Quiz Flow Skeleton (for the entire quiz creation flow page)
@@ -196,7 +200,7 @@ export function QuizFlowSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Add shimmer animation styles
@@ -219,4 +223,4 @@ export const shimmerStyles = `
       animation: none;
     }
   }
-`
+`;

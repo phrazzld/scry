@@ -1,12 +1,14 @@
-"use client";
+'use client';
 
-import { useReviewFlow } from "@/hooks/use-review-flow";
-import { useRenderTracker } from "@/hooks/use-render-tracker";
-import { ReviewSession } from "@/components/review-session";
-import { ReviewEmptyState } from "./review-empty-state";
-import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
-import { Profiler, ProfilerOnRenderCallback, useEffect } from "react";
-import { POLLING_INTERVAL_MS } from "@/lib/constants/timing";
+import { Profiler, ProfilerOnRenderCallback, useEffect } from 'react';
+
+import { ReviewSession } from '@/components/review-session';
+import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
+import { useRenderTracker } from '@/hooks/use-render-tracker';
+import { useReviewFlow } from '@/hooks/use-review-flow';
+import { POLLING_INTERVAL_MS } from '@/lib/constants/timing';
+
+import { ReviewEmptyState } from './review-empty-state';
 
 // Circular buffer for storing last 100 render profiles
 const MAX_PROFILE_ENTRIES = 100;
@@ -20,7 +22,7 @@ if (typeof window !== 'undefined' && !window.__REVIEW_PERF_DATA) {
     avgActualDuration: 0,
     avgBaseDuration: 0,
     p95ActualDuration: 0,
-    lastUpdate: Date.now()
+    lastUpdate: Date.now(),
   };
 }
 
@@ -46,7 +48,7 @@ const logProfileData: ProfilerOnRenderCallback = (
     startTime,
     commitTime,
     timestamp: Date.now(),
-    exceedsFrameBudget: actualDuration > 16 // 16ms for 60fps
+    exceedsFrameBudget: actualDuration > 16, // 16ms for 60fps
   };
 
   // Ensure data store exists
@@ -58,7 +60,7 @@ const logProfileData: ProfilerOnRenderCallback = (
       avgActualDuration: 0,
       avgBaseDuration: 0,
       p95ActualDuration: 0,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     };
   }
 
@@ -75,11 +77,11 @@ const logProfileData: ProfilerOnRenderCallback = (
   }
 
   // Calculate averages and percentiles
-  const durations = window.__REVIEW_PERF_DATA.renders.map(r => r.actualDuration);
+  const durations = window.__REVIEW_PERF_DATA.renders.map((r) => r.actualDuration);
   window.__REVIEW_PERF_DATA.avgActualDuration =
     durations.reduce((a, b) => a + b, 0) / durations.length;
 
-  const baseDurations = window.__REVIEW_PERF_DATA.renders.map(r => r.baseDuration);
+  const baseDurations = window.__REVIEW_PERF_DATA.renders.map((r) => r.baseDuration);
   window.__REVIEW_PERF_DATA.avgBaseDuration =
     baseDurations.reduce((a, b) => a + b, 0) / baseDurations.length;
 
@@ -108,7 +110,7 @@ export function ReviewMode() {
   // Add render tracking for performance monitoring
   useRenderTracker('ReviewMode', {
     phase,
-    questionId
+    questionId,
   });
 
   // Export performance data periodically for automated testing
@@ -125,7 +127,11 @@ export function ReviewMode() {
           p95ActualDuration: window.__REVIEW_PERF_DATA.p95ActualDuration.toFixed(2) + 'ms',
           exceedsFrameBudget: window.__REVIEW_PERF_DATA.exceedsFrameBudget,
           frameBudgetViolationRate:
-            ((window.__REVIEW_PERF_DATA.exceedsFrameBudget / window.__REVIEW_PERF_DATA.totalRenders) * 100).toFixed(1) + '%'
+            (
+              (window.__REVIEW_PERF_DATA.exceedsFrameBudget /
+                window.__REVIEW_PERF_DATA.totalRenders) *
+              100
+            ).toFixed(1) + '%',
         };
       }
     }, POLLING_INTERVAL_MS);
@@ -137,11 +143,11 @@ export function ReviewMode() {
   return (
     <Profiler id="ReviewMode" onRender={logProfileData}>
       <div className="min-h-[400px] flex items-start justify-center">
-        {phase === "loading" && <QuizFlowSkeleton />}
+        {phase === 'loading' && <QuizFlowSkeleton />}
 
-        {phase === "empty" && <ReviewEmptyState />}
+        {phase === 'empty' && <ReviewEmptyState />}
 
-        {phase === "error" && (
+        {phase === 'error' && (
           <div className="w-full max-w-2xl px-4 py-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
               <svg
@@ -158,7 +164,7 @@ export function ReviewMode() {
                 />
               </svg>
               <h3 className="text-lg font-semibold text-red-900 mb-2">
-                {errorMessage || "Something went wrong"}
+                {errorMessage || 'Something went wrong'}
               </h3>
               <button
                 onClick={() => window.location.reload()}
@@ -170,7 +176,7 @@ export function ReviewMode() {
           </div>
         )}
 
-        {phase === "reviewing" && question && (
+        {phase === 'reviewing' && question && (
           <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
             <ReviewSession
               question={question}

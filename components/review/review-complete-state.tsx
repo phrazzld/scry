@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { useRouter } from 'next/navigation';
+
+import { Button } from '@/components/ui/button';
 
 interface ReviewCompleteStateProps {
   remainingReviews: number;
@@ -25,21 +26,17 @@ export function ReviewCompleteState({ remainingReviews, onNextReview }: ReviewCo
           <p className="text-sm text-muted-foreground">
             {remainingReviews > 0
               ? `You have ${remainingReviews} more questions due for review.`
-              : "You're all caught up with your reviews!"
-            }
+              : "You're all caught up with your reviews!"}
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             {remainingReviews > 0 && (
-              <Button
-                onClick={onNextReview}
-                variant="default"
-              >
+              <Button onClick={onNextReview} variant="default">
                 Next Review
               </Button>
             )}
             <Button
-              onClick={() => router.push("/")}
-              variant={remainingReviews > 0 ? "outline" : "default"}
+              onClick={() => router.push('/')}
+              variant={remainingReviews > 0 ? 'outline' : 'default'}
             >
               Go Home
             </Button>

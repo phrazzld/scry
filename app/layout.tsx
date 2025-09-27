@@ -1,38 +1,41 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { validateEnv } from "@/lib/env";
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+
+import './globals.css';
+
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+
+import { ConditionalNavbar } from '@/components/conditional-navbar';
+import { DebugPanel } from '@/components/debug-panel';
+import { Footer } from '@/components/footer';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
+import { CurrentQuestionProvider } from '@/contexts/current-question-context';
+import { validateEnv } from '@/lib/env';
+import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode';
+
+import { ClerkConvexProvider } from './clerk-provider';
 
 // Validate environment variables at build/dev time
-if (process.env.NODE_ENV === "development") {
+if (process.env.NODE_ENV === 'development') {
   validateEnv();
 }
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
-  title: "Scry - Simple Learning",
-  description: "Transform any topic into quiz questions with AI",
+  title: 'Scry - Simple Learning',
+  description: 'Transform any topic into quiz questions with AI',
 };
-
-import { ConditionalNavbar } from '@/components/conditional-navbar'
-import { Footer } from '@/components/footer'
-import { Toaster } from '@/components/ui/sonner'
-import { ClerkConvexProvider } from './clerk-provider'
-import { Analytics } from '@vercel/analytics/react'
-import { SpeedInsights } from '@vercel/speed-insights/react'
-import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
-import { ThemeProvider } from '@/components/theme-provider'
-import { DebugPanel } from '@/components/debug-panel'
-import { CurrentQuestionProvider } from '@/contexts/current-question-context'
 
 export default function RootLayout({
   children,
@@ -41,9 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 /**
  * Integration tests for complete question lifecycle
- * 
+ *
  * Tests the full user journey: create → edit → delete → restore
  * These tests simulate end-to-end workflows with proper state management
  * and verify data integrity throughout the entire lifecycle.
@@ -82,7 +82,11 @@ class QuestionLifecycleSimulator {
   }
 
   // Simulate update operation with permission check
-  async updateQuestion(id: string, updates: Partial<MockQuestion>, userId: string): Promise<MockQuestion> {
+  async updateQuestion(
+    id: string,
+    updates: Partial<MockQuestion>,
+    userId: string
+  ): Promise<MockQuestion> {
     const question = this.db.questions.get(id);
     if (!question) {
       throw new Error('Question not found');
@@ -224,11 +228,11 @@ describe('Question Lifecycle Integration Tests', () => {
       // Step 1: Create a question
       const questionData = createQuestionData();
       const created = await simulator.createQuestion(questionData, testUserId);
-      
+
       expect(created._id as string).toBeDefined();
-      expect(created["question"]).toBe(questionData.question);
+      expect(created['question']).toBe(questionData.question);
       expect(created.userId).toBe(testUserId);
-      expect(created["deletedAt"]).toBeUndefined();
+      expect(created['deletedAt']).toBeUndefined();
 
       // Step 2: Edit the question
       const updates = {
@@ -236,28 +240,28 @@ describe('Question Lifecycle Integration Tests', () => {
         explanation: 'Paris has been the capital since the Capetian dynasty.',
       };
       const edited = await simulator.updateQuestion(created._id as string, updates, testUserId);
-      
-      expect(edited["question"]).toBe(updates.question);
-      expect(edited["explanation"]).toBe(updates.explanation);
-      expect(edited["topic"]).toBe(questionData.topic); // Unchanged
+
+      expect(edited['question']).toBe(updates.question);
+      expect(edited['explanation']).toBe(updates.explanation);
+      expect(edited['topic']).toBe(questionData.topic); // Unchanged
       expect(edited.updatedAt).toBeDefined();
 
       // Step 3: Delete the question
       const deleted = await simulator.softDeleteQuestion(created._id as string, testUserId);
-      
+
       expect(deleted.deletedAt).toBeDefined();
-      expect(deleted["question"]).toBe(updates.question); // Data preserved
-      
+      expect(deleted['question']).toBe(updates.question); // Data preserved
+
       // Verify it's excluded from active queries
       const activeQuestions = simulator.getUserQuestions(testUserId, false);
       expect(activeQuestions).toHaveLength(0);
 
       // Step 4: Restore the question
       const restored = await simulator.restoreQuestion(created._id as string, testUserId);
-      
+
       expect(restored.deletedAt).toBeUndefined();
-      expect(restored["question"]).toBe(updates.question); // Data still preserved
-      
+      expect(restored['question']).toBe(updates.question); // Data still preserved
+
       // Verify it's included in active queries again
       const questionsAfterRestore = simulator.getUserQuestions(testUserId, false);
       expect(questionsAfterRestore).toHaveLength(1);
@@ -271,11 +275,11 @@ describe('Question Lifecycle Integration Tests', () => {
         ...fsrsData,
       };
       const created = await simulator.createQuestion(questionData, testUserId);
-      
+
       // Verify FSRS data is present
-      expect(created["stability"]).toBe(fsrsData.stability);
-      expect(created["fsrsDifficulty"]).toBe(fsrsData.fsrsDifficulty);
-      expect(created["state"]).toBe(fsrsData.state);
+      expect(created['stability']).toBe(fsrsData.stability);
+      expect(created['fsrsDifficulty']).toBe(fsrsData.fsrsDifficulty);
+      expect(created['state']).toBe(fsrsData.state);
 
       // Edit the question
       const updates = {
@@ -284,28 +288,28 @@ describe('Question Lifecycle Integration Tests', () => {
         reps: 999, // Should NOT be updated
       };
       const edited = await simulator.updateQuestion(created._id as string, updates, testUserId);
-      
+
       // Verify FSRS data is preserved (not overwritten)
-      expect(edited["question"]).toBe('Updated question text');
-      expect(edited["stability"]).toBe(fsrsData.stability); // NOT 999
-      expect(edited["reps"]).toBe(fsrsData.reps); // NOT 999
+      expect(edited['question']).toBe('Updated question text');
+      expect(edited['stability']).toBe(fsrsData.stability); // NOT 999
+      expect(edited['reps']).toBe(fsrsData.reps); // NOT 999
 
       // Delete the question
       const deleted = await simulator.softDeleteQuestion(created._id as string, testUserId);
-      
+
       // Verify FSRS data is still preserved
-      expect(deleted["stability"]).toBe(fsrsData.stability);
-      expect(deleted["fsrsDifficulty"]).toBe(fsrsData.fsrsDifficulty);
-      expect(deleted["state"]).toBe(fsrsData.state);
+      expect(deleted['stability']).toBe(fsrsData.stability);
+      expect(deleted['fsrsDifficulty']).toBe(fsrsData.fsrsDifficulty);
+      expect(deleted['state']).toBe(fsrsData.state);
 
       // Restore the question
       const restored = await simulator.restoreQuestion(created._id as string, testUserId);
-      
+
       // Verify FSRS data is still intact after restore
-      expect(restored["stability"]).toBe(fsrsData.stability);
-      expect(restored["fsrsDifficulty"]).toBe(fsrsData.fsrsDifficulty);
-      expect(restored["state"]).toBe(fsrsData.state);
-      expect(restored["nextReview"]).toBe(fsrsData.nextReview);
+      expect(restored['stability']).toBe(fsrsData.stability);
+      expect(restored['fsrsDifficulty']).toBe(fsrsData.fsrsDifficulty);
+      expect(restored['state']).toBe(fsrsData.state);
+      expect(restored['nextReview']).toBe(fsrsData.nextReview);
     });
   });
 
@@ -328,9 +332,9 @@ describe('Question Lifecycle Integration Tests', () => {
       await simulator.softDeleteQuestion(question._id as string, testUserId);
 
       // Try to restore as different user - should fail
-      await expect(
-        simulator.restoreQuestion(question._id as string, otherUserId)
-      ).rejects.toThrow('Unauthorized: Only creator can restore');
+      await expect(simulator.restoreQuestion(question._id as string, otherUserId)).rejects.toThrow(
+        'Unauthorized: Only creator can restore'
+      );
 
       // Restore as owner - should succeed
       const restored = await simulator.restoreQuestion(question._id as string, testUserId);
@@ -344,13 +348,13 @@ describe('Question Lifecycle Integration Tests', () => {
         simulator.updateQuestion(fakeId, { question: 'Test' }, testUserId)
       ).rejects.toThrow('Question not found');
 
-      await expect(
-        simulator.softDeleteQuestion(fakeId, testUserId)
-      ).rejects.toThrow('Question not found');
+      await expect(simulator.softDeleteQuestion(fakeId, testUserId)).rejects.toThrow(
+        'Question not found'
+      );
 
-      await expect(
-        simulator.restoreQuestion(fakeId, testUserId)
-      ).rejects.toThrow('Question not found');
+      await expect(simulator.restoreQuestion(fakeId, testUserId)).rejects.toThrow(
+        'Question not found'
+      );
     });
   });
 
@@ -359,9 +363,9 @@ describe('Question Lifecycle Integration Tests', () => {
       const question = await simulator.createQuestion(createQuestionData(), testUserId);
 
       // Cannot restore an active question
-      await expect(
-        simulator.restoreQuestion(question._id as string, testUserId)
-      ).rejects.toThrow('Question is not deleted');
+      await expect(simulator.restoreQuestion(question._id as string, testUserId)).rejects.toThrow(
+        'Question is not deleted'
+      );
 
       // Delete the question
       await simulator.softDeleteQuestion(question._id as string, testUserId);
@@ -394,8 +398,8 @@ describe('Question Lifecycle Integration Tests', () => {
 
       // Check updated stats
       const updated = simulator.getQuestion(question._id as string)!;
-      expect(updated["attemptCount"]).toBe(3);
-      expect(updated["correctCount"]).toBe(2);
+      expect(updated['attemptCount']).toBe(3);
+      expect(updated['correctCount']).toBe(2);
 
       // Verify interactions are stored
       const interactions = simulator.getQuestionInteractions(question._id as string);
@@ -424,15 +428,15 @@ describe('Question Lifecycle Integration Tests', () => {
 
       // Stats should be preserved
       const restored = simulator.getQuestion(question._id as string)!;
-      expect(restored["attemptCount"]).toBe(2);
-      expect(restored["correctCount"]).toBe(1);
+      expect(restored['attemptCount']).toBe(2);
+      expect(restored['correctCount']).toBe(1);
 
       // Can add new interactions after restore
       await simulator.recordInteraction(question._id as string, testUserId, true);
-      
+
       const finalQuestion = simulator.getQuestion(question._id as string)!;
-      expect(finalQuestion["attemptCount"]).toBe(3);
-      expect(finalQuestion["correctCount"]).toBe(2);
+      expect(finalQuestion['attemptCount']).toBe(3);
+      expect(finalQuestion['correctCount']).toBe(2);
     });
   });
 
@@ -471,7 +475,9 @@ describe('Question Lifecycle Integration Tests', () => {
       // Now should have 2 active questions
       const finalActive = simulator.getUserQuestions(testUserId, false);
       expect(finalActive).toHaveLength(2);
-      expect(finalActive.map(q => q._id).sort()).toEqual([q1._id as string, q2._id as string].sort());
+      expect(finalActive.map((q) => q._id).sort()).toEqual(
+        [q1._id as string, q2._id as string].sort()
+      );
     });
   });
 });

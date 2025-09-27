@@ -3,7 +3,7 @@
  * This demonstrates the test fixtures for authenticated E2E tests
  */
 
-import { test, expect, authenticateTest, isAuthenticated } from '../fixtures/test-auth';
+import { authenticateTest, expect, isAuthenticated, test } from '../fixtures/test-auth';
 
 test.describe('Authenticated Flow Example', () => {
   test('should authenticate using test mode', async ({ page }) => {

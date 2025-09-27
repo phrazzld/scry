@@ -1,30 +1,28 @@
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { AlertCircle } from 'lucide-react'
-import { systemLogger } from '@/lib/logger'
+import { useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error
-  reset: () => void
-}) {
+import { Button } from '@/components/ui/button';
+import { systemLogger } from '@/lib/logger';
+
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
-    systemLogger.error({
-      event: 'app.unhandled-error',
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+    systemLogger.error(
+      {
+        event: 'app.unhandled-error',
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        },
+        timestamp: new Date().toISOString(),
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        url: typeof window !== 'undefined' ? window.location.href : 'unknown',
       },
-      timestamp: new Date().toISOString(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      url: typeof window !== 'undefined' ? window.location.href : 'unknown'
-    }, `Unhandled application error: ${error.message}`)
-  }, [error])
+      `Unhandled application error: ${error.message}`
+    );
+  }, [error]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-8">
@@ -36,11 +34,11 @@ export default function Error({
         </p>
         <div className="space-x-4">
           <Button onClick={reset}>Try Again</Button>
-          <Button variant="outline" onClick={() => window.location.href = '/'}>
+          <Button variant="outline" onClick={() => (window.location.href = '/')}>
             Go Home
           </Button>
         </div>
       </div>
     </div>
-  )
+  );
 }
