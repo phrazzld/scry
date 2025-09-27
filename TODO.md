@@ -129,7 +129,7 @@
   * Export data via window.__REVIEW_PERF_DATA for automated testing
   * Expected data: Identify which renders exceed 16ms frame budget
 
-- [ ] Document render flow in `docs/review-render-flow.md`
+- [x] Document render flow in `docs/review-render-flow.md`
   * Diagram component hierarchy with data flow arrows
   * List all state variables and what triggers their updates
   * Map user actions to resulting state changes and renders
