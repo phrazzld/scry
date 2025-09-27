@@ -10,14 +10,6 @@ export interface SimpleQuestion {
   explanation?: string
 }
 
-// Legacy interface kept for backward compatibility during refactor
-// TODO: Remove once all references to SimpleQuiz are eliminated
-export interface SimpleQuiz {
-  topic: string
-  questions: SimpleQuestion[]
-  questionIds?: string[] // IDs of persisted questions
-  currentIndex: number
-}
 
 export interface QuizGenerationRequest {
   topic: string

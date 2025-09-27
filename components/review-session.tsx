@@ -4,28 +4,22 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SimpleQuiz } from '@/types/questions'
+import type { SimpleQuestion } from '@/types/questions'
 import type { Doc } from '@/convex/_generated/dataModel'
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions'
 import { QuestionHistory } from '@/components/question-history'
 
 interface ReviewSessionProps {
-  quiz: SimpleQuiz
+  question: SimpleQuestion
+  questionId?: string
   onComplete: (answers: Array<{ userAnswer: string; isCorrect: boolean }>, sessionId: string) => void
   mode?: 'quiz' | 'review'
   questionHistory?: Doc<"interactions">[] // History of previous attempts for review mode
 }
 
-export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory }: ReviewSessionProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+export function ReviewSession({ question, questionId, onComplete, mode = 'quiz', questionHistory }: ReviewSessionProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
-  const [answers, setAnswers] = useState<Array<{
-    questionId?: string
-    userAnswer: string
-    isCorrect: boolean
-    timeTaken?: number
-  }>>([])
   const [nextReviewInfo, setNextReviewInfo] = useState<{
     nextReview: Date | null
     scheduledDays: number
@@ -33,11 +27,9 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   
   const { trackAnswer } = useQuizInteractions()
   const [sessionId] = useState(() => Math.random().toString(36).substring(7))
-  const [questionStartTime, setQuestionStartTime] = useState(Date.now())
+  const [questionStartTime] = useState(Date.now())
   
-  const currentQuestion = quiz.questions[currentIndex]
-  const isLastQuestion = currentIndex === quiz.questions.length - 1
-  const isCorrect = selectedAnswer === currentQuestion.correctAnswer
+  const isCorrect = selectedAnswer === question.correctAnswer
 
   const handleAnswerSelect = (answer: string) => {
     if (showFeedback) return
@@ -49,22 +41,11 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
 
     setShowFeedback(true)
     
-    // Add answer to array for non-last questions
-    if (!isLastQuestion) {
-      const newAnswer = {
-        questionId: quiz.questionIds?.[currentIndex],
-        userAnswer: selectedAnswer,
-        isCorrect: isCorrect,
-        timeTaken: Date.now() - questionStartTime
-      }
-      setAnswers([...answers, newAnswer])
-    }
-
-    // Track interaction if we have question IDs
-    if (quiz.questionIds && quiz.questionIds[currentIndex]) {
+    // Track interaction if we have a question ID
+    if (questionId) {
       const timeSpent = Date.now() - questionStartTime
       const reviewInfo = await trackAnswer(
-        quiz.questionIds[currentIndex],
+        questionId,
         selectedAnswer,
         isCorrect,
         timeSpent,
@@ -81,34 +62,26 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   }
 
   const handleNext = () => {
-    if (isLastQuestion) {
-      // Include the current answer in final results
-      const finalAnswers = [...answers, {
-        questionId: quiz.questionIds?.[currentIndex],
-        userAnswer: selectedAnswer,
-        isCorrect,
-        timeTaken: Date.now() - questionStartTime
-      }]
-      onComplete(finalAnswers, sessionId)
-    } else {
-      setCurrentIndex(currentIndex + 1)
-      setSelectedAnswer('')
-      setShowFeedback(false)
-      setNextReviewInfo(null) // Clear review info for next question
-      setQuestionStartTime(Date.now()) // Reset timer for next question
-    }
+    // Since we're dealing with a single question, always complete
+    const finalAnswers = [{
+      questionId,
+      userAnswer: selectedAnswer,
+      isCorrect,
+      timeTaken: Date.now() - questionStartTime
+    }]
+    onComplete(finalAnswers, sessionId)
   }
 
   return (
     <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
       <article className="space-y-6">
-        <h2 className="text-xl font-semibold">{currentQuestion.question}</h2>
+        <h2 className="text-xl font-semibold">{question.question}</h2>
 
         <div className="space-y-3">
-            {currentQuestion.type === 'true-false' ? (
+            {question.type === 'true-false' ? (
               // True/False specific layout
               <div className="grid grid-cols-2 gap-4">
-                {currentQuestion.options.map((option, index) => (
+                {question.options.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleAnswerSelect(option)}
@@ -123,11 +96,11 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
                         "border-info-border bg-info-background text-info"
                       ],
                       // Feedback state - correct answer
-                      showFeedback && option === currentQuestion.correctAnswer && [
+                      showFeedback && option === question.correctAnswer && [
                         "border-success-border bg-success-background text-success"
                       ],
                       // Feedback state - wrong answer selected
-                      showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && [
+                      showFeedback && selectedAnswer === option && option !== question.correctAnswer && [
                         "border-error-border bg-error-background text-error"
                       ]
                     )}
@@ -135,10 +108,10 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
                   >
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <span className="text-lg">{option}</span>
-                      {showFeedback && option === currentQuestion.correctAnswer && (
+                      {showFeedback && option === question.correctAnswer && (
                         <CheckCircle className="h-6 w-6 text-success animate-scaleIn" />
                       )}
-                      {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
+                      {showFeedback && selectedAnswer === option && option !== question.correctAnswer && (
                         <XCircle className="h-6 w-6 text-error animate-scaleIn" />
                       )}
                     </div>
@@ -147,7 +120,7 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
               </div>
             ) : (
               // Multiple choice layout
-              currentQuestion.options.map((option, index) => (
+              question.options.map((option, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(option)}
@@ -162,11 +135,11 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
                       "border-info-border bg-info-background"
                     ],
                     // Feedback state - correct answer
-                    showFeedback && option === currentQuestion.correctAnswer && [
+                    showFeedback && option === question.correctAnswer && [
                       "border-success-border bg-success-background"
                     ],
                     // Feedback state - wrong answer selected
-                    showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && [
+                    showFeedback && selectedAnswer === option && option !== question.correctAnswer && [
                       "border-error-border bg-error-background"
                     ]
                   )}
@@ -174,10 +147,10 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
                 >
                   <div className="flex items-center justify-between">
                     <span>{option}</span>
-                    {showFeedback && option === currentQuestion.correctAnswer && (
+                    {showFeedback && option === question.correctAnswer && (
                       <CheckCircle className="h-5 w-5 text-success animate-scaleIn" />
                     )}
-                    {showFeedback && selectedAnswer === option && option !== currentQuestion.correctAnswer && (
+                    {showFeedback && selectedAnswer === option && option !== question.correctAnswer && (
                       <XCircle className="h-5 w-5 text-error animate-scaleIn" />
                     )}
                   </div>
@@ -185,15 +158,15 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
               ))
             )}
 
-            {showFeedback && (currentQuestion.explanation || (mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
+            {showFeedback && (question.explanation || (mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
               <div className="mt-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
                 {/* Explanation */}
-                {currentQuestion.explanation && (
-                  <p className="text-sm text-foreground/90">{currentQuestion.explanation}</p>
+                {question.explanation && (
+                  <p className="text-sm text-foreground/90">{question.explanation}</p>
                 )}
 
                 {/* Divider between explanation and other content */}
-                {currentQuestion.explanation && ((mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
+                {question.explanation && ((mode === 'review' && questionHistory) || nextReviewInfo?.nextReview) && (
                   <hr className="border-border/30" />
                 )}
 

@@ -39,7 +39,6 @@ export default function ProfilingTestPage() {
     totalQuestions: 1,
     correctAnswers: 1,
     timeSpent: 5000,
-    currentIndex: 0,
   };
 
   return (
@@ -118,7 +117,7 @@ export default function ProfilingTestPage() {
         {testCase === "manager" && (
           <div className="max-w-3xl">
             <ReviewSession
-              quiz={mockQuizResult}
+              question={mockQuizResult.questions[0]}
               onComplete={() => {}}
             />
           </div>

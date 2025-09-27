@@ -172,12 +172,8 @@ export function ReviewMode() {
         {phase === "reviewing" && question && (
           <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
             <ReviewSession
-              quiz={{
-                topic: "Review Session",
-                questions: [question],
-                questionIds: questionId ? [questionId] : [],
-                currentIndex: 0
-              }}
+              question={question}
+              questionId={questionId || undefined}
               onComplete={handlers.onReviewComplete}
               mode="review"
               questionHistory={interactions}

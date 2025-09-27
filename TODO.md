@@ -16,8 +16,8 @@
 ## High Priority: Temporary Code
 
 ### Legacy Interface Cleanup
-- [ ] Remove SimpleQuiz interface from `types/questions.ts:14-18` - Only 1 remaining usage in `components/review-session.tsx`, refactor that reference first
-- [ ] Update `components/review-session.tsx` to remove SimpleQuiz type dependency - Replace with proper Question type
+- [x] Remove SimpleQuiz interface from `types/questions.ts:14-18` - Only 1 remaining usage in `components/review-session.tsx`, refactor that reference first
+- [x] Update `components/review-session.tsx` to remove SimpleQuiz type dependency - Replace with proper Question type
 
 ### Test Updates
 - [x] Update E2E test in `tests/e2e/spaced-repetition.test.ts:53` - Replace /create route navigation with generation modal trigger
