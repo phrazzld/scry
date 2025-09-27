@@ -1,76 +1,168 @@
-# TODO - Branch Cleanup: refactor/remove-card-components
+# TODO
 
-## Critical: Debug Artifacts (Production Blockers)
+## 🔴 CRITICAL: E2E Test Infrastructure (68% tests failing - blocks deployments)
 
-### Console Logging Removal
-- [x] Remove 5 console.log statements from `components/review-flow.tsx` - Lines containing `[ReviewFlow]` debug output for answer selection, submission, and timing metrics
-- [x] Remove 5 console.log statements from `components/review-session.tsx` - Lines containing `[ReviewSession]` debug output mirroring ReviewFlow patterns
-- [x] Remove 9 console.log/console.time statements from `hooks/use-review-flow.ts` - Lines containing `[ReviewMode]` state transition logging and timing measurements
-- [x] Remove console.error from `components/convex-error-boundary.tsx` - Line with 'Failed to save:' error output (replace with proper error handling if needed)
+### Immediate Triage (Fix today)
+- [x] Delete `tests/e2e/auth.test.ts` completely - tests NextAuth UI that no longer exists (Clerk replaced it)
+  - Impact: Removes 45 failing test runs (9 tests × 5 browsers)
+  - Success: `rm tests/e2e/auth.test.ts && npx playwright test` shows fewer failures
+- [ ] Add `CLERK_TEST_MODE=true` to `.env.test.local` for E2E test authentication bypass
+  - Context: Clerk provides test mode to skip real auth in tests
+  - Success: Tests can authenticate without real email flow
+- [ ] Create `tests/fixtures/test-auth.ts` with Clerk test token generation
+  ```typescript
+  // Example structure needed:
+  export const getTestAuthToken = () => {...}
+  export const authenticateTest = async (page) => {...}
+  ```
 
-### Performance Instrumentation Removal
-- [x] Remove 4 performance.mark() calls from `components/review-flow.tsx` - Markers: 'answer-selected', 'answer-submitted', 'feedback-shown', 'next-question'
-- [x] Remove 4 performance.mark() calls from `components/review-session.tsx` - Duplicate markers matching review-flow.tsx
-- [x] Remove 3 console.time() and 3 console.timeEnd() pairs from `hooks/use-review-flow.ts` - Timing blocks: 'ReviewMode.dispatch.LOAD_START', 'ReviewMode.dispatch.LOAD_EMPTY', 'ReviewMode.dispatch.QUESTION_RECEIVED'
+### E2E Test Reduction (Reduce complexity)
+- [ ] Reduce Playwright browser matrix from 5 to 2 in `playwright.config.ts`
+  - Keep: Desktop Chrome, Mobile Chrome
+  - Remove: Firefox, Safari, Mobile Safari
+  - Rationale: 5× test runs for marginal browser coverage is waste
+  - Success: Test runs drop from 145 to 58 (27 tests × 2 browsers + 4 skipped)
+- [ ] Mark non-critical E2E tests with `test.skip()` - keep only:
+  1. Quiz generation → completion flow
+  2. Spaced repetition review cycle
+  3. Mobile responsive check
+  - File: `tests/e2e/spaced-repetition.test.ts` - skip 2 of 5 tests
+  - File: `tests/e2e/spaced-repetition.local.test.ts` - skip 6 of 9 tests
+  - Success: E2E suite focuses on critical user paths only
 
-## High Priority: Temporary Code
+### Test Selector Stability
+- [ ] Add `data-testid` attributes to critical UI elements
+  - `components/generation-modal.tsx`: Add `data-testid="generate-quiz-button"`
+  - `components/navbar.tsx`: Add `data-testid="user-menu"`
+  - `components/review-flow.tsx`: Add `data-testid="answer-option-{index}"`
+  - Success: Tests use stable selectors, not brittle text matching
+- [ ] Update E2E tests to use `page.getByTestId()` instead of `getByRole()` with text
+  - Files: All remaining `.test.ts` files in `tests/e2e/`
+  - Example: `getByRole('button', { name: 'Generate' })` → `getByTestId('generate-quiz-button')`
 
-### Legacy Interface Cleanup
-- [x] Remove SimpleQuiz interface from `types/questions.ts:14-18` - Only 1 remaining usage in `components/review-session.tsx`, refactor that reference first
-- [x] Update `components/review-session.tsx` to remove SimpleQuiz type dependency - Replace with proper Question type
+## ⚡ Quick Wins (30 min each, high impact)
 
-### Test Updates
-- [x] Update E2E test in `tests/e2e/spaced-repetition.test.ts:53` - Replace /create route navigation with generation modal trigger
-- [x] Update E2E test in `tests/e2e/spaced-repetition.test.ts:149` - Replace /create route navigation with generation modal trigger
-- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:36` - Replace /create route navigation with generation modal trigger
-- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:205` - Replace /create route navigation with generation modal trigger
-- [x] Update E2E test in `tests/e2e/spaced-repetition.local.test.ts:304` - Replace /create route navigation with generation modal trigger
+### Code Formatting Consistency
+- [ ] Install and configure Prettier
+  ```bash
+  pnpm add -D prettier eslint-config-prettier
+  echo '{"semi": true, "singleQuote": true, "trailingComma": "es5"}' > .prettierrc
+  ```
+  - Update `.eslintrc.json`: Add "prettier" to extends array
+  - Success: `pnpm prettier --check .` runs without errors
+- [ ] Add Prettier to pre-commit hooks in `.husky/pre-commit`
+  ```bash
+  npx lint-staged --concurrent false
+  # Add to lint-staged in package.json:
+  # "*.{js,jsx,ts,tsx}": ["prettier --write", "eslint --fix"]
+  ```
+  - Success: Commits auto-format code, no more formatting debates
 
-## Medium Priority: Code Quality
+### CI/CD Alignment
+- [ ] Fix Node version mismatch in `.github/workflows/ci.yml`
+  - Change: `node-version: 20` → `node-version: 20.19.0`
+  - Matches `package.json` engines requirement
+  - Success: CI uses exact same Node version as local development
+- [ ] Add Node version check to CI before install
+  ```yaml
+  - name: Verify Node version
+    run: node -v | grep -q "v20.19" || exit 1
+  ```
 
-### Magic Number Constants
-- [x] Create constants file `lib/constants/timing.ts` with polling and delay constants
-- [x] Define and export `POLLING_INTERVAL_MS = 30000` for review polling interval
-- [x] Define and export `FRAME_UPDATE_INTERVAL_MS = 1000` for debug panel frame updates
-- [x] Define and export `LOADING_TIMEOUT_MS = 5000` for loading timeout (not feedback display)
-- [x] Define and export `TIMER_CLEANUP_THRESHOLD_MS = 60000` for timer cleanup cutoff
-- [x] Replace hardcoded 30000 with POLLING_INTERVAL_MS in polling implementations
-- [x] Replace hardcoded 1000 with FRAME_UPDATE_INTERVAL_MS in debug panel
-- [x] Replace hardcoded 5000 with LOADING_TIMEOUT_MS in use-review-flow
-- [x] Replace hardcoded 60000 with TIMER_CLEANUP_THRESHOLD_MS in timer cleanup logic
+### Import Organization
+- [ ] Install import sorting plugin
+  ```bash
+  pnpm add -D @ianvs/prettier-plugin-sort-imports
+  ```
+  - Update `.prettierrc`: Add import sort configuration
+  - Success: Imports auto-organize, reducing diff noise
 
-## Low Priority: Optional Cleanup
+## 🚀 Test Infrastructure Improvements
 
-### Debug Infrastructure (Keep for Development)
-- [x] Add NODE_ENV check to `components/debug-panel.tsx` - Only render in development environment
-- [x] Add NODE_ENV check to `app/test-profiling/page.tsx` route - Return 404 in production builds
-- [x] Document debug panel keyboard shortcuts in README.md - Currently uses Cmd+Shift+D to toggle
+### Test Utilities (Reduce duplication)
+- [ ] Create `lib/test-utils/auth-helpers.ts` with Clerk mock utilities
+  ```typescript
+  export const mockClerkAuth = () => {...}
+  export const createMockUser = () => {...}
+  ```
+- [ ] Create `lib/test-utils/render-with-providers.tsx` for React Testing Library
+  ```typescript
+  export const renderWithProviders = (ui, options?) => {...}
+  ```
+- [ ] Create `lib/test-utils/fixtures.ts` with reusable test data
+  ```typescript
+  export const mockQuestion = {...}
+  export const mockQuizSession = {...}
+  ```
+  - Success: Test files import utilities instead of duplicating setup
 
-### Documentation
-- [x] Add comment explaining why debug-panel.tsx is kept - "Development-only performance monitoring tool"
-- [x] Add comment explaining why test-profiling page is kept - "Manual performance regression testing interface"
+### Test Performance
+- [ ] Enable Vitest parallel execution in `vitest.config.ts`
+  ```typescript
+  pool: 'threads',
+  poolOptions: { threads: { singleThread: false } }
+  ```
+  - Current: Tests run sequentially
+  - Target: < 30 seconds for all unit tests
+- [ ] Add test timing output to identify slow tests
+  ```typescript
+  reporters: ['default', 'hanging-process']
+  ```
+  - Success: `pnpm test` shows which tests are slow
 
-## Verification Checklist
-- [x] Run `git diff master..HEAD | grep -E "console\.(log|error|warn|debug)" | wc -l` - Returns 86 (from other files in branch, not cleanup targets)
-- [x] Run `git diff master..HEAD | grep "performance\.mark" | wc -l` - Returns 4 (from other files in branch, not cleanup targets)
-- [x] Run `git diff master..HEAD | grep "console\.time" | wc -l` - Returns 2 (from other files in branch, not cleanup targets)
-- [x] Run `pnpm test` - All tests should pass ✓ (310 tests passing)
-- [x] Run `pnpm lint` - No linting errors ✓
-- [x] Run `pnpm tsc --noEmit` - No TypeScript errors ✓
+### Coverage Visibility (No thresholds!)
+- [ ] Add coverage comment bot to GitHub Actions
+  ```yaml
+  - uses: ArtiomTr/jest-coverage-report-action@v2
+    if: github.event_name == 'pull_request'
+    with:
+      test-script: pnpm test:ci
+      annotations: failed-tests
+  ```
+  - Success: PRs show coverage changes without blocking
 
-## Post-Cleanup
-- [x] All cleanup tasks completed and committed individually
-- [x] Run full E2E test suite - **46 passed, 99 failed** (auth UI changes - needs separate fix)
-  - Note: Unit tests all passing (310 tests)
-  - E2E failures appear related to auth flow UI changes
-- [x] Review diff one final time before opening PR ✓
-  - 84 commits refactoring quiz components to review architecture
-  - Removed old quiz-flow components, replaced with review-flow
-  - Added debug tools with production safety checks
-  - Cleaned up all debug artifacts (console logs, performance marks)
-  - 73 files changed: 4416 insertions(+), 3181 deletions(-)
+## 📊 Monitoring (Optional - only if problems arise)
+
+### Bundle Size Tracking
+- [ ] Add bundle analyzer script to `package.json`
+  ```json
+  "analyze": "ANALYZE=true next build"
+  ```
+  - Only run when investigating performance issues
+  - Success: `pnpm analyze` shows bundle composition
+
+### Performance Budgets
+- [ ] Add Lighthouse CI configuration (`.lighthouserc.js`)
+  ```javascript
+  module.exports = {
+    ci: {
+      assert: {
+        assertions: {
+          'first-contentful-paint': ['warn', {maxNumericValue: 2000}],
+          'interactive': ['warn', {maxNumericValue: 5000}]
+        }
+      }
+    }
+  }
+  ```
+  - Non-blocking warnings only, no hard failures
+  - Success: Performance regressions get flagged in PR comments
+
+## 🎯 Success Metrics
+
+### Week 1 Targets
+- [ ] E2E test pass rate > 95% (reduced, focused test set)
+- [ ] Total test runtime < 2 minutes (currently ~3 min)
+- [ ] CI pipeline < 5 minutes (currently ~7 min)
+
+### Anti-Goals (What NOT to do)
+- ❌ Don't add test coverage thresholds
+- ❌ Don't add more ESLint rules
+- ❌ Don't require 100% test pass rate
+- ❌ Don't test all browser variants
+- ❌ Don't mock everything - some integration is good
 
 ---
-*Branch: refactor/remove-card-components (78 commits ahead of master)*
-*Total files changed: 70*
-*Estimated cleanup time: 45 minutes*
+
+*Philosophy: Fix what's broken, delete what doesn't work, measure what matters.*
+*Time estimate: 10-15 hours total, but frontload the critical E2E fixes (2-3 hours).*
