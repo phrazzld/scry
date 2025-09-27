@@ -43,6 +43,14 @@ export default defineConfig({
     // Performance configuration
     testTimeout: 10000,
     hookTimeout: 10000,
+
+    // Enable parallel test execution
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: false,
+      },
+    },
   },
 
   // Path resolution for Next.js aliases
