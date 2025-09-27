@@ -91,7 +91,7 @@
 - [ ] Log transition failures to error tracking service
 
 ### Testing Infrastructure
-- [ ] Write unit test for REVIEW_COMPLETE reducer case
-- [ ] Add E2E test for incorrect answer → Next button flow
+- [x] Write unit test for REVIEW_COMPLETE reducer case
+- [x] Add E2E test for incorrect answer → Next button flow
 - [ ] Create performance benchmark for question transitions
 - [ ] Add regression test to prevent future locking issues
