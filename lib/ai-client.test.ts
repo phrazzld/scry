@@ -97,7 +97,7 @@ describe('AI Client', () => {
       // Verify logging
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.start',
+          event: 'ai.question-generation.start',
           topic: 'JavaScript'
         }),
         expect.any(String)
@@ -168,7 +168,7 @@ describe('AI Client', () => {
 
       expect(aiLogger.warn).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.fallback',
+          event: 'ai.question-generation.fallback',
           topic: 'Mathematics'
         }),
         expect.stringContaining('Using fallback questions')
@@ -206,7 +206,7 @@ describe('AI Client', () => {
 
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          event: 'ai.quiz-generation.start',
+          event: 'ai.question-generation.start',
           topic: 'sanitized-topic',
           originalTopic: '  Unsafe <script> Topic  '
         }),
@@ -235,7 +235,7 @@ describe('AI Client', () => {
       await generateQuizWithAI('Performance Test')
 
       expect(loggers.time).toHaveBeenCalledWith(
-        'ai.quiz-generation.Performance Test',
+        'ai.question-generation.Performance Test',
         'ai'
       )
 
