@@ -34,7 +34,7 @@ test.describe('Spaced Repetition Flow', () => {
     await page.goto('/');
     
     // Check if user menu exists (would only show if authenticated)
-    const userMenuButton = page.getByRole('button', { name: /User menu/i });
+    const userMenuButton = page.getByTestId('user-menu');
     
     if (await userMenuButton.isVisible({ timeout: 5000 }).catch(() => false)) {
       // If authenticated, verify review link exists
@@ -56,7 +56,8 @@ test.describe('Spaced Repetition Flow', () => {
     await page.goto('/');
 
     // Open the generation modal
-    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+    const generateBtn = page.locator('[title="Generate questions (G)"]');
+    await generateBtn.click();
     
     // Check the response status
     const response = await page.waitForResponse(response => response.url().includes('/create'));
@@ -153,21 +154,22 @@ test.describe('Spaced Repetition Flow', () => {
 
       // 2. Generate questions via modal
       await page.goto('/');
-      await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+      const generateBtn = page.locator('[title="Generate questions (G)"]');
+      await generateBtn.click();
 
       // Wait for modal to appear
       await page.waitForSelector('[role="dialog"]', { state: 'visible' });
 
       await page.getByLabel(/Topic/i).fill('JavaScript Basics');
       await page.getByLabel(/Difficulty/i).selectOption('easy');
-      await page.getByRole('button', { name: /Generate Questions/i }).click();
+      await page.getByTestId('generate-quiz-button').click();
       
       // 3. Wait for question generation
       await expect(page.getByRole('heading', { name: /Question 1/i })).toBeVisible({ timeout: 30000 });
       
       // 4. Answer questions (mix of correct and incorrect)
       // First question - answer correctly
-      await page.getByRole('radio').first().click();
+      await page.getByTestId('answer-option-0').click();
       await page.getByRole('button', { name: /Submit/i }).click();
       
       // Wait for feedback
@@ -180,7 +182,7 @@ test.describe('Spaced Repetition Flow', () => {
         
         // Alternate correct/incorrect answers
         const answerIndex = i % 2 === 0 ? 1 : 0;
-        await page.getByRole('radio').nth(answerIndex).click();
+        await page.getByTestId(`answer-option-${answerIndex}`).click();
         await page.getByRole('button', { name: /Submit/i }).click();
         await expect(page.getByText(/Correct|Incorrect/i)).toBeVisible();
       }
@@ -196,7 +198,7 @@ test.describe('Spaced Repetition Flow', () => {
       await expect(page.getByRole('heading', { name: /Question/i })).toBeVisible();
       
       // 8. Answer a review question
-      await page.getByRole('radio').first().click();
+      await page.getByTestId('answer-option-0').click();
       await page.getByRole('button', { name: /Submit/i }).click();
       
       // 9. Verify FSRS scheduling feedback

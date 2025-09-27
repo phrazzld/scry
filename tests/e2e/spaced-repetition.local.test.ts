@@ -37,7 +37,8 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
   test('complete spaced repetition flow', async ({ page }) => {
     // 1. Navigate to home and open generation modal
     await page.goto('/');
-    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+    const generateBtn = page.locator('[title="Generate questions (G)"]');
+    await generateBtn.click();
     await waitForConvexQuery(page);
 
     // 2. Generate questions
@@ -48,7 +49,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
     await page.getByLabel(/Difficulty/i).selectOption('easy');
     
     // Generate questions
-    await page.getByRole('button', { name: /Generate Questions/i }).click();
+    await page.getByTestId('generate-quiz-button').click();
     
     // 3. Wait for question generation
     await expect(page.getByText(/Generating questions/i)).toBeVisible();
@@ -65,7 +66,7 @@ test.describe('Spaced Repetition E2E Flow (Local)', () => {
       
       // Select answer based on pattern (correct = first option, incorrect = second)
       const optionIndex = answerPattern[i] ? 0 : 1;
-      await page.getByRole('radio').nth(optionIndex).click();
+      await page.getByTestId(`answer-option-${optionIndex}`).click();
       
       // Submit answer
       await page.getByRole('button', { name: /Submit/i }).click();
@@ -227,7 +228,8 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
 
     // 2. Generate new questions via modal
     await page.goto('/');
-    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+    const generateBtn = page.locator('[title="Generate questions (G)"]');
+    await generateBtn.click();
     await waitForConvexQuery(page);
     
     // Fill quiz form
@@ -238,7 +240,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     const generationStartTime = Date.now();
     
     // Generate questions
-    await page.getByRole('button', { name: /Generate Questions/i }).click();
+    await page.getByTestId('generate-quiz-button').click();
     
     // 3. Wait for generation to complete
     await expect(page.getByText(/Generating quiz/i)).toBeVisible();
@@ -311,7 +313,8 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
 
     // 1. Start on home page and open generation modal
     await page.goto('/');
-    await page.getByRole('button', { name: 'Generate questions (G)' }).click();
+    const generateBtn = page.locator('[title="Generate questions (G)"]');
+    await generateBtn.click();
     await waitForConvexQuery(page);
     
     // 2. Generate a quiz with a unique topic to ensure we're reviewing the right questions
@@ -320,7 +323,7 @@ test.describe('Spaced Repetition Edge Cases (Local)', () => {
     await page.getByLabel(/Difficulty/i).selectOption('medium');
     
     // Click generate and wait for toast
-    await page.getByRole('button', { name: /Generate Quiz/i }).click();
+    await page.getByTestId('generate-quiz-button').click();
     await expect(page.getByText(/Generating quiz/i)).toBeVisible();
     
     // Wait for generation to complete - should show success toast

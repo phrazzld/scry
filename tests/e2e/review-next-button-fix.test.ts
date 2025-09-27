@@ -44,11 +44,12 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
       .textContent();
 
     // Step 1: Select an answer (deliberately choose a wrong one if possible)
-    const answerOptions = await page.getByRole('radio').all();
-    expect(answerOptions.length).toBeGreaterThan(0);
+    // Find answer options using test IDs
+    const firstOption = page.getByTestId('answer-option-0');
+    await expect(firstOption).toBeVisible();
 
     // Click the first answer option
-    await answerOptions[0].click();
+    await firstOption.click();
 
     // Step 2: Submit the answer
     const submitButton = page.getByRole('button', { name: /Submit/i });
@@ -86,18 +87,20 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
       });
 
     // Step 8: Verify we can interact with the question again
-    const newAnswerOptions = await page.getByRole('radio').all();
-    const hasNewQuestion = newAnswerOptions.length > 0;
+    // Check if new answer options are visible
+    const newFirstOption = page.getByTestId('answer-option-0');
+    const hasNewQuestion = await newFirstOption.isVisible({ timeout: 1000 }).catch(() => false);
     const isComplete = await page.getByText(/All Caught Up/i).isVisible({ timeout: 1000 }).catch(() => false);
 
     expect(hasNewQuestion || isComplete).toBeTruthy();
 
     if (hasNewQuestion) {
-      // Verify none of the options are selected (clean state)
-      for (const option of newAnswerOptions) {
-        const isChecked = await option.isChecked();
-        expect(isChecked).toBeFalsy();
-      }
+      // Verify the first option is visible and not selected (clean state)
+      await expect(newFirstOption).toBeVisible();
+      // Check that it doesn't have selected state classes
+      const classes = await newFirstOption.getAttribute('class');
+      expect(classes).not.toContain('border-info-border');
+      expect(classes).not.toContain('bg-info-background');
 
       // Check if it's the same question (FSRS immediate re-review)
       const newQuestionText = await page.getByRole('heading', { name: /Question/i })
@@ -112,8 +115,9 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
       }
 
       // Either way, the interface should be interactive
-      await newAnswerOptions[0].click();
-      expect(await newAnswerOptions[0].isChecked()).toBeTruthy();
+      await newFirstOption.click();
+      // Verify it was selected (button should have selected state class)
+      await expect(newFirstOption).toHaveClass(/border-info-border|bg-info-background/);
     }
 
     // Verify the transition was smooth (no long delays)
@@ -135,8 +139,8 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     }
 
     // Answer a question
-    const answerOptions = await page.getByRole('radio').all();
-    await answerOptions[0].click();
+    const firstOption = page.getByTestId('answer-option-0');
+    await firstOption.click();
     await page.getByRole('button', { name: /Submit/i }).click();
 
     // Wait for feedback
@@ -160,7 +164,7 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     await waitForConvexQuery(page);
 
     // Verify we're in a valid state (not stuck)
-    const hasNewQuestion = await page.getByRole('radio').count() > 0;
+    const hasNewQuestion = await page.getByTestId('answer-option-0').isVisible({ timeout: 1000 }).catch(() => false);
     const isComplete = await page.getByText(/All Caught Up/i).isVisible({ timeout: 1000 }).catch(() => false);
     const hasError = await page.getByText(/Error|Something went wrong/i).isVisible({ timeout: 1000 }).catch(() => false);
 
@@ -182,10 +186,13 @@ test.describe('Review Flow - Next Button After Incorrect Answer', () => {
     }
 
     // Answer incorrectly to likely trigger same-question re-review
-    const answerOptions = await page.getByRole('radio').all();
-
-    // Try to select what might be a wrong answer (last option often is)
-    await answerOptions[answerOptions.length - 1].click();
+    // Try to select what might be a wrong answer (try last option - option 3)
+    const lastOption = page.getByTestId('answer-option-3');
+    // Fall back to first option if there are fewer than 4 options
+    const optionToClick = await lastOption.isVisible({ timeout: 500 }).catch(() => false)
+      ? lastOption
+      : page.getByTestId('answer-option-0');
+    await optionToClick.click();
     await page.getByRole('button', { name: /Submit/i }).click();
 
     // Wait for feedback
@@ -241,8 +248,12 @@ test.describe('FSRS Immediate Re-review Behavior', () => {
       .catch(() => null);
 
     // Answer incorrectly
-    const answerOptions = await page.getByRole('radio').all();
-    await answerOptions[answerOptions.length - 1].click(); // Choose last option
+    // Try to select last option (likely incorrect)
+    const lastOption = page.getByTestId('answer-option-3');
+    const optionToClick = await lastOption.isVisible({ timeout: 500 }).catch(() => false)
+      ? lastOption
+      : page.getByTestId('answer-option-0');
+    await optionToClick.click(); // Choose last option if available
     await page.getByRole('button', { name: /Submit/i }).click();
 
     // Verify we see feedback
@@ -268,9 +279,9 @@ test.describe('FSRS Immediate Re-review Behavior', () => {
         console.log('Same question returned with incremented attempt count');
 
         // Verify we can still interact with it
-        const newOptions = await page.getByRole('radio').all();
-        await newOptions[0].click();
-        expect(await newOptions[0].isChecked()).toBeTruthy();
+        const newFirstOption = page.getByTestId('answer-option-0');
+        await newFirstOption.click();
+        await expect(newFirstOption).toHaveClass(/border-info-border|bg-info-background/);
       }
     }
   });
