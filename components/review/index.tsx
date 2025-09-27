@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { ReviewMode } from "./review-mode";
+import { ReviewFlow } from "@/components/review-flow";
 
 /**
  * Unified review flow component - everything is review mode.
@@ -21,10 +21,10 @@ export default function UnifiedQuizFlow() {
     );
   }
 
-  return <ReviewMode />;
+  return <ReviewFlow />;
 }
 
 // Re-export review components for external use
-export { ReviewMode } from "./review-mode";
+export { ReviewFlow } from "@/components/review-flow";
 export { ReviewEmptyState } from "./review-empty-state";
 export { ReviewCompleteState } from "./review-complete-state";
