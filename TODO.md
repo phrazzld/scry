@@ -17,7 +17,7 @@
   ```
 
 ### E2E Test Reduction (Reduce complexity)
-- [ ] Reduce Playwright browser matrix from 5 to 2 in `playwright.config.ts`
+- [x] Reduce Playwright browser matrix from 5 to 2 in `playwright.config.ts`
   - Keep: Desktop Chrome, Mobile Chrome
   - Remove: Firefox, Safari, Mobile Safari
   - Rationale: 5× test runs for marginal browser coverage is waste
