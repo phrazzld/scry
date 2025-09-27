@@ -9,7 +9,7 @@
 - [x] Add `CLERK_TEST_MODE=true` to `.env.test.local` for E2E test authentication bypass
   - Context: Clerk provides test mode to skip real auth in tests
   - Success: Tests can authenticate without real email flow
-- [ ] Create `tests/fixtures/test-auth.ts` with Clerk test token generation
+- [x] Create `tests/fixtures/test-auth.ts` with Clerk test token generation
   ```typescript
   // Example structure needed:
   export const getTestAuthToken = () => {...}
