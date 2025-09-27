@@ -75,3 +75,4 @@ playwright-report/
 test-*.js
 test-results-*.md
 components/review.old.tsx
+test-results-summary.md
