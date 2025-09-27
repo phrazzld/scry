@@ -149,7 +149,7 @@
 - [ ] Load test with 50+ questions - ensure layout performs without card virtualization
 
 ## Technical Debt
-- [ ] Add error boundary around review components for graceful degradation
+- [x] Add error boundary around review components for graceful degradation
 - [ ] Fix test failures: React import issues in `review-flow.test.tsx` (15 tests failing)
 - [ ] Update test expectations after "quiz" → "question" terminology refactoring
 

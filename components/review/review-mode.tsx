@@ -117,14 +117,15 @@ export function ReviewMode() {
     // Log performance summary every 30 seconds in development
     const interval = setInterval(() => {
       if (window.__REVIEW_PERF_DATA && window.__REVIEW_PERF_DATA.renders.length > 0) {
-        console.log('[ReviewMode Performance Summary]', {
+        // Store metrics for external access instead of logging
+        window.__REVIEW_PERF_DATA.summary = {
           totalRenders: window.__REVIEW_PERF_DATA.totalRenders,
           avgActualDuration: window.__REVIEW_PERF_DATA.avgActualDuration.toFixed(2) + 'ms',
           p95ActualDuration: window.__REVIEW_PERF_DATA.p95ActualDuration.toFixed(2) + 'ms',
           exceedsFrameBudget: window.__REVIEW_PERF_DATA.exceedsFrameBudget,
           frameBudgetViolationRate:
             ((window.__REVIEW_PERF_DATA.exceedsFrameBudget / window.__REVIEW_PERF_DATA.totalRenders) * 100).toFixed(1) + '%'
-        });
+        };
       }
     }, 30000);
 

@@ -11,6 +11,7 @@ import { ReviewEmptyState } from '@/components/review/review-empty-state'
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons'
 import { useRenderTracker } from '@/hooks/use-render-tracker'
 import { useCurrentQuestion } from '@/contexts/current-question-context'
+import { ReviewErrorBoundary } from '@/components/review/review-error-boundary'
 import type { Doc } from '@/convex/_generated/dataModel'
 
 /**
@@ -179,14 +180,24 @@ export function ReviewFlow() {
       <div className="min-h-[400px] flex items-start justify-center">
         <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
           <article className="space-y-6">
-            {/* Use memoized component for question display */}
-            <ReviewQuestionDisplay
-              question={question}
-              questionId={questionId}
-              selectedAnswer={selectedAnswer}
-              showFeedback={feedbackState.showFeedback}
-              onAnswerSelect={handleAnswerSelect}
-            />
+            {/* Use memoized component for question display with error boundary */}
+            <ReviewErrorBoundary
+              fallbackMessage="Unable to display this question. Try refreshing or moving to the next question."
+              onReset={() => {
+                // Reset local state and try to move to next question
+                setSelectedAnswer('')
+                setFeedbackState({ showFeedback: false, nextReviewInfo: null })
+                handlers.onReviewComplete()
+              }}
+            >
+              <ReviewQuestionDisplay
+                question={question}
+                questionId={questionId}
+                selectedAnswer={selectedAnswer}
+                showFeedback={feedbackState.showFeedback}
+                onAnswerSelect={handleAnswerSelect}
+              />
+            </ReviewErrorBoundary>
 
             <div className="space-y-3">
 

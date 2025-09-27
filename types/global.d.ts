@@ -17,6 +17,13 @@ interface ReviewPerfData {
   avgBaseDuration: number;
   p95ActualDuration: number;
   lastUpdate: number;
+  summary?: {
+    totalRenders: number;
+    avgActualDuration: string;
+    p95ActualDuration: string;
+    exceedsFrameBudget: number;
+    frameBudgetViolationRate: string;
+  };
 }
 
 declare global {
