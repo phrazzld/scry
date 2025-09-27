@@ -1,3 +1,5 @@
+'use client'
+
 import { ReviewFlow } from '@/components/review-flow'
 import { ReviewErrorBoundary } from '@/components/review/review-error-boundary'
 
