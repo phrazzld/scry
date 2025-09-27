@@ -79,8 +79,6 @@ export function ReviewFlow() {
 
     if (process.env.NODE_ENV === 'development') {
       performance.mark('answer-selected')
-      // eslint-disable-next-line no-console
-      console.log('[ReviewFlow] Answer selected:', answer)
     }
 
     setSelectedAnswer(answer)
@@ -91,8 +89,6 @@ export function ReviewFlow() {
 
     if (process.env.NODE_ENV === 'development') {
       performance.mark('answer-submitted')
-      // eslint-disable-next-line no-console
-      console.log('[ReviewFlow] Answer submitted:', selectedAnswer)
     }
 
     const isCorrect = selectedAnswer === question.correctAnswer
@@ -120,9 +116,6 @@ export function ReviewFlow() {
       performance.mark('feedback-shown')
       try {
         performance.measure('submit-to-feedback', 'answer-submitted', 'feedback-shown')
-        const measure = performance.getEntriesByName('submit-to-feedback')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewFlow] Feedback shown in ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
@@ -135,18 +128,12 @@ export function ReviewFlow() {
 
       try {
         performance.measure('feedback-to-next', 'feedback-shown', 'next-question')
-        const measure = performance.getEntriesByName('feedback-to-next')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewFlow] Time on feedback: ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
 
       try {
         performance.measure('full-answer-cycle', 'answer-selected', 'next-question')
-        const measure = performance.getEntriesByName('full-answer-cycle')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewFlow] Full answer cycle: ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
