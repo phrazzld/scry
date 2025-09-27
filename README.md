@@ -564,6 +564,20 @@ Scry includes comprehensive keyboard shortcuts for power users to navigate and r
 
 The keyboard shortcuts system is designed to make reviewing fast and efficient, especially for users who prefer keyboard navigation over mouse interactions.
 
+#### Development Tools Shortcuts (Dev Mode Only)
+
+| Shortcut | Action | Description |
+|----------|--------|--------------|
+| `Cmd+Shift+D` (Mac) / `Ctrl+Shift+D` (PC) | Toggle Debug Panel | Shows performance metrics, render counts, and active timers |
+
+The debug panel provides real-time performance monitoring during development:
+- FPS counter and render tracking
+- Component performance metrics
+- Active timer monitoring
+- State transition tracking
+
+**Note**: Debug tools are automatically excluded from production builds.
+
 ## Troubleshooting
 
 ### Common Issues

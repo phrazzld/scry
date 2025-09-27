@@ -44,7 +44,7 @@
 ### Debug Infrastructure (Keep for Development)
 - [x] Add NODE_ENV check to `components/debug-panel.tsx` - Only render in development environment
 - [x] Add NODE_ENV check to `app/test-profiling/page.tsx` route - Return 404 in production builds
-- [ ] Document debug panel keyboard shortcuts in README.md - Currently uses Cmd+Shift+D to toggle
+- [x] Document debug panel keyboard shortcuts in README.md - Currently uses Cmd+Shift+D to toggle
 
 ### Documentation
 - [x] Add comment explaining why debug-panel.tsx is kept - "Development-only performance monitoring tool"
