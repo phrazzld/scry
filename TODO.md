@@ -122,7 +122,7 @@
   * Run before and after each optimization to track impact
   * Expected baseline: >50 renders per question, >100ms between questions
 
-- [ ] Add React Profiler API integration to ReviewMode
+- [x] Add React Profiler API integration to ReviewMode
   * Wrap in `<Profiler id="ReviewMode" onRender={logProfileData}>`
   * Log: actualDuration, baseDuration, startTime, commitTime
   * Store last 100 renders in circular buffer for analysis
