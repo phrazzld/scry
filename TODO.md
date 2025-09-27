@@ -31,12 +31,12 @@
   - Success: E2E suite focuses on critical user paths only
 
 ### Test Selector Stability
-- [ ] Add `data-testid` attributes to critical UI elements
+- [x] Add `data-testid` attributes to critical UI elements
   - `components/generation-modal.tsx`: Add `data-testid="generate-quiz-button"`
   - `components/navbar.tsx`: Add `data-testid="user-menu"`
   - `components/review-flow.tsx`: Add `data-testid="answer-option-{index}"`
   - Success: Tests use stable selectors, not brittle text matching
-- [ ] Update E2E tests to use `page.getByTestId()` instead of `getByRole()` with text
+- [x] Update E2E tests to use `page.getByTestId()` instead of `getByRole()` with text
   - Files: All remaining `.test.ts` files in `tests/e2e/`
   - Example: `getByRole('button', { name: 'Generate' })` → `getByTestId('generate-quiz-button')`
 
@@ -59,11 +59,11 @@
   - Success: Commits auto-format code, no more formatting debates
 
 ### CI/CD Alignment
-- [ ] Fix Node version mismatch in `.github/workflows/ci.yml`
+- [x] Fix Node version mismatch in `.github/workflows/ci.yml`
   - Change: `node-version: 20` → `node-version: 20.19.0`
   - Matches `package.json` engines requirement
   - Success: CI uses exact same Node version as local development
-- [ ] Add Node version check to CI before install
+- [x] Add Node version check to CI before install
   ```yaml
   - name: Verify Node version
     run: node -v | grep -q "v20.19" || exit 1
