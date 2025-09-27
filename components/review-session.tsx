@@ -45,8 +45,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
     // Performance tracking in development
     if (process.env.NODE_ENV === 'development') {
       performance.mark('answer-selected')
-      // eslint-disable-next-line no-console
-      console.log('[ReviewSession] Answer selected:', answer)
     }
 
     setSelectedAnswer(answer)
@@ -58,8 +56,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
     // Performance tracking in development
     if (process.env.NODE_ENV === 'development') {
       performance.mark('answer-submitted')
-      // eslint-disable-next-line no-console
-      console.log('[ReviewSession] Answer submitted:', selectedAnswer)
     }
 
     setShowFeedback(true)
@@ -69,9 +65,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
       performance.mark('feedback-shown')
       try {
         performance.measure('submit-to-feedback', 'answer-submitted', 'feedback-shown')
-        const measure = performance.getEntriesByName('submit-to-feedback')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewSession] Feedback shown in ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
@@ -116,9 +109,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
       // Measure time from answer submission to next question
       try {
         performance.measure('feedback-to-next', 'feedback-shown', 'next-question')
-        const measure = performance.getEntriesByName('feedback-to-next')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewSession] Time on feedback: ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
@@ -126,9 +116,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
       // Measure full answer cycle
       try {
         performance.measure('full-answer-cycle', 'answer-selected', 'next-question')
-        const measure = performance.getEntriesByName('full-answer-cycle')[0]
-        // eslint-disable-next-line no-console
-        console.log(`[ReviewSession] Full answer cycle: ${measure.duration.toFixed(2)}ms`)
       } catch {
         // Ignore if marks don't exist
       }
