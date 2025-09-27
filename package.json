@@ -20,6 +20,8 @@
     "test:tti": "node --input-type=module scripts/lighthouse-tti-test.js",
     "test:perf": "node scripts/measure-review-performance.js",
     "lint": "next lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "assets:generate": "node scripts/generate-static-assets.js",
     "convex:deploy": "convex deploy",
     "prepare": "husky"
@@ -84,9 +86,11 @@
     "concurrently": "^9.2.0",
     "eslint": "^9",
     "eslint-config-next": "15.3.4",
+    "eslint-config-prettier": "^10.1.8",
     "happy-dom": "^18.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
+    "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5",
@@ -94,6 +98,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
+      "prettier --write",
       "eslint --fix",
       "bash -c 'pnpm tsc --noEmit'"
     ]
