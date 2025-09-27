@@ -1,6 +1,3 @@
-import sortImports from '@ianvs/prettier-plugin-sort-imports';
-import prettierPluginOxc from '@prettier/plugin-oxc';
-
 const config = {
   semi: true,
   singleQuote: true,
@@ -9,7 +6,7 @@ const config = {
   printWidth: 100,
   arrowParens: 'always',
   bracketSpacing: true,
-  plugins: [prettierPluginOxc, sortImports],
+  plugins: ['@ianvs/prettier-plugin-sort-imports'],
   importOrder: ['^react$', '^next', '<THIRD_PARTY_MODULES>', '', '^@/(.*)$', '', '^[./]'],
   importOrderParserPlugins: ['typescript', 'jsx'],
   importOrderTypeScriptVersion: '5.4.0',
