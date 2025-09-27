@@ -10,6 +10,8 @@ import { ReviewQuestionDisplay } from '@/components/review-question-display'
 import { ReviewEmptyState } from '@/components/review/review-empty-state'
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons'
 import { useRenderTracker } from '@/hooks/use-render-tracker'
+import { useCurrentQuestion } from '@/contexts/current-question-context'
+import type { Doc } from '@/convex/_generated/dataModel'
 
 /**
  * Unified ReviewFlow component that combines ReviewMode + ReviewSession
@@ -23,6 +25,9 @@ export function ReviewFlow() {
   // Track component renders for performance monitoring
   useRenderTracker('ReviewFlow', { phase, questionId })
 
+  // Use context for current question
+  const { setCurrentQuestion } = useCurrentQuestion()
+
   // Local UI state for answer selection and feedback
   const [selectedAnswer, setSelectedAnswer] = useState<string>('')
   const [showFeedback, setShowFeedback] = useState(false)
@@ -35,20 +40,19 @@ export function ReviewFlow() {
   const [sessionId] = useState(() => Math.random().toString(36).substring(7))
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
 
-  // Emit universal event when current question changes for generation modal context
+  // Update context when current question changes
   useEffect(() => {
     if (question && questionId) {
-      const event = new CustomEvent('current-question-changed', {
-        detail: {
-          question: {
-            ...question,
-            _id: questionId
-          }
-        }
-      })
-      window.dispatchEvent(event)
+      // Convert SimpleQuestion to a partial Doc<"questions"> format
+      setCurrentQuestion({
+        ...question,
+        _id: questionId,
+        type: question.type || 'multiple-choice'
+      } as Doc<"questions">)
+    } else {
+      setCurrentQuestion(undefined)
     }
-  }, [question, questionId])
+  }, [question, questionId, setCurrentQuestion])
 
   // Reset state when question changes
   useEffect(() => {

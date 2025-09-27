@@ -32,6 +32,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode'
 import { ThemeProvider } from '@/components/theme-provider'
 import { DebugPanel } from '@/components/debug-panel'
+import { CurrentQuestionProvider } from '@/contexts/current-question-context'
 
 export default function RootLayout({
   children,
@@ -50,16 +51,18 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClerkConvexProvider>
-            <div className={getLayoutClassName()}>
-              <ConditionalNavbar />
-              {needsNavbarSpacer() && <div className="h-16" />}
-              <main>{children}</main>
-              <Footer />
-            </div>
-            <Toaster />
-            <DebugPanel />
-            <Analytics />
-            <SpeedInsights />
+            <CurrentQuestionProvider>
+              <div className={getLayoutClassName()}>
+                <ConditionalNavbar />
+                {needsNavbarSpacer() && <div className="h-16" />}
+                <main>{children}</main>
+                <Footer />
+              </div>
+              <Toaster />
+              <DebugPanel />
+              <Analytics />
+              <SpeedInsights />
+            </CurrentQuestionProvider>
           </ClerkConvexProvider>
         </ThemeProvider>
       </body>

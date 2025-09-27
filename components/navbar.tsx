@@ -9,26 +9,15 @@ import { GenerationModal } from '@/components/generation-modal'
 import { Button } from '@/components/ui/button'
 import { Plus, Settings } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
-import type { Doc } from '@/convex/_generated/dataModel'
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
+import { useCurrentQuestion } from '@/contexts/current-question-context'
 
 export function Navbar() {
   const { isLoaded, isSignedIn } = useUser()
   const clerkAppearance = useClerkAppearance()
   const pathname = usePathname()
   const [generateOpen, setGenerateOpen] = useState(false)
-  const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-
-  // Listen for current question changes using universal event
-  useEffect(() => {
-    const handleCurrentQuestionChanged = (event: Event) => {
-      const customEvent = event as CustomEvent
-      setCurrentQuestion(customEvent.detail?.question || undefined)
-    }
-
-    window.addEventListener('current-question-changed', handleCurrentQuestionChanged)
-    return () => window.removeEventListener('current-question-changed', handleCurrentQuestionChanged)
-  }, [])
+  const { currentQuestion, clearCurrentQuestion } = useCurrentQuestion()
 
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
@@ -89,7 +78,7 @@ export function Navbar() {
         onOpenChange={(open) => {
           setGenerateOpen(open)
           if (!open) {
-            setCurrentQuestion(undefined) // Clear context when modal closes
+            clearCurrentQuestion() // Clear context when modal closes
           }
         }}
         currentQuestion={currentQuestion}

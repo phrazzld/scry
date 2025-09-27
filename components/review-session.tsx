@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, CheckCircle, XCircle, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,16 +38,6 @@ export function ReviewSession({ quiz, onComplete, mode = 'quiz', questionHistory
   const currentQuestion = quiz.questions[currentIndex]
   const isLastQuestion = currentIndex === quiz.questions.length - 1
   const isCorrect = selectedAnswer === currentQuestion.correctAnswer
-
-  // Emit universal event when current question changes for generation modal context
-  useEffect(() => {
-    if (currentQuestion) {
-      const event = new CustomEvent('current-question-changed', {
-        detail: { question: currentQuestion }
-      })
-      window.dispatchEvent(event)
-    }
-  }, [currentIndex, currentQuestion])
 
   const handleAnswerSelect = (answer: string) => {
     if (showFeedback) return

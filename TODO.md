@@ -101,7 +101,7 @@
   * Expected impact: Prevent history re-render during answer selection
 
 ### Fix: Event System Overhead
-- [ ] Replace DOM events with direct prop passing for question context
+- [x] Replace DOM events with direct prop passing for question context
   * Remove `window.dispatchEvent('current-question-changed')` from ReviewSession line 47
   * Pass question directly to GenerationModal via ReviewMode props
   * Use React Context if truly needed for deep prop drilling
