@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import { IMMINENT_REVIEW_THRESHOLD_MS } from "@/lib/constants/timing";
 
 interface EmptyStateProps {
   className?: string;
@@ -146,7 +147,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
     const diff = timestamp - now;
 
     // Never return "Now" - show "< 1 minute" for imminent reviews
-    if (diff <= 60000) return "< 1 minute";
+    if (diff <= IMMINENT_REVIEW_THRESHOLD_MS) return "< 1 minute";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -227,7 +228,7 @@ export function NothingDueEmptyState({ nextReviewTime, stats, onContinueLearning
   const nextReviewFormatted = formatNextReviewTime(nextReviewTime);
 
   // Check if cards are due within 1 minute
-  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= 60000;
+  const isImminentReview = nextReviewTime !== null && (nextReviewTime - Date.now()) <= IMMINENT_REVIEW_THRESHOLD_MS;
 
   return (
     <div className="max-w-xl mx-auto px-4">
@@ -407,7 +408,7 @@ export function ZenEmptyState({
     const diff = timestamp - now;
 
     // Never return "Now" - show "< 1 minute" for imminent reviews
-    if (diff <= 60000) return "< 1 minute";
+    if (diff <= IMMINENT_REVIEW_THRESHOLD_MS) return "< 1 minute";
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));

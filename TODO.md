@@ -29,15 +29,15 @@
 ## Medium Priority: Code Quality
 
 ### Magic Number Constants
-- [ ] Create constants file `lib/constants/timing.ts` with polling and delay constants
-- [ ] Define and export `POLLING_INTERVAL_MS = 30000` for review polling interval
-- [ ] Define and export `FRAME_UPDATE_INTERVAL_MS = 1000` for debug panel frame updates
-- [ ] Define and export `FEEDBACK_DISPLAY_MS = 5000` for simulated feedback timing
-- [ ] Define and export `TIMER_CLEANUP_THRESHOLD_MS = 60000` for timer cleanup cutoff
-- [ ] Replace hardcoded 30000 with POLLING_INTERVAL_MS in polling implementations
-- [ ] Replace hardcoded 1000 with FRAME_UPDATE_INTERVAL_MS in debug panel
-- [ ] Replace hardcoded 5000 with FEEDBACK_DISPLAY_MS in test data
-- [ ] Replace hardcoded 60000 with TIMER_CLEANUP_THRESHOLD_MS in timer cleanup logic
+- [x] Create constants file `lib/constants/timing.ts` with polling and delay constants
+- [x] Define and export `POLLING_INTERVAL_MS = 30000` for review polling interval
+- [x] Define and export `FRAME_UPDATE_INTERVAL_MS = 1000` for debug panel frame updates
+- [x] Define and export `LOADING_TIMEOUT_MS = 5000` for loading timeout (not feedback display)
+- [x] Define and export `TIMER_CLEANUP_THRESHOLD_MS = 60000` for timer cleanup cutoff
+- [x] Replace hardcoded 30000 with POLLING_INTERVAL_MS in polling implementations
+- [x] Replace hardcoded 1000 with FRAME_UPDATE_INTERVAL_MS in debug panel
+- [x] Replace hardcoded 5000 with LOADING_TIMEOUT_MS in use-review-flow
+- [x] Replace hardcoded 60000 with TIMER_CLEANUP_THRESHOLD_MS in timer cleanup logic
 
 ## Low Priority: Optional Cleanup
 

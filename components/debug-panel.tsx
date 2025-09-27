@@ -5,6 +5,7 @@ import { X } from "lucide-react"
 import { getAllRenderData, getRenderSummary } from "@/hooks/use-render-tracker"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { cn } from "@/lib/utils"
+import { FRAME_UPDATE_INTERVAL_MS, POLLING_INTERVAL_MS, TIMER_CLEANUP_THRESHOLD_MS } from "@/lib/constants/timing"
 
 interface DebugPanelProps {
   reviewModeState?: "loading" | "empty" | "quiz"
@@ -54,7 +55,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
     frameCountRef.current++
 
     // Update FPS every second
-    if (now - lastFrameTimeRef.current >= 1000) {
+    if (now - lastFrameTimeRef.current >= FRAME_UPDATE_INTERVAL_MS) {
       setFps(frameCountRef.current)
       frameCountRef.current = 0
       lastFrameTimeRef.current = now
@@ -74,13 +75,13 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
       // In a real implementation, we'd need to hook into the actual timer system
       // For now, just show that some timers are active
       const mockTimers: TimerInfo[] = [
-        { id: 1, type: 'interval', created: Date.now() - 30000, delay: 30000 }, // Polling interval
-        { id: 2, type: 'timeout', created: Date.now() - 500, delay: 1000, remaining: 500 }
+        { id: 1, type: 'interval', created: Date.now() - POLLING_INTERVAL_MS, delay: POLLING_INTERVAL_MS }, // Polling interval
+        { id: 2, type: 'timeout', created: Date.now() - 500, delay: FRAME_UPDATE_INTERVAL_MS, remaining: 500 }
       ]
       setActiveTimers(mockTimers)
     }
 
-    const timerUpdateInterval = setInterval(updateTimers, 1000)
+    const timerUpdateInterval = setInterval(updateTimers, FRAME_UPDATE_INTERVAL_MS)
     updateTimers() // Initial update
 
     // Cleanup
@@ -95,7 +96,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
 
     const interval = setInterval(() => {
       const now = Date.now()
-      const cutoff = now - 60000
+      const cutoff = now - TIMER_CLEANUP_THRESHOLD_MS
 
       // Get all render data
       const allData = getAllRenderData()
@@ -111,7 +112,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
 
       setRenderCount60s(recentRenderCount)
       setRenderData(getRenderSummary())
-    }, 1000)
+    }, FRAME_UPDATE_INTERVAL_MS)
 
     return () => clearInterval(interval)
   }, [isVisible])

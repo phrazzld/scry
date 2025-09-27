@@ -6,6 +6,7 @@ import { ReviewSession } from "@/components/review-session";
 import { ReviewEmptyState } from "./review-empty-state";
 import { QuizFlowSkeleton } from "@/components/ui/loading-skeletons";
 import { Profiler, ProfilerOnRenderCallback, useEffect } from "react";
+import { POLLING_INTERVAL_MS } from "@/lib/constants/timing";
 
 // Circular buffer for storing last 100 render profiles
 const MAX_PROFILE_ENTRIES = 100;
@@ -127,7 +128,7 @@ export function ReviewMode() {
             ((window.__REVIEW_PERF_DATA.exceedsFrameBudget / window.__REVIEW_PERF_DATA.totalRenders) * 100).toFixed(1) + '%'
         };
       }
-    }, 30000);
+    }, POLLING_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, []);

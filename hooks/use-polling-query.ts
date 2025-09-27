@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useQuery } from "convex/react";
 import type { FunctionReference, FunctionReturnType } from "convex/server";
+import { DEFAULT_POLLING_INTERVAL_MS, DATA_STALENESS_THRESHOLD_MS } from "@/lib/constants/timing";
 
 /**
  * A custom hook that wraps Convex's useQuery with polling functionality.
@@ -15,13 +16,13 @@ import type { FunctionReference, FunctionReturnType } from "convex/server";
  *
  * @param query The Convex query function reference
  * @param args The base arguments to pass to the query (or "skip" to skip the query)
- * @param intervalMs The polling interval in milliseconds (default: 60000 = 1 minute)
+ * @param intervalMs The polling interval in milliseconds (default: 60 seconds)
  * @returns The query result, which updates both on data changes and periodically
  */
 export function usePollingQuery<Query extends FunctionReference<"query">>(
   query: Query,
   args: Omit<Query["_args"], "_refreshTimestamp"> | "skip",
-  intervalMs: number = 60000 // Default to 1 minute
+  intervalMs: number = DEFAULT_POLLING_INTERVAL_MS
 ): FunctionReturnType<Query> | undefined {
   // Use a timestamp to force query re-evaluation
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
@@ -44,7 +45,7 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
       if (nowVisible) {
         // Only refresh if data is stale (older than 30 seconds)
         const timeSinceLastUpdate = Date.now() - lastUpdateRef.current;
-        const isStale = timeSinceLastUpdate > 30000;
+        const isStale = timeSinceLastUpdate > DATA_STALENESS_THRESHOLD_MS;
 
         if (isStale) {
           // Debounce the refresh by 500ms to avoid immediate flicker

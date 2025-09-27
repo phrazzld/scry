@@ -6,6 +6,7 @@ import { useDataHash } from "@/hooks/use-data-hash";
 import { api } from "@/convex/_generated/api";
 import type { SimpleQuestion } from "@/types/questions";
 import type { Id, Doc } from "@/convex/_generated/dataModel";
+import { POLLING_INTERVAL_MS, LOADING_TIMEOUT_MS } from "@/lib/constants/timing";
 
 // State machine definition
 interface ReviewModeState {
@@ -115,7 +116,7 @@ export function useReviewFlow() {
   const { data: nextReview } = useSimplePoll(
     api.spacedRepetition.getNextReview,
     {},
-    30000 // Poll every 30 seconds
+    POLLING_INTERVAL_MS
   );
 
   // Check if data has actually changed to prevent unnecessary renders
@@ -132,7 +133,7 @@ export function useReviewFlow() {
       // Set new timeout
       loadingTimeoutRef.current = setTimeout(() => {
         dispatch({ type: 'LOAD_TIMEOUT' });
-      }, 5000);
+      }, LOADING_TIMEOUT_MS);
     } else {
       // Clear timeout when not loading
       if (loadingTimeoutRef.current) {
