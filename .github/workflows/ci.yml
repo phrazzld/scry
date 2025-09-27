@@ -2,7 +2,7 @@ name: CI
 on: [push, pull_request]
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '20.19.0'
   PNPM_VERSION: '10.12.1'
 
 jobs:
@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+
+      - name: Verify Node version
+        run: node -v | grep -q "v20.19" || exit 1
 
       - run: pnpm install --frozen-lockfile
 
