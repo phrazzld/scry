@@ -18,9 +18,6 @@
   * Re-enable generation-modal.test.tsx (373 lines removed)
   * Re-enable review-flow.test.tsx (424 lines removed)
   * Update tests to work with new state machine architecture
-- [ ] [HIGH] [DX] Implement feature flags for debug panel | Effort: S | Source: PR#23 Review | Impact: Production debugging
-  * Replace NODE_ENV checks with feature flag system
-  * Allow safe production debugging for specific users
 - [ ] [HIGH] [PERF] Add performance CI/CD integration | Effort: M | Source: PR#23 Review | Impact: Prevent regressions
   * Integrate performance scripts into CI pipeline
   * Set up performance budgets and alerts
@@ -33,6 +30,12 @@
   * Implement sessionStorage or robust locking mechanism
   * Document race condition prevention strategy
   * Test with multiple tabs/windows
+- [ ] [MEDIUM] [A11Y] Accessibility improvements | Effort: M | Source: PR#23 Review | Impact: User accessibility
+  * Add ARIA labels to interactive elements
+  * Implement keyboard navigation for all features
+  * Add aria-live regions for dynamic updates
+  * Ensure proper focus management during transitions
+  * Test with screen readers
 
 ### Testing Infrastructure Rollout (Incremental PRs)
 - [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage

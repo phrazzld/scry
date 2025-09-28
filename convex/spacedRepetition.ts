@@ -213,7 +213,8 @@ export const getNextReview = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  handler: async (ctx) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = new Date();
@@ -291,7 +292,8 @@ export const getDueCount = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  handler: async (ctx) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = Date.now();
@@ -349,7 +351,8 @@ export const getUserCardStats = query({
   args: {
     _refreshTimestamp: v.optional(v.float64()),
   },
-  handler: async (ctx) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = Date.now();
