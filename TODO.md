@@ -135,7 +135,7 @@
   - Reports generated at `.next/analyze/*.html`
 
 ### Performance Budgets
-- [ ] Add Lighthouse CI configuration (`.lighthouserc.js`)
+- [x] Add Lighthouse CI configuration (`.lighthouserc.js`)
   ```javascript
   module.exports = {
     ci: {
@@ -150,6 +150,7 @@
   ```
   - Non-blocking warnings only, no hard failures
   - Success: Performance regressions get flagged in PR comments
+  - Added comprehensive metrics: Core Web Vitals, resources, JS performance, a11y, SEO
 
 ## 🎯 Success Metrics
 
