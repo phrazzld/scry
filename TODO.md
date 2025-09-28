@@ -112,15 +112,16 @@
   - Success: `pnpm test` shows individual test execution times in milliseconds
 
 ### Coverage Visibility (No thresholds!)
-- [ ] Add coverage comment bot to GitHub Actions
+- [x] Add coverage comment bot to GitHub Actions
   ```yaml
-  - uses: ArtiomTr/jest-coverage-report-action@v2
+  - uses: davelosert/vitest-coverage-report-action@v2
     if: github.event_name == 'pull_request'
     with:
-      test-script: pnpm test:ci
-      annotations: failed-tests
+      json-summary-path: ./coverage/coverage-summary.json
+      json-final-path: ./coverage/coverage-final.json
   ```
   - Success: PRs show coverage changes without blocking
+  - Note: Changed from jest-coverage-report-action to vitest-coverage-report-action for Vitest compatibility
 
 ## 📊 Monitoring (Optional - only if problems arise)
 
