@@ -19,7 +19,7 @@
   - File: app/api/generate-quiz/route.ts (create new)
   - Implementation: Return 301 redirect with deprecation header
   - Success: Old API calls continue working with warning
-- [ ] Create MIGRATION.md with upgrade instructions
+- [x] Create MIGRATION.md with upgrade instructions
   - Document: API endpoint change, component import changes
   - Include: Before/after code examples
   - Success: Clear path for existing integrations
@@ -33,7 +33,7 @@
   - Files: Search for console.log across components/
   - Pattern: `if (process.env.NODE_ENV === 'development') console.log(...)`
   - Success: No console output in production builds
-- [ ] Extract magic numbers into named constants
+- [x] Extract magic numbers into named constants
   - Textarea resize: MIN_HEIGHT = 80, MAX_HEIGHT = 200
   - Polling: REVIEW_POLL_MS = 30000, DASHBOARD_POLL_MS = 60000
   - Files: components/generation-modal.tsx, hooks/use-simple-poll.ts
