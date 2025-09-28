@@ -24,7 +24,8 @@
     "format:check": "prettier --check .",
     "assets:generate": "node scripts/generate-static-assets.js",
     "convex:deploy": "convex deploy",
-    "prepare": "husky"
+    "prepare": "husky",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
@@ -73,6 +74,7 @@
     "@clerk/testing": "^1.13.0",
     "@eslint/eslintrc": "^3",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
+    "@next/bundle-analyzer": "^15.5.4",
     "@playwright/test": "^1.53.2",
     "@prettier/plugin-oxc": "^0.0.4",
     "@tailwindcss/postcss": "^4",
