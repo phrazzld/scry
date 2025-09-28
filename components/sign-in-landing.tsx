@@ -9,7 +9,7 @@ import { SignIn } from '@clerk/nextjs';
  */
 export function SignInLanding() {
   return (
-    <div className="flex-1 flex items-center justify-center px-6 py-12">
+    <div className="flex-1 flex items-center justify-center px-6">
       <div className="w-full max-w-7xl">
         {/* Two-column layout on desktop, stacked on mobile */}
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
