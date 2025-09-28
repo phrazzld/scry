@@ -126,12 +126,13 @@
 ## 📊 Monitoring (Optional - only if problems arise)
 
 ### Bundle Size Tracking
-- [ ] Add bundle analyzer script to `package.json`
+- [x] Add bundle analyzer script to `package.json`
   ```json
   "analyze": "ANALYZE=true next build"
   ```
   - Only run when investigating performance issues
   - Success: `pnpm analyze` shows bundle composition
+  - Reports generated at `.next/analyze/*.html`
 
 ### Performance Budgets
 - [ ] Add Lighthouse CI configuration (`.lighthouserc.js`)
