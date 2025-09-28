@@ -23,30 +23,57 @@ export function useSimplePoll<Query extends FunctionReference<'query'>>(
   // Simple refresh trigger - just a counter
   const [refreshCount, setRefreshCount] = useState(0);
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
+  const isActiveRef = useRef(true);
 
   // Manual refetch function
   const refetch = () => setRefreshCount((c) => c + 1);
 
-  // Set up simple interval
-  useEffect(() => {
-    if (args === 'skip' || intervalMs <= 0) return;
-
-    // Clear any existing interval
+  // Clear any existing interval - extracted for reuse
+  const clearExistingInterval = () => {
     if (intervalIdRef.current) {
       clearInterval(intervalIdRef.current);
+      intervalIdRef.current = null;
+    }
+  };
+
+  // Set up simple interval
+  useEffect(() => {
+    // Mark as active
+    isActiveRef.current = true;
+
+    // Skip if conditions aren't met
+    if (args === 'skip' || intervalMs <= 0) {
+      clearExistingInterval();
+      return;
     }
 
-    // Set up new interval
-    intervalIdRef.current = setInterval(refetch, intervalMs);
+    // Clear any existing interval before setting up new one
+    clearExistingInterval();
+
+    // Set up new interval only if component is still active
+    if (isActiveRef.current) {
+      intervalIdRef.current = setInterval(() => {
+        // Only refetch if still active
+        if (isActiveRef.current) {
+          refetch();
+        }
+      }, intervalMs);
+    }
 
     // Cleanup on unmount or when dependencies change
     return () => {
-      if (intervalIdRef.current) {
-        clearInterval(intervalIdRef.current);
-        intervalIdRef.current = null;
-      }
+      isActiveRef.current = false;
+      clearExistingInterval();
     };
   }, [intervalMs, args]);
+
+  // Additional cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      isActiveRef.current = false;
+      clearExistingInterval();
+    };
+  }, []);
 
   // Add refresh trigger to force re-evaluation
   const queryArgs = args === 'skip' ? 'skip' : { ...args, _refreshTimestamp: refreshCount };
