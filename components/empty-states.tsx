@@ -20,7 +20,9 @@ interface EmptyStateProps {
 
 // Deprecated - use NoCardsEmptyState instead
 export function NoQuestionsEmptyState() {
-  console.warn('NoQuestionsEmptyState is deprecated. Use NoCardsEmptyState instead.');
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('NoQuestionsEmptyState is deprecated. Use NoCardsEmptyState instead.');
+  }
   return <NoCardsEmptyState />;
 }
 
@@ -73,13 +75,17 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
             // Only trigger callback after successful save
             onGenerationSuccess?.();
           } catch (saveError) {
-            console.error('Failed to save questions:', saveError);
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Failed to save questions:', saveError);
+            }
             toast.error(`Generated ${count} questions but failed to save. Please try again.`);
             // Don't trigger callback if save failed
           }
         } else if (Array.isArray(result.questions)) {
           // User not authenticated, just show generation success
-          console.warn('Questions generated but not saved - user is not authenticated');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Questions generated but not saved - user is not authenticated');
+          }
           toast.success(`✓ ${count} questions generated! Sign in to save them.`);
           // Don't trigger callback for unauthenticated users
         } else {
@@ -92,7 +98,9 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
         toast.error(error.error || 'Failed to generate questions');
       }
     } catch (error) {
-      console.error('Failed to generate questions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to generate questions:', error);
+      }
       toast.error('Failed to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -218,11 +226,15 @@ export function NothingDueEmptyState({
             });
             toast.success(`✓ ${count} questions generated! They'll appear shortly.`);
           } catch (saveError) {
-            console.error('Failed to save questions:', saveError);
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Failed to save questions:', saveError);
+            }
             toast.error(`Generated ${count} questions but failed to save. Please try again.`);
           }
         } else if (Array.isArray(result.questions)) {
-          console.warn('Questions generated but not saved - user is not authenticated');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Questions generated but not saved - user is not authenticated');
+          }
           toast.success(`✓ ${count} questions generated! Sign in to save them.`);
         } else {
           toast.error('Failed to generate questions');
@@ -235,7 +247,9 @@ export function NothingDueEmptyState({
         toast.error(error.error || 'Failed to generate questions');
       }
     } catch (error) {
-      console.error('Failed to generate questions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to generate questions:', error);
+      }
       toast.error('Failed to generate questions. Please try again.');
     } finally {
       setIsGenerating(false);

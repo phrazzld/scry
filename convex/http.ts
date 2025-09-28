@@ -89,7 +89,9 @@ http.route({
         'svix-signature': svix_signature,
       }) as WebhookEvent;
     } catch (err: unknown) {
-      console.error('Error verifying webhook:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error verifying webhook:', err);
+      }
       return new Response('Error occurred', {
         status: 400,
       });

@@ -13,6 +13,27 @@
 
 ## High Priority (HIGH) — Code Health & Developer Experience
 
+### PR #23 Follow-up Work (From Code Review)
+- [ ] [HIGH] [TEST] Restore disabled test coverage (797 lines) | Effort: M | Source: PR#23 Review | Impact: Test confidence
+  * Re-enable generation-modal.test.tsx (373 lines removed)
+  * Re-enable review-flow.test.tsx (424 lines removed)
+  * Update tests to work with new state machine architecture
+- [ ] [HIGH] [DX] Implement feature flags for debug panel | Effort: S | Source: PR#23 Review | Impact: Production debugging
+  * Replace NODE_ENV checks with feature flag system
+  * Allow safe production debugging for specific users
+- [ ] [HIGH] [PERF] Add performance CI/CD integration | Effort: M | Source: PR#23 Review | Impact: Prevent regressions
+  * Integrate performance scripts into CI pipeline
+  * Set up performance budgets and alerts
+  * Use Web Vitals library for metrics
+- [ ] [HIGH] [RELIABILITY] Improve error recovery mechanism | Effort: M | Source: PR#23 Review | Impact: Better UX
+  * Replace window.location.href = '/' with context-based recovery
+  * Add telemetry for error tracking
+  * Document error recovery strategy
+- [ ] [HIGH] [CONCURRENCY] Multi-tab race condition handling | Effort: M | Source: PR#23 Review | Impact: Data integrity
+  * Implement sessionStorage or robust locking mechanism
+  * Document race condition prevention strategy
+  * Test with multiple tabs/windows
+
 ### Testing Infrastructure Rollout (Incremental PRs)
 - [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage
 - [ ] [HIGH] [MAINTAIN] PR#4: React Testing Library setup with 2-3 component tests | Effort: S | Impact: Frontend testing foundation
@@ -73,6 +94,24 @@
 - [ ] [MEDIUM] [VALIDATION] Mirror client-side validation on server for questions | Effort: S | Quality: Data integrity
   * Enforce min/max lengths for question/topic/explanation in Convex mutations
 ## Medium Priority (MEDIUM) — Features & Optimization
+
+### PR #23 Medium Priority Follow-ups
+- [ ] [MEDIUM] [MONITORING] Production performance monitoring | Effort: M | Source: PR#23 Review | Impact: Observability
+  * Add production performance telemetry
+  * Monitor real user metrics (Core Web Vitals)
+  * Set up alerts for performance regressions
+- [ ] [MEDIUM] [PERF] Adaptive polling based on user activity | Effort: S | Source: PR#23 Review | Impact: Efficiency
+  * Reduce polling interval when user is inactive
+  * Increase frequency during active review sessions
+  * Consider 30s → 60s → 120s backoff strategy
+- [ ] [MEDIUM] [DX] Component code splitting maintenance | Effort: S | Source: PR#23 Review | Impact: Bundle size
+  * Ensure flattened hierarchy maintains lazy loading
+  * Monitor bundle sizes after refactor
+  * Add dynamic imports where appropriate
+- [ ] [MEDIUM] [SECURITY] Rate limiting for continuous review flow | Effort: S | Source: PR#23 Review | Impact: Abuse prevention
+  * Add client-side request throttling
+  * Implement server-side rate limits for review submissions
+  * Monitor for unusual usage patterns
 
 ### Core Features (from Original Backlog)
 - [ ] [MEDIUM] [FEATURE] Build quiz submission pipeline with Convex | Effort: M | Value: Essential for saving results | Quality: 7/10

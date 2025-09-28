@@ -73,7 +73,9 @@ export function DeleteAccountDialog({ userEmail }: DeleteAccountDialogProps) {
       router.push('/');
       router.refresh();
     } catch (error) {
-      console.error('Delete account error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Delete account error:', error);
+      }
       toast.error('An unexpected error occurred. Please try again.');
       setIsDeleting(false);
     }

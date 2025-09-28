@@ -138,7 +138,7 @@ export function useRenderTracker(
 
     // Log if render exceeds frame budget (16ms at 60fps)
     const FRAME_BUDGET = 16;
-    if (renderDuration > FRAME_BUDGET) {
+    if (renderDuration > FRAME_BUDGET && process.env.NODE_ENV === 'development') {
       console.warn(
         `⚠️ [RenderTracker] ${componentName} render took ${renderDuration.toFixed(2)}ms (exceeded ${FRAME_BUDGET}ms frame budget)`,
         `\n  Reason: ${renderReason}`,

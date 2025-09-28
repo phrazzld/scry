@@ -1,5 +1,62 @@
 # TODO
 
+## 🚨 URGENT: PR #23 Merge Blockers (Must fix before merging refactor/remove-card-components)
+
+### Critical Memory Leaks (Fix immediately)
+- [x] Fix requestAnimationFrame cleanup in `components/debug-panel.tsx`
+  - Issue: FPS calculation doesn't store/cancel animation frame ID
+  - Solution: Store rafId and call cancelAnimationFrame in cleanup
+  - File: components/debug-panel.tsx lines ~50-70
+  - Success: Memory profiler shows no leaked animation frames
+- [x] Fix polling interval cleanup in `hooks/use-simple-poll.ts`
+  - Issue: Cleanup might not trigger when dependencies change
+  - Solution: Clear intervals on ALL condition changes, not just unmount
+  - File: hooks/use-simple-poll.ts
+  - Success: No orphaned intervals in browser dev tools
+
+### Breaking API Changes (Add migration path)
+- [x] Add temporary redirect from `/api/generate-quiz` to `/api/generate-questions`
+  - File: app/api/generate-quiz/route.ts (create new)
+  - Implementation: Return 301 redirect with deprecation header
+  - Success: Old API calls continue working with warning
+- [ ] Create MIGRATION.md with upgrade instructions
+  - Document: API endpoint change, component import changes
+  - Include: Before/after code examples
+  - Success: Clear path for existing integrations
+
+### Type Safety & Code Quality (Quick fixes)
+- [x] Replace `Record<string, unknown>` with proper types in `generation-modal.tsx`
+  - File: components/generation-modal.tsx
+  - Create: types/api-responses.ts with GenerateQuestionsResponse interface
+  - Success: Full type safety for API responses
+- [ ] Wrap console.log statements with NODE_ENV checks
+  - Files: Search for console.log across components/
+  - Pattern: `if (process.env.NODE_ENV === 'development') console.log(...)`
+  - Success: No console output in production builds
+- [ ] Extract magic numbers into named constants
+  - Textarea resize: MIN_HEIGHT = 80, MAX_HEIGHT = 200
+  - Polling: REVIEW_POLL_MS = 30000, DASHBOARD_POLL_MS = 60000
+  - Files: components/generation-modal.tsx, hooks/use-simple-poll.ts
+  - Success: All numeric literals have semantic names
+
+### Accessibility Improvements (Required for merge)
+- [ ] Add ARIA labels to debug panel controls
+  - File: components/debug-panel.tsx
+  - Add: aria-label for toggle button, metrics sections
+  - Success: Screen readers can navigate debug panel
+- [ ] Implement keyboard navigation for quick prompts
+  - File: components/generation-modal.tsx
+  - Add: Arrow key navigation, Enter to select
+  - Success: Full keyboard accessibility for prompt selection
+- [ ] Add aria-live regions for dynamic updates
+  - Files: components/review-flow.tsx, components/unified-quiz-flow.tsx
+  - Add: aria-live="polite" for state changes, aria-atomic for complete updates
+  - Success: Screen readers announce state transitions
+- [ ] Improve focus management during transitions
+  - File: components/unified-quiz-flow.tsx
+  - Focus: Move to next question after answer, to buttons after load
+  - Success: Keyboard users never lose focus context
+
 ## 🔴 CRITICAL: E2E Test Infrastructure (68% tests failing - blocks deployments)
 
 ### Immediate Triage (Fix today)

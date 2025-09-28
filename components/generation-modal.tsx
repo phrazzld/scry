@@ -143,7 +143,9 @@ export function GenerationModal({
           toast.success(`✓ ${count} questions generated`);
           onGenerationSuccess?.(count);
         } catch (saveError) {
-          console.error('Failed to save:', saveError);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to save:', saveError);
+          }
           toast.error('Generated but failed to save');
         }
       } else {
@@ -153,7 +155,9 @@ export function GenerationModal({
       setPrompt(''); // Clear on success
       onOpenChange(false);
     } catch (error) {
-      console.error('Generation error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Generation error:', error);
+      }
       toast.error('Failed to generate questions');
     } finally {
       setIsGenerating(false);

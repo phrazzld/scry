@@ -109,7 +109,9 @@ export function EditQuestionModal({
       toast.success('Question updated successfully');
       onOpenChange(false);
     } catch (error) {
-      console.error('Failed to save question:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to save question:', error);
+      }
       toast.error('Failed to save changes');
     } finally {
       setIsSaving(false);

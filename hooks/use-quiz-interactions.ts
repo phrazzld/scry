@@ -33,7 +33,9 @@ export function useQuizInteractions() {
           newState: result.newState,
         };
       } catch (error) {
-        console.error('Failed to track interaction:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to track interaction:', error);
+        }
         return null;
       }
     },

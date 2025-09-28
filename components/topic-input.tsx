@@ -42,7 +42,9 @@ export function TopicInput() {
 
       router.push(`/create?${searchParams}`);
     } catch (error) {
-      console.error('Failed to navigate:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to navigate:', error);
+      }
       setIsLoading(false);
     }
   };

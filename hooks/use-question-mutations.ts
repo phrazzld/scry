@@ -87,7 +87,9 @@ export function useQuestionMutations() {
         optimisticStore.edits.delete(questionIdStr);
         setOptimisticEdits(new Map(optimisticStore.edits));
 
-        console.error('Failed to update question:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to update question:', error);
+        }
         const errorMessage = error instanceof Error ? error.message : 'Failed to update question';
 
         if (errorMessage.includes('unauthorized')) {
@@ -141,7 +143,9 @@ export function useQuestionMutations() {
         optimisticStore.deletes.delete(questionIdStr);
         setOptimisticDeletes(new Set(optimisticStore.deletes));
 
-        console.error('Failed to delete question:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to delete question:', error);
+        }
         const errorMessage = error instanceof Error ? error.message : 'Failed to delete question';
 
         if (errorMessage.includes('unauthorized')) {
