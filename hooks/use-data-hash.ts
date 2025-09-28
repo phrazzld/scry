@@ -19,10 +19,7 @@ function hashString(str: string): number {
  * @param data - The data to monitor for changes
  * @returns Object with hasChanged flag and update function
  */
-export function useDataHash<T>(
-  data: T,
-  label?: string
-): {
+export function useDataHash<T>(data: T): {
   hasChanged: boolean;
   previousHash: number | null;
   currentHash: number | null;
@@ -46,41 +43,20 @@ export function useDataHash<T>(
       if (previousHashRef.current === null) {
         // First time seeing data
         hasChanged = true;
-        if (process.env.NODE_ENV === 'development' && label) {
-          // eslint-disable-next-line no-console
-          console.log(`[${label}] Initial data hash: ${currentHash}`);
-        }
       } else if (previousHashRef.current !== currentHash) {
         // Data has changed
         hasChanged = true;
-        if (process.env.NODE_ENV === 'development' && label) {
-          // eslint-disable-next-line no-console
-          console.log(
-            `[${label}] Data changed - Previous hash: ${previousHashRef.current}, New hash: ${currentHash}`
-          );
-        }
       } else {
         // Data unchanged
         hasChanged = false;
-        if (process.env.NODE_ENV === 'development' && label) {
-          // eslint-disable-next-line no-console
-          console.log(`[${label}] Poll executed but data unchanged - Hash: ${currentHash}`);
-        }
       }
     } else {
       // Handle null/undefined data
       currentHash = null;
       hasChanged = previousHashRef.current !== null;
-      if (process.env.NODE_ENV === 'development' && label && hasChanged) {
-        // eslint-disable-next-line no-console
-        console.log(`[${label}] Data became null/undefined`);
-      }
     }
-  } catch (error) {
+  } catch {
     // Handle circular references or other JSON.stringify errors
-    if (process.env.NODE_ENV === 'development') {
-      console.error(`[${label || 'useDataHash'}] Error hashing data:`, error);
-    }
     // Treat errors as "changed" to avoid missing updates
     hasChanged = true;
   }

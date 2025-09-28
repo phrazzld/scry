@@ -4,16 +4,6 @@
  */
 
 /**
- * Textarea sizing constraints
- */
-
-// Minimum height for auto-resizing textareas
-export const TEXTAREA_MIN_HEIGHT = 80; // pixels
-
-// Maximum height for auto-resizing textareas before scrolling
-export const TEXTAREA_MAX_HEIGHT = 200; // pixels
-
-/**
  * Animation durations
  */
 
@@ -26,20 +16,6 @@ export const TRANSITION_DURATION = 300; // milliseconds
 
 // Delay before auto-focusing elements
 export const AUTO_FOCUS_DELAY = 50; // milliseconds
-
-/**
- * Z-index layers
- */
-
-// Debug panel should be above all other content
-export const Z_INDEX_DEBUG_PANEL = 9999;
-
-/**
- * Performance thresholds
- */
-
-// Frame budget at 60fps - used for render performance warnings
-export const FRAME_BUDGET_MS = 16; // milliseconds
 
 /**
  * Optimization delays

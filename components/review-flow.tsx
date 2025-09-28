@@ -12,7 +12,6 @@ import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
 import type { Doc } from '@/convex/_generated/dataModel';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
-import { useRenderTracker } from '@/hooks/use-render-tracker';
 import { useReviewFlow } from '@/hooks/use-review-flow';
 
 /**
@@ -23,9 +22,6 @@ import { useReviewFlow } from '@/hooks/use-review-flow';
 export function ReviewFlow() {
   // Get review state and handlers from custom hook
   const { phase, question, questionId, interactions, handlers } = useReviewFlow();
-
-  // Track component renders for performance monitoring
-  useRenderTracker('ReviewFlow', { phase, questionId });
 
   // Use context for current question
   const { setCurrentQuestion } = useCurrentQuestion();

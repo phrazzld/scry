@@ -7,7 +7,6 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { ConditionalNavbar } from '@/components/conditional-navbar';
-import { DebugPanel } from '@/components/debug-panel';
 import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
@@ -60,7 +59,6 @@ export default function RootLayout({
                 <Footer />
               </div>
               <Toaster />
-              <DebugPanel />
               <Analytics />
               <SpeedInsights />
             </CurrentQuestionProvider>

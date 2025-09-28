@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
-import { AUTO_FOCUS_DELAY, TEXTAREA_MAX_HEIGHT, TEXTAREA_MIN_HEIGHT } from '@/lib/constants/ui';
+import { AUTO_FOCUS_DELAY } from '@/lib/constants/ui';
 import {
   stripGeneratedQuestionMetadata,
   type GeneratedQuestionPayload,
@@ -68,21 +68,6 @@ export function GenerationModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentQuestion]);
-
-  // Auto-resize textarea
-  React.useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      // Reset height to auto to get the correct scrollHeight
-      textarea.style.height = 'auto';
-      // Set height based on content, with min and max
-      const newHeight = Math.min(
-        Math.max(textarea.scrollHeight, TEXTAREA_MIN_HEIGHT),
-        TEXTAREA_MAX_HEIGHT
-      );
-      textarea.style.height = `${newHeight}px`;
-    }
-  }, [prompt]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -231,10 +216,9 @@ export function GenerationModal({
                 'text-sm ring-offset-background placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 'disabled:cursor-not-allowed disabled:opacity-50',
-                'min-h-[80px] transition-all'
+                'h-24'
               )}
               disabled={isGenerating}
-              style={{ height: '80px' }}
             />
             <p className="text-xs text-muted-foreground">
               Press {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to generate

@@ -15,7 +15,7 @@ interface ReviewModeState {
   question: SimpleQuestion | null;
   questionId: Id<'questions'> | null;
   interactions: Doc<'interactions'>[];
-  lockId: string | null; // Unique ID per question to prevent race conditions
+  lockId: string | null; // Prevents polling from switching questions mid-review
   errorMessage?: string; // Error message for timeout or other issues
 }
 
@@ -125,7 +125,7 @@ export function useReviewFlow() {
   );
 
   // Check if data has actually changed to prevent unnecessary renders
-  const { hasChanged: dataHasChanged } = useDataHash(nextReview, 'ReviewMode.nextReview');
+  const { hasChanged: dataHasChanged } = useDataHash(nextReview);
 
   // Set up loading timeout (5 seconds)
   useEffect(() => {

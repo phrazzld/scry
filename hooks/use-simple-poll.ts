@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from 'convex/react';
 import type { FunctionReference, FunctionReturnType } from 'convex/server';
 
@@ -25,8 +25,8 @@ export function useSimplePoll<Query extends FunctionReference<'query'>>(
   const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
   const isActiveRef = useRef(true);
 
-  // Manual refetch function
-  const refetch = () => setRefreshCount((c) => c + 1);
+  // Manual refetch function - memoized for stable reference
+  const refetch = useCallback(() => setRefreshCount((c) => c + 1), []);
 
   // Clear any existing interval - extracted for reuse
   const clearExistingInterval = () => {
@@ -36,13 +36,16 @@ export function useSimplePoll<Query extends FunctionReference<'query'>>(
     }
   };
 
+  // Track if polling should be active
+  const shouldPoll = args !== 'skip' && intervalMs > 0;
+
   // Set up simple interval
   useEffect(() => {
     // Mark as active
     isActiveRef.current = true;
 
     // Skip if conditions aren't met
-    if (args === 'skip' || intervalMs <= 0) {
+    if (!shouldPoll) {
       clearExistingInterval();
       return;
     }
@@ -65,7 +68,7 @@ export function useSimplePoll<Query extends FunctionReference<'query'>>(
       isActiveRef.current = false;
       clearExistingInterval();
     };
-  }, [intervalMs, args]);
+  }, [intervalMs, shouldPoll, refetch]);
 
   // Additional cleanup on component unmount
   useEffect(() => {
@@ -79,7 +82,7 @@ export function useSimplePoll<Query extends FunctionReference<'query'>>(
   const queryArgs = args === 'skip' ? 'skip' : { ...args, _refreshTimestamp: refreshCount };
 
   // Use the query with refresh trigger
-  // @ts-expect-error - TypeScript can't infer that we're adding the _refreshTimestamp field
+  // @ts-expect-error - Adding _refreshTimestamp field for polling
   const data = useQuery(query, queryArgs);
 
   return {
