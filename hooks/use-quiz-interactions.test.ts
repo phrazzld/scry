@@ -130,6 +130,9 @@ describe('useQuizInteractions', () => {
     });
 
     it('should handle errors gracefully', async () => {
+      // Mock NODE_ENV to be development for console.error to fire
+      vi.stubEnv('NODE_ENV', 'development');
+
       const mockError = new Error('Database error');
       mockRecordInteraction.mockRejectedValue(mockError);
 
@@ -143,6 +146,9 @@ describe('useQuizInteractions', () => {
       expect(mockRecordInteraction).toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to track interaction:', mockError);
       expect(response).toBeNull();
+
+      // Restore original NODE_ENV (vi.stubEnv is automatically cleaned up)
+      vi.unstubAllEnvs();
     });
 
     it('should memoize trackAnswer based on dependencies', () => {
