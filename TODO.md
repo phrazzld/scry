@@ -105,11 +105,11 @@
   - Current: Tests run sequentially
   - Target: < 30 seconds for all unit tests
   - Success: Tests now run in ~1.3 seconds (310 tests)
-- [ ] Add test timing output to identify slow tests
+- [x] Add test timing output to identify slow tests
   ```typescript
-  reporters: ['default', 'hanging-process']
+  reporters: ['verbose']
   ```
-  - Success: `pnpm test` shows which tests are slow
+  - Success: `pnpm test` shows individual test execution times in milliseconds
 
 ### Coverage Visibility (No thresholds!)
 - [ ] Add coverage comment bot to GitHub Actions
