@@ -15,6 +15,7 @@ import {
   type GeneratedQuestionPayload,
 } from '@/lib/strip-generated-questions';
 import { cn } from '@/lib/utils';
+import { isSuccessResponse, type GenerateQuestionsResponse } from '@/types/api-responses';
 
 interface GenerationModalProps {
   open: boolean;
@@ -117,18 +118,26 @@ export function GenerationModal({
         throw new Error('Failed to generate questions');
       }
 
-      const result = await response.json();
-      const count = result.questions?.length || 0;
+      const result: GenerateQuestionsResponse = await response.json();
+
+      // Validate response structure
+      if (!isSuccessResponse(result)) {
+        throw new Error('Invalid response format from API');
+      }
+
+      const count = result.questions.length;
 
       // Save questions if user is authenticated
-      if (isSignedIn && Array.isArray(result.questions)) {
+      if (isSignedIn) {
         try {
-          const questionsForSave = stripGeneratedQuestionMetadata(
-            result.questions as GeneratedQuestionPayload[]
+          // Convert SimpleQuestion[] to GeneratedQuestionPayload[] for compatibility
+          const questionsAsPayload: GeneratedQuestionPayload[] = result.questions.map(
+            (q) => ({ ...q }) as GeneratedQuestionPayload
           );
+          const questionsForSave = stripGeneratedQuestionMetadata(questionsAsPayload);
           await saveQuestions({
             topic: result.topic || finalPrompt,
-            difficulty: currentQuestion?.difficulty || 'medium',
+            difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
             questions: questionsForSave,
           });
           toast.success(`✓ ${count} questions generated`);
@@ -137,7 +146,7 @@ export function GenerationModal({
           console.error('Failed to save:', saveError);
           toast.error('Generated but failed to save');
         }
-      } else if (Array.isArray(result.questions)) {
+      } else {
         toast.success(`✓ ${count} questions generated. Sign in to save.`);
       }
 
