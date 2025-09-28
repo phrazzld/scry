@@ -7,6 +7,7 @@ import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useRenderTracker } from '@/hooks/use-render-tracker';
 import { useReviewFlow } from '@/hooks/use-review-flow';
 import { POLLING_INTERVAL_MS } from '@/lib/constants/timing';
+import { FRAME_BUDGET_MS } from '@/lib/constants/ui';
 
 import { ReviewEmptyState } from './review-empty-state';
 
@@ -48,7 +49,7 @@ const logProfileData: ProfilerOnRenderCallback = (
     startTime,
     commitTime,
     timestamp: Date.now(),
-    exceedsFrameBudget: actualDuration > 16, // 16ms for 60fps
+    exceedsFrameBudget: actualDuration > FRAME_BUDGET_MS, // 16ms for 60fps
   };
 
   // Ensure data store exists
@@ -94,7 +95,9 @@ const logProfileData: ProfilerOnRenderCallback = (
 
   // Log warnings for performance issues
   if (process.env.NODE_ENV === 'development' && entry.exceedsFrameBudget) {
-    console.warn(`[ReviewMode] Render exceeded 16ms frame budget: ${actualDuration.toFixed(2)}ms`);
+    console.warn(
+      `[ReviewMode] Render exceeded ${FRAME_BUDGET_MS}ms frame budget: ${actualDuration.toFixed(2)}ms`
+    );
   }
 };
 

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
+import { OPTIMISTIC_UPDATE_CLEAR_DELAY } from '@/lib/constants/ui';
 
 // Track optimistic updates globally to persist across component re-renders
 const optimisticStore = {
@@ -72,7 +73,7 @@ export function useQuestionMutations() {
           setTimeout(() => {
             optimisticStore.edits.delete(questionIdStr);
             setOptimisticEdits(new Map(optimisticStore.edits));
-          }, 500); // Small delay to allow subscription to update
+          }, OPTIMISTIC_UPDATE_CLEAR_DELAY); // Small delay to allow subscription to update
 
           return { success: true };
         } else {
@@ -135,7 +136,7 @@ export function useQuestionMutations() {
         setTimeout(() => {
           optimisticStore.deletes.delete(questionIdStr);
           setOptimisticDeletes(new Set(optimisticStore.deletes));
-        }, 500); // Small delay to allow subscription to update
+        }, OPTIMISTIC_UPDATE_CLEAR_DELAY); // Small delay to allow subscription to update
 
         return { success: true };
       } catch (error) {

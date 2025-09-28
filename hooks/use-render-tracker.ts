@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { FRAME_BUDGET_MS } from '@/lib/constants/ui';
+
 /**
  * Render tracking data structure
  */
@@ -137,10 +139,9 @@ export function useRenderTracker(
     globalRenderData.set(componentName, data);
 
     // Log if render exceeds frame budget (16ms at 60fps)
-    const FRAME_BUDGET = 16;
-    if (renderDuration > FRAME_BUDGET && process.env.NODE_ENV === 'development') {
+    if (renderDuration > FRAME_BUDGET_MS && process.env.NODE_ENV === 'development') {
       console.warn(
-        `⚠️ [RenderTracker] ${componentName} render took ${renderDuration.toFixed(2)}ms (exceeded ${FRAME_BUDGET}ms frame budget)`,
+        `⚠️ [RenderTracker] ${componentName} render took ${renderDuration.toFixed(2)}ms (exceeded ${FRAME_BUDGET_MS}ms frame budget)`,
         `\n  Reason: ${renderReason}`,
         `\n  Render count: ${renderCount.current}`,
         `\n  Average: ${avgMs.toFixed(2)}ms`

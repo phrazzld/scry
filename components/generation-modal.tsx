@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
+import { AUTO_FOCUS_DELAY, TEXTAREA_MAX_HEIGHT, TEXTAREA_MIN_HEIGHT } from '@/lib/constants/ui';
 import {
   stripGeneratedQuestionMetadata,
   type GeneratedQuestionPayload,
@@ -58,7 +59,7 @@ export function GenerationModal({
           const len = textareaRef.current.value.length;
           textareaRef.current.setSelectionRange(len, len);
         }
-      }, 50);
+      }, AUTO_FOCUS_DELAY);
     } else {
       // Clear prompt when closing without context
       if (!currentQuestion) {
@@ -75,7 +76,10 @@ export function GenerationModal({
       // Reset height to auto to get the correct scrollHeight
       textarea.style.height = 'auto';
       // Set height based on content, with min and max
-      const newHeight = Math.min(Math.max(textarea.scrollHeight, 80), 200);
+      const newHeight = Math.min(
+        Math.max(textarea.scrollHeight, TEXTAREA_MIN_HEIGHT),
+        TEXTAREA_MAX_HEIGHT
+      );
       textarea.style.height = `${newHeight}px`;
     }
   }, [prompt]);
