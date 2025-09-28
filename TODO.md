@@ -15,14 +15,6 @@
   - Success: No orphaned intervals in browser dev tools
 
 ### Breaking API Changes (Add migration path)
-- [x] Add temporary redirect from `/api/generate-quiz` to `/api/generate-questions`
-  - File: app/api/generate-quiz/route.ts (create new)
-  - Implementation: Return 301 redirect with deprecation header
-  - Success: Old API calls continue working with warning
-- [x] Create MIGRATION.md with upgrade instructions
-  - Document: API endpoint change, component import changes
-  - Include: Before/after code examples
-  - Success: Clear path for existing integrations
 
 ### Type Safety & Code Quality (Quick fixes)
 - [x] Replace `Record<string, unknown>` with proper types in `generation-modal.tsx`

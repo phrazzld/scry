@@ -363,7 +363,7 @@ For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitori
 - Each answer attempt is tracked with timing and accuracy data
 - Supports difficulty levels: easy, medium, hard
 - Uses JSON schema validation for consistent output
-- API endpoint: `/api/generate-quiz`
+- API endpoint: `/api/generate-questions`
 
 ### Authentication System
 - Magic link authentication via email

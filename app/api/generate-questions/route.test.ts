@@ -31,7 +31,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-describe('/api/generate-quiz', () => {
+describe('/api/generate-questions', () => {
   // Verify mocks are working
   it('should have mocked generateQuizWithAI', () => {
     expect(vi.mocked(generateQuizWithAI)).toBeDefined();
@@ -95,7 +95,7 @@ describe('/api/generate-quiz', () => {
 
   describe('Input Validation', () => {
     it('should reject empty topic', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should reject invalid difficulty', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should reject topics with injection attempts', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should sanitize and accept valid topics', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ describe('/api/generate-quiz', () => {
     it('should reject excessively long topics', async () => {
       const longTopic = 'A'.repeat(501); // Assuming 500 char limit
 
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +199,7 @@ describe('/api/generate-quiz', () => {
     it('should handle AI generation failures gracefully', async () => {
       vi.mocked(generateQuizWithAI).mockRejectedValue(new Error('AI service unavailable'));
 
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -219,7 +219,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should handle malformed JSON body', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -236,7 +236,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should handle missing body', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +253,7 @@ describe('/api/generate-quiz', () => {
 
   describe('Response Structure', () => {
     it('should return consistent response structure for success', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +283,7 @@ describe('/api/generate-quiz', () => {
     });
 
     it('should return consistent error structure', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-quiz', {
+      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
