@@ -59,6 +59,7 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
   const frameCountRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   const prevStateRef = useRef(reviewModeState);
+  const rafIdRef = useRef<number | null>(null);
 
   // Track state transitions
   useEffect(() => {
@@ -81,7 +82,13 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
     }
 
     if (isVisible) {
-      requestAnimationFrame(calculateFPS);
+      rafIdRef.current = requestAnimationFrame(calculateFPS);
+    } else {
+      // Clean up if no longer visible
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     }
   }, [isVisible]);
 
@@ -150,8 +157,16 @@ export function DebugPanel({ reviewModeState, className }: DebugPanelProps) {
   // Start FPS tracking
   useEffect(() => {
     if (isVisible) {
-      requestAnimationFrame(calculateFPS);
+      rafIdRef.current = requestAnimationFrame(calculateFPS);
     }
+
+    // Cleanup function to cancel animation frame
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
   }, [isVisible, calculateFPS]);
 
   // Keyboard shortcut to toggle panel
