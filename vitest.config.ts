@@ -51,6 +51,9 @@ export default defineConfig({
         singleThread: false,
       },
     },
+
+    // Show test timing to identify slow tests
+    reporters: ['verbose'],
   },
 
   // Path resolution for Next.js aliases
