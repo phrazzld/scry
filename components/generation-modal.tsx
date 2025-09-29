@@ -81,20 +81,30 @@ export function GenerationModal({
     setIsGenerating(true);
 
     try {
-      // Auto-prepend context if available and not already referenced
       let finalPrompt = prompt;
+
+      // When context is enabled and available, ALWAYS include it in a structured format
       if (currentQuestion && useQuestionContext) {
-        const lowerPrompt = prompt.toLowerCase();
-        if (
-          !lowerPrompt.includes('like this') &&
-          !lowerPrompt.includes('similar') &&
-          !lowerPrompt.includes('these')
-        ) {
-          finalPrompt = `Based on: "${currentQuestion.question}" (${currentQuestion.topic}). ${prompt}`;
-        } else if (lowerPrompt === '5 more like this' || lowerPrompt === 'more like this') {
-          // For simple prompts, provide more context
-          finalPrompt = `Generate 5 more questions similar to: "${currentQuestion.question}" - Topic: ${currentQuestion.topic}, Difficulty: ${currentQuestion.difficulty}`;
-        }
+        // Build a comprehensive context section with all available information
+        const contextParts = [
+          'CURRENT QUESTION CONTEXT:',
+          `Question: "${currentQuestion.question}"`,
+          currentQuestion.topic ? `Topic: ${currentQuestion.topic}` : '',
+          `Type: ${currentQuestion.type || 'multiple-choice'}`,
+          currentQuestion.options ? `Options: ${currentQuestion.options.join(', ')}` : '',
+          currentQuestion.correctAnswer ? `Correct Answer: ${currentQuestion.correctAnswer}` : '',
+          currentQuestion.difficulty ? `Difficulty: ${currentQuestion.difficulty}` : '',
+          currentQuestion.explanation ? `Explanation: ${currentQuestion.explanation}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        // Combine context with user request in a clear, structured way
+        finalPrompt = `${contextParts}
+
+USER REQUEST: ${prompt}
+
+Based on the above question context, generate new educational questions that fulfill the user's request. If the request is for "similar but harder" questions, make them more challenging while staying on the same topic. For "easier" questions, simplify them while maintaining educational value.`;
       }
 
       const response = await fetch('/api/generate-questions', {
