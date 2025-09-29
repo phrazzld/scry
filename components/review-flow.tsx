@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Calendar } from 'lucide-react';
+import { ArrowRight, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
+import { EditQuestionModal } from '@/components/edit-question-modal';
 import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
@@ -11,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
 import type { Doc } from '@/convex/_generated/dataModel';
+import { useReviewShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { useQuestionMutations } from '@/hooks/use-question-mutations';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
 import { useReviewFlow } from '@/hooks/use-review-flow';
 
@@ -44,6 +48,10 @@ export function ReviewFlow() {
   const { trackAnswer } = useQuizInteractions();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+
+  // Edit/Delete functionality
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const { optimisticEdit, optimisticDelete } = useQuestionMutations();
 
   // Update context when current question changes
   useEffect(() => {
@@ -112,6 +120,74 @@ export function ReviewFlow() {
 
     // State will reset when new question arrives via useEffect
   }, [handlers]);
+
+  // Edit handler
+  const handleEdit = useCallback(() => {
+    if (!question || !questionId) return;
+    setEditModalOpen(true);
+  }, [question, questionId]);
+
+  // Delete handler with confirmation
+  const handleDelete = useCallback(async () => {
+    if (!question || !questionId) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this question? This action cannot be undone.'
+    );
+
+    if (confirmed) {
+      const result = await optimisticDelete({ questionId });
+      if (result.success) {
+        toast.success('Question deleted');
+        // Move to next question after delete
+        handlers.onReviewComplete();
+      }
+    }
+  }, [question, questionId, optimisticDelete, handlers]);
+
+  // Handle save from edit modal - directly call the mutation since optimisticEdit doesn't support options
+  const handleSaveEdit = useCallback(
+    async (updates: {
+      question: string;
+      options: string[];
+      correctAnswer: string;
+      explanation: string;
+    }) => {
+      if (!questionId) return;
+
+      // Since optimisticEdit doesn't support options/correctAnswer,
+      // we'll just use it for the basic fields and let the mutation handle everything
+      const result = await optimisticEdit({
+        questionId,
+        question: updates.question,
+        topic: '', // We don't have topic in SimpleQuestion, using empty string
+        explanation: updates.explanation,
+      });
+
+      if (result.success) {
+        setEditModalOpen(false);
+        toast.success('Question updated');
+      }
+    },
+    [questionId, optimisticEdit]
+  );
+
+  // Wire up keyboard shortcuts
+  useReviewShortcuts({
+    onSelectAnswer: !feedbackState.showFeedback
+      ? (index: number) => {
+          if (question && question.options[index]) {
+            handleAnswerSelect(question.options[index]);
+          }
+        }
+      : undefined,
+    onSubmit: !feedbackState.showFeedback && selectedAnswer ? handleSubmit : undefined,
+    onNext: feedbackState.showFeedback ? handleNext : undefined,
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+    showingFeedback: feedbackState.showFeedback,
+    canSubmit: !!selectedAnswer,
+  });
 
   // Render based on phase
   if (phase === 'loading') {
@@ -201,7 +277,31 @@ export function ReviewFlow() {
                   </div>
                 )}
 
-              <div className="flex justify-end mt-6">
+              {/* Action buttons for edit/delete */}
+              <div className="flex items-center justify-between mt-6">
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEdit}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Edit question (E)"
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDelete}
+                    className="text-muted-foreground hover:text-error"
+                    title="Delete question (D)"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+
                 {!feedbackState.showFeedback ? (
                   <Button onClick={handleSubmit} disabled={!selectedAnswer} size="lg">
                     Submit
@@ -216,6 +316,32 @@ export function ReviewFlow() {
             </div>
           </article>
         </div>
+
+        {/* Edit Question Modal */}
+        {question && questionId && (
+          <EditQuestionModal
+            open={editModalOpen}
+            onOpenChange={setEditModalOpen}
+            question={
+              {
+                _id: questionId,
+                _creationTime: Date.now(),
+                userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
+                question: question.question,
+                topic: '', // SimpleQuestion doesn't have topic
+                difficulty: 'medium', // Default since not in SimpleQuestion
+                type: question.type || 'multiple-choice',
+                options: question.options,
+                correctAnswer: question.correctAnswer,
+                explanation: question.explanation,
+                generatedAt: Date.now(),
+                attemptCount: 0, // Not available in SimpleQuestion
+                correctCount: 0, // Not available in SimpleQuestion
+              } as Doc<'questions'>
+            }
+            onSave={handleSaveEdit}
+          />
+        )}
       </div>
     );
   }

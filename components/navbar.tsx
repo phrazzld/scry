@@ -72,7 +72,10 @@ export function Navbar() {
                   </Link>
                 )}
                 <ThemeToggle />
-                <div data-testid="user-menu">
+                <div
+                  data-testid="user-menu"
+                  className="flex size-9 items-center justify-center rounded-full"
+                >
                   <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
                 </div>
               </>

@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useMutation } from 'convex/react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/convex/_generated/api';
@@ -40,6 +41,7 @@ export function GenerationModal({
 }: GenerationModalProps) {
   const [prompt, setPrompt] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
+  const [useQuestionContext, setUseQuestionContext] = React.useState(true);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const { isSignedIn } = useUser();
   const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
@@ -47,6 +49,7 @@ export function GenerationModal({
   // Set smart defaults and auto-focus
   React.useEffect(() => {
     if (open) {
+      setUseQuestionContext(true); // Reset to default
       // Smart default when we have context
       if (currentQuestion && !prompt) {
         setPrompt('5 more like this');
@@ -80,7 +83,7 @@ export function GenerationModal({
     try {
       // Auto-prepend context if available and not already referenced
       let finalPrompt = prompt;
-      if (currentQuestion) {
+      if (currentQuestion && useQuestionContext) {
         const lowerPrompt = prompt.toLowerCase();
         if (
           !lowerPrompt.includes('like this') &&
@@ -169,31 +172,46 @@ export function GenerationModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl p-0 gap-0">
-        {/* Compact header */}
-        <DialogHeader className="px-6 pt-4 pb-4">
-          <DialogTitle className="text-lg">Generate Questions</DialogTitle>
+        {/* Dynamic header based on context */}
+        <DialogHeader className="px-6 pt-4 pb-2">
+          <DialogTitle className="text-lg">
+            {currentQuestion && useQuestionContext
+              ? 'Generate Related Questions'
+              : 'Generate New Questions'}
+          </DialogTitle>
+          {currentQuestion && useQuestionContext && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Building on your question about {currentQuestion.topic || 'this concept'}
+            </p>
+          )}
+          {(!currentQuestion || !useQuestionContext) && (
+            <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
+          )}
         </DialogHeader>
 
-        {/* Context display */}
+        {/* Context control */}
         {currentQuestion && (
           <div className="px-6 pb-4">
-            <div className="bg-muted/50 border border-border rounded-lg p-3 space-y-1">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Working from</p>
+            <div className="flex items-center gap-2">
+              {useQuestionContext ? (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer hover:bg-secondary/80 transition-colors text-xs"
+                  onClick={() => setUseQuestionContext(false)}
+                >
+                  📚 Using context
+                  <X className="h-3 w-3 ml-2" />
+                </Badge>
+              ) : (
                 <button
-                  onClick={() => setPrompt('')}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setUseQuestionContext(true)}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
                   type="button"
                 >
-                  Clear context
+                  <Plus className="h-3 w-3" />
+                  Use current question
                 </button>
-              </div>
-              <p className="text-sm line-clamp-2">{currentQuestion.question}</p>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>{currentQuestion.topic}</span>
-                <span>•</span>
-                <span>{currentQuestion.difficulty}</span>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -207,9 +225,9 @@ export function GenerationModal({
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                currentQuestion
-                  ? 'How do you want to modify this question?'
-                  : 'What do you want to learn? Be as specific or creative as you like...'
+                currentQuestion && useQuestionContext
+                  ? `Describe how to modify "${currentQuestion.question.slice(0, 50)}..."`
+                  : 'What would you like to learn about? Be specific or creative...'
               }
               className={cn(
                 'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
@@ -226,7 +244,7 @@ export function GenerationModal({
           </div>
 
           {/* Quick prompts */}
-          {currentQuestion && (
+          {currentQuestion && useQuestionContext && (
             <div className="flex flex-wrap gap-2">
               {QUICK_PROMPTS.map((quickPrompt) => (
                 <button
