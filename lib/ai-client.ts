@@ -23,8 +23,22 @@ const questionsSchema = z.object({
 });
 
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
-  // Trust the model to understand natural language - just pass it through
-  const prompt = topic;
+  // Provide clear guidance while trusting the model to scale appropriately
+  const prompt = `You are a quiz generation assistant. Your task is to create comprehensive educational quiz questions.
+
+First, consider the topic and determine how many questions would provide thorough coverage.
+Be generous - it's better to have too many questions than too few.
+For example: 'NATO alphabet' needs at least 26 questions, 'primary colors' needs 3, 'React hooks' might need 15-20.
+
+TOPIC TO CREATE QUESTIONS ABOUT: "${topic}"
+
+Generate enough questions to ensure complete coverage of this topic.
+Mix question types: multiple-choice and true-false.
+Each multiple-choice question must have exactly 4 options.
+Each true/false question must have exactly 2 options: "True" and "False".
+Include educational explanations for each answer.
+
+Generate the questions now:`;
 
   try {
     const timer = loggers.time(`ai.question-generation.${topic}`, 'ai');
