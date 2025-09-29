@@ -145,7 +145,7 @@ export function ReviewFlow() {
     }
   }, [question, questionId, optimisticDelete, handlers]);
 
-  // Handle save from edit modal - directly call the mutation since optimisticEdit doesn't support options
+  // Handle save from edit modal - now supports all fields
   const handleSaveEdit = useCallback(
     async (updates: {
       question: string;
@@ -155,13 +155,14 @@ export function ReviewFlow() {
     }) => {
       if (!questionId) return;
 
-      // Since optimisticEdit doesn't support options/correctAnswer,
-      // we'll just use it for the basic fields and let the mutation handle everything
+      // Pass all fields including options and correctAnswer
       const result = await optimisticEdit({
         questionId,
         question: updates.question,
         topic: '', // We don't have topic in SimpleQuestion, using empty string
         explanation: updates.explanation,
+        options: updates.options,
+        correctAnswer: updates.correctAnswer,
       });
 
       if (result.success) {

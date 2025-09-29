@@ -32,7 +32,7 @@
   * Test with multiple tabs/windows
 - [ ] [MEDIUM] [A11Y] Accessibility improvements | Effort: M | Source: PR#23 Review | Impact: User accessibility
   * Add ARIA labels to interactive elements
-  * Implement keyboard navigation for all features
+  * Implement keyboard navigation for all features (especially quick prompts in generation modal)
   * Add aria-live regions for dynamic updates
   * Ensure proper focus management during transitions
   * Test with screen readers
@@ -107,6 +107,8 @@
   * Reduce polling interval when user is inactive
   * Increase frequency during active review sessions
   * Consider 30s → 60s → 120s backoff strategy
+  * Implement visibility API to pause polling when tab is in background
+  * Monitor battery impact on mobile devices
 - [ ] [MEDIUM] [DX] Component code splitting maintenance | Effort: S | Source: PR#23 Review | Impact: Bundle size
   * Ensure flattened hierarchy maintains lazy loading
   * Monitor bundle sizes after refactor
@@ -178,6 +180,26 @@
 - [ ] Bundle size monitoring with regression alerts
 - [ ] Query performance dashboards (P50/P95/P99)
 - [ ] Error rate tracking with categorization
+
+## PR #23 Review Feedback - Not Applicable or Already Resolved
+
+### ✅ Resolved in PR #23 Commits
+- **Debug Panel & Memory Leaks**: Removed entirely in commit 29f86af (radical cleanup)
+- **Console Logging**: All cleaned up in commit 29f86af
+- **Polling Args Parameter**: Fixed in commit b5f9b2a
+- **TypeScript Suppression (@ts-expect-error)**: Removed with debug code
+
+### 🚫 Rejected Suggestions (Not Aligned with Project Philosophy)
+- **Feature Flags for Debug Panel**: Overengineering - debug panel completely removed
+- **Deprecation Redirect for API**: Overengineering - clean break is simpler
+- **Complex Error Recovery Context**: Violates hypersimplicity principle
+- **Crypto.randomUUID for Session IDs**: Not necessary - client-side only tracking
+
+### 💡 Good Ideas for Future Consideration
+- **React.memo for ReviewQuestionDisplay**: Worth testing if performance issues arise
+- **Migration Guide Documentation**: Add if users report upgrade issues
+- **Performance Budgets in CI**: Valuable once stable baseline established
+- **Telemetry for Review Completion Rates**: Useful for validating FSRS effectiveness
 
 ## Moved from TODO.md (Low Priority/Overengineering)
 

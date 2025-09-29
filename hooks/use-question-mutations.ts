@@ -11,7 +11,16 @@ import { OPTIMISTIC_UPDATE_CLEAR_DELAY } from '@/lib/constants/ui';
 
 // Track optimistic updates globally to persist across component re-renders
 const optimisticStore = {
-  edits: new Map<string, { question: string; topic: string; explanation?: string }>(),
+  edits: new Map<
+    string,
+    {
+      question: string;
+      topic: string;
+      explanation?: string;
+      options?: string[];
+      correctAnswer?: string;
+    }
+  >(),
   deletes: new Set<string>(),
 };
 
@@ -20,6 +29,8 @@ interface OptimisticEditParams {
   question: string;
   topic: string;
   explanation?: string;
+  options?: string[];
+  correctAnswer?: string;
 }
 
 interface OptimisticDeleteParams {
@@ -47,11 +58,11 @@ export function useQuestionMutations() {
         return { success: false };
       }
 
-      const { questionId, question, topic, explanation } = params;
+      const { questionId, question, topic, explanation, options, correctAnswer } = params;
       const questionIdStr = questionId as string;
 
       // Store the optimistic update
-      const optimisticData = { question, topic, explanation };
+      const optimisticData = { question, topic, explanation, options, correctAnswer };
       optimisticStore.edits.set(questionIdStr, optimisticData);
       setOptimisticEdits(new Map(optimisticStore.edits));
 
@@ -65,6 +76,8 @@ export function useQuestionMutations() {
           question,
           topic,
           explanation,
+          options,
+          correctAnswer,
         });
 
         if (result.success) {
