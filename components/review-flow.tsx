@@ -138,7 +138,7 @@ export function ReviewFlow() {
     if (confirmed) {
       const result = await optimisticDelete({ questionId });
       if (result.success) {
-        toast.success('Question deleted');
+        // Toast already shown by optimisticDelete hook
         // Move to next question after delete
         handlers.onReviewComplete();
       }
