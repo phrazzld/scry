@@ -117,7 +117,18 @@ Based on the above question context, generate new educational questions that ful
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate questions');
+        // Parse error response for specific error information
+        const errorData = await response.json();
+        const errorMessage = errorData.error || 'Failed to generate questions';
+        const errorType = errorData.errorType || 'unknown';
+
+        const error = new Error(errorMessage) as Error & {
+          errorType: string;
+          statusCode: number;
+        };
+        error.errorType = errorType;
+        error.statusCode = response.status;
+        throw error;
       }
 
       const result: GenerateQuestionsResponse = await response.json();
@@ -160,7 +171,33 @@ Based on the above question context, generate new educational questions that ful
       if (process.env.NODE_ENV === 'development') {
         console.error('Generation error:', error);
       }
-      toast.error('Failed to generate questions');
+
+      // Display specific error message based on error type
+      const errorType = (error as { errorType?: string }).errorType;
+      const errorMessage = (error as Error).message || 'Failed to generate questions';
+
+      // Show user-friendly error with appropriate actions
+      if (errorType === 'rate-limit-error') {
+        toast.error(errorMessage, {
+          description: 'Try again in a few moments',
+          duration: 5000,
+        });
+      } else if (errorType === 'timeout-error') {
+        toast.error(errorMessage, {
+          description: 'Consider using a more specific topic',
+          duration: 5000,
+        });
+      } else if (errorType === 'api-key-error') {
+        toast.error(errorMessage, {
+          description: 'Please contact support if this persists',
+          duration: 7000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          description: 'Try rephrasing your prompt or making it more specific',
+          duration: 5000,
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
