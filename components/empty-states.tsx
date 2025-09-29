@@ -71,7 +71,9 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
               difficulty: result.difficulty || 'medium',
               questions: questionsForSave,
             });
-            toast.success(`✓ ${count} questions generated and saved!`);
+            toast.success(`✓ ${count} questions generated`, {
+              description: "You'll see these in your review queue next",
+            });
             // Only trigger callback after successful save
             onGenerationSuccess?.();
           } catch (saveError) {
@@ -86,7 +88,9 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
           if (process.env.NODE_ENV === 'development') {
             console.warn('Questions generated but not saved - user is not authenticated');
           }
-          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+          toast.success(`✓ ${count} questions generated`, {
+            description: 'Sign in to save and review them',
+          });
           // Don't trigger callback for unauthenticated users
         } else {
           toast.error('Failed to generate questions');
@@ -224,7 +228,9 @@ export function NothingDueEmptyState({
               difficulty: result.difficulty || 'medium',
               questions: questionsForSave,
             });
-            toast.success(`✓ ${count} questions generated! They'll appear shortly.`);
+            toast.success(`✓ ${count} questions generated`, {
+              description: "You'll see these in your review queue next",
+            });
           } catch (saveError) {
             if (process.env.NODE_ENV === 'development') {
               console.error('Failed to save questions:', saveError);
@@ -235,7 +241,9 @@ export function NothingDueEmptyState({
           if (process.env.NODE_ENV === 'development') {
             console.warn('Questions generated but not saved - user is not authenticated');
           }
-          toast.success(`✓ ${count} questions generated! Sign in to save them.`);
+          toast.success(`✓ ${count} questions generated`, {
+            description: 'Sign in to save and review them',
+          });
         } else {
           toast.error('Failed to generate questions');
         }

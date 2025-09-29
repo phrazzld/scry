@@ -153,7 +153,9 @@ Based on the above question context, generate new educational questions that ful
             difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
             questions: questionsForSave,
           });
-          toast.success(`✓ ${count} questions generated`);
+          toast.success(`✓ ${count} questions generated`, {
+            description: "You'll see these in your review queue next",
+          });
           onGenerationSuccess?.(count);
         } catch (saveError) {
           if (process.env.NODE_ENV === 'development') {
@@ -162,7 +164,9 @@ Based on the above question context, generate new educational questions that ful
           toast.error('Generated but failed to save');
         }
       } else {
-        toast.success(`✓ ${count} questions generated. Sign in to save.`);
+        toast.success(`✓ ${count} questions generated`, {
+          description: 'Sign in to save and review them',
+        });
       }
 
       setPrompt(''); // Clear on success
