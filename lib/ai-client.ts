@@ -5,7 +5,6 @@ import { z } from 'zod';
 import type { SimpleQuestion } from '@/types/questions';
 
 import { aiLogger, loggers } from './logger';
-import { createSafePrompt, sanitizeTopic } from './prompt-sanitization';
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_AI_API_KEY || '',
@@ -24,23 +23,19 @@ const questionsSchema = z.object({
 });
 
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
-  // Sanitize the topic before using it
-  const sanitizedTopic = sanitizeTopic(topic);
-
-  // Create a safe prompt that prevents injection
-  const prompt = createSafePrompt(sanitizedTopic);
+  // Trust the model to understand natural language - just pass it through
+  const prompt = topic;
 
   try {
-    const timer = loggers.time(`ai.question-generation.${sanitizedTopic}`, 'ai');
+    const timer = loggers.time(`ai.question-generation.${topic}`, 'ai');
 
     aiLogger.info(
       {
         event: 'ai.question-generation.start',
-        topic: sanitizedTopic,
-        originalTopic: topic !== sanitizedTopic ? topic : undefined,
+        topic,
         model: 'gemini-2.5-flash',
       },
-      `Starting question generation for topic: ${sanitizedTopic}`
+      `Starting question generation for topic: ${topic}`
     );
 
     const { object } = await generateObject({
@@ -50,7 +45,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
     });
 
     const duration = timer.end({
-      topic: sanitizedTopic,
+      topic,
       questionCount: object.questions.length,
       success: true,
     });
@@ -58,11 +53,11 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
     aiLogger.info(
       {
         event: 'ai.question-generation.success',
-        topic: sanitizedTopic,
+        topic,
         questionCount: object.questions.length,
         duration,
       },
-      `Successfully generated ${object.questions.length} questions for ${sanitizedTopic}`
+      `Successfully generated ${object.questions.length} questions for ${topic}`
     );
 
     // Validate and ensure all required properties are present
@@ -81,46 +76,40 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
       errorMessage.includes('API key') ||
       errorMessage.includes('401') ||
       errorMessage.includes('Unauthorized');
+    const isRateLimitError =
+      errorMessage.toLowerCase().includes('rate limit') ||
+      errorMessage.includes('429') ||
+      errorMessage.toLowerCase().includes('quota');
+    const isTimeoutError =
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('timed out') ||
+      errorMessage.includes('ETIMEDOUT');
+
+    const errorType = isApiKeyError
+      ? 'api-key-error'
+      : isRateLimitError
+        ? 'rate-limit-error'
+        : isTimeoutError
+          ? 'timeout-error'
+          : 'generation-error';
 
     loggers.error(
       error as Error,
       'ai',
       {
         event: 'ai.question-generation.failure',
-        topic: sanitizedTopic,
+        topic,
         model: 'gemini-2.5-flash',
-        errorType: isApiKeyError ? 'api-key-error' : 'generation-error',
+        errorType,
         errorMessage,
       },
       `Failed to generate questions: ${errorMessage}`
     );
 
-    aiLogger.warn(
-      {
-        event: 'ai.question-generation.fallback',
-        topic: sanitizedTopic,
-        fallbackQuestionCount: 2,
-        reason: errorMessage,
-      },
-      `Using fallback questions for topic: ${sanitizedTopic} - Error: ${errorMessage}`
-    );
-
-    // Return some default questions as fallback
-    return [
-      {
-        question: `What is ${sanitizedTopic}?`,
-        type: 'multiple-choice' as const,
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        correctAnswer: 'Option A',
-        explanation: 'This is a placeholder multiple-choice question.',
-      },
-      {
-        question: `${sanitizedTopic} is an important subject to study.`,
-        type: 'true-false' as const,
-        options: ['True', 'False'],
-        correctAnswer: 'True',
-        explanation: 'This is a placeholder true/false question.',
-      },
-    ];
+    // Re-throw error with enhanced context for proper error handling upstream
+    const enhancedError = new Error(errorMessage) as Error & { originalError?: unknown };
+    enhancedError.name = errorType;
+    enhancedError.originalError = error;
+    throw enhancedError;
   }
 }

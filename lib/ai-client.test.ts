@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { generateQuizWithAI } from './ai-client';
 import { aiLogger, loggers } from './logger';
-import { createSafePrompt, sanitizeTopic } from './prompt-sanitization';
 
 // Mock dependencies
 vi.mock('@ai-sdk/google', () => ({
@@ -28,10 +27,7 @@ vi.mock('./logger', () => ({
   },
 }));
 
-vi.mock('./prompt-sanitization', () => ({
-  createSafePrompt: vi.fn((topic: string) => `Generate questions about ${topic}`),
-  sanitizeTopic: vi.fn((topic: string) => topic.trim()),
-}));
+// No more prompt sanitization mocks needed - we trust the model
 
 // Helper to create mock generateObject result
 function createMockResult(object: any) {
@@ -90,10 +86,6 @@ describe('AI Client', () => {
         correctAnswer: 'A programming language',
       });
 
-      // Verify sanitization was called
-      expect(sanitizeTopic).toHaveBeenCalledWith('JavaScript');
-      expect(createSafePrompt).toHaveBeenCalledWith('JavaScript');
-
       // Verify logging
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -130,30 +122,12 @@ describe('AI Client', () => {
       });
     });
 
-    it('should return fallback questions on AI generation failure', async () => {
+    it('should throw error on AI generation failure', async () => {
       const error = new Error('AI service unavailable');
       vi.mocked(generateObject).mockRejectedValue(error);
 
-      const result = await generateQuizWithAI('Mathematics');
-
-      // Should return 2 fallback questions
-      expect(result).toHaveLength(2);
-
-      // Check first fallback question
-      expect(result[0]).toMatchObject({
-        question: 'What is Mathematics?',
-        type: 'multiple-choice',
-        options: expect.arrayContaining(['Option A', 'Option B']),
-        correctAnswer: 'Option A',
-      });
-
-      // Check second fallback question
-      expect(result[1]).toMatchObject({
-        question: 'Mathematics is an important subject to study.',
-        type: 'true-false',
-        options: ['True', 'False'],
-        correctAnswer: 'True',
-      });
+      // Should throw error instead of returning fallback
+      await expect(generateQuizWithAI('Mathematics')).rejects.toThrow('AI service unavailable');
 
       // Verify error logging
       expect(loggers.error).toHaveBeenCalledWith(
@@ -162,16 +136,57 @@ describe('AI Client', () => {
         expect.objectContaining({
           event: 'ai.question-generation.failure',
           topic: 'Mathematics',
+          errorType: 'generation-error',
         }),
         'Failed to generate questions: AI service unavailable'
       );
+    });
 
-      expect(aiLogger.warn).toHaveBeenCalledWith(
+    it('should throw API key error with proper error type', async () => {
+      const error = new Error('API key not configured');
+      vi.mocked(generateObject).mockRejectedValue(error);
+
+      await expect(generateQuizWithAI('Physics')).rejects.toThrow('API key not configured');
+
+      expect(loggers.error).toHaveBeenCalledWith(
+        error,
+        'ai',
         expect.objectContaining({
-          event: 'ai.question-generation.fallback',
-          topic: 'Mathematics',
+          errorType: 'api-key-error',
         }),
-        expect.stringContaining('Using fallback questions')
+        expect.any(String)
+      );
+    });
+
+    it('should throw rate limit error with proper error type', async () => {
+      const error = new Error('Rate limit exceeded');
+      vi.mocked(generateObject).mockRejectedValue(error);
+
+      await expect(generateQuizWithAI('Chemistry')).rejects.toThrow('Rate limit exceeded');
+
+      expect(loggers.error).toHaveBeenCalledWith(
+        error,
+        'ai',
+        expect.objectContaining({
+          errorType: 'rate-limit-error',
+        }),
+        expect.any(String)
+      );
+    });
+
+    it('should throw timeout error with proper error type', async () => {
+      const error = new Error('Request timed out');
+      vi.mocked(generateObject).mockRejectedValue(error);
+
+      await expect(generateQuizWithAI('Biology')).rejects.toThrow('Request timed out');
+
+      expect(loggers.error).toHaveBeenCalledWith(
+        error,
+        'ai',
+        expect.objectContaining({
+          errorType: 'timeout-error',
+        }),
+        expect.any(String)
       );
     });
 
@@ -188,7 +203,7 @@ describe('AI Client', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('should log different topic when sanitization changes it', async () => {
+    it('should pass topics through without modification', async () => {
       const mockQuestions = {
         questions: [
           {
@@ -200,15 +215,14 @@ describe('AI Client', () => {
       };
 
       vi.mocked(generateObject).mockResolvedValue(createMockResult(mockQuestions));
-      vi.mocked(sanitizeTopic).mockReturnValue('sanitized-topic');
 
-      await generateQuizWithAI('  Unsafe <script> Topic  ');
+      await generateQuizWithAI('the NATO alphabet');
 
+      // Topic should be passed through as-is
       expect(aiLogger.info).toHaveBeenCalledWith(
         expect.objectContaining({
           event: 'ai.question-generation.start',
-          topic: 'sanitized-topic',
-          originalTopic: '  Unsafe <script> Topic  ',
+          topic: 'the NATO alphabet',
         }),
         expect.any(String)
       );
@@ -230,7 +244,6 @@ describe('AI Client', () => {
       };
       vi.mocked(loggers.time).mockReturnValue(mockTimer);
       vi.mocked(generateObject).mockResolvedValue(createMockResult(mockQuestions));
-      vi.mocked(sanitizeTopic).mockReturnValue('Performance Test'); // Reset mock to return exact topic
 
       await generateQuizWithAI('Performance Test');
 
@@ -250,23 +263,20 @@ describe('AI Client', () => {
       );
     });
 
-    it('should handle network timeout errors gracefully', async () => {
+    it('should handle network timeout errors and classify them correctly', async () => {
       const timeoutError = new Error('Request timeout');
       timeoutError.name = 'TimeoutError';
       vi.mocked(generateObject).mockRejectedValue(timeoutError);
-      vi.mocked(sanitizeTopic).mockReturnValue('Timeout Test'); // Reset mock to return exact topic
 
-      const result = await generateQuizWithAI('Timeout Test');
+      await expect(generateQuizWithAI('Timeout Test')).rejects.toThrow('Request timeout');
 
-      // Should return fallback questions
-      expect(result).toHaveLength(2);
-      expect(result[0].question).toContain('Timeout Test');
-
-      // Should log the timeout error
+      // Should log the timeout error with correct classification
       expect(loggers.error).toHaveBeenCalledWith(
         timeoutError,
         'ai',
-        expect.any(Object),
+        expect.objectContaining({
+          errorType: 'timeout-error',
+        }),
         expect.any(String)
       );
     });

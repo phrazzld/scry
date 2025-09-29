@@ -2,11 +2,7 @@ import { NextRequest } from 'next/server';
 
 import { generateQuizWithAI } from '@/lib/ai-client';
 import { createRequestLogger, loggers } from '@/lib/logger';
-import {
-  containsInjectionAttempt,
-  logInjectionAttempt,
-  sanitizedQuizRequestSchema,
-} from '@/lib/prompt-sanitization';
+import { sanitizedQuizRequestSchema } from '@/lib/prompt-sanitization';
 import type { SimpleQuestion } from '@/types/questions';
 
 export async function POST(request: NextRequest) {
@@ -71,26 +67,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for injection attempts before validation
-    if (body.topic && containsInjectionAttempt(body.topic)) {
-      logInjectionAttempt(body.topic, ipAddress, logger);
-
-      // Rate limit injection attempts more aggressively
-      logger.warn(
-        {
-          event: 'api.generate-questions.injection-blocked',
-          ip: ipAddress,
-          topic: body.topic?.substring(0, 100), // Log first 100 chars only
-        },
-        'Prompt injection attempt blocked'
-      );
-
-      return new Response(
-        JSON.stringify({ error: 'Invalid topic. Please use a different topic.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
+    // Schema validation is the security boundary - trust the model with input
     const validationResult = sanitizedQuizRequestSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -162,23 +139,56 @@ export async function POST(request: NextRequest) {
       error: (error as Error).message,
     });
 
+    const errorName = (error as Error).name;
+    const errorMessage = (error as Error).message;
+
+    // Classify error and provide actionable messages
+    let userMessage: string;
+    let statusCode: number;
+
+    switch (errorName) {
+      case 'api-key-error':
+        userMessage = 'AI service configuration error. Please contact support or try again later.';
+        statusCode = 503;
+        break;
+      case 'rate-limit-error':
+        userMessage =
+          'Too many requests. Please wait a moment and try again. Consider generating fewer questions at once.';
+        statusCode = 429;
+        break;
+      case 'timeout-error':
+        userMessage = 'Request timed out. Please try again with a simpler prompt.';
+        statusCode = 504;
+        break;
+      default:
+        userMessage =
+          'Question generation failed. Please try again or rephrase your prompt. If the problem persists, try a more specific topic.';
+        statusCode = 500;
+    }
+
     loggers.error(
       error as Error,
       'api',
       {
         event: 'api.generate-questions.error',
         duration,
+        errorType: errorName,
       },
-      'Unexpected error during question generation'
+      'Error during question generation'
     );
 
-    loggers.apiRequest('POST', '/api/generate-questions', 500, duration, {
-      error: (error as Error).message,
+    loggers.apiRequest('POST', '/api/generate-questions', statusCode, duration, {
+      error: errorMessage,
+      errorType: errorName,
     });
 
     return new Response(
-      JSON.stringify({ error: 'Question generation failed. Please try again.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: userMessage,
+        errorType: errorName,
+        details: { message: errorMessage },
+      }),
+      { status: statusCode, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
