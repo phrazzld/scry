@@ -1,4 +1,4 @@
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { generateQuizWithAI } from './ai-client';
@@ -11,6 +11,7 @@ vi.mock('@ai-sdk/google', () => ({
 
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
+  generateText: vi.fn(),
 }));
 
 vi.mock('./logger', () => ({
@@ -46,11 +47,47 @@ function createMockResult(object: any) {
   };
 }
 
+// Helper to create mock generateText result
+function createMockTextResult(text: string) {
+  return {
+    text,
+    finishReason: 'stop' as const,
+    usage: { promptTokens: 50, completionTokens: 100, totalTokens: 150 },
+    warnings: undefined,
+    request: {} as any,
+    response: { id: 'test', timestamp: new Date(), modelId: 'test' },
+    experimental_providerMetadata: undefined,
+    providerMetadata: undefined,
+    rawResponse: undefined,
+    logprobs: undefined,
+    reasoning: undefined,
+    files: undefined,
+    reasoningDetails: undefined,
+    sources: undefined,
+    experimental_reasoning: undefined,
+    experimental_files: undefined,
+    experimental_reasoningDetails: undefined,
+    experimental_sources: undefined,
+    experimental_output: undefined,
+    toolCalls: [],
+    toolResults: [],
+    steps: [],
+    toJsonResponse: () => new Response(JSON.stringify({ text })),
+  };
+}
+
 describe('AI Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset env var
     process.env.GOOGLE_AI_API_KEY = 'test-api-key';
+
+    // Default mock for intent clarification (can be overridden in specific tests)
+    vi.mocked(generateText).mockResolvedValue(
+      createMockTextResult(
+        'The learner wants to study this topic. Key learning objectives include understanding the core concepts and applications.'
+      ) as any
+    );
   });
 
   describe('generateQuizWithAI', () => {
