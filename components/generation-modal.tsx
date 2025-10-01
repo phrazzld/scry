@@ -1,237 +1,357 @@
-'use client'
+'use client';
 
-import * as React from 'react'
+import * as React from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useMutation } from 'convex/react';
+import { Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { api } from '@/convex/_generated/api';
+import type { Doc } from '@/convex/_generated/dataModel';
+import { AUTO_FOCUS_DELAY } from '@/lib/constants/ui';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
-import type { Doc } from '@/convex/_generated/dataModel'
-import { useMutation } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-import { useUser } from '@clerk/nextjs'
+  stripGeneratedQuestionMetadata,
+  type GeneratedQuestionPayload,
+} from '@/lib/strip-generated-questions';
+import { cn } from '@/lib/utils';
+import { isSuccessResponse, type GenerateQuestionsResponse } from '@/types/api-responses';
 
 interface GenerationModalProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  currentQuestion?: Doc<"questions">
-  onGenerationSuccess?: (count: number) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentQuestion?: Doc<'questions'>;
+  onGenerationSuccess?: (count: number) => void;
 }
 
-/**
- * Modal component for generating new quiz questions using AI
- * 
- * Features:
- * - AI-powered question generation from custom prompts
- * - Context-aware generation based on current question
- * - Success toast with question count and topic
- * - Event dispatch for real-time UI updates
- * 
- * @param open - Whether the modal is open
- * @param onOpenChange - Callback to handle modal open/close state changes
- * @param currentQuestion - Optional current question for context-aware generation
- */
+const QUICK_PROMPTS = [
+  '5 easier questions',
+  'Similar but harder',
+  'Explain the concept',
+  'Real-world applications',
+];
+
 export function GenerationModal({
   open,
   onOpenChange,
   currentQuestion,
-  onGenerationSuccess
+  onGenerationSuccess,
 }: GenerationModalProps) {
-  const [prompt, setPrompt] = React.useState('')
-  const [useCurrentContext, setUseCurrentContext] = React.useState(false)
-  const [isGenerating, setIsGenerating] = React.useState(false)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
-  const { isSignedIn } = useUser()
-  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions)
+  const [prompt, setPrompt] = React.useState('');
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const [useQuestionContext, setUseQuestionContext] = React.useState(true);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const { isSignedIn } = useUser();
+  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
 
-  // Reset state when modal closes, or set smart defaults when opening with context
+  // Set smart defaults and auto-focus
   React.useEffect(() => {
-    if (!open) {
-      // Clear prompt when modal closes
-      setPrompt('')
-      setUseCurrentContext(false)
-    } else {
-      // If we have a current question context, set smart defaults
-      if (currentQuestion) {
-        setUseCurrentContext(true)
-        setPrompt('Generate 5 similar questions')
+    if (open) {
+      setUseQuestionContext(true); // Reset to default
+      // Smart default when we have context
+      if (currentQuestion && !prompt) {
+        setPrompt('5 more like this');
       }
-      
-      // Auto-focus on open
+      // Auto-focus after a brief delay
       setTimeout(() => {
-        textareaRef.current?.focus()
-      }, 0)
+        textareaRef.current?.focus();
+        // Position cursor at end
+        if (textareaRef.current) {
+          const len = textareaRef.current.value.length;
+          textareaRef.current.setSelectionRange(len, len);
+        }
+      }, AUTO_FOCUS_DELAY);
+    } else {
+      // Clear prompt when closing without context
+      if (!currentQuestion) {
+        setPrompt('');
+      }
     }
-  }, [open, currentQuestion])
-
-  // Auto-resize textarea as content grows
-  React.useEffect(() => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px` // Max ~10 rows
-    }
-  }, [prompt])
-
-  // Helper to truncate text
-  const truncate = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text
-    return text.slice(0, maxLength) + '...'
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currentQuestion]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!prompt.trim()) {
-      toast.error('Please enter a prompt')
-      return
-    }
+    e.preventDefault();
 
-    setIsGenerating(true)
+    if (!prompt.trim()) return;
+
+    // Close modal immediately for better UX (non-blocking generation)
+    onOpenChange(false);
+    const submittedPrompt = prompt;
+    setPrompt(''); // Clear immediately
+
+    // Start persistent loading toast
+    const toastId = toast.loading('Analyzing your request...', {
+      duration: Infinity,
+    });
+
+    setIsGenerating(true);
 
     try {
-      // Construct the final prompt
-      let finalPrompt = prompt
-      if (useCurrentContext && currentQuestion) {
-        finalPrompt = `Based on: ${currentQuestion.question}. ${prompt}`
+      let finalPrompt = submittedPrompt;
+
+      // When context is enabled and available, ALWAYS include it in a structured format
+      if (currentQuestion && useQuestionContext) {
+        // Build a comprehensive context section with all available information
+        const contextParts = [
+          'CURRENT QUESTION CONTEXT:',
+          `Question: "${currentQuestion.question}"`,
+          currentQuestion.topic ? `Topic: ${currentQuestion.topic}` : '',
+          `Type: ${currentQuestion.type || 'multiple-choice'}`,
+          currentQuestion.options ? `Options: ${currentQuestion.options.join(', ')}` : '',
+          currentQuestion.correctAnswer ? `Correct Answer: ${currentQuestion.correctAnswer}` : '',
+          currentQuestion.difficulty ? `Difficulty: ${currentQuestion.difficulty}` : '',
+          currentQuestion.explanation ? `Explanation: ${currentQuestion.explanation}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+
+        // Combine context with user request in a clear, structured way
+        finalPrompt = `${contextParts}
+
+USER REQUEST: ${prompt}
+
+Based on the above question context, generate new educational questions that fulfill the user's request. If the request is for "similar but harder" questions, make them more challenging while staying on the same topic. For "easier" questions, simplify them while maintaining educational value.`;
       }
 
-      // Calculate user performance metrics (placeholder for now)
-      // TODO: Fetch actual metrics from recent interactions
-      const userContext = {
-        successRate: 0.75, // Placeholder: 75% success rate
-        avgTime: 30000, // Placeholder: 30 seconds average
-        recentTopics: [], // Could include recent topics
-      }
+      // Update toast to show generation in progress
+      toast.loading('Creating questions...', {
+        id: toastId,
+        duration: Infinity,
+      });
 
-      const response = await fetch('/api/generate-quiz', {
+      const response = await fetch('/api/generate-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: finalPrompt,
-          difficulty: 'medium',
-          userContext, // Include performance metrics
-        })
-      })
+          difficulty: currentQuestion?.difficulty || 'medium',
+        }),
+      });
 
       if (!response.ok) {
-        const error = await response.text()
-        throw new Error(error || 'Failed to generate questions')
+        // Parse error response for specific error information
+        const errorData = await response.json();
+        const errorMessage = errorData.error || 'Failed to generate questions';
+        const errorType = errorData.errorType || 'unknown';
+
+        const error = new Error(errorMessage) as Error & {
+          errorType: string;
+          statusCode: number;
+        };
+        error.errorType = errorType;
+        error.statusCode = response.status;
+        throw error;
       }
 
-      const result = await response.json()
-      const count = result.questions?.length || 0
-      const topic = result.topic || finalPrompt
+      const result: GenerateQuestionsResponse = await response.json();
+
+      // Validate response structure
+      if (!isSuccessResponse(result)) {
+        throw new Error('Invalid response format from API');
+      }
+
+      const count = result.questions.length;
 
       // Save questions if user is authenticated
-      if (isSignedIn && result.questions) {
+      if (isSignedIn) {
         try {
-          // Strip id field that API adds for frontend tracking
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
-          const questionsForSave = result.questions.map(({ id, ...q }: { id?: number; [key: string]: any }) => q)
+          // Convert SimpleQuestion[] to GeneratedQuestionPayload[] for compatibility
+          const questionsAsPayload: GeneratedQuestionPayload[] = result.questions.map(
+            (q) => ({ ...q }) as GeneratedQuestionPayload
+          );
+          const questionsForSave = stripGeneratedQuestionMetadata(questionsAsPayload);
           await saveQuestions({
-            topic: topic,
-            difficulty: 'medium',
-            questions: questionsForSave
-          })
-
-          // Enhanced toast with count and topic for saved questions
+            topic: result.topic || finalPrompt,
+            difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
+            questions: questionsForSave,
+          });
+          // Replace loading toast with success (auto-dismiss after 4s)
           toast.success(`✓ ${count} questions generated`, {
-            description: topic,
+            id: toastId,
+            description: "You'll see these in your review queue next",
             duration: 4000,
-          })
-
-          // Notify parent of successful generation and save
-          onGenerationSuccess?.(count)
+          });
+          onGenerationSuccess?.(count);
         } catch (saveError) {
-          console.error('Failed to save questions:', saveError)
-          toast.error(`Generated ${count} questions but failed to save. Please try again.`)
-          // Don't call onGenerationSuccess if save failed
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to save:', saveError);
+          }
+          // Replace loading toast with error (auto-dismiss after 5s)
+          toast.error('Generated but failed to save', {
+            id: toastId,
+            duration: 5000,
+          });
         }
-      } else if (result.questions) {
-        // User not authenticated, just show generation success
-        console.warn('Questions generated but not saved - user is not authenticated');
-        toast.success(`✓ ${count} questions generated. Sign in to save them.`, {
-          description: topic,
-          duration: 4000,
-        })
-        // Don't trigger callback for unauthenticated users
       } else {
-        toast.error('Failed to generate questions')
+        // Replace loading toast with success (unauthenticated, auto-dismiss after 4s)
+        toast.success(`✓ ${count} questions generated`, {
+          id: toastId,
+          description: 'Sign in to save and review them',
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Generation error:', error);
       }
 
-      onOpenChange(false) // Close modal on success
-    } catch (error) {
-      console.error('Generation error:', error)
-      toast.error('Failed to generate questions. Please try again.')
+      // Display specific error message based on error type
+      const errorType = (error as { errorType?: string }).errorType;
+      const errorMessage = (error as Error).message || 'Failed to generate questions';
+
+      // Replace loading toast with error
+      if (errorType === 'rate-limit-error') {
+        toast.error(errorMessage, {
+          id: toastId,
+          description: 'Try again in a few moments',
+          duration: 5000,
+        });
+      } else if (errorType === 'timeout-error') {
+        toast.error(errorMessage, {
+          id: toastId,
+          description: 'Consider using a more specific topic',
+          duration: 5000,
+        });
+      } else if (errorType === 'api-key-error') {
+        toast.error(errorMessage, {
+          id: toastId,
+          description: 'Please contact support if this persists',
+          duration: 7000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          id: toastId,
+          description: 'Try rephrasing your prompt or making it more specific',
+          duration: 5000,
+        });
+      }
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
+
+  const handleQuickPrompt = (quickPrompt: string) => {
+    setPrompt(quickPrompt);
+    textareaRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Submit with Cmd/Ctrl + Enter
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !isGenerating) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[525px]">
-        <DialogHeader>
-          <DialogTitle>Generate Questions</DialogTitle>
-          <DialogDescription>
-            Create new questions to expand your learning material
-          </DialogDescription>
+      <DialogContent className="sm:max-w-2xl p-0 gap-0">
+        {/* Dynamic header based on context */}
+        <DialogHeader className="px-6 pt-4 pb-2">
+          <DialogTitle className="text-lg">
+            {currentQuestion && useQuestionContext
+              ? 'Generate Related Questions'
+              : 'Generate New Questions'}
+          </DialogTitle>
+          {currentQuestion && useQuestionContext && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Building on your question about {currentQuestion.topic || 'this concept'}
+            </p>
+          )}
+          {(!currentQuestion || !useQuestionContext) && (
+            <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
+          )}
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+
+        {/* Context control */}
+        {currentQuestion && (
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              {useQuestionContext ? (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer hover:bg-secondary/80 transition-colors text-xs"
+                  onClick={() => setUseQuestionContext(false)}
+                >
+                  📚 Using context
+                  <X className="h-3 w-3 ml-2" />
+                </Badge>
+              ) : (
+                <button
+                  onClick={() => setUseQuestionContext(true)}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                  type="button"
+                >
+                  <Plus className="h-3 w-3" />
+                  Use current question
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
+          {/* Textarea */}
+          <div className="space-y-2">
             <textarea
               ref={textareaRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g., 'React hooks', 'Similar but harder', 'Python decorators explained'"
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ minHeight: '72px' }} // Min ~3 rows
+              onKeyDown={handleKeyDown}
+              placeholder={
+                currentQuestion && useQuestionContext
+                  ? `Describe how to modify "${currentQuestion.question.slice(0, 50)}..."`
+                  : 'What would you like to learn about? Be specific or creative...'
+              }
+              className={cn(
+                'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
+                'text-sm ring-offset-background placeholder:text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'h-24'
+              )}
               disabled={isGenerating}
             />
+            <p className="text-xs text-muted-foreground">
+              Press {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to generate
+            </p>
           </div>
-          
-          {currentQuestion && (
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useCurrentContext}
-                  onChange={(e) => setUseCurrentContext(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+
+          {/* Quick prompts */}
+          {currentQuestion && useQuestionContext && (
+            <div className="flex flex-wrap gap-2">
+              {QUICK_PROMPTS.map((quickPrompt) => (
+                <button
+                  key={quickPrompt}
+                  type="button"
+                  onClick={() => handleQuickPrompt(quickPrompt)}
+                  className={cn(
+                    'inline-flex items-center gap-1 px-3 py-1.5 text-xs',
+                    'border border-input bg-background rounded-full',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    'transition-colors cursor-pointer',
+                    prompt === quickPrompt && 'bg-accent text-accent-foreground'
+                  )}
                   disabled={isGenerating}
-                />
-                <span className="text-sm font-medium">Start from current question</span>
-              </label>
-              
-              {useCurrentContext && (
-                <div className="ml-6 p-2 bg-muted rounded-md">
-                  <p className="text-xs text-muted-foreground">Current question:</p>
-                  <p className="text-sm mt-1">{truncate(currentQuestion.question, 50)}</p>
-                </div>
-              )}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  {quickPrompt}
+                </button>
+              ))}
             </div>
           )}
-          
-          <div className="flex justify-end gap-2">
+
+          {/* Submit button */}
+          <div className="flex justify-end">
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isGenerating}
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
+              type="submit"
               disabled={!prompt.trim() || isGenerating}
+              className="min-w-[120px]"
+              data-testid="generate-quiz-button"
             >
               {isGenerating ? (
                 <>
@@ -239,12 +359,12 @@ export function GenerationModal({
                   Generating...
                 </>
               ) : (
-                'Generate Questions'
+                'Generate'
               )}
             </Button>
           </div>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

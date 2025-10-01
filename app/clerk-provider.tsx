@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import { ClerkProvider, useAuth, useUser } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
-import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ConvexReactClient, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useClerkAppearance } from "@/hooks/use-clerk-appearance";
+import { useEffect, useState } from 'react';
+import { ClerkProvider, useAuth, useUser } from '@clerk/nextjs';
+import { ConvexReactClient, useMutation } from 'convex/react';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+
+import { api } from '@/convex/_generated/api';
+import { useClerkAppearance } from '@/hooks/use-clerk-appearance';
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -62,7 +63,7 @@ function EnsureConvexUser({ children }: { children: React.ReactNode }) {
           setReady(true);
         }
       } catch (error) {
-        console.error("Failed to ensure Convex user", error);
+        console.error('Failed to ensure Convex user', error);
         if (!cancelled) {
           setReady(true);
         }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('FSRS Data Integrity with Soft Delete', () => {
   describe('Soft Delete Behavior', () => {
@@ -78,7 +78,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
       expect(restoredQuestion.state).toBe(deletedQuestion.state);
       expect(restoredQuestion.lastReview).toBe(deletedQuestion.lastReview);
       expect(restoredQuestion.nextReview).toBe(deletedQuestion.nextReview);
-      
+
       // Verify deletedAt is removed
       expect('deletedAt' in restoredQuestion).toBe(false);
     });
@@ -87,7 +87,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
   describe('Review Queue Filtering', () => {
     it('should exclude deleted questions from review queue', () => {
       const now = Date.now();
-      
+
       // Simulate a mix of questions
       const questions = [
         { _id: '1', userId: 'user1', nextReview: now - 86400000, deletedAt: undefined }, // Due, not deleted
@@ -98,7 +98,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
       ];
 
       // Simulate the filter logic from getNextReview query
-      const eligibleForReview = questions.filter(q => {
+      const eligibleForReview = questions.filter((q) => {
         const isDue = q.nextReview === undefined || q.nextReview <= now;
         const isNotDeleted = q.deletedAt === undefined;
         return isDue && isNotDeleted;
@@ -106,12 +106,12 @@ describe('FSRS Data Integrity with Soft Delete', () => {
 
       // Should only include questions 1 and 3 (due/new and not deleted)
       expect(eligibleForReview).toHaveLength(2);
-      expect(eligibleForReview.map(q => q._id)).toEqual(['1', '3']);
+      expect(eligibleForReview.map((q) => q._id)).toEqual(['1', '3']);
     });
 
     it('should not count deleted questions in getDueCount', () => {
       const now = Date.now();
-      
+
       // Simulate questions for due count
       const questions = [
         { nextReview: now - 86400000, deletedAt: undefined }, // Due, not deleted
@@ -122,16 +122,13 @@ describe('FSRS Data Integrity with Soft Delete', () => {
       ];
 
       // Count due questions (excluding deleted)
-      const dueCount = questions.filter(q => 
-        q.nextReview !== undefined && 
-        q.nextReview <= now && 
-        q.deletedAt === undefined
+      const dueCount = questions.filter(
+        (q) => q.nextReview !== undefined && q.nextReview <= now && q.deletedAt === undefined
       ).length;
 
       // Count new questions (excluding deleted)
-      const newCount = questions.filter(q => 
-        q.nextReview === undefined && 
-        q.deletedAt === undefined
+      const newCount = questions.filter(
+        (q) => q.nextReview === undefined && q.deletedAt === undefined
       ).length;
 
       expect(dueCount).toBe(2); // Questions 1 and 3
@@ -144,7 +141,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
     it('should maintain consistent retrievability calculations for restored questions', () => {
       const now = Date.now();
       const dayInMs = 86400000;
-      
+
       // Question with FSRS data
       const question = {
         stability: 10.0,
@@ -156,7 +153,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
 
       // Calculate retrievability before deletion
       const elapsedDays = (now - question.lastReview) / dayInMs;
-      const retrievabilityBefore = Math.exp(-elapsedDays / question.stability * Math.log(2));
+      const retrievabilityBefore = Math.exp((-elapsedDays / question.stability) * Math.log(2));
 
       // Soft delete
       question.deletedAt = now;
@@ -167,7 +164,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
 
       // Calculate retrievability after restoration
       const elapsedDaysAfter = (twoHoursLater - question.lastReview) / dayInMs;
-      const retrievabilityAfter = Math.exp(-elapsedDaysAfter / question.stability * Math.log(2));
+      const retrievabilityAfter = Math.exp((-elapsedDaysAfter / question.stability) * Math.log(2));
 
       // Retrievability should have decreased slightly due to time passage
       // but the calculation should still work correctly
@@ -179,7 +176,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
     it('should preserve scheduling intervals through delete/restore cycle', () => {
       // Question scheduled for review in 7 days
       const originalNextReview = Date.now() + 86400000 * 7;
-      
+
       const question = {
         nextReview: originalNextReview,
         scheduledDays: 7,
@@ -189,7 +186,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
 
       // After soft delete and restore, scheduling should be unchanged
       const afterDeleteRestore = { ...question };
-      
+
       expect(afterDeleteRestore.nextReview).toBe(originalNextReview);
       expect(afterDeleteRestore.scheduledDays).toBe(7);
       expect(afterDeleteRestore.stability).toBe(5.0);
@@ -216,11 +213,11 @@ describe('FSRS Data Integrity with Soft Delete', () => {
       };
 
       // Should not have any FSRS fields to preserve
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect((deletedLegacy as any).stability).toBeUndefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect((deletedLegacy as any).nextReview).toBeUndefined();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       expect((deletedLegacy as any).state).toBeUndefined();
     });
 
@@ -232,7 +229,7 @@ describe('FSRS Data Integrity with Soft Delete', () => {
         { state: 'relearning' as const, expectedBehavior: 'excluded from review when deleted' },
       ];
 
-      stateScenarios.forEach(scenario => {
+      stateScenarios.forEach((scenario) => {
         const question = {
           state: scenario.state,
           nextReview: Date.now() - 86400000, // Due for review

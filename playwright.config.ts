@@ -22,10 +22,10 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
+
     /* Take screenshot on failure */
     screenshot: 'only-on-failure',
-    
+
     /* Record video on failure */
     video: 'retain-on-failure',
 
@@ -37,12 +37,22 @@ export default defineConfig({
   },
 
   /* Configure projects for major browsers */
+  /* Reduced from 5 browsers to 2 for faster test runs and less complexity */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
 
+    /* Test against mobile viewports. */
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+
+    /* Removed browsers to reduce test complexity and runtime:
+    // Firefox, Safari, and Mobile Safari provided marginal additional coverage
+    // but tripled test execution time. Focus on Chrome (90%+ market share).
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
@@ -53,15 +63,11 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
 
-    /* Test against mobile viewports. */
-    {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
     {
       name: 'Mobile Safari',
       use: { ...devices['iPhone 12'] },
     },
+    */
 
     /* Test against branded browsers. */
     // {
@@ -75,12 +81,14 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests (local only) */
-  webServer: process.env.CI ? undefined : {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: true,
-    timeout: 120000,
-  },
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: 'pnpm dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: true,
+        timeout: 120000,
+      },
 
   /* Global test timeout */
   timeout: 60000,

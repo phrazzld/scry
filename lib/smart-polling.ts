@@ -15,9 +15,7 @@ export function getPollingInterval(nextDueTime: Date | number | null): number {
   }
 
   // Convert to timestamp if Date object
-  const dueTimestamp = typeof nextDueTime === 'number'
-    ? nextDueTime
-    : nextDueTime.getTime();
+  const dueTimestamp = typeof nextDueTime === 'number' ? nextDueTime : nextDueTime.getTime();
 
   const now = Date.now();
   const timeUntilDue = dueTimestamp - now;
@@ -70,8 +68,8 @@ export function describePollingInterval(interval: number): string {
 export function getOptimalPollingInterval(dueTimes: Array<Date | number | null>): number {
   // Filter out null values and get the minimum interval needed
   const intervals = dueTimes
-    .filter(time => time !== null)
-    .map(time => getPollingInterval(time));
+    .filter((time) => time !== null)
+    .map((time) => getPollingInterval(time));
 
   // If no valid times, use default long interval
   if (intervals.length === 0) {

@@ -70,7 +70,7 @@ If you prefer to deploy Convex separately (via GitHub Actions only), update `ver
   "outputDirectory": ".next",
   "regions": ["iad1"],
   "functions": {
-    "app/api/generate-quiz/route.ts": {
+    "app/api/generate-questions/route.ts": {
       "maxDuration": 30
     },
     "app/api/quiz/complete/route.ts": {

@@ -13,6 +13,30 @@
 
 ## High Priority (HIGH) — Code Health & Developer Experience
 
+### PR #23 Follow-up Work (From Code Review)
+- [ ] [HIGH] [TEST] Restore disabled test coverage (797 lines) | Effort: M | Source: PR#23 Review | Impact: Test confidence
+  * Re-enable generation-modal.test.tsx (373 lines removed)
+  * Re-enable review-flow.test.tsx (424 lines removed)
+  * Update tests to work with new state machine architecture
+- [ ] [HIGH] [PERF] Add performance CI/CD integration | Effort: M | Source: PR#23 Review | Impact: Prevent regressions
+  * Integrate performance scripts into CI pipeline
+  * Set up performance budgets and alerts
+  * Use Web Vitals library for metrics
+- [ ] [HIGH] [RELIABILITY] Improve error recovery mechanism | Effort: M | Source: PR#23 Review | Impact: Better UX
+  * Replace window.location.href = '/' with context-based recovery
+  * Add telemetry for error tracking
+  * Document error recovery strategy
+- [ ] [HIGH] [CONCURRENCY] Multi-tab race condition handling | Effort: M | Source: PR#23 Review | Impact: Data integrity
+  * Implement sessionStorage or robust locking mechanism
+  * Document race condition prevention strategy
+  * Test with multiple tabs/windows
+- [ ] [MEDIUM] [A11Y] Accessibility improvements | Effort: M | Source: PR#23 Review | Impact: User accessibility
+  * Add ARIA labels to interactive elements
+  * Implement keyboard navigation for all features (especially quick prompts in generation modal)
+  * Add aria-live regions for dynamic updates
+  * Ensure proper focus management during transitions
+  * Test with screen readers
+
 ### Testing Infrastructure Rollout (Incremental PRs)
 - [ ] [HIGH] [MAINTAIN] PR#2: Add test coverage reporting (Codecov/Coveralls) | Effort: S | Impact: Visibility into coverage
 - [ ] [HIGH] [MAINTAIN] PR#4: React Testing Library setup with 2-3 component tests | Effort: S | Impact: Frontend testing foundation
@@ -73,6 +97,26 @@
 - [ ] [MEDIUM] [VALIDATION] Mirror client-side validation on server for questions | Effort: S | Quality: Data integrity
   * Enforce min/max lengths for question/topic/explanation in Convex mutations
 ## Medium Priority (MEDIUM) — Features & Optimization
+
+### PR #23 Medium Priority Follow-ups
+- [ ] [MEDIUM] [MONITORING] Production performance monitoring | Effort: M | Source: PR#23 Review | Impact: Observability
+  * Add production performance telemetry
+  * Monitor real user metrics (Core Web Vitals)
+  * Set up alerts for performance regressions
+- [ ] [MEDIUM] [PERF] Adaptive polling based on user activity | Effort: S | Source: PR#23 Review | Impact: Efficiency
+  * Reduce polling interval when user is inactive
+  * Increase frequency during active review sessions
+  * Consider 30s → 60s → 120s backoff strategy
+  * Implement visibility API to pause polling when tab is in background
+  * Monitor battery impact on mobile devices
+- [ ] [MEDIUM] [DX] Component code splitting maintenance | Effort: S | Source: PR#23 Review | Impact: Bundle size
+  * Ensure flattened hierarchy maintains lazy loading
+  * Monitor bundle sizes after refactor
+  * Add dynamic imports where appropriate
+- [ ] [MEDIUM] [SECURITY] Rate limiting for continuous review flow | Effort: S | Source: PR#23 Review | Impact: Abuse prevention
+  * Add client-side request throttling
+  * Implement server-side rate limits for review submissions
+  * Monitor for unusual usage patterns
 
 ### Core Features (from Original Backlog)
 - [ ] [MEDIUM] [FEATURE] Build quiz submission pipeline with Convex | Effort: M | Value: Essential for saving results | Quality: 7/10
@@ -137,9 +181,53 @@
 - [ ] Query performance dashboards (P50/P95/P99)
 - [ ] Error rate tracking with categorization
 
+## PR #23 Review Feedback - Not Applicable or Already Resolved
+
+### ✅ Resolved in PR #23 Commits
+- **Debug Panel & Memory Leaks**: Removed entirely in commit 29f86af (radical cleanup)
+- **Console Logging**: All cleaned up in commit 29f86af
+- **Polling Args Parameter**: Fixed in commit b5f9b2a
+- **TypeScript Suppression (@ts-expect-error)**: Removed with debug code
+
+### 🚫 Rejected Suggestions (Not Aligned with Project Philosophy)
+- **Feature Flags for Debug Panel**: Overengineering - debug panel completely removed
+- **Deprecation Redirect for API**: Overengineering - clean break is simpler
+- **Complex Error Recovery Context**: Violates hypersimplicity principle
+- **Crypto.randomUUID for Session IDs**: Not necessary - client-side only tracking
+
+### 💡 Good Ideas for Future Consideration
+- **React.memo for ReviewQuestionDisplay**: Worth testing if performance issues arise
+- **Migration Guide Documentation**: Add if users report upgrade issues
+- **Performance Budgets in CI**: Valuable once stable baseline established
+- **Telemetry for Review Completion Rates**: Useful for validating FSRS effectiveness
+
+## Moved from TODO.md (Low Priority/Overengineering)
+
+### Review Flow Edge Cases (Manual Testing Only)
+- [ ] Test when only one question exists in the system (continuous loop)
+- [ ] Test when network is slow (loading state should remain visible)
+- [ ] Test when Convex backend returns null (no more questions)
+- [ ] Verify error boundary catches any state transition errors
+
+### Performance Monitoring (Only if Issues Arise)
+- [ ] Monitor render count in development console
+- [ ] Verify no memory leaks from incomplete state cleanup
+- [ ] Check that polling continues working after multiple transitions
+- [ ] Confirm loading state duration is acceptable (<500ms typical)
+
+### Same-Question Transition UX (Polish)
+- [ ] Consider adding subtle animation for same-question reload
+- [ ] Implement crossfade transition instead of loading state for same question
+- [ ] Add audio/haptic feedback for incorrect answers that trigger immediate review
+
+### Testing Infrastructure (Overengineering)
+- [ ] Create performance benchmark for question transitions
+- [ ] Add regression test to prevent future locking issues (E2E test already covers this)
+
 ## Completed (Archive)
 
 ### Recently Completed
+- ✅ [2025-09-27] Review Flow "Next" button fix with full state reset
 - ✅ [2024-01-15] Basic spaced repetition implementation
 - ✅ [2024-01-10] Magic link authentication setup
 - ✅ [2024-01-05] Initial AI quiz generation with Google Gemini

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
-import type { FunctionReference, FunctionReturnType } from "convex/server";
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from 'convex/react';
+import type { FunctionReference, FunctionReturnType } from 'convex/server';
+
+import { DATA_STALENESS_THRESHOLD_MS, DEFAULT_POLLING_INTERVAL_MS } from '@/lib/constants/timing';
 
 /**
  * A custom hook that wraps Convex's useQuery with polling functionality.
@@ -15,40 +17,61 @@ import type { FunctionReference, FunctionReturnType } from "convex/server";
  *
  * @param query The Convex query function reference
  * @param args The base arguments to pass to the query (or "skip" to skip the query)
- * @param intervalMs The polling interval in milliseconds (default: 60000 = 1 minute)
+ * @param intervalMs The polling interval in milliseconds (default: 60 seconds)
  * @returns The query result, which updates both on data changes and periodically
  */
-export function usePollingQuery<Query extends FunctionReference<"query">>(
+export function usePollingQuery<Query extends FunctionReference<'query'>>(
   query: Query,
-  args: Omit<Query["_args"], "_refreshTimestamp"> | "skip",
-  intervalMs: number = 60000 // Default to 1 minute
+  args: Omit<Query['_args'], '_refreshTimestamp'> | 'skip',
+  intervalMs: number = DEFAULT_POLLING_INTERVAL_MS
 ): FunctionReturnType<Query> | undefined {
   // Use a timestamp to force query re-evaluation
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
   // Track document visibility to pause polling when tab is hidden
-  const [isVisible, setIsVisible] = useState(typeof document !== 'undefined' ? !document.hidden : true);
-  
-  // Listen for visibility changes
+  const [isVisible, setIsVisible] = useState(
+    typeof document !== 'undefined' ? !document.hidden : true
+  );
+  // Track last update time to avoid aggressive refreshes
+  const lastUpdateRef = useRef(Date.now());
+
+  // Listen for visibility changes with debouncing
   useEffect(() => {
     if (typeof document === 'undefined') return;
+
+    let debounceTimer: NodeJS.Timeout;
 
     const handleVisibilityChange = () => {
       const nowVisible = !document.hidden;
       setIsVisible(nowVisible);
 
-      // If becoming visible, immediately refresh data
+      // If becoming visible, refresh data with debounce to avoid flicker
       if (nowVisible) {
-        setRefreshTimestamp(Date.now());
+        // Only refresh if data is stale (older than 30 seconds)
+        const timeSinceLastUpdate = Date.now() - lastUpdateRef.current;
+        const isStale = timeSinceLastUpdate > DATA_STALENESS_THRESHOLD_MS;
+
+        if (isStale) {
+          // Debounce the refresh by 500ms to avoid immediate flicker
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            setRefreshTimestamp(Date.now());
+            lastUpdateRef.current = Date.now();
+          }, 500);
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(debounceTimer);
+    };
   }, []);
-  
+
   // Set up polling interval with visibility-aware battery efficiency
   useEffect(() => {
-    if (args === "skip") return;
+    const isSkip = args === 'skip';
+    if (isSkip) return;
 
     let interval: NodeJS.Timeout;
 
@@ -57,7 +80,9 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
       interval = setInterval(() => {
         // Double-check visibility before updating (defensive programming)
         if (!document.hidden) {
-          setRefreshTimestamp(Date.now());
+          const now = Date.now();
+          setRefreshTimestamp(now);
+          lastUpdateRef.current = now;
         }
       }, intervalMs);
     }
@@ -65,20 +90,19 @@ export function usePollingQuery<Query extends FunctionReference<"query">>(
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [args === "skip", intervalMs, isVisible]);
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalMs, isVisible]);
+
   // Add the refresh timestamp to the query args
-  const queryArgs = args === "skip" 
-    ? "skip" 
-    : { ...args, _refreshTimestamp: refreshTimestamp };
-  
+  const queryArgs = args === 'skip' ? 'skip' : { ...args, _refreshTimestamp: refreshTimestamp };
+
   // Use the query with the augmented args
   // @ts-expect-error - TypeScript can't infer that we're adding the required _refreshTimestamp field
   const result = useQuery(query, queryArgs);
-  
+
   // Note: Convex queries throw errors that are caught by error boundaries
   // We can't catch them here directly, but components using this hook
   // should wrap their usage in error boundaries or handle undefined results
-  
+
   return result;
 }

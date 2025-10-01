@@ -1,21 +1,27 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+// Bundle analyzer setup
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const nextConfig: NextConfig = {
   // Enable static asset optimization
   experimental: {
     // Optimize static imports and assets for better tree-shaking
     optimizePackageImports: [
-      '@radix-ui/react-dialog', 
+      '@radix-ui/react-dialog',
       '@radix-ui/react-alert-dialog',
       '@radix-ui/react-progress',
       '@radix-ui/react-label',
       '@radix-ui/react-slot',
-      'lucide-react'
+      'lucide-react',
     ],
     // Enable Web Vitals attribution for detailed performance debugging
     webVitalsAttribution: ['CLS', 'LCP', 'FCP', 'FID', 'TTFB'],
   },
-  
+
   // Webpack optimizations for bundle splitting
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -53,18 +59,19 @@ const nextConfig: NextConfig = {
             priority: 10,
           },
         },
-      }
+      };
     }
-    
-    return config
+
+    return config;
   },
-  
+
   // Configure headers for security and static quiz assets
   async headers() {
     // Determine Clerk domains based on environment
-    const clerkDomains = process.env.VERCEL_ENV === 'production'
-      ? 'https://clerk.scry.study https://rapid-jawfish-0.clerk.accounts.dev'
-      : 'https://rapid-jawfish-0.clerk.accounts.dev';
+    const clerkDomains =
+      process.env.VERCEL_ENV === 'production'
+        ? 'https://clerk.scry.study https://rapid-jawfish-0.clerk.accounts.dev'
+        : 'https://rapid-jawfish-0.clerk.accounts.dev';
 
     return [
       {
@@ -107,13 +114,13 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https: https://img.clerk.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://vercel.live https://cdn.vercel-insights.com https://va.vercel-scripts.com https://*.convex.cloud wss://*.convex.cloud ${clerkDomains} https://clerk-telemetry.com`,
-              `frame-src ${process.env.VERCEL_ENV === 'production' ? "https://challenges.cloudflare.com" : "'self' https://vercel.live https://challenges.cloudflare.com"}`,
+              `frame-src ${process.env.VERCEL_ENV === 'production' ? 'https://challenges.cloudflare.com' : "'self' https://vercel.live https://challenges.cloudflare.com"}`,
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
               "frame-ancestors 'none'",
-              "upgrade-insecure-requests"
+              'upgrade-insecure-requests',
             ].join('; '),
           },
           // Permissions policy for browser features
@@ -175,4 +182,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

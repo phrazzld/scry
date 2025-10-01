@@ -1,58 +1,50 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
-import { useUser, UserButton } from '@clerk/nextjs'
-import { getNavbarClassName } from '@/lib/layout-mode'
-import { GenerationModal } from '@/components/generation-modal'
-import { Button } from '@/components/ui/button'
-import { Plus, Settings } from 'lucide-react'
-import { ThemeToggle } from '@/components/theme-toggle'
-import type { Doc } from '@/convex/_generated/dataModel'
-import { useClerkAppearance } from '@/hooks/use-clerk-appearance'
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { UserButton, useUser } from '@clerk/nextjs';
+import { Plus, Settings } from 'lucide-react';
+
+import { GenerationModal } from '@/components/generation-modal';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { useCurrentQuestion } from '@/contexts/current-question-context';
+import { useClerkAppearance } from '@/hooks/use-clerk-appearance';
+import { getNavbarClassName } from '@/lib/layout-mode';
 
 export function Navbar() {
-  const { isLoaded, isSignedIn } = useUser()
-  const clerkAppearance = useClerkAppearance()
-  const pathname = usePathname()
-  const [generateOpen, setGenerateOpen] = useState(false)
-  const [currentQuestion, setCurrentQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-  const [reviewQuestion, setReviewQuestion] = useState<Doc<"questions"> | undefined>(undefined)
-
-  // Listen for review question changes
-  useEffect(() => {
-    const handleReviewQuestionChanged = (event: Event) => {
-      const customEvent = event as CustomEvent
-      setReviewQuestion(customEvent.detail?.question || undefined)
-    }
-
-    window.addEventListener('review-question-changed', handleReviewQuestionChanged)
-    return () => window.removeEventListener('review-question-changed', handleReviewQuestionChanged)
-  }, [])
+  const { isLoaded, isSignedIn } = useUser();
+  const clerkAppearance = useClerkAppearance();
+  const pathname = usePathname();
+  const [generateOpen, setGenerateOpen] = useState(false);
+  const { currentQuestion, clearCurrentQuestion } = useCurrentQuestion();
 
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
-    const handleOpenGenerationModal = (event: Event) => {
-      const customEvent = event as CustomEvent
-      setCurrentQuestion(customEvent.detail?.currentQuestion || reviewQuestion)
-      setGenerateOpen(true)
-    }
+    const handleOpenGenerationModal = () => {
+      setGenerateOpen(true);
+    };
 
-    window.addEventListener('open-generation-modal', handleOpenGenerationModal)
-    return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal)
-  }, [reviewQuestion])
+    window.addEventListener('open-generation-modal', handleOpenGenerationModal);
+    return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal);
+  }, []);
 
-  const isHomepage = pathname === '/'
+  const isHomepage = pathname === '/';
 
   // Hide navbar completely when unauthenticated
-  if (!isSignedIn && isLoaded) return null
+  if (!isSignedIn && isLoaded) return null;
 
   return (
     <>
-      <nav className={`${getNavbarClassName()} h-16 bg-background/80 backdrop-blur-sm border-b border-border`}>
+      <nav
+        className={`${getNavbarClassName()} h-16 bg-background/80 backdrop-blur-sm border-b border-border`}
+      >
         <div className="h-full max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
-          <Link href="/" className="text-xl md:text-2xl font-semibold tracking-tight text-foreground/80 hover:text-foreground border-b-0 transition-colors">
+          <Link
+            href="/"
+            className="text-xl md:text-2xl font-semibold tracking-tight text-foreground/80 hover:text-foreground border-b-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+          >
             Scry.
           </Link>
 
@@ -64,10 +56,7 @@ export function Navbar() {
                     variant="ghost"
                     size="icon"
                     className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
-                    onClick={() => {
-                      setCurrentQuestion(reviewQuestion)
-                      setGenerateOpen(true)
-                    }}
+                    onClick={() => setGenerateOpen(true)}
                     title="Generate questions (G)"
                   >
                     <Plus className="relative h-4 w-4" />
@@ -76,14 +65,19 @@ export function Navbar() {
                 ) : (
                   <Link
                     href="/settings"
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     aria-label="Settings"
                   >
                     <Settings className="h-4 w-4" />
                   </Link>
                 )}
                 <ThemeToggle />
-                <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
+                <div
+                  data-testid="user-menu"
+                  className="flex size-9 items-center justify-center rounded-full"
+                >
+                  <UserButton afterSignOutUrl="/" appearance={clerkAppearance} />
+                </div>
               </>
             )}
           </div>
@@ -93,9 +87,9 @@ export function Navbar() {
       <GenerationModal
         open={generateOpen}
         onOpenChange={(open) => {
-          setGenerateOpen(open)
+          setGenerateOpen(open);
           if (!open) {
-            setCurrentQuestion(undefined) // Clear context when modal closes
+            clearCurrentQuestion(); // Clear context when modal closes
           }
         }}
         currentQuestion={currentQuestion}
@@ -107,5 +101,5 @@ export function Navbar() {
         }}
       />
     </>
-  )
+  );
 }

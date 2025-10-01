@@ -10,26 +10,26 @@
 export function getClientEnvironment(): string {
   // Check if we're in development
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname
-    
+    const hostname = window.location.hostname;
+
     // Local development
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'development'
+      return 'development';
     }
-    
+
     // Vercel preview deployments
     if (hostname.includes('.vercel.app') && !hostname.includes('production')) {
       // Extract branch name if possible from the URL
-      const match = hostname.match(/^(.+?)-[^-]+-[^.]+\.vercel\.app$/)
+      const match = hostname.match(/^(.+?)-[^-]+-[^.]+\.vercel\.app$/);
       if (match && match[1]) {
-        return `preview-${match[1]}`
+        return `preview-${match[1]}`;
       }
-      return 'preview'
+      return 'preview';
     }
-    
+
     // Production domain
-    return 'production'
+    return 'production';
   }
-  
-  return 'development'
+
+  return 'development';
 }

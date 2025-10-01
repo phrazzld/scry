@@ -2,50 +2,53 @@
 
 // CLI script to generate static quiz assets
 // Usage: node scripts/generate-static-assets.js [options]
+import { execSync } from 'child_process';
+import { existsSync, unlinkSync, writeFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const { execSync } = require('child_process')
-const { existsSync } = require('fs')
-const path = require('path')
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Check if we're in the right directory
 if (!existsSync('package.json')) {
-  console.error('Error: This script must be run from the project root directory')
-  process.exit(1)
+  console.error('Error: This script must be run from the project root directory');
+  process.exit(1);
 }
 
 // Parse command line arguments
-const args = process.argv.slice(2)
+const args = process.argv.slice(2);
 const options = {
   priority: null,
   outputDir: 'public/quiz-assets',
   verbose: false,
-  dryRun: false
-}
+  dryRun: false,
+};
 
 for (let i = 0; i < args.length; i++) {
-  const arg = args[i]
-  
+  const arg = args[i];
+
   switch (arg) {
     case '--priority':
-      options.priority = args[++i]
+      options.priority = args[++i];
       if (!['high', 'medium', 'low'].includes(options.priority)) {
-        console.error('Error: --priority must be one of: high, medium, low')
-        process.exit(1)
+        console.error('Error: --priority must be one of: high, medium, low');
+        process.exit(1);
       }
-      break
-    
+      break;
+
     case '--output-dir':
-      options.outputDir = args[++i]
-      break
-    
+      options.outputDir = args[++i];
+      break;
+
     case '--verbose':
-      options.verbose = true
-      break
-    
+      options.verbose = true;
+      break;
+
     case '--dry-run':
-      options.dryRun = true
-      break
-    
+      options.dryRun = true;
+      break;
+
     case '--help':
       console.log(`
 Generate static quiz assets for CDN delivery
@@ -64,26 +67,26 @@ Examples:
   node scripts/generate-static-assets.js --priority high
   node scripts/generate-static-assets.js --priority medium --verbose
   node scripts/generate-static-assets.js --dry-run
-`)
-      process.exit(0)
-    
+`);
+      process.exit(0);
+
     default:
-      console.error(`Error: Unknown option: ${arg}`)
-      console.error('Use --help for usage information')
-      process.exit(1)
+      console.error(`Error: Unknown option: ${arg}`);
+      console.error('Use --help for usage information');
+      process.exit(1);
   }
 }
 
-console.log('🚀 Static Quiz Asset Generator')
-console.log('===============================')
+console.log('🚀 Static Quiz Asset Generator');
+console.log('===============================');
 
 if (options.dryRun) {
-  console.log('🔍 DRY RUN MODE - No files will be generated')
+  console.log('🔍 DRY RUN MODE - No files will be generated');
 }
 
-console.log(`Priority filter: ${options.priority || 'all'}`)
-console.log(`Output directory: ${options.outputDir}`)
-console.log('')
+console.log(`Priority filter: ${options.priority || 'all'}`);
+console.log(`Output directory: ${options.outputDir}`);
+console.log('');
 
 // Create a temporary TypeScript runner script
 const runnerScript = `
@@ -166,42 +169,40 @@ main().catch(error => {
   console.error('❌ Fatal error:', error.message)
   process.exit(1)
 })
-`
+`;
 
 // Write the runner script to a temporary file
-const runnerPath = path.join(__dirname, '..', 'temp-asset-generator.mjs')
-require('fs').writeFileSync(runnerPath, runnerScript)
+const runnerPath = path.join(__dirname, '..', 'temp-asset-generator.mjs');
+writeFileSync(runnerPath, runnerScript);
 
 try {
   // Check if environment variables are set
   if (!process.env.OPENROUTER_API_KEY) {
-    console.warn('⚠️  Warning: OPENROUTER_API_KEY environment variable not set')
-    console.warn('   Asset generation may fail without API access')
-    console.log('')
+    console.warn('⚠️  Warning: OPENROUTER_API_KEY environment variable not set');
+    console.warn('   Asset generation may fail without API access');
+    console.log('');
   }
-  
+
   // Run the generator
-  execSync(`node ${runnerPath}`, { 
+  execSync(`node ${runnerPath}`, {
     stdio: 'inherit',
-    env: { ...process.env }
-  })
-  
+    env: { ...process.env },
+  });
 } catch (error) {
-  console.error('\n❌ Script execution failed')
-  
+  console.error('\n❌ Script execution failed');
+
   if (error.code === 'ENOENT') {
-    console.error('Error: Node.js not found in PATH')
+    console.error('Error: Node.js not found in PATH');
   } else {
-    console.error('Error details:', error.message)
+    console.error('Error details:', error.message);
   }
-  
-  process.exit(1)
-  
+
+  process.exit(1);
 } finally {
   // Clean up temporary file
   try {
-    require('fs').unlinkSync(runnerPath)
-  } catch (e) {
+    unlinkSync(runnerPath);
+  } catch {
     // Ignore cleanup errors
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -12,19 +12,16 @@ export interface ShortcutDefinition {
   context?: 'global' | 'review' | 'editing';
 }
 
-export function useKeyboardShortcuts(
-  shortcuts: ShortcutDefinition[],
-  enabled = true
-) {
+export function useKeyboardShortcuts(shortcuts: ShortcutDefinition[], enabled = true) {
   const router = useRouter();
   const [showHelp, setShowHelp] = useState(false);
-  
+
   // Global shortcuts that work anywhere
   const globalShortcuts: ShortcutDefinition[] = [
     {
       key: '?',
       description: 'Show keyboard shortcuts help',
-      action: () => setShowHelp(prev => !prev),
+      action: () => setShowHelp((prev) => !prev),
       context: 'global',
     },
     {
@@ -62,43 +59,47 @@ export function useKeyboardShortcuts(
       context: 'global',
     },
   ];
-  
-  const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    // Don't handle shortcuts if user is typing in an input (unless it's a global shortcut with modifier)
-    const isTyping = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-    const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
-    
-    if (isTyping && !hasModifier) {
-      return;
-    }
-    
-    // Combine user shortcuts with global shortcuts
-    const allShortcuts = [...globalShortcuts, ...shortcuts];
-    
-    // Find matching shortcut
-    const matchingShortcut = allShortcuts.find(shortcut => {
-      const keyMatch = e.key.toLowerCase() === shortcut.key.toLowerCase() ||
-                      e.key === shortcut.key;
-      const ctrlMatch = !shortcut.ctrl || (e.ctrlKey || e.metaKey);
-      const altMatch = !shortcut.alt || e.altKey;
-      const shiftMatch = !shortcut.shift || e.shiftKey;
-      
-      return keyMatch && ctrlMatch && altMatch && shiftMatch;
-    });
-    
-    if (matchingShortcut) {
-      e.preventDefault();
-      matchingShortcut.action();
-    }
-  }, [shortcuts, router]);
-  
+
+  const handleKeyPress = useCallback(
+    (e: KeyboardEvent) => {
+      // Don't handle shortcuts if user is typing in an input (unless it's a global shortcut with modifier)
+      const isTyping =
+        e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      const hasModifier = e.ctrlKey || e.metaKey || e.altKey;
+
+      if (isTyping && !hasModifier) {
+        return;
+      }
+
+      // Combine user shortcuts with global shortcuts
+      const allShortcuts = [...globalShortcuts, ...shortcuts];
+
+      // Find matching shortcut
+      const matchingShortcut = allShortcuts.find((shortcut) => {
+        const keyMatch =
+          e.key.toLowerCase() === shortcut.key.toLowerCase() || e.key === shortcut.key;
+        const ctrlMatch = !shortcut.ctrl || e.ctrlKey || e.metaKey;
+        const altMatch = !shortcut.alt || e.altKey;
+        const shiftMatch = !shortcut.shift || e.shiftKey;
+
+        return keyMatch && ctrlMatch && altMatch && shiftMatch;
+      });
+
+      if (matchingShortcut) {
+        e.preventDefault();
+        matchingShortcut.action();
+      }
+    },
+    [shortcuts, router]
+  );
+
   useEffect(() => {
     if (!enabled) return;
-    
+
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [handleKeyPress, enabled]);
-  
+
   return {
     showHelp,
     setShowHelp,
@@ -114,6 +115,7 @@ export function useReviewShortcuts({
   onEdit,
   onDelete,
   onUndo,
+  onGenerateFromContext,
   showingFeedback,
   isAnswering,
   canSubmit,
@@ -124,12 +126,13 @@ export function useReviewShortcuts({
   onEdit?: () => void;
   onDelete?: () => void;
   onUndo?: () => void;
+  onGenerateFromContext?: () => void;
   showingFeedback?: boolean;
   isAnswering?: boolean;
   canSubmit?: boolean;
 }) {
   const shortcuts: ShortcutDefinition[] = [];
-  
+
   // Answer selection shortcuts (1-4)
   if (onSelectAnswer && !showingFeedback) {
     for (let i = 1; i <= 4; i++) {
@@ -141,7 +144,7 @@ export function useReviewShortcuts({
       });
     }
   }
-  
+
   // Submit/Next shortcuts
   if (showingFeedback) {
     if (onNext) {
@@ -174,7 +177,7 @@ export function useReviewShortcuts({
       });
     }
   }
-  
+
   // Edit/Delete shortcuts
   if (onEdit) {
     shortcuts.push({
@@ -184,7 +187,7 @@ export function useReviewShortcuts({
       context: 'review',
     });
   }
-  
+
   if (onDelete) {
     shortcuts.push({
       key: 'd',
@@ -199,7 +202,7 @@ export function useReviewShortcuts({
       context: 'review',
     });
   }
-  
+
   if (onUndo) {
     shortcuts.push({
       key: 'z',
@@ -209,7 +212,7 @@ export function useReviewShortcuts({
       context: 'review',
     });
   }
-  
+
   // Skip question (mark as difficult)
   shortcuts.push({
     key: 's',
@@ -220,7 +223,7 @@ export function useReviewShortcuts({
     },
     context: 'review',
   });
-  
+
   // Toggle explanation
   shortcuts.push({
     key: 'x',
@@ -233,6 +236,16 @@ export function useReviewShortcuts({
     },
     context: 'review',
   });
-  
+
+  // Generate new questions from current context
+  if (onGenerateFromContext) {
+    shortcuts.push({
+      key: 'n',
+      description: 'Generate new questions from this one',
+      action: onGenerateFromContext,
+      context: 'review',
+    });
+  }
+
   return useKeyboardShortcuts(shortcuts, true);
 }

@@ -1,51 +1,57 @@
-'use client'
+'use client';
 
-import React from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import React from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Props {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
+  hasError: boolean;
+  error: Error | null;
 }
 
 export class ConvexErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
-    super(props)
-    this.state = { hasError: false, error: null }
+    super(props);
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
     // Update state so the next render will show the fallback UI
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log error to console in development
-    console.error('Convex Error Boundary caught:', error, errorInfo)
-    
-    // Check if this is a Convex-related error
-    if (error.message?.includes('CONVEX') || error.message?.includes('Server Error')) {
-      console.error('Convex backend error detected:', error.message)
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
+    // Error boundary will handle the error display in UI
+    // The error state is already captured via getDerivedStateFromError
+    // In development, the error details will be shown in the UI (see render method)
+    // Optionally, you could send error to an error tracking service here:
+    // if (process.env.NODE_ENV === 'production') {
+    //   errorTrackingService.logError(error, errorInfo);
+    // }
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null })
-    // Reload the page to reset all state
-    window.location.reload()
-  }
+    // Reset error state without reloading the page
+    // This will trigger a re-render and allow components to retry
+    this.setState({ hasError: false, error: null });
+
+    // Optionally dispatch a custom event to notify components to retry
+    window.dispatchEvent(new CustomEvent('error-boundary-reset'));
+  };
 
   render() {
     if (this.state.hasError) {
-      const isConvexError = this.state.error?.message?.includes('CONVEX') || 
-                           this.state.error?.message?.includes('Server Error')
-      
+      const isConvexError =
+        this.state.error?.message?.includes('CONVEX') ||
+        this.state.error?.message?.includes('Server Error');
+
       return (
         <div className="flex items-center justify-center min-h-screen p-4">
           <Card className="w-full max-w-md">
@@ -57,7 +63,7 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
                 </CardTitle>
               </div>
               <CardDescription>
-                {isConvexError 
+                {isConvexError
                   ? 'Unable to connect to the backend service. This might be a temporary issue.'
                   : 'An unexpected error occurred. Please try refreshing the page.'}
               </CardDescription>
@@ -68,17 +74,13 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
                   {this.state.error.message}
                 </div>
               )}
-              
+
               <div className="space-y-3">
-                <Button 
-                  onClick={this.handleReset}
-                  className="w-full"
-                  variant="default"
-                >
+                <Button onClick={this.handleReset} className="w-full" variant="default">
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Page
+                  Try Again
                 </Button>
-                
+
                 {isConvexError && (
                   <div className="text-sm text-muted-foreground text-center">
                     <p>If this issue persists, it may be due to:</p>
@@ -93,9 +95,9 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
             </CardContent>
           </Card>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

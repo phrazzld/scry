@@ -147,7 +147,7 @@ loggers.securityEvent('failed_login_attempt', 'medium', {
 - ✅ **Authentication System** (`lib/auth.ts`): Sign-in events, errors, user tracking
 - ✅ **AI Client** (`lib/ai-client.ts`): Quiz generation timing, fallback behavior
 - ✅ **Database Layer** (`lib/prisma.ts`): Query performance monitoring
-- ✅ **API Routes** (`app/api/generate-quiz/route.ts`): Request lifecycle tracking
+- ✅ **API Routes** (`app/api/generate-questions/route.ts`): Request lifecycle tracking
 - ✅ **Error Boundaries** (`app/error.tsx`): Unhandled error capture
 
 ### Planned Integrations

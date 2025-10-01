@@ -1,7 +1,8 @@
-import { v } from "convex/values";
-import { mutation, internalMutation } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
-import { createLogger } from "./lib/logger";
+import { v } from 'convex/values';
+
+import { Id } from './_generated/dataModel';
+import { internalMutation, mutation } from './_generated/server';
+import { createLogger } from './lib/logger';
 
 // Migration status tracking
 export const getMigrationStatus = mutation({
@@ -11,18 +12,18 @@ export const getMigrationStatus = mutation({
   handler: async (ctx, args) => {
     // TODO: Add admin authentication check
     const migrationLogger = createLogger({ module: 'migrations', function: 'getMigrationStatus' });
-    
+
     // Log the request for audit purposes
-    migrationLogger.info('Migration status requested', { 
+    migrationLogger.info('Migration status requested', {
       event: 'migration.status.request',
-      sessionTokenPrefix: args.sessionToken.substring(0, 8) + '...'
+      sessionTokenPrefix: args.sessionToken.substring(0, 8) + '...',
     });
-    
+
     // Future: Use ctx to query migration progress
     // const migrationLogs = await ctx.db.query("migrationLogs")...
-    
+
     return {
-      status: "ready",
+      status: 'ready',
       totalQuizResults: 0,
       migratedCount: 0,
       questionsCreated: 0,
@@ -41,7 +42,7 @@ export const migrateQuizResultsToQuestions = internalMutation({
   handler: async (ctx, args) => {
     const batchSize = args.batchSize || 100;
     const dryRun = args.dryRun || false;
-    
+
     const stats = {
       totalProcessed: 0,
       questionsCreated: 0,
@@ -52,42 +53,40 @@ export const migrateQuizResultsToQuestions = internalMutation({
 
     try {
       // Get all quiz results (in production, this should be paginated)
-      const quizResults = await ctx.db
-        .query("quizResults")
-        .take(batchSize);
+      const quizResults = await ctx.db.query('quizResults').take(batchSize);
 
       for (const quizResult of quizResults) {
         try {
           // Skip if already has a sessionId (already migrated)
-          if (quizResult.sessionId && quizResult.sessionId.startsWith("migrated_")) {
+          if (quizResult.sessionId && quizResult.sessionId.startsWith('migrated_')) {
             continue;
           }
 
           // Generate a sessionId for this quiz result
           const sessionId = quizResult.sessionId || `migrated_${quizResult._id.substring(0, 8)}`;
-          
+
           // Process each answer in the quiz result
           for (const answer of quizResult.answers) {
             // Check if a similar question already exists for this user
             const existingQuestion = await ctx.db
-              .query("questions")
-              .withIndex("by_user", q => q.eq("userId", quizResult.userId))
-              .filter(q => 
+              .query('questions')
+              .withIndex('by_user', (q) => q.eq('userId', quizResult.userId))
+              .filter((q) =>
                 q.and(
-                  q.eq(q.field("topic"), quizResult.topic),
-                  q.eq(q.field("question"), answer.question),
-                  q.eq(q.field("correctAnswer"), answer.correctAnswer)
+                  q.eq(q.field('topic'), quizResult.topic),
+                  q.eq(q.field('question'), answer.question),
+                  q.eq(q.field('correctAnswer'), answer.correctAnswer)
                 )
               )
               .first();
 
-            let questionId: Id<"questions">;
+            let questionId: Id<'questions'>;
 
             if (existingQuestion) {
               // Question already exists, use its ID
               questionId = existingQuestion._id;
               stats.duplicateQuestions++;
-              
+
               // Update the denormalized stats if not in dry run
               if (!dryRun) {
                 await ctx.db.patch(questionId, {
@@ -99,7 +98,7 @@ export const migrateQuizResultsToQuestions = internalMutation({
             } else {
               // Create new question
               if (!dryRun) {
-                questionId = await ctx.db.insert("questions", {
+                questionId = await ctx.db.insert('questions', {
                   userId: quizResult.userId,
                   topic: quizResult.topic,
                   difficulty: quizResult.difficulty,
@@ -116,21 +115,22 @@ export const migrateQuizResultsToQuestions = internalMutation({
                 stats.questionsCreated++;
               } else {
                 // In dry run, generate a fake ID
-                questionId = `dry_run_${Math.random().toString(36).substring(7)}` as Id<"questions">;
+                questionId =
+                  `dry_run_${Math.random().toString(36).substring(7)}` as Id<'questions'>;
                 stats.questionsCreated++;
               }
             }
 
             // Create interaction record
-            if (!dryRun && questionId && !questionId.toString().startsWith("dry_run_")) {
-              await ctx.db.insert("interactions", {
+            if (!dryRun && questionId && !questionId.toString().startsWith('dry_run_')) {
+              await ctx.db.insert('interactions', {
                 userId: quizResult.userId,
                 questionId: questionId,
                 userAnswer: answer.userAnswer,
                 isCorrect: answer.isCorrect,
                 attemptedAt: quizResult.completedAt,
                 timeSpent: undefined, // Not available in old data
-                context: { 
+                context: {
                   sessionId: sessionId,
                   isRetry: false,
                 },
@@ -158,9 +158,9 @@ export const migrateQuizResultsToQuestions = internalMutation({
         success: true,
         dryRun,
         stats,
-        message: dryRun 
-          ? "Dry run completed - no data was modified" 
-          : "Migration completed successfully",
+        message: dryRun
+          ? 'Dry run completed - no data was modified'
+          : 'Migration completed successfully',
       };
     } catch (error) {
       return {
@@ -176,25 +176,25 @@ export const migrateQuizResultsToQuestions = internalMutation({
 // Helper function to check if a quiz result has been migrated
 export const isQuizResultMigrated = mutation({
   args: {
-    quizResultId: v.id("quizResults"),
+    quizResultId: v.id('quizResults'),
   },
   handler: async (ctx, args) => {
     const quizResult = await ctx.db.get(args.quizResultId);
     if (!quizResult) return false;
-    
-    return quizResult.sessionId?.startsWith("migrated_") || false;
+
+    return quizResult.sessionId?.startsWith('migrated_') || false;
   },
 });
 
 // Function to rollback migration for a specific user (for testing/recovery)
 export const rollbackMigrationForUser = internalMutation({
   args: {
-    userId: v.id("users"),
+    userId: v.id('users'),
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const dryRun = args.dryRun || true; // Default to dry run for safety
-    
+
     const stats = {
       questionsDeleted: 0,
       interactionsDeleted: 0,
@@ -204,31 +204,34 @@ export const rollbackMigrationForUser = internalMutation({
     try {
       // Find all migrated quiz results for this user
       const migratedQuizResults = await ctx.db
-        .query("quizResults")
-        .withIndex("by_user", q => q.eq("userId", args.userId))
-        .filter(q => q.neq(q.field("sessionId"), undefined))
+        .query('quizResults')
+        .withIndex('by_user', (q) => q.eq('userId', args.userId))
+        .filter((q) => q.neq(q.field('sessionId'), undefined))
         .collect();
 
       const migratedSessionIds = migratedQuizResults
-        .filter(qr => qr.sessionId?.startsWith("migrated_"))
-        .map(qr => qr.sessionId!);
+        .filter((qr) => qr.sessionId?.startsWith('migrated_'))
+        .map((qr) => qr.sessionId!);
 
       if (migratedSessionIds.length === 0) {
         return {
           success: true,
-          message: "No migrated data found for this user",
+          message: 'No migrated data found for this user',
           stats,
         };
       }
 
       // Delete interactions created from migration
       const interactions = await ctx.db
-        .query("interactions")
-        .withIndex("by_user", q => q.eq("userId", args.userId))
+        .query('interactions')
+        .withIndex('by_user', (q) => q.eq('userId', args.userId))
         .collect();
 
       for (const interaction of interactions) {
-        if (interaction.context?.sessionId && migratedSessionIds.includes(interaction.context.sessionId)) {
+        if (
+          interaction.context?.sessionId &&
+          migratedSessionIds.includes(interaction.context.sessionId)
+        ) {
           if (!dryRun) {
             await ctx.db.delete(interaction._id);
           }
@@ -238,7 +241,7 @@ export const rollbackMigrationForUser = internalMutation({
 
       // Reset sessionId on quiz results
       for (const quizResult of migratedQuizResults) {
-        if (quizResult.sessionId?.startsWith("migrated_")) {
+        if (quizResult.sessionId?.startsWith('migrated_')) {
           if (!dryRun) {
             await ctx.db.patch(quizResult._id, {
               sessionId: undefined,
@@ -254,9 +257,9 @@ export const rollbackMigrationForUser = internalMutation({
         success: true,
         dryRun,
         stats,
-        message: dryRun 
-          ? "Rollback dry run completed - no data was modified" 
-          : "Rollback completed successfully",
+        message: dryRun
+          ? 'Rollback dry run completed - no data was modified'
+          : 'Rollback completed successfully',
       };
     } catch (error) {
       return {

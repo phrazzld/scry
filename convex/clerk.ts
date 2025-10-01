@@ -1,6 +1,7 @@
-import { internalMutation, mutation, QueryCtx, MutationCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
-import { v } from "convex/values";
+import { v } from 'convex/values';
+
+import type { Doc } from './_generated/dataModel';
+import { internalMutation, mutation, MutationCtx, QueryCtx } from './_generated/server';
 
 /**
  * Internal mutation to sync a user from Clerk to our database.
@@ -19,8 +20,8 @@ export const syncUser = internalMutation({
 
     // Check if user already exists by clerkId
     const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
       .first();
 
     if (existingUser) {
@@ -37,8 +38,8 @@ export const syncUser = internalMutation({
 
     // Check if user exists by email (migration case)
     const existingUserByEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', email))
       .first();
 
     if (existingUserByEmail) {
@@ -54,7 +55,7 @@ export const syncUser = internalMutation({
     }
 
     // Create new user
-    const newUserId = await ctx.db.insert("users", {
+    const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,
@@ -77,8 +78,8 @@ export const deleteUser = internalMutation({
   handler: async (ctx, { clerkId }) => {
     // Find user by Clerk ID
     const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
       .first();
 
     if (!user) {
@@ -88,16 +89,12 @@ export const deleteUser = internalMutation({
 
     // Soft delete user's questions
     const questions = await ctx.db
-      .query("questions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .query('questions')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect();
 
     const now = Date.now();
-    await Promise.all(
-      questions.map((question) =>
-        ctx.db.patch(question._id, { deletedAt: now })
-      )
-    );
+    await Promise.all(questions.map((question) => ctx.db.patch(question._id, { deletedAt: now })));
 
     // Note: We keep the user record for audit purposes
     // If you want to fully delete, uncomment:
@@ -125,8 +122,8 @@ export async function getUserFromClerk(ctx: QueryCtx | MutationCtx) {
 
   // Find user by Clerk ID
   const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+    .query('users')
+    .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
     .first();
 
   return user;
@@ -140,7 +137,7 @@ export async function requireUserFromClerk(ctx: QueryCtx | MutationCtx) {
   const user = await getUserFromClerk(ctx);
 
   if (!user) {
-    throw new Error("Authentication required");
+    throw new Error('Authentication required');
   }
 
   return user;
@@ -158,27 +155,30 @@ export const ensureUser = mutation({
     const identity = await ctx.auth.getUserIdentity();
 
     if (!identity) {
-      throw new Error("Authentication required");
+      throw new Error('Authentication required');
     }
 
     const clerkId = identity.subject;
 
     if (!clerkId) {
-      throw new Error("Invalid Clerk identity");
+      throw new Error('Invalid Clerk identity');
     }
 
     const existingUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .query('users')
+      .withIndex('by_clerk_id', (q) => q.eq('clerkId', clerkId))
       .first();
 
-    const name = identity.name || [identity.givenName, identity.familyName].filter(Boolean).join(" ") || undefined;
+    const name =
+      identity.name ||
+      [identity.givenName, identity.familyName].filter(Boolean).join(' ') ||
+      undefined;
     const imageUrl = identity.pictureUrl;
     const emailVerified = identity.emailVerified ? Date.now() : undefined;
     const email = identity.email;
 
     if (existingUser) {
-      const updates: Partial<Doc<"users">> = {};
+      const updates: Partial<Doc<'users'>> = {};
 
       if (email && email !== existingUser.email) {
         updates.email = email;
@@ -204,10 +204,10 @@ export const ensureUser = mutation({
     }
 
     if (!email) {
-      throw new Error("Clerk identity is missing an email address");
+      throw new Error('Clerk identity is missing an email address');
     }
 
-    const newUserId = await ctx.db.insert("users", {
+    const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,

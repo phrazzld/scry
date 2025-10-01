@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { 
-  useQuestionMutations
-} from './use-question-mutations';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useQuestionMutations } from './use-question-mutations';
 
 // Mock dependencies
 vi.mock('convex/react', () => ({
@@ -30,8 +30,6 @@ vi.mock('@/convex/_generated/api', () => ({
   },
 }));
 
-import { useMutation } from 'convex/react';
-
 describe('useQuestionMutations', () => {
   let mockUpdateQuestion: any;
   let mockDeleteQuestion: any;
@@ -39,11 +37,11 @@ describe('useQuestionMutations', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Mock mutations with default success responses
     mockUpdateQuestion = vi.fn().mockResolvedValue({ success: true });
     mockDeleteQuestion = vi.fn().mockResolvedValue({ success: true });
-    
+
     (useMutation as any).mockImplementation((mutation: any) => {
       // Check the function path to determine which mock to return
       const functionPath = mutation?._functionPath || '';
@@ -51,7 +49,7 @@ describe('useQuestionMutations', () => {
       if (functionPath === 'questions:softDeleteQuestion') return mockDeleteQuestion;
       return vi.fn();
     });
-    
+
     // Mock question data
     mockQuestion = {
       _id: 'question-1',
@@ -69,7 +67,7 @@ describe('useQuestionMutations', () => {
   describe('optimistic edit', () => {
     it('should apply optimistic update immediately', async () => {
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
@@ -77,27 +75,27 @@ describe('useQuestionMutations', () => {
           topic: mockQuestion.topic,
         });
       });
-      
+
       // The hook should have made the mutation call
       expect(mockUpdateQuestion).toHaveBeenCalled();
     });
 
     it('should call mutation with correct parameters', async () => {
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       const updates = {
         question: 'Updated question?',
         topic: mockQuestion.topic,
         explanation: 'Updated explanation',
       };
-      
+
       await act(async () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
           ...updates,
         });
       });
-      
+
       expect(mockUpdateQuestion).toHaveBeenCalledWith({
         questionId: mockQuestion._id,
         question: updates.question,
@@ -108,9 +106,9 @@ describe('useQuestionMutations', () => {
 
     it('should rollback on mutation failure', async () => {
       mockUpdateQuestion.mockRejectedValue(new Error('Failed to update question'));
-      
+
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
@@ -118,7 +116,7 @@ describe('useQuestionMutations', () => {
           topic: mockQuestion.topic,
         });
       });
-      
+
       await waitFor(() => {
         // Error toast should be shown on failure - the hook shows the error message directly
         expect(toast.error).toHaveBeenCalledWith('Failed to update question');
@@ -127,9 +125,9 @@ describe('useQuestionMutations', () => {
 
     it('should clear optimistic state on success', async () => {
       mockUpdateQuestion.mockResolvedValue({ success: true });
-      
+
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
@@ -137,7 +135,7 @@ describe('useQuestionMutations', () => {
           topic: mockQuestion.topic,
         });
       });
-      
+
       await waitFor(() => {
         // Mutation should have been called successfully
         expect(mockUpdateQuestion).toHaveBeenCalled();
@@ -148,26 +146,26 @@ describe('useQuestionMutations', () => {
   describe('optimistic delete', () => {
     it('should mark item as deleted optimistically', async () => {
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticDelete({
           questionId: mockQuestion._id,
         });
       });
-      
+
       // Deletion mutation should be called
       expect(mockDeleteQuestion).toHaveBeenCalled();
     });
 
     it('should call delete mutation', async () => {
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticDelete({
           questionId: mockQuestion._id,
         });
       });
-      
+
       expect(mockDeleteQuestion).toHaveBeenCalledWith({
         questionId: mockQuestion._id,
       });
@@ -175,15 +173,15 @@ describe('useQuestionMutations', () => {
 
     it('should show error toast on deletion failure', async () => {
       mockDeleteQuestion.mockRejectedValue(new Error('Failed to delete question'));
-      
+
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticDelete({
           questionId: mockQuestion._id,
         });
       });
-      
+
       await waitFor(() => {
         expect(toast.error).toHaveBeenCalledWith('Failed to delete question');
       });
@@ -191,15 +189,15 @@ describe('useQuestionMutations', () => {
 
     it('should show success toast on successful deletion', async () => {
       mockDeleteQuestion.mockResolvedValue({ success: true });
-      
+
       const { result } = renderHook(() => useQuestionMutations());
-      
+
       await act(async () => {
         await result.current.optimisticDelete({
           questionId: mockQuestion._id,
         });
       });
-      
+
       await waitFor(() => {
         expect(toast.success).toHaveBeenCalledWith('Question deleted');
       });

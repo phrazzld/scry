@@ -90,7 +90,7 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 The application follows Next.js 15 App Router structure with Convex backend:
 
-- **app/api/generate-quiz/**: API endpoint for AI quiz generation using Google Gemini
+- **app/api/generate-questions/**: API endpoint for AI question generation using Google Gemini
 - **app/api/quiz/complete/**: API endpoint for saving quiz results to Convex
 - **app/create/**: Quiz creation interface with topic selection and difficulty settings
 - **components/**: React components split between business logic and UI primitives (shadcn/ui)
@@ -176,7 +176,7 @@ The quiz generation system:
 - **Questions persist individually** upon generation (not just quiz results)
 - Each answer attempt is tracked with timing and accuracy
 
-API endpoint pattern: `/api/generate-quiz` accepts POST with topic, difficulty, and optional sessionToken for authenticated saves.
+API endpoint pattern: `/api/generate-questions` accepts POST with topic, difficulty, and optional sessionToken for authenticated saves.
 
 ## Testing
 
