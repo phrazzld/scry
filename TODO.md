@@ -42,37 +42,37 @@
   * Delete from saveQuestions call: `difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',` (~line 169)
   * Success criteria: Modal never sends or uses difficulty
 
-- [~] Remove difficulty from empty states in `components/empty-states.tsx` (4 locations)
+- [x] Remove difficulty from empty states in `components/empty-states.tsx` (4 locations)
   * First occurrence (~line 55): Remove `difficulty: 'medium'` from fetch body
   * Second occurrence (~line 71): Remove `difficulty: result.difficulty || 'medium'` from saveQuestions
   * Third occurrence (~line 212): Remove `difficulty: 'medium'` from fetch body
   * Fourth occurrence (~line 228): Remove `difficulty: result.difficulty || 'medium'` from saveQuestions
   * Success criteria: Empty states never send or use difficulty field
 
-- [~] Remove difficulty references from `components/generation-modal.tsx`
+- [x] Remove difficulty references from `components/generation-modal.tsx`
   * Line 106: Remove `difficulty` from currentQuestion context (conditional)
   * Line 168: Remove `difficulty` from saveQuestions call
   * Success criteria: Modal never references difficulty
 
-- [~] Remove difficulty from test fixtures in `convex/fsrs.test.ts` (8 occurrences)
+- [x] Remove difficulty from test fixtures in `convex/fsrs.test.ts` (8 occurrences)
   * Remove all `difficulty: 'medium',` from mock question objects
   * Success criteria: Tests pass without difficulty field
 
-- [~] Remove difficulty from test fixtures in `convex/spacedRepetition.test.ts` (3 occurrences)
+- [x] Remove difficulty from test fixtures in `convex/spacedRepetition.test.ts` (3 occurrences)
   * Remove all `difficulty: 'medium',` from mock question objects
   * Success criteria: Tests pass without difficulty field
 
-- [~] Remove difficulty from test fixtures in `convex/questions.mutations.test.ts` (3 occurrences)
+- [x] Remove difficulty from test fixtures in `convex/questions.mutations.test.ts` (3 occurrences)
   * Remove `difficulty: 'medium',` from mock objects
   * Remove assertions checking difficulty value
   * Success criteria: Tests pass without difficulty field
 
-- [~] Remove difficulty from `convex/questions.ts` query functions
+- [x] Remove difficulty from `convex/questions.ts` query functions
   * Line 423: Remove `difficulty: baseQuestion.difficulty,` from listQuestionsForTopic
   * Line 474: Remove `difficulty: baseQuestion.difficulty,` from saveRelatedQuestions
   * Success criteria: Queries don't include difficulty in results
 
-- [~] Remove difficulty from `convex/migrations.ts`
+- [x] Remove difficulty from `convex/migrations.ts`
   * Line 104: Remove `difficulty: quizResult.difficulty,` from migration
   * Success criteria: Migration doesn't reference difficulty
 
