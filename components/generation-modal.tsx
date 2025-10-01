@@ -169,26 +169,29 @@ Based on the above question context, generate new educational questions that ful
             difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
             questions: questionsForSave,
           });
-          // Replace loading toast with success
+          // Replace loading toast with success (auto-dismiss after 4s)
           toast.success(`✓ ${count} questions generated`, {
             id: toastId,
             description: "You'll see these in your review queue next",
+            duration: 4000,
           });
           onGenerationSuccess?.(count);
         } catch (saveError) {
           if (process.env.NODE_ENV === 'development') {
             console.error('Failed to save:', saveError);
           }
-          // Replace loading toast with error
+          // Replace loading toast with error (auto-dismiss after 5s)
           toast.error('Generated but failed to save', {
             id: toastId,
+            duration: 5000,
           });
         }
       } else {
-        // Replace loading toast with success (unauthenticated)
+        // Replace loading toast with success (unauthenticated, auto-dismiss after 4s)
         toast.success(`✓ ${count} questions generated`, {
           id: toastId,
           description: 'Sign in to save and review them',
+          duration: 4000,
         });
       }
     } catch (error) {
