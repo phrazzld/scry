@@ -7,7 +7,6 @@ import { cardToDb, initializeCard, scheduleNextReview } from './fsrs';
 export const saveGeneratedQuestions = mutation({
   args: {
     topic: v.string(),
-    difficulty: v.string(),
     questions: v.array(
       v.object({
         question: v.string(),
@@ -31,7 +30,6 @@ export const saveGeneratedQuestions = mutation({
         ctx.db.insert('questions', {
           userId,
           topic: args.topic,
-          difficulty: args.difficulty,
           question: q.question,
           type: q.type || 'multiple-choice',
           options: q.options,
@@ -422,7 +420,6 @@ export const prepareRelatedGeneration = mutation({
       baseQuestion: {
         id: baseQuestion._id,
         topic: baseQuestion.topic,
-        difficulty: baseQuestion.difficulty,
         question: baseQuestion.question,
         type: baseQuestion.type,
         correctAnswer: baseQuestion.correctAnswer,
@@ -451,7 +448,7 @@ export const saveRelatedQuestions = mutation({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    // Get the base question for topic and difficulty
+    // Get the base question for topic
     const baseQuestion = await ctx.db.get(args.baseQuestionId);
 
     if (!baseQuestion) {
@@ -467,13 +464,12 @@ export const saveRelatedQuestions = mutation({
     const initialCard = initializeCard();
     const fsrsFields = cardToDb(initialCard);
 
-    // Save all related questions with same topic and difficulty as base
+    // Save all related questions with same topic as base
     const questionIds = await Promise.all(
       args.relatedQuestions.map((q) =>
         ctx.db.insert('questions', {
           userId,
           topic: baseQuestion.topic,
-          difficulty: baseQuestion.difficulty,
           question: q.question,
           type: q.type || 'multiple-choice',
           options: q.options,

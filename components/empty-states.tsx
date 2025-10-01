@@ -52,7 +52,6 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: topic.trim(),
-          difficulty: 'medium',
         }),
       });
 
@@ -68,7 +67,6 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
             );
             await saveQuestions({
               topic: result.topic,
-              difficulty: result.difficulty || 'medium',
               questions: questionsForSave,
             });
             toast.success(`✓ ${count} questions generated`, {
@@ -209,7 +207,6 @@ export function NothingDueEmptyState({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: topic.trim(),
-          difficulty: 'medium',
         }),
       });
 
@@ -225,7 +222,6 @@ export function NothingDueEmptyState({
             );
             await saveQuestions({
               topic: result.topic,
-              difficulty: result.difficulty || 'medium',
               questions: questionsForSave,
             });
             toast.success(`✓ ${count} questions generated`, {

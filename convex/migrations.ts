@@ -101,7 +101,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
                 questionId = await ctx.db.insert('questions', {
                   userId: quizResult.userId,
                   topic: quizResult.topic,
-                  difficulty: quizResult.difficulty,
                   question: answer.question,
                   type: answer.type || 'multiple-choice',
                   options: answer.options,

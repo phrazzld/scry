@@ -103,7 +103,6 @@ export function GenerationModal({
           `Type: ${currentQuestion.type || 'multiple-choice'}`,
           currentQuestion.options ? `Options: ${currentQuestion.options.join(', ')}` : '',
           currentQuestion.correctAnswer ? `Correct Answer: ${currentQuestion.correctAnswer}` : '',
-          currentQuestion.difficulty ? `Difficulty: ${currentQuestion.difficulty}` : '',
           currentQuestion.explanation ? `Explanation: ${currentQuestion.explanation}` : '',
         ]
           .filter(Boolean)
@@ -128,7 +127,6 @@ Based on the above question context, generate new educational questions that ful
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           topic: finalPrompt,
-          difficulty: currentQuestion?.difficulty || 'medium',
         }),
       });
 
@@ -166,7 +164,6 @@ Based on the above question context, generate new educational questions that ful
           const questionsForSave = stripGeneratedQuestionMetadata(questionsAsPayload);
           await saveQuestions({
             topic: result.topic || finalPrompt,
-            difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
             questions: questionsForSave,
           });
           // Replace loading toast with success (auto-dismiss after 4s)

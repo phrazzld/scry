@@ -89,13 +89,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { topic, difficulty } = validationResult.data;
+    const { topic } = validationResult.data;
 
     logger.info(
       {
         event: 'api.generate-questions.params',
         topic,
-        difficulty,
       },
       `Generating questions for topic: ${topic}`
     );
@@ -111,14 +110,12 @@ export async function POST(request: NextRequest) {
 
     const duration = timer.end({
       topic,
-      difficulty,
       questionCount: questions.length,
       success: true,
     });
 
     loggers.apiRequest('POST', '/api/generate-questions', 200, duration, {
       topic,
-      difficulty,
       questionCount: questions.length,
     });
 
@@ -126,7 +123,6 @@ export async function POST(request: NextRequest) {
       JSON.stringify({
         questions: questionsWithIds,
         topic,
-        difficulty,
       }),
       {
         status: 200,

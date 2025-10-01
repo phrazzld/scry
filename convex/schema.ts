@@ -17,7 +17,6 @@ export default defineSchema({
   questions: defineTable({
     userId: v.id('users'),
     topic: v.string(),
-    difficulty: v.string(),
     question: v.string(),
     type: v.union(v.literal('multiple-choice'), v.literal('true-false')),
     options: v.array(v.string()),

@@ -32,7 +32,6 @@ export const sanitizedTopicSchema = z
  */
 export const sanitizedQuizRequestSchema = z.object({
   topic: sanitizedTopicSchema,
-  difficulty: z.enum(['easy', 'medium', 'hard']).optional().default('medium'),
 });
 
 /**
