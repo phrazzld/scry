@@ -1,15 +1,216 @@
 # BACKLOG
 
-- [ ] create favicon
-- [ ] make question generation more sophisticated
-    * really grok user intent before determining what questions to generate
-    * check existing questions of the user for context
-    * check performance of the user for context
-    * generate dynamic number of questions (eg "nato alphabet" should not gen 5 questions it should at least gen 26)
-- [ ] subscription paywall
-- [ ] support different question types
-    * free response with rubric and llm grading
-- [ ] email notifications when it's time to review
+- incorporate interleaving into reviews
+  * maybe just by adding a smidge of randomness / schedule jitter
+
+## Immediate Concerns 🔥
+
+### Security Issues (Deploy Blockers)
+
+- [ ] **[CRITICAL]** Implement rate limiting on question generation API | Effort: 1h | Impact: Prevents abuse & API cost explosion
+  * **Location**: `app/api/generate-questions/route.ts:27`
+  * **Issue**: IP extracted but never passed to rate limit check from `convex/rateLimit.ts`
+  * **Approach**: Add rate limit mutation call before AI generation; return 429 with `retryAfter` on limit
+  * **Files**: `app/api/generate-questions/route.ts`, `convex/rateLimit.ts`
+
+- [ ] **[HIGH]** Enforce webhook secret in production | Effort: 10min | Impact: Prevents unauthorized user data manipulation
+  * **Location**: `convex/http.ts:59`
+  * **Issue**: Missing `CLERK_WEBHOOK_SECRET` returns 200 OK, accepting forged requests
+  * **Approach**: Fail hard (503 or throw) in production; keep dev fallback
+  * **Files**: `convex/http.ts`
+
+### Data Integrity Issues
+
+- [ ] **[HIGH]** Fix denormalized stats race condition | Effort: 2h | Impact: Prevents inconsistent question statistics
+  * **Location**: `convex/questions.ts:98-102`
+  * **Issue**: `attemptCount` and `correctCount` updated separately from interaction insert
+  * **Approach**: Use Convex transaction or atomic update pattern
+  * **Files**: `convex/questions.ts`
+
+- [ ] **[MEDIUM]** Use server-side filtering for soft-deleted questions | Effort: 30min | Impact: Correctness & performance
+  * **Location**: `convex/questions.ts:174`
+  * **Issue**: Queries filter `deletedAt === undefined` in memory after `.take(50)`
+  * **Approach**: Use `by_user_active` index or filter before take
+  * **Files**: `convex/questions.ts`, `convex/schema.ts`
+
+## High-Value Improvements 🎯
+
+### Performance Wins
+
+- [ ] **[HIGH]** Eliminate unnecessary polling overhead | Effort: 2-3h | Impact: Better battery life, reduced server load
+  * **Location**: `hooks/use-polling-query.ts`, `components/review-flow.tsx`
+  * **Issue**: Polling every 30-60s for time-based conditions using `_refreshTimestamp` hack
+  * **Approach**: Calculate next due time and set single timeout; add visibility API pause
+  * **Alternative**: Use Convex scheduled functions to eliminate polling entirely
+  * **Files**: `hooks/use-polling-query.ts`, `components/review-flow.tsx`
+
+- [ ] **[HIGH]** Implement cursor-based pagination | Effort: 2h | Impact: Scales for thousands of questions
+  * **Location**: `convex/questions.ts:174`, `convex/quiz.ts` (getQuizHistory)
+  * **Issue**: O(N) pagination using `.collect()` to compute totals
+  * **Approach**: Use `continueCursor` pattern, compute `hasMore` via extra `.take(1)`
+  * **Files**: `convex/questions.ts`, `convex/quiz.ts`
+
+- [ ] **[MEDIUM]** Optimize FSRS calculations with denormalized retrievability | Effort: 2h | Impact: Faster review queue queries
+  * **Location**: `convex/spacedRepetition.ts:248`
+  * **Issue**: Calculating retrievability for each question in every query
+  * **Approach**: Store retrievability score as field, update on schedule or on interaction
+  * **Files**: `convex/spacedRepetition.ts`, `convex/schema.ts`
+
+- [ ] **[MEDIUM]** Store streak incrementally | Effort: 2h | Impact: O(1) instead of O(N) calculation
+  * **Location**: `convex/spacedRepetition.ts:415-479`
+  * **Issue**: Loads all user interactions to calculate streak
+  * **Approach**: Update streak counter on each interaction instead of recalculating
+  * **Files**: `convex/spacedRepetition.ts`, `convex/schema.ts`
+
+- [ ] **[MEDIUM]** Optimize bundle size with code splitting | Effort: 4-6h | Impact: Faster initial load
+  * **Issue**: No lazy loading for heavy components (@radix-ui ~200KB, lucide-react full set, ai SDK)
+  * **Approach**: Dynamic imports for routes, tree-shakeable icon imports, lazy load modals
+  * **Files**: `app/`, `components/`, `next.config.ts`
+
+### User Experience
+
+- [ ] **[HIGH]** Restore disabled test coverage | Effort: 8-10h | Impact: Safety net for critical flows
+  * **Issue**: 797 lines removed from PR #23 (generation-modal.test.tsx, review-flow.test.tsx)
+  * **Approach**: Update tests for new state machine architecture
+  * **Files**: `__tests__/generation-modal.test.tsx`, `__tests__/review-flow.test.tsx`
+
+- [ ] **[MEDIUM]** Add comprehensive error boundaries | Effort: 2h | Impact: Better error recovery, improved UX
+  * **Location**: Component tree (only one boundary exists)
+  * **Approach**: Add boundaries at route level and around critical components
+  * **Files**: `app/`, `components/`
+
+- [ ] **[MEDIUM]** "Recently deleted" view with restore | Effort: 2h | Impact: Completes soft delete UX
+  * **Approach**: Add filter toggle on My Questions page, surface `questions.restoreQuestion` mutation
+  * **Files**: `app/my-questions/`, `convex/questions.ts`
+
+## Technical Debt Worth Paying 🔧
+
+### Code Quality
+
+- [ ] **[HIGH]** Replace console.log with structured logging | Effort: 2h | Impact: Production readiness, better debugging
+  * **Location**: 20+ files with console statements
+  * **Approach**: Use `lib/logger.ts` context loggers with NODE_ENV checks
+  * **Files**: `hooks/use-quiz-interactions.ts`, `convex/http.ts`, and 18 others
+
+- [ ] **[MEDIUM]** Fix database index usage | Effort: 30min | Impact: Removes unused index or improves query performance
+  * **Location**: `convex/schema.ts:51` - `by_user_active` index defined but not used
+  * **Approach**: Either use index in queries or remove it from schema
+  * **Files**: `convex/schema.ts`, `convex/questions.ts`
+
+- [ ] **[MEDIUM]** Add compound index for review queries | Effort: 15min | Impact: Better query performance
+  * **Location**: `spacedRepetition.getNextReview`
+  * **Issue**: Query filters by userId, nextReview, AND deletedAt separately
+  * **Approach**: Add `.index('by_user_due_active', ['userId', 'nextReview', 'deletedAt'])`
+  * **Files**: `convex/schema.ts`
+
+- [ ] **[MEDIUM]** Remove deprecated quizResults table | Effort: 2-3h | Impact: Reduces confusion, prevents migration issues
+  * **Location**: `convex/schema.ts:86`
+  * **Approach**: Create migration to archive data, remove table and all references
+  * **Files**: `convex/schema.ts`, search codebase for references
+
+- [ ] **[LOW]** Fix type safety in schema | Effort: 15min | Impact: Stronger type checking
+  * **Location**: `convex/schema.ts:139` - `metadata: v.optional(v.any())`
+  * **Approach**: Define proper metadata schema with known fields
+  * **Files**: `convex/schema.ts`
+
+### Testing & Quality Gates
+
+- [ ] **[HIGH]** Add integration tests for mutations | Effort: 6-8h | Impact: Confidence in backend logic
+  * **Missing**: `recordInteraction`, `scheduleReview`, `updateQuestion`, `softDeleteQuestion`
+  * **Approach**: Set up Convex dev in CI, add mutation/permission tests
+  * **Files**: New test files in `__tests__/integration/`
+
+- [ ] **[MEDIUM]** Create test utilities library | Effort: 3-4h | Impact: DRY tests, faster test writing
+  * **Approach**: Mock data factories, common assertions, test wrapper components
+  * **Files**: `lib/test-utils/`
+
+- [ ] **[MEDIUM]** Add performance regression detection | Effort: 2-3h | Impact: Catch performance degradations early
+  * **Approach**: Lighthouse CI integration with performance budgets
+  * **Files**: `.github/workflows/`, `lighthouserc.json`
+
+### Dependencies & Security
+
+- [ ] **[HIGH]** Update major dependencies | Effort: 4-6h | Impact: Security patches, bug fixes, new features
+  * **Critical**: `@ai-sdk/google` 1.2.22 → 2.0.17, `ai` 4.3.16 → 5.0.59, `zod` 3.25.67 → 4.1.11
+  * **Approach**: Test incrementally, check breaking changes, update one at a time
+  * **Files**: `package.json`
+
+- [ ] **[HIGH]** Fix security vulnerabilities | Effort: 1-2h | Impact: Prevents exploits
+  * **Found**: jsondiffpatch XSS (moderate), @eslint/plugin-kit ReDoS (low), Vite middleware (low)
+  * **Approach**: Update vulnerable packages or remove if unused
+  * **Files**: `package.json`
+
+- [ ] **[MEDIUM]** Audit unused dependencies | Effort: 1h | Impact: Smaller bundle, less maintenance
+  * **Candidates**: `@formkit/auto-animate`, `ws`, `resend`
+  * **Approach**: Run `depcheck`, verify usage, remove if unused
+  * **Files**: `package.json`
+
+## Nice to Have 💡
+
+### Features from Original Backlog
+
+- [ ] Create favicon | Effort: 30min
+- [ ] Make question generation more sophisticated | Effort: L
+  * Check existing questions for context (avoid duplicates)
+  * Check user performance for adaptive difficulty
+  * Generate dynamic number of questions (e.g., NATO alphabet = 26 questions)
+- [ ] Subscription paywall | Effort: XL
+- [ ] Support different question types | Effort: L
+  * Free response with rubric and LLM grading
+- [ ] Email notifications for reviews | Effort: M
+
+### Quality of Life
+
+- [ ] **[LOW]** Add React.memo optimization | Effort: 30min/component | Impact: Reduced unnecessary renders
+  * **Location**: `ReviewQuestionDisplay` and other frequently re-rendered components
+  * **Approach**: Add React.memo with custom comparison function
+  * **Files**: `components/review-flow/`
+
+- [ ] **[LOW]** Reduce max topic length | Effort: 5min | Impact: Lower abuse potential, faster AI responses
+  * **Location**: `lib/prompt-sanitization.ts:19`
+  * **Approach**: Reduce from 5000 to 500-1000 chars, add telemetry
+  * **Files**: `lib/prompt-sanitization.ts`
+
+- [ ] **[LOW]** Document API route vs Convex pattern | Effort: 30min | Impact: Clearer architecture for developers
+  * **Issue**: Mixed patterns confuse new developers
+  * **Approach**: Add architectural decision record to CLAUDE.md
+  * **Files**: `CLAUDE.md`
+
+## Completed & Archived ✅
+
+### From PR #23 (Resolved)
+- ✅ Debug Panel & Memory Leaks: Removed in commit 29f86af
+- ✅ Console Logging in debug code: Cleaned up in commit 29f86af
+- ✅ Polling Args Parameter: Fixed in commit b5f9b2a
+- ✅ TypeScript @ts-expect-error: Removed with debug code
+
+### Rejected (Not Aligned with Philosophy)
+- 🚫 Feature flags for debug panel: Overengineering
+- 🚫 Deprecation redirect for API: Clean break is simpler
+- 🚫 Complex error recovery context: Violates hypersimplicity
+- 🚫 Crypto.randomUUID for session IDs: Not necessary for client-side tracking
+
+---
+
+## Quick Reference
+
+### By Effort
+**Quick Wins (<1h)**: Environment validation, webhook security, soft-delete filtering, index cleanup, type safety fixes, topic length reduction
+
+**Short (1-4h)**: Rate limiting, structured logging, error boundaries, security updates, dependency audit
+
+**Medium (4-8h)**: Polling optimization, pagination, test restoration, integration tests, bundle optimization
+
+**Large (8h+)**: Major dependency updates, E2E test suite, comprehensive test utilities
+
+### By Impact
+**Critical Security**: Rate limiting, API key validation, webhook security, security vulnerabilities
+
+**Performance**: Polling optimization, pagination, bundle size, FSRS calculations
+
+**Reliability**: Test coverage, integration tests, error boundaries, race conditions
+
+**Developer Experience**: Structured logging, test utilities, documentation
 
 ## High Priority (HIGH) — Code Health & Developer Experience
 
@@ -223,12 +424,4 @@
 ### Testing Infrastructure (Overengineering)
 - [ ] Create performance benchmark for question transitions
 - [ ] Add regression test to prevent future locking issues (E2E test already covers this)
-
-## Completed (Archive)
-
-### Recently Completed
-- ✅ [2025-09-27] Review Flow "Next" button fix with full state reset
-- ✅ [2024-01-15] Basic spaced repetition implementation
-- ✅ [2024-01-10] Magic link authentication setup
-- ✅ [2024-01-05] Initial AI quiz generation with Google Gemini
 
