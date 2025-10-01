@@ -78,10 +78,20 @@ export function GenerationModal({
 
     if (!prompt.trim()) return;
 
+    // Close modal immediately for better UX (non-blocking generation)
+    onOpenChange(false);
+    const submittedPrompt = prompt;
+    setPrompt(''); // Clear immediately
+
+    // Start persistent loading toast
+    const toastId = toast.loading('Analyzing your request...', {
+      duration: Infinity,
+    });
+
     setIsGenerating(true);
 
     try {
-      let finalPrompt = prompt;
+      let finalPrompt = submittedPrompt;
 
       // When context is enabled and available, ALWAYS include it in a structured format
       if (currentQuestion && useQuestionContext) {
@@ -106,6 +116,12 @@ USER REQUEST: ${prompt}
 
 Based on the above question context, generate new educational questions that fulfill the user's request. If the request is for "similar but harder" questions, make them more challenging while staying on the same topic. For "easier" questions, simplify them while maintaining educational value.`;
       }
+
+      // Update toast to show generation in progress
+      toast.loading('Creating questions...', {
+        id: toastId,
+        duration: Infinity,
+      });
 
       const response = await fetch('/api/generate-questions', {
         method: 'POST',
@@ -153,7 +169,9 @@ Based on the above question context, generate new educational questions that ful
             difficulty: result.difficulty || currentQuestion?.difficulty || 'medium',
             questions: questionsForSave,
           });
+          // Replace loading toast with success
           toast.success(`✓ ${count} questions generated`, {
+            id: toastId,
             description: "You'll see these in your review queue next",
           });
           onGenerationSuccess?.(count);
@@ -161,16 +179,18 @@ Based on the above question context, generate new educational questions that ful
           if (process.env.NODE_ENV === 'development') {
             console.error('Failed to save:', saveError);
           }
-          toast.error('Generated but failed to save');
+          // Replace loading toast with error
+          toast.error('Generated but failed to save', {
+            id: toastId,
+          });
         }
       } else {
+        // Replace loading toast with success (unauthenticated)
         toast.success(`✓ ${count} questions generated`, {
+          id: toastId,
           description: 'Sign in to save and review them',
         });
       }
-
-      setPrompt(''); // Clear on success
-      onOpenChange(false);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Generation error:', error);
@@ -180,24 +200,28 @@ Based on the above question context, generate new educational questions that ful
       const errorType = (error as { errorType?: string }).errorType;
       const errorMessage = (error as Error).message || 'Failed to generate questions';
 
-      // Show user-friendly error with appropriate actions
+      // Replace loading toast with error
       if (errorType === 'rate-limit-error') {
         toast.error(errorMessage, {
+          id: toastId,
           description: 'Try again in a few moments',
           duration: 5000,
         });
       } else if (errorType === 'timeout-error') {
         toast.error(errorMessage, {
+          id: toastId,
           description: 'Consider using a more specific topic',
           duration: 5000,
         });
       } else if (errorType === 'api-key-error') {
         toast.error(errorMessage, {
+          id: toastId,
           description: 'Please contact support if this persists',
           duration: 7000,
         });
       } else {
         toast.error(errorMessage, {
+          id: toastId,
           description: 'Try rephrasing your prompt or making it more specific',
           duration: 5000,
         });

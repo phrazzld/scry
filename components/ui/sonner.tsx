@@ -15,6 +15,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         style: {
           zIndex: 9999,
+          backgroundColor: 'hsl(var(--popover))',
+          border: '1px solid hsl(var(--border))',
+          opacity: 1,
         },
       }}
       style={
