@@ -65,7 +65,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'JavaScript Basics',
-          difficulty: 'medium',
         }),
       });
 
@@ -86,7 +85,6 @@ describe('/api/generate-questions', () => {
 
       expect(response.status).toBe(200);
       expect(data).toHaveProperty('topic', 'JavaScript Basics');
-      expect(data).toHaveProperty('difficulty', 'medium');
       expect(data).toHaveProperty('questions');
       expect(data.questions).toHaveLength(2);
       expect(data.questions[0]).toHaveProperty('question', 'What is React?');
@@ -102,7 +100,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: '',
-          difficulty: 'medium',
         }),
       });
 
@@ -114,26 +111,6 @@ describe('/api/generate-questions', () => {
       expect(data.error).toMatch(/validation/i);
     });
 
-    it('should reject invalid difficulty', async () => {
-      const request = new NextRequest('http://localhost:3000/api/generate-questions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          topic: 'JavaScript',
-          difficulty: 'extreme', // Invalid - should be easy/medium/hard
-        }),
-      });
-
-      const response = await POST(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(data).toHaveProperty('error');
-      expect(data.error).toMatch(/validation|difficulty/i);
-    });
-
     it('should accept topics and trust the model', async () => {
       const request = new NextRequest('http://localhost:3000/api/generate-questions', {
         method: 'POST',
@@ -142,7 +119,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'the NATO alphabet', // Previously blocked by "the" prefix removal
-          difficulty: 'medium',
         }),
       });
 
@@ -163,7 +139,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: longTopic,
-          difficulty: 'medium',
         }),
       });
 
@@ -188,7 +163,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'JavaScript',
-          difficulty: 'medium',
         }),
       });
 
@@ -213,7 +187,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'Python',
-          difficulty: 'easy',
         }),
       });
 
@@ -237,7 +210,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'React',
-          difficulty: 'hard',
         }),
       });
 
@@ -261,7 +233,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'TypeScript',
-          difficulty: 'medium',
         }),
       });
 
@@ -315,7 +286,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: 'Testing',
-          difficulty: 'easy',
         }),
       });
 
@@ -325,7 +295,6 @@ describe('/api/generate-questions', () => {
       // Verify response structure
       expect(data).toMatchObject({
         topic: 'Testing',
-        difficulty: 'easy',
         questions: expect.arrayContaining([
           expect.objectContaining({
             id: expect.any(Number),
@@ -345,7 +314,6 @@ describe('/api/generate-questions', () => {
         },
         body: JSON.stringify({
           topic: '',
-          difficulty: 'easy',
         }),
       });
 
