@@ -130,74 +130,26 @@
 
 ### Security & Authentication
 
-- [ ] Replace hardcoded admin key with secure authentication in `convex/migrations.ts:309`
+- [x] Replace hardcoded admin key with secure authentication in `convex/migrations.ts:309`
   * **Problem**: `'scry-migration-2025'` is committed to git, cannot be rotated, provides no real security
-  * **Current code** (migrations.ts:309):
-    ```typescript
-    if (args.adminKey !== 'scry-migration-2025') {
-      throw new Error('Unauthorized: Invalid admin key');
-    }
-    ```
-  * **Security risks**:
-    - Anyone with repo access can run migrations
-    - Key visible in git history forever
-    - No rotation possible without code deploy
-    - No audit trail of who ran migrations
-  * **Solution Option A - Environment Variable** (quick fix):
-    ```typescript
-    export const runDifficultyRemoval = mutation({
-      args: {
-        adminKey: v.string(),
-        batchSize: v.optional(v.number()),
-        dryRun: v.optional(v.boolean()),
-      },
-      handler: async (ctx, args) => {
-        const validKey = process.env.MIGRATION_ADMIN_KEY;
-        if (!validKey) {
-          throw new Error('MIGRATION_ADMIN_KEY not configured');
-        }
-        if (args.adminKey !== validKey) {
-          throw new Error('Unauthorized: Invalid admin key');
-        }
-        // ... rest of logic
-      },
-    });
-    ```
-    - Add to `.env.local`: `MIGRATION_ADMIN_KEY=<generate-secure-random-key>`
-    - Add to Vercel env vars (production)
-    - Update MIGRATIONS.md with key retrieval instructions
-  * **Solution Option B - Clerk Admin Role** (proper fix):
-    ```typescript
-    export const runDifficultyRemoval = mutation({
-      args: {
-        batchSize: v.optional(v.number()),
-        dryRun: v.optional(v.boolean()),
-      },
-      handler: async (ctx, args) => {
-        const user = await requireUserFromClerk(ctx);
-
-        // Check if user has admin role
-        const adminEmails = ['admin@example.com']; // Or use Clerk roles
-        if (!adminEmails.includes(user.email)) {
-          throw new Error('Unauthorized: Admin access required');
-        }
-
-        // Log who ran the migration
-        migrationLogger.info('Migration started by admin', {
-          userId: user._id,
-          email: user.email,
-        });
-
-        return await removeDifficultyFromQuestionsInternal(ctx, args);
-      },
-    });
-    ```
-  * **Recommended**: Option B (Clerk admin role) for production, Option A for quick fix
-  * **Success criteria**:
-    - Admin key not in source code
-    - Can be rotated without code deploy
-    - Audit trail of who ran migrations
-    - Unauthorized users cannot run migrations
+  * **Solution implemented**: Clerk-based authentication with ADMIN_EMAILS environment variable
+  * **Changes made**:
+    1. ✅ Removed hardcoded key from source code
+    2. ✅ Implemented Clerk authentication via `requireUserFromClerk`
+    3. ✅ Admin access controlled via `ADMIN_EMAILS` env var (comma-separated list)
+    4. ✅ Comprehensive audit logging (logs all attempts with user details)
+    5. ✅ Added detailed JSDoc with setup and usage instructions
+    6. ✅ Updated `.env.example` with `ADMIN_EMAILS` placeholder
+    7. ✅ Fixed pre-commit hook to allow `.env.example` commits
+  * **Benefits achieved**:
+    - No secrets in git (key previously in git history)
+    - Rotatable without code deploy (update env var)
+    - Full audit trail with user ID and email
+    - Simple implementation (no complex role system)
+  * **Setup required**:
+    - Add `ADMIN_EMAILS=your@email.com` to Convex environment variables
+    - Authenticate via Clerk before calling migration
+  * **Success criteria**: ✅ All security requirements met
 
 ## HIGH PRIORITY - Quality & Reliability 🔴
 
