@@ -1,8 +1,9 @@
 import { v } from 'convex/values';
 
 import { JOB_CONFIG } from '../lib/constants/jobs';
+import { internal } from './_generated/api';
 import { Doc } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { internalMutation, internalQuery, mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { enforceRateLimit } from './rateLimit';
 
@@ -64,8 +65,8 @@ export const createJob = mutation({
       ipAddress: args.ipAddress,
     });
 
-    // TODO: Schedule job for immediate processing once aiGeneration module exists
-    // await ctx.scheduler.runAfter(0, internal.aiGeneration.processJob, { jobId });
+    // Schedule job for immediate processing
+    await ctx.scheduler.runAfter(0, internal.aiGeneration.processJob, { jobId });
 
     return { jobId };
   },
@@ -112,6 +113,20 @@ export const getJobById = query({
     }
 
     return job;
+  },
+});
+
+/**
+ * Internal query to get job by ID without authentication
+ *
+ * Used by the AI generation action to check job status.
+ */
+export const getJobByIdInternal = internalQuery({
+  args: {
+    jobId: v.id('generationJobs'),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.jobId);
   },
 });
 
