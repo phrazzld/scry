@@ -56,20 +56,20 @@
 
 ## Phase 3: Backend - AI Generation Processing
 
-- [ ] **Create AI generation action module**
+- [x] **Create AI generation action module**
   - File: `convex/aiGeneration.ts` (new)
   - Import google model, streamObject from ai SDK, logger, internal APIs
   - Define `processJob` internalAction with args: jobId
   - Success criteria: File structure created, imports resolve correctly
 
-- [ ] **Implement job initialization in processJob**
+- [x] **Implement job initialization in processJob**
   - File: `convex/aiGeneration.ts`
   - In processJob handler: create logger instance, update job status to 'processing' with startedAt timestamp using updateProgress
   - Fetch job details using getJobById, validate job exists and status is not 'cancelled'
   - Return early with info log if job already cancelled
   - Success criteria: Job status updates correctly, early exit works for cancelled jobs
 
-- [ ] **Implement intent clarification phase**
+- [x] **Implement intent clarification phase**
   - File: `convex/aiGeneration.ts`
   - Call existing clarifyLearningIntent() function from lib/ai-client.ts with job.prompt
   - Update progress to phase='clarifying'
@@ -77,7 +77,7 @@
   - Update progress with estimatedTotal, phase='generating'
   - Success criteria: Intent clarification completes, estimated count is reasonable (5-50), progress updates reflect phase changes
 
-- [ ] **Implement streaming question generation**
+- [x] **Implement streaming question generation**
   - File: `convex/aiGeneration.ts`
   - Build question prompt using buildQuestionPromptFromIntent() from lib/ai-client.ts
   - Create streamObject call with google('gemini-2.5-flash'), questionsSchema from lib/ai-client.ts
@@ -85,7 +85,7 @@
   - Iterate over partialObjectStream with for-await loop
   - Success criteria: streamObject initializes correctly, loop begins iteration
 
-- [ ] **Implement incremental question saving loop**
+- [x] **Implement incremental question saving loop**
   - File: `convex/aiGeneration.ts`
   - In stream loop: check for new questions (partial.questions.length > savedCount)
   - Extract newQuestions = partial.questions.slice(savedCount)
@@ -95,13 +95,13 @@
   - Update progress with questionsGenerated, questionsSaved
   - Success criteria: Questions save incrementally as stream produces them, IDs accumulate correctly, progress updates in real-time
 
-- [ ] **Implement cancellation checking in generation loop**
+- [x] **Implement cancellation checking in generation loop**
   - File: `convex/aiGeneration.ts`
   - Every 10 questions (use modulo check), query current job status using getJobById
   - If status === 'cancelled', log cancellation with questionsSaved count, call completeJob with partial results, return early from action
   - Success criteria: Cancellation detected within ~10 questions of user action, partial results preserved, job marked completed
 
-- [ ] **Implement job completion handling**
+- [x] **Implement job completion handling**
   - File: `convex/aiGeneration.ts`
   - After stream loop completes, calculate durationMs = Date.now() - job.startedAt
   - Extract topic from clarifiedIntent or use first question's topic
@@ -109,7 +109,7 @@
   - Log success with question counts
   - Success criteria: Completed jobs have all fields populated, questionIds match saved questions
 
-- [ ] **Implement error handling wrapper**
+- [x] **Implement error handling wrapper**
   - File: `convex/aiGeneration.ts`
   - Wrap entire processJob logic in try-catch
   - Create error classifier function: check error message for 'rate limit'/'429' (code='RATE_LIMIT', retryable=true), 'api key'/'401' (code='API_KEY', retryable=false), 'network'/'timeout' (code='NETWORK', retryable=true), default to code='UNKNOWN', retryable=false
