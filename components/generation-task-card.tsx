@@ -16,10 +16,18 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { api } from '@/convex/_generated/api';
-import type { Doc } from '@/convex/_generated/dataModel';
+import {
+  isCancelledJob,
+  isCompletedJob,
+  isFailedJob,
+  isPendingJob,
+  isProcessingJob,
+  isRetryableError,
+  type GenerationJob,
+} from '@/types/generation-jobs';
 
 interface GenerationTaskCardProps {
-  job: Doc<'generationJobs'>;
+  job: GenerationJob;
 }
 
 export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
@@ -49,7 +57,7 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
 
   // Calculate progress percentage
   const progressValue =
-    job.status === 'processing' && job.estimatedTotal
+    isProcessingJob(job) && job.estimatedTotal
       ? Math.min(100, Math.round((job.questionsSaved / job.estimatedTotal) * 100))
       : 0;
 
@@ -60,19 +68,19 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             {/* Status Icon */}
-            {job.status === 'pending' && (
+            {isPendingJob(job) && (
               <ClockIcon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
             )}
-            {job.status === 'processing' && (
+            {isProcessingJob(job) && (
               <LoaderIcon className="size-5 text-primary shrink-0 mt-0.5 animate-spin" />
             )}
-            {job.status === 'completed' && (
+            {isCompletedJob(job) && (
               <CheckCircle2Icon className="size-5 text-green-600 shrink-0 mt-0.5" />
             )}
-            {job.status === 'failed' && (
+            {isFailedJob(job) && (
               <XCircleIcon className="size-5 text-destructive shrink-0 mt-0.5" />
             )}
-            {job.status === 'cancelled' && (
+            {isCancelledJob(job) && (
               <CircleSlashIcon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
             )}
 
@@ -87,11 +95,11 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
         </div>
 
         {/* Status-specific content */}
-        {job.status === 'pending' && (
+        {isPendingJob(job) && (
           <div className="text-xs text-muted-foreground">Waiting to start...</div>
         )}
 
-        {job.status === 'processing' && (
+        {isProcessingJob(job) && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground capitalize">{job.phase}</span>
@@ -109,7 +117,7 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
           </div>
         )}
 
-        {job.status === 'completed' && (
+        {isCompletedJob(job) && (
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">
               Generated {job.questionIds.length} question{job.questionIds.length !== 1 ? 's' : ''}
@@ -121,10 +129,10 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
           </div>
         )}
 
-        {job.status === 'failed' && (
+        {isFailedJob(job) && (
           <div className="space-y-2">
             <div className="text-sm text-destructive">{job.errorMessage}</div>
-            {job.retryable && (
+            {isRetryableError(job) && (
               <Button variant="outline" size="sm" onClick={handleRetry} className="w-full">
                 <RefreshCwIcon className="size-4 mr-2" />
                 Retry
@@ -133,7 +141,7 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
           </div>
         )}
 
-        {job.status === 'cancelled' && job.questionIds.length > 0 && (
+        {isCancelledJob(job) && job.questionIds.length > 0 && (
           <div className="space-y-2">
             <div className="text-sm text-muted-foreground">
               Saved {job.questionIds.length} partial question
