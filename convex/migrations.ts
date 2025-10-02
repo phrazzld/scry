@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { internalMutation, mutation, query } from './_generated/server';
+import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { createLogger } from './lib/logger';
 
 // Migration status tracking
@@ -273,6 +273,7 @@ export const rollbackMigrationForUser = internalMutation({
 
 /**
  * Count questions that still have the deprecated difficulty field
+ * @returns Statistics about questions with difficulty field
  */
 export const countQuestionsWithDifficulty = query({
   args: {},
@@ -294,86 +295,108 @@ export const countQuestionsWithDifficulty = query({
 });
 
 /**
- * Remove deprecated difficulty field from all questions
- *
- * This migration removes the vestigial difficulty field that was removed
- * from the schema but still exists in older documents.
+ * Public wrapper to run difficulty removal migration
+ * @param adminKey - Simple auth key for running migrations
  */
-export const removeDifficultyFromQuestions = internalMutation({
+export const runDifficultyRemoval = mutation({
   args: {
+    adminKey: v.string(),
     batchSize: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const batchSize = args.batchSize || 500;
-    const dryRun = args.dryRun || false;
-
-    const migrationLogger = createLogger({
-      module: 'migrations',
-      function: 'removeDifficultyFromQuestions',
-    });
-
-    const stats = {
-      totalProcessed: 0,
-      updated: 0,
-      alreadyMigrated: 0,
-      errors: 0,
-    };
-
-    try {
-      // Get all questions in batches
-      const allQuestions = await ctx.db.query('questions').take(batchSize);
-
-      for (const question of allQuestions) {
-        stats.totalProcessed++;
-
-        // Check if question has difficulty field
-        if ('difficulty' in question && question.difficulty !== undefined) {
-          if (!dryRun) {
-            // Use replace to remove the field entirely
-            // Convex doesn't have a built-in way to delete fields, so we reconstruct
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
-
-            await ctx.db.replace(question._id, questionWithoutDifficulty);
-          }
-          stats.updated++;
-
-          if (stats.updated % 100 === 0) {
-            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
-          }
-        } else {
-          stats.alreadyMigrated++;
-        }
-      }
-
-      migrationLogger.info('Migration completed', {
-        event: 'migration.difficulty-removal.complete',
-        dryRun,
-        stats,
-      });
-
-      return {
-        success: true,
-        dryRun,
-        stats,
-        message: dryRun
-          ? `Dry run: Would update ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`
-          : `Successfully updated ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`,
-      };
-    } catch (error) {
-      migrationLogger.error('Migration failed', {
-        event: 'migration.difficulty-removal.error',
-        error: (error as Error).message,
-        stats,
-      });
-
-      return {
-        success: false,
-        dryRun,
-        stats,
-        error: (error as Error).message,
-      };
+    // Simple auth check - in production you'd use proper admin roles
+    if (args.adminKey !== 'scry-migration-2025') {
+      throw new Error('Unauthorized: Invalid admin key');
     }
+
+    return await removeDifficultyFromQuestionsInternal(ctx, {
+      batchSize: args.batchSize,
+      dryRun: args.dryRun,
+    });
   },
 });
+
+/**
+ * Internal helper for difficulty removal migration
+ * This migration removes the vestigial difficulty field that was removed
+ * from the schema but still exists in older documents.
+ */
+async function removeDifficultyFromQuestionsInternal(
+  ctx: MutationCtx,
+  args: {
+    batchSize?: number;
+    dryRun?: boolean;
+  }
+) {
+  const batchSize = args.batchSize || 500;
+  const dryRun = args.dryRun || false;
+
+  const migrationLogger = createLogger({
+    module: 'migrations',
+    function: 'removeDifficultyFromQuestions',
+  });
+
+  const stats = {
+    totalProcessed: 0,
+    updated: 0,
+    alreadyMigrated: 0,
+    errors: 0,
+  };
+
+  try {
+    // Get all questions in batches
+    const allQuestions = await ctx.db.query('questions').take(batchSize);
+
+    for (const question of allQuestions) {
+      stats.totalProcessed++;
+
+      // Check if question has difficulty field
+      if ('difficulty' in question && question.difficulty !== undefined) {
+        if (!dryRun) {
+          // Use replace to remove the field entirely
+          // Convex doesn't have a built-in way to delete fields, so we reconstruct
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
+
+          await ctx.db.replace(question._id, questionWithoutDifficulty);
+        }
+        stats.updated++;
+
+        if (stats.updated % 100 === 0) {
+          migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+        }
+      } else {
+        stats.alreadyMigrated++;
+      }
+    }
+
+    migrationLogger.info('Migration completed', {
+      event: 'migration.difficulty-removal.complete',
+      dryRun,
+      stats,
+    });
+
+    return {
+      success: true,
+      dryRun,
+      stats,
+      message: dryRun
+        ? `Dry run: Would update ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`
+        : `Successfully updated ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`,
+    };
+  } catch (error) {
+    migrationLogger.error('Migration failed', {
+      event: 'migration.difficulty-removal.error',
+      error: (error as Error).message,
+      stats,
+    });
+
+    return {
+      success: false,
+      dryRun,
+      stats,
+      error: (error as Error).message,
+    };
+  }
+}
