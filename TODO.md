@@ -162,7 +162,7 @@
 
 ## Phase 5: Integration - Wire Everything Together
 
-- [ ] **Simplify GenerationModal component**
+- [x] **Simplify GenerationModal component**
   - File: `components/generation-modal.tsx`
   - Remove: useQuestionContext state, contextQuestionId prop, currentQuestion prop, all context-related UI (badge, toggle), QUICK_PROMPTS array, context prompt building logic (lines ~44-117)
   - Keep: prompt state, isGenerating state, textareaRef, handleSubmit, handleKeyDown
