@@ -170,7 +170,7 @@
   - Update placeholder text to "What would you like to learn about? (e.g., 'NATO alphabet', 'React hooks', 'Periodic table')"
   - Success criteria: Modal is simplified to ~150 lines (from ~367), only has prompt input and submit button, creates job successfully
 
-- [ ] **Add BackgroundTasksBadge to navbar**
+- [~] **Add BackgroundTasksBadge to navbar**
   - File: `components/navbar.tsx`
   - Import BackgroundTasksBadge and BackgroundTasksPanel components
   - Add state: const [tasksPanelOpen, setTasksPanelOpen] = useState(false)

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { Plus, Settings } from 'lucide-react';
 
+import { BackgroundTasksBadge } from '@/components/background-tasks-badge';
 import { GenerationModal } from '@/components/generation-modal';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ export function Navbar() {
                     <Settings className="h-4 w-4" />
                   </Link>
                 )}
+                <BackgroundTasksBadge />
                 <ThemeToggle />
                 <div
                   data-testid="user-menu"
