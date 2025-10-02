@@ -5,6 +5,56 @@ import { internalMutation, mutation, MutationCtx, query } from './_generated/ser
 import { requireUserFromClerk } from './clerk';
 import { createLogger } from './lib/logger';
 
+/**
+ * Standard result type for all migrations
+ * Provides consistent interface for success/failure handling
+ */
+type MigrationResult<TStats = Record<string, number>> = {
+  /** Migration completion status */
+  status: 'completed' | 'partial' | 'failed';
+  /** Whether dry-run mode was enabled */
+  dryRun: boolean;
+  /** Migration-specific statistics */
+  stats: TStats;
+  /** Detailed failures for retry (only present if failures occurred) */
+  failures?: Array<{
+    recordId: string;
+    error: string;
+  }>;
+  /** Human-readable status message */
+  message: string;
+};
+
+/**
+ * Statistics for difficulty field removal migration
+ */
+type DifficultyRemovalStats = {
+  totalProcessed: number;
+  updated: number;
+  alreadyMigrated: number;
+  errors: number;
+};
+
+/**
+ * Statistics for quiz results to questions migration
+ */
+type QuizMigrationStats = {
+  totalProcessed: number;
+  questionsCreated: number;
+  interactionsCreated: number;
+  duplicateQuestions: number;
+  failed: number;
+};
+
+/**
+ * Statistics for rollback operations
+ */
+type RollbackStats = {
+  questionsDeleted: number;
+  interactionsDeleted: number;
+  quizResultsReset: number;
+};
+
 // Migration status tracking
 export const getMigrationStatus = mutation({
   args: {
@@ -40,7 +90,7 @@ export const migrateQuizResultsToQuestions = internalMutation({
     batchSize: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<MigrationResult<QuizMigrationStats>> => {
     const batchSize = args.batchSize || 100;
     const dryRun = args.dryRun || false;
 
@@ -174,7 +224,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
 
       return {
         status,
-        success: status !== 'failed', // Backward compatibility
         dryRun,
         stats,
         failures: failures.length > 0 ? failures : undefined,
@@ -192,10 +241,14 @@ export const migrateQuizResultsToQuestions = internalMutation({
 
       return {
         status: 'failed' as const,
-        success: false,
         dryRun,
         stats,
-        error: error.message,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
         message: `Migration failed: ${error.message}`,
       };
     }
@@ -221,7 +274,7 @@ export const rollbackMigrationForUser = internalMutation({
     userId: v.id('users'),
     dryRun: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<MigrationResult<RollbackStats>> => {
     const dryRun = args.dryRun || true; // Default to dry run for safety
 
     const stats = {
@@ -244,9 +297,10 @@ export const rollbackMigrationForUser = internalMutation({
 
       if (migratedSessionIds.length === 0) {
         return {
-          success: true,
-          message: 'No migrated data found for this user',
+          status: 'completed' as const,
+          dryRun,
           stats,
+          message: 'No migrated data found for this user',
         };
       }
 
@@ -283,7 +337,7 @@ export const rollbackMigrationForUser = internalMutation({
       // Note: We don't delete questions as they might be used by other non-migrated interactions
 
       return {
-        success: true,
+        status: 'completed' as const,
         dryRun,
         stats,
         message: dryRun
@@ -294,10 +348,16 @@ export const rollbackMigrationForUser = internalMutation({
       const error = err instanceof Error ? err : new Error(String(err));
 
       return {
-        success: false,
+        status: 'failed' as const,
         dryRun,
         stats,
-        error: error.message,
+        failures: [
+          {
+            recordId: args.userId,
+            error: error.message,
+          },
+        ],
+        message: `Rollback failed: ${error.message}`,
       };
     }
   },
@@ -406,7 +466,7 @@ async function removeDifficultyFromQuestionsInternal(
     batchSize?: number;
     dryRun?: boolean;
   }
-) {
+): Promise<MigrationResult<DifficultyRemovalStats>> {
   const batchSize = args.batchSize || 500;
   const dryRun = args.dryRun || false;
 
@@ -483,7 +543,7 @@ async function removeDifficultyFromQuestionsInternal(
     });
 
     return {
-      success: true,
+      status: 'completed' as const,
       dryRun,
       stats,
       message: dryRun
@@ -501,10 +561,16 @@ async function removeDifficultyFromQuestionsInternal(
     });
 
     return {
-      success: false,
+      status: 'failed' as const,
       dryRun,
       stats,
-      error: error.message,
+      failures: [
+        {
+          recordId: 'N/A',
+          error: error.message,
+        },
+      ],
+      message: `Migration failed: ${error.message}`,
     };
   }
 }
