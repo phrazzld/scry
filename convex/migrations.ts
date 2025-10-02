@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
+import { requireUserFromClerk } from './clerk';
 import { createLogger } from './lib/logger';
 
 // Migration status tracking
@@ -296,19 +297,65 @@ export const countQuestionsWithDifficulty = query({
 
 /**
  * Public wrapper to run difficulty removal migration
- * @param adminKey - Simple auth key for running migrations
+ * Requires authenticated admin user via Clerk
+ *
+ * @security Admin-only access controlled via ADMIN_EMAILS environment variable
+ *
+ * Setup:
+ * 1. Add ADMIN_EMAILS to Convex environment variables in dashboard
+ * 2. Set value to comma-separated list: "admin@example.com,ops@example.com"
+ * 3. Ensure you're authenticated via Clerk when calling this mutation
+ *
+ * Usage:
+ * ```typescript
+ * // Dry run first
+ * await convex.mutation(api.migrations.runDifficultyRemoval, { dryRun: true });
+ *
+ * // Production run
+ * await convex.mutation(api.migrations.runDifficultyRemoval, {});
+ * ```
+ *
+ * Audit: All migration attempts (authorized and unauthorized) are logged with user details
  */
 export const runDifficultyRemoval = mutation({
   args: {
-    adminKey: v.string(),
     batchSize: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Simple auth check - in production you'd use proper admin roles
-    if (args.adminKey !== 'scry-migration-2025') {
-      throw new Error('Unauthorized: Invalid admin key');
+    // Require authenticated user
+    const user = await requireUserFromClerk(ctx);
+
+    // Check if user is admin (via environment variable)
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim());
+
+    if (!adminEmails.includes(user.email)) {
+      const migrationLogger = createLogger({
+        module: 'migrations',
+        function: 'runDifficultyRemoval',
+      });
+
+      migrationLogger.warn('Unauthorized migration attempt', {
+        event: 'migration.unauthorized',
+        userId: user._id,
+        userEmail: user.email,
+      });
+
+      throw new Error('Unauthorized: Admin access required');
     }
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'runDifficultyRemoval',
+    });
+
+    // Log who ran the migration for audit trail
+    migrationLogger.info('Migration started by admin', {
+      event: 'migration.difficulty-removal.start',
+      userId: user._id,
+      userEmail: user.email,
+      dryRun: args.dryRun || false,
+    });
 
     return await removeDifficultyFromQuestionsInternal(ctx, {
       batchSize: args.batchSize,

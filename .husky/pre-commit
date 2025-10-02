@@ -15,12 +15,12 @@ if command -v gitleaks &> /dev/null; then
   fi
 fi
 
-# Check if any .env files are being committed
-if git diff --cached --name-only | grep -E "^\.env"; then 
+# Check if any .env files are being committed (except .env.example)
+if git diff --cached --name-only | grep -E "^\.env" | grep -v "^\.env\.example$"; then
     echo "❌ ERROR: Attempting to commit .env file!"
     echo "Environment files should never be committed to version control."
     echo "Files detected:"
-    git diff --cached --name-only | grep -E "^\.env"
+    git diff --cached --name-only | grep -E "^\.env" | grep -v "^\.env\.example$"
     exit 1
 fi
 
