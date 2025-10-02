@@ -186,7 +186,7 @@
   - Remove all generation-related toast updates (loading, progress), show single "Generation started - check Background Tasks" toast
   - Success criteria: Modal creates job successfully, user sees feedback, modal closes immediately
 
-- [~] **Update empty states to use job system**
+- [x] **Update empty states to use job system**
   - File: `components/empty-states.tsx`
   - Find NoQuestionsEmptyState and AllReviewsCompleteEmptyState components that have generation forms
   - Replace fetch to /api/generate-questions with createJob mutation call
