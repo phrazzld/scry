@@ -18,14 +18,14 @@
 
 ## Phase 2: Backend - Job Management
 
-- [ ] **Create generationJobs CRUD module**
+- [x] **Create generationJobs CRUD module**
   - File: `convex/generationJobs.ts` (new)
   - Import requireUserFromClerk, JOB_CONFIG, rateLimit functions
   - Implement `createJob` mutation with args: prompt (string), ipAddress (optional string)
   - In createJob: authenticate user, validate prompt length (MIN_PROMPT_LENGTH to MAX_PROMPT_LENGTH), check concurrent jobs limit (query by_user_status index where status='processing'), enforce rate limit using checkApiRateLimit with operation='questionGeneration', insert job record with status='pending', schedule internal.aiGeneration.processJob with ctx.scheduler.runAfter(0), return jobId
   - Success criteria: Can call createJob from client, returns valid jobId, enforces all limits correctly, throws appropriate errors for invalid inputs
 
-- [ ] **Implement job query functions**
+- [x] **Implement job query functions**
   - File: `convex/generationJobs.ts`
   - Implement `getRecentJobs` query with args: limit (optional number, default 20)
   - Query user's jobs ordered by createdAt desc, return with all fields
@@ -33,7 +33,7 @@
   - Verify ownership (job.userId === authenticated user's ID), return job or null
   - Success criteria: Queries return correct data, ownership checks work, unauthenticated users get empty results
 
-- [ ] **Implement job mutation operations**
+- [x] **Implement job mutation operations**
   - File: `convex/generationJobs.ts`
   - Implement `cancelJob` mutation with args: jobId
   - Verify ownership, check current status (can only cancel 'pending' or 'processing'), update status to 'cancelled'
@@ -45,7 +45,7 @@
   - Set status='failed', completedAt=now, store error details
   - Success criteria: All mutations update database correctly, internal mutations cannot be called from client, ownership checks prevent unauthorized cancellations
 
-- [ ] **Add saveBatch mutation to questions module**
+- [x] **Add saveBatch mutation to questions module**
   - File: `convex/questions.ts`
   - Add `saveBatch` internalMutation with args: userId, topic (string), questions (array of question objects)
   - Use existing initializeCard() and cardToDb() for FSRS initialization
