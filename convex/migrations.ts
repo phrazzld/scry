@@ -6,6 +6,24 @@ import { requireUserFromClerk } from './clerk';
 import { createLogger } from './lib/logger';
 
 /**
+ * Default batch size for quiz results migration
+ * Smaller batch due to nested processing (question + interaction creation per answer)
+ */
+const DEFAULT_QUIZ_MIGRATION_BATCH_SIZE = 100;
+
+/**
+ * Default batch size for difficulty field removal migration
+ * Larger batch is safe since it's a simple field deletion operation
+ */
+const DEFAULT_DIFFICULTY_REMOVAL_BATCH_SIZE = 500;
+
+/**
+ * Log progress every N records during migration
+ * Provides feedback without overwhelming logs
+ */
+const PROGRESS_LOG_INTERVAL = 100;
+
+/**
  * Standard result type for all migrations
  * Provides consistent interface for success/failure handling
  */
@@ -55,24 +73,30 @@ type RollbackStats = {
   quizResultsReset: number;
 };
 
-// Migration status tracking
+/**
+ * Get migration status (placeholder for future implementation)
+ *
+ * This is a stub function that will be implemented when migration tracking
+ * is needed. Currently returns hardcoded placeholder values.
+ *
+ * Future implementation should:
+ * - Add admin authentication check
+ * - Query actual migration logs from database
+ * - Return real-time migration progress
+ */
 export const getMigrationStatus = mutation({
   args: {
     sessionToken: v.string(),
   },
   handler: async (ctx, args) => {
-    // TODO: Add admin authentication check
     const migrationLogger = createLogger({ module: 'migrations', function: 'getMigrationStatus' });
 
-    // Log the request for audit purposes
     migrationLogger.info('Migration status requested', {
       event: 'migration.status.request',
       sessionTokenPrefix: args.sessionToken.substring(0, 8) + '...',
     });
 
-    // Future: Use ctx to query migration progress
-    // const migrationLogs = await ctx.db.query("migrationLogs")...
-
+    // Placeholder return - will be replaced with actual migration tracking
     return {
       status: 'ready',
       totalQuizResults: 0,
@@ -91,7 +115,7 @@ export const migrateQuizResultsToQuestions = internalMutation({
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<MigrationResult<QuizMigrationStats>> => {
-    const batchSize = args.batchSize || 100;
+    const batchSize = args.batchSize || DEFAULT_QUIZ_MIGRATION_BATCH_SIZE;
     const dryRun = args.dryRun || false;
 
     const stats = {
@@ -467,7 +491,7 @@ async function removeDifficultyFromQuestionsInternal(
     dryRun?: boolean;
   }
 ): Promise<MigrationResult<DifficultyRemovalStats>> {
-  const batchSize = args.batchSize || 500;
+  const batchSize = args.batchSize || DEFAULT_DIFFICULTY_REMOVAL_BATCH_SIZE;
   const dryRun = args.dryRun || false;
 
   const migrationLogger = createLogger({
@@ -518,7 +542,7 @@ async function removeDifficultyFromQuestionsInternal(
           }
           stats.updated++;
 
-          if (stats.updated % 100 === 0) {
+          if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
             migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
           }
         } else {

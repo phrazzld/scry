@@ -23,6 +23,16 @@ const questionsSchema = z.object({
 });
 
 /**
+ * Minimum expected question count threshold for warning
+ *
+ * Questions below this count trigger a warning log for investigation.
+ * This is a baseline - some legitimate topics (e.g., "primary colors" with 6-9 questions)
+ * may fall below this threshold. Use for detecting unexpectedly low generation, not as
+ * a strict requirement.
+ */
+const MIN_EXPECTED_QUESTION_COUNT = 15;
+
+/**
  * Build the intent clarification prompt for raw user input
  */
 function buildIntentClarificationPrompt(userInput: string): string {
@@ -240,15 +250,16 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
       })
     );
 
-    // Warn if question count seems low
-    if (questions.length < 15) {
+    // Warn if question count seems unexpectedly low
+    if (questions.length < MIN_EXPECTED_QUESTION_COUNT) {
       aiLogger.warn(
         {
           event: 'ai.question-generation.low-count',
           questionCount: questions.length,
+          minExpected: MIN_EXPECTED_QUESTION_COUNT,
           topic,
         },
-        `Low question count (${questions.length}) - verify prompt is enforcing generous counting`
+        `Low question count (${questions.length}) - verify prompt guidance is being followed`
       );
     }
 
