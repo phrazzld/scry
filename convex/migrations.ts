@@ -345,30 +345,57 @@ async function removeDifficultyFromQuestionsInternal(
   };
 
   try {
-    // Get all questions in batches
-    const allQuestions = await ctx.db.query('questions').take(batchSize);
+    // Process all questions using cursor-based pagination
+    let paginationResult = await ctx.db.query('questions').paginate({
+      numItems: batchSize,
+      cursor: null,
+    });
 
-    for (const question of allQuestions) {
-      stats.totalProcessed++;
+    // Process first batch
+    await processBatch(paginationResult.page);
 
-      // Check if question has difficulty field
-      if ('difficulty' in question && question.difficulty !== undefined) {
-        if (!dryRun) {
-          // Use replace to remove the field entirely
-          // Convex doesn't have a built-in way to delete fields, so we reconstruct
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
+    // Continue processing remaining batches
+    while (!paginationResult.isDone) {
+      paginationResult = await ctx.db.query('questions').paginate({
+        numItems: batchSize,
+        cursor: paginationResult.continueCursor,
+      });
 
-          await ctx.db.replace(question._id, questionWithoutDifficulty);
+      await processBatch(paginationResult.page);
+    }
+
+    // Helper function to process a batch of questions
+    async function processBatch(questions: typeof paginationResult.page) {
+      for (const question of questions) {
+        stats.totalProcessed++;
+
+        // Check if question has difficulty field
+        if ('difficulty' in question && question.difficulty !== undefined) {
+          if (!dryRun) {
+            // Use replace to remove the field entirely
+            // Convex doesn't have a built-in way to delete fields, so we reconstruct
+            const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
+
+            await ctx.db.replace(question._id, questionWithoutDifficulty);
+          }
+          stats.updated++;
+
+          if (stats.updated % 100 === 0) {
+            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+          }
+        } else {
+          stats.alreadyMigrated++;
         }
-        stats.updated++;
-
-        if (stats.updated % 100 === 0) {
-          migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
-        }
-      } else {
-        stats.alreadyMigrated++;
       }
+
+      // Log batch completion
+      migrationLogger.info('Batch completed', {
+        event: dryRun ? 'migration.dry-run.batch' : 'migration.batch',
+        batchSize: questions.length,
+        totalProcessed: stats.totalProcessed,
+        updated: stats.updated,
+        alreadyMigrated: stats.alreadyMigrated,
+      });
     }
 
     migrationLogger.info('Migration completed', {

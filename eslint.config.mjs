@@ -27,6 +27,15 @@ const eslintConfig = [
       // Allow console.error and console.warn for legitimate error reporting
       // Disallow console.log in production code
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // Allow variables/args starting with _ to be unused (common pattern for intentionally unused destructured vars)
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
     },
   },
   {
