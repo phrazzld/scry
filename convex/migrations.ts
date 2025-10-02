@@ -290,12 +290,14 @@ export const rollbackMigrationForUser = internalMutation({
           ? 'Rollback dry run completed - no data was modified'
           : 'Rollback completed successfully',
       };
-    } catch (error) {
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
       return {
         success: false,
         dryRun,
         stats,
-        error: (error as Error).message,
+        error: error.message,
       };
     }
   },
@@ -488,10 +490,13 @@ async function removeDifficultyFromQuestionsInternal(
         ? `Dry run: Would update ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`
         : `Successfully updated ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`,
     };
-  } catch (error) {
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+
     migrationLogger.error('Migration failed', {
       event: 'migration.difficulty-removal.error',
-      error: (error as Error).message,
+      error: error.message,
+      stack: error.stack,
       stats,
     });
 
@@ -499,7 +504,7 @@ async function removeDifficultyFromQuestionsInternal(
       success: false,
       dryRun,
       stats,
-      error: (error as Error).message,
+      error: error.message,
     };
   }
 }
