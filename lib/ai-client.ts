@@ -41,12 +41,12 @@ Produce a natural description that:
 - Right-size the plan with concrete question counts:
   • Single fact (e.g., "capital of France") → 2-4 questions
   • Small list (e.g., "primary colors" - 3 items) → 6-9 questions
-  • Medium list (e.g., "NATO alphabet" - 26 items) → 50-80 questions
-  • Multiple lists (e.g., "deadly sins + virtues" - 14 items) → 40-60 questions
-  • Broad topic (e.g., "React hooks") → 30-50 questions
+  • Medium list (e.g., "NATO alphabet" - 26 items) → 30-40 questions
+  • Multiple lists (e.g., "deadly sins + virtues" - 14 items) → 20-30 questions
+  • Broad topic (e.g., "React hooks") → 20-35 questions
 
-For enumerable lists: Plan minimum 2-3 questions per item (recognition + recall + application).
-Be generous - better to over-plan than leave gaps.
+For enumerable lists: Plan roughly 1-1.5 questions per item (recognition + recall).
+For broad topics: Focus on core concepts, common patterns, and key distinctions.
 
 Keep it human and concise (2–4 short paragraphs).`;
 }
@@ -66,18 +66,18 @@ Produce a set of questions that, if mastered, would make the learner confident t
 CRITICAL COUNTING GUIDANCE:
 First, count what needs coverage. Then generate questions.
 
-Be generous - it's better to have too many questions than too few.
+Aim for roughly 1-1.5 questions per item for enumerable lists.
+Quality over quantity - focused coverage beats exhaustive repetition.
 
 Examples:
 • "Primary colors" (3 items) → 6-9 questions
-• "NATO alphabet" (26 letters) → 50-80 questions
-• "Deadly sins + heavenly virtues" (14 items) → 40-60 questions
-• "React hooks" (~10 hooks) → 30-50 questions
+• "NATO alphabet" (26 letters) → 30-40 questions
+• "Deadly sins + heavenly virtues" (14 items) → 20-30 questions
+• "React hooks" (~10 core hooks) → 20-35 questions
 
-For enumerable lists, create multiple question types per item:
+For enumerable lists, vary question types:
 - Recognition: "Which of these is X?"
-- Recall: "Name all the X"
-- Definition: "What is X?"
+- Recall: "What is the X for Y?"
 - Application: "Which X applies here?"
 - Contrast: "How does X differ from Y?"
 
@@ -118,8 +118,8 @@ async function generateQuestionsDirectly(topic: string): Promise<SimpleQuestion[
   const prompt = `You are a quiz generation assistant. Your task is to create comprehensive educational quiz questions.
 
 First, consider the topic and determine how many questions would provide thorough coverage.
-Be generous - it's better to have too many questions than too few.
-For example: 'NATO alphabet' needs at least 26 questions, 'primary colors' needs 3, 'React hooks' might need 15-20.
+Aim for roughly 1-1.5 questions per item for enumerable lists.
+For example: 'NATO alphabet' (26 items) → 30-40 questions, 'primary colors' (3 items) → 6-9 questions, 'React hooks' (~10 core hooks) → 20-35 questions.
 
 TOPIC TO CREATE QUESTIONS ABOUT: "${topic}"
 

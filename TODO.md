@@ -485,8 +485,8 @@
   * **Valid question ranges** (from prompts):
     - Single fact: 2-4 questions (would trigger warning incorrectly)
     - Primary colors: 6-9 questions (would trigger warning incorrectly)
-    - NATO alphabet: 50-80 questions (wouldn't warn if AI only generates 20)
-    - React hooks: 30-50 questions (wouldn't warn if AI only generates 20)
+    - NATO alphabet: 30-40 questions (roughly 1-1.5 per item)
+    - React hooks: 20-35 questions (core hooks coverage)
   * **Impact**: High false positive rate, some false negatives
   * **Solution Option A - Remove Warning** (simplest):
     - Delete the warning entirely
@@ -776,8 +776,9 @@
 
       const questions = await page.$$('[data-testid="question-card"]');
 
-      // Should generate 50-80 questions for 26 letters
-      expect(questions.length).toBeGreaterThanOrEqual(50);
+      // Should generate 30-40 questions for 26 letters (roughly 1-1.5 per item)
+      expect(questions.length).toBeGreaterThanOrEqual(30);
+      expect(questions.length).toBeLessThanOrEqual(45);
     });
     ```
   * **Success criteria**: Tests pass, verify prompt improvements work in practice
