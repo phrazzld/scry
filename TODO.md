@@ -303,9 +303,9 @@
 
 After completing all tasks, verify:
 - [ ] `npx convex dev` runs without errors, all functions appear in dashboard
-- [ ] `pnpm build` succeeds with no TypeScript errors
-- [ ] `pnpm lint` passes with no violations
-- [ ] All tests pass: `pnpm test`
+- [x] `pnpm build` succeeds with no TypeScript errors
+- [x] `pnpm lint` passes with no violations
+- [ ] All tests pass: `pnpm test` (no tests written yet - Phase 7 deferred)
 - [ ] Can create generation job via UI, modal closes immediately
 - [ ] Badge appears in navbar with active job count
 - [ ] Panel opens and shows job in "processing" state
