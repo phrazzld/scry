@@ -40,7 +40,7 @@
   * **Success criteria**: Migration processes all questions regardless of database size
   * **Test**: Create test with 1500+ mock questions, verify all are processed
 
-- [ ] Add comprehensive migration tests in `convex/migrations.test.ts`
+- [x] Add comprehensive migration tests in `convex/migrations.test.ts`
   * **Missing coverage**: Multi-batch processing, partial failures, idempotency
   * **Create test file**: `convex/migrations.test.ts`
   * **Required tests**:
@@ -85,7 +85,7 @@
     5. ✅ All 284 tests passing
   * **Success criteria**: ✅ Schema code now matches documented state - difficulty field completely removed
 
-- [ ] Document migration execution procedure in `MIGRATIONS.md`
+- [x] Document migration execution procedure in `MIGRATIONS.md`
   * **Problem**: No runbook for when/how to run migrations, verification, or rollback
   * **Create file**: `MIGRATIONS.md` at project root
   * **Required sections**:
@@ -155,8 +155,9 @@
 
 ### Error Handling & Observability
 
-- [ ] Fix migration error handling to surface failures in `convex/migrations.ts:151`
+- [x] Fix migration error handling to surface failures in `convex/migrations.ts:151`
   * **Problem**: Catches errors, pushes to array, returns `success: true` anyway
+  * **Solution implemented**: Structured failure tracking with proper status reporting
   * **Current behavior**:
     ```typescript
     } catch (error) {
