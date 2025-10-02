@@ -49,8 +49,11 @@ export const migrateQuizResultsToQuestions = internalMutation({
       questionsCreated: 0,
       interactionsCreated: 0,
       duplicateQuestions: 0,
-      errors: [] as string[],
+      failed: 0,
     };
+
+    // Track failures with details for retry
+    const failures: Array<{ recordId: string; error: string }> = [];
 
     try {
       // Get all quiz results (in production, this should be paginated)
@@ -149,25 +152,51 @@ export const migrateQuizResultsToQuestions = internalMutation({
           }
 
           stats.totalProcessed++;
-        } catch (error) {
-          stats.errors.push(`Error processing quiz ${quizResult._id}: ${(error as Error).message}`);
+        } catch (err) {
+          // Handle error with proper type checking
+          const error = err instanceof Error ? err : new Error(String(err));
+
+          failures.push({
+            recordId: quizResult._id,
+            error: error.message,
+          });
+          stats.failed++;
         }
       }
 
+      // Determine migration status based on failures
+      const status =
+        failures.length === 0
+          ? ('completed' as const)
+          : failures.length === stats.totalProcessed
+            ? ('failed' as const)
+            : ('partial' as const);
+
       return {
-        success: true,
+        status,
+        success: status !== 'failed', // Backward compatibility
         dryRun,
         stats,
+        failures: failures.length > 0 ? failures : undefined,
         message: dryRun
-          ? 'Dry run completed - no data was modified'
-          : 'Migration completed successfully',
+          ? `Dry run: Would process ${stats.totalProcessed} quizzes (${stats.failed} errors)`
+          : status === 'completed'
+            ? `Successfully migrated ${stats.totalProcessed} quiz results`
+            : status === 'partial'
+              ? `Partially completed: ${stats.totalProcessed - stats.failed} succeeded, ${stats.failed} failed`
+              : `Migration failed: All ${stats.failed} attempts failed`,
       };
-    } catch (error) {
+    } catch (err) {
+      // Handle catastrophic migration failure
+      const error = err instanceof Error ? err : new Error(String(err));
+
       return {
+        status: 'failed' as const,
         success: false,
         dryRun,
         stats,
-        error: (error as Error).message,
+        error: error.message,
+        message: `Migration failed: ${error.message}`,
       };
     }
   },
