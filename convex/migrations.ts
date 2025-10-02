@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 
 import { Id } from './_generated/dataModel';
-import { internalMutation, mutation } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import { createLogger } from './lib/logger';
 
 // Migration status tracking
@@ -261,6 +261,113 @@ export const rollbackMigrationForUser = internalMutation({
           : 'Rollback completed successfully',
       };
     } catch (error) {
+      return {
+        success: false,
+        dryRun,
+        stats,
+        error: (error as Error).message,
+      };
+    }
+  },
+});
+
+/**
+ * Count questions that still have the deprecated difficulty field
+ */
+export const countQuestionsWithDifficulty = query({
+  args: {},
+  handler: async (ctx) => {
+    const allQuestions = await ctx.db.query('questions').collect();
+    const questionsWithDifficulty = allQuestions.filter(
+      (q) => 'difficulty' in q && q.difficulty !== undefined
+    );
+
+    return {
+      total: allQuestions.length,
+      withDifficulty: questionsWithDifficulty.length,
+      percentage:
+        allQuestions.length > 0
+          ? ((questionsWithDifficulty.length / allQuestions.length) * 100).toFixed(2)
+          : '0',
+    };
+  },
+});
+
+/**
+ * Remove deprecated difficulty field from all questions
+ *
+ * This migration removes the vestigial difficulty field that was removed
+ * from the schema but still exists in older documents.
+ */
+export const removeDifficultyFromQuestions = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize || 500;
+    const dryRun = args.dryRun || false;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'removeDifficultyFromQuestions',
+    });
+
+    const stats = {
+      totalProcessed: 0,
+      updated: 0,
+      alreadyMigrated: 0,
+      errors: 0,
+    };
+
+    try {
+      // Get all questions in batches
+      const allQuestions = await ctx.db.query('questions').take(batchSize);
+
+      for (const question of allQuestions) {
+        stats.totalProcessed++;
+
+        // Check if question has difficulty field
+        if ('difficulty' in question && question.difficulty !== undefined) {
+          if (!dryRun) {
+            // Use replace to remove the field entirely
+            // Convex doesn't have a built-in way to delete fields, so we reconstruct
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
+
+            await ctx.db.replace(question._id, questionWithoutDifficulty);
+          }
+          stats.updated++;
+
+          if (stats.updated % 100 === 0) {
+            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+          }
+        } else {
+          stats.alreadyMigrated++;
+        }
+      }
+
+      migrationLogger.info('Migration completed', {
+        event: 'migration.difficulty-removal.complete',
+        dryRun,
+        stats,
+      });
+
+      return {
+        success: true,
+        dryRun,
+        stats,
+        message: dryRun
+          ? `Dry run: Would update ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`
+          : `Successfully updated ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`,
+      };
+    } catch (error) {
+      migrationLogger.error('Migration failed', {
+        event: 'migration.difficulty-removal.error',
+        error: (error as Error).message,
+        stats,
+      });
+
       return {
         success: false,
         dryRun,
