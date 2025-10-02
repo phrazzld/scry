@@ -120,7 +120,7 @@
 
 ## Phase 4: Frontend - Background Tasks UI
 
-- [ ] **Create BackgroundTasksBadge component**
+- [x] **Create BackgroundTasksBadge component**
   - File: `components/background-tasks-badge.tsx` (new)
   - Import useQuery, api, Badge, Button, ActivityIcon (from lucide-react)
   - Query api.generationJobs.getRecentJobs with limit 50
@@ -129,7 +129,7 @@
   - Add onClick to toggle panel open state (use useState)
   - Success criteria: Badge shows correct count, updates in real-time as jobs change status, click toggles panel
 
-- [ ] **Create BackgroundTasksPanel slide-out component**
+- [x] **Create BackgroundTasksPanel slide-out component**
   - File: `components/background-tasks-panel.tsx` (new)
   - Import Sheet, SheetContent, SheetHeader from ui/sheet, useQuery
   - Accept props: open (boolean), onClose (function)
@@ -138,7 +138,7 @@
   - Show "No background tasks" empty state if jobs array is empty
   - Success criteria: Panel slides in from right, shows all recent jobs, closes on backdrop click or X button
 
-- [ ] **Create GenerationTaskCard component**
+- [x] **Create GenerationTaskCard component**
   - File: `components/generation-task-card.tsx` (new)
   - Import Card, Progress, Button, useMutation, useRouter, formatDistanceToNow from date-fns
   - Accept props: job (Doc<'generationJobs'>)
@@ -150,7 +150,7 @@
     - 'pending': show pending spinner, "Waiting to start" text
   - Success criteria: Each status renders correctly, buttons work, progress animates smoothly
 
-- [ ] **Create useActiveJobs hook**
+- [x] **Create useActiveJobs hook**
   - File: `hooks/use-active-jobs.ts` (new)
   - Import useQuery, api
   - Query api.generationJobs.getRecentJobs
