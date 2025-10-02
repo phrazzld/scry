@@ -197,7 +197,7 @@
 
 ## Phase 6: Cleanup & Scheduling
 
-- [ ] **Remove old API route and tests**
+- [~] **Remove old API route and tests**
   - Delete files: `app/api/generate-questions/route.ts`, `app/api/generate-questions/route.test.ts`
   - Search codebase for any remaining imports of these files (should be none after previous tasks)
   - Success criteria: Files deleted, no import errors, build succeeds
