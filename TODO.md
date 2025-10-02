@@ -202,13 +202,13 @@
   - Search codebase for any remaining imports of these files (should be none after previous tasks)
   - Success criteria: Files deleted, no import errors, build succeeds
 
-- [~] **Add job cleanup cron schedule**
+- [x] **Add job cleanup cron schedule**
   - File: `convex/cron.ts`
   - Import internal.generationJobs.cleanup
   - Add new cron: crons.daily('cleanupOldJobs', { hourUTC: 3, minuteUTC: 0 }, internal.generationJobs.cleanup)
   - Success criteria: Cron shows in Convex dashboard, scheduled correctly
 
-- [~] **Implement cleanup mutation**
+- [x] **Implement cleanup mutation**
   - File: `convex/generationJobs.ts`
   - Add `cleanup` internalMutation with no args
   - Calculate completedThreshold = now - (COMPLETED_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000)
