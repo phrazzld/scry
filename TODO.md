@@ -289,7 +289,7 @@
   - Add JSDoc to query functions: describe what they return, filtering behavior
   - Success criteria: Hover tooltips in VS Code show helpful documentation
 
-- [ ] **Update CLAUDE.md with background jobs documentation**
+- [~] **Update CLAUDE.md with background jobs documentation**
   - File: `CLAUDE.md`
   - Add new section: "## Background Question Generation"
   - Document: how jobs are created, how to monitor progress, cancellation behavior, rate limits, retention policy
