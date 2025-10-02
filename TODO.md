@@ -274,7 +274,7 @@
 
 ## Phase 8: Type Safety & Documentation
 
-- [~] **Add TypeScript types for job system**
+- [x] **Add TypeScript types for job system**
   - File: `types/generation-jobs.ts` (new)
   - Export JobStatus type (union of status literals)
   - Export JobPhase type (union of phase literals)
