@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import { Id } from './_generated/dataModel';
+import { internalMutation, mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { cardToDb, initializeCard, scheduleNextReview } from './fsrs';
 
@@ -45,6 +46,56 @@ export const saveGeneratedQuestions = mutation({
     );
 
     return { questionIds, count: questionIds.length };
+  },
+});
+
+/**
+ * Internal mutation to save a batch of questions
+ *
+ * Called by the AI generation action to save questions as they're generated.
+ * This is an internal mutation so it can be called from actions without authentication
+ * (the action handles authentication by passing the userId).
+ */
+export const saveBatch = internalMutation({
+  args: {
+    userId: v.id('users'),
+    topic: v.string(),
+    questions: v.array(
+      v.object({
+        question: v.string(),
+        type: v.optional(v.union(v.literal('multiple-choice'), v.literal('true-false'))),
+        options: v.array(v.string()),
+        correctAnswer: v.string(),
+        explanation: v.optional(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args): Promise<Id<'questions'>[]> => {
+    // Initialize FSRS card for new questions
+    const initialCard = initializeCard();
+    const fsrsFields = cardToDb(initialCard);
+
+    // Insert all questions in parallel
+    const questionIds = await Promise.all(
+      args.questions.map((q) =>
+        ctx.db.insert('questions', {
+          userId: args.userId,
+          topic: args.topic,
+          question: q.question,
+          type: q.type || 'multiple-choice',
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          generatedAt: Date.now(),
+          attemptCount: 0,
+          correctCount: 0,
+          // Initialize FSRS fields with proper defaults
+          ...fsrsFields,
+        })
+      )
+    );
+
+    return questionIds;
   },
 });
 
