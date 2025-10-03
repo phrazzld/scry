@@ -9,10 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '@/convex/_generated/api';
 import { IMMINENT_REVIEW_THRESHOLD_MS } from '@/lib/constants/timing';
-import {
-  stripGeneratedQuestionMetadata,
-  type GeneratedQuestionPayload,
-} from '@/lib/strip-generated-questions';
+import { TOAST_DURATION } from '@/lib/constants/ui';
+import { handleJobCreationError } from '@/lib/error-handlers';
 
 interface EmptyStateProps {
   className?: string;
@@ -38,7 +36,7 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const { isSignedIn } = useUser();
-  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
+  const createJob = useMutation(api.generationJobs.createJob);
 
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,65 +45,22 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          difficulty: 'medium',
-        }),
+      if (!isSignedIn) {
+        toast.error('Please sign in to generate questions');
+        return;
+      }
+
+      await createJob({ prompt: topic.trim() });
+
+      toast.success('Generation started', {
+        description: 'Check Background Tasks to monitor progress',
+        duration: TOAST_DURATION.SUCCESS,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        const count = result.questions?.length || 0;
-
-        // Save questions if user is authenticated
-        if (isSignedIn && Array.isArray(result.questions)) {
-          try {
-            const questionsForSave = stripGeneratedQuestionMetadata(
-              result.questions as GeneratedQuestionPayload[]
-            );
-            await saveQuestions({
-              topic: result.topic,
-              difficulty: result.difficulty || 'medium',
-              questions: questionsForSave,
-            });
-            toast.success(`✓ ${count} questions generated`, {
-              description: "You'll see these in your review queue next",
-            });
-            // Only trigger callback after successful save
-            onGenerationSuccess?.();
-          } catch (saveError) {
-            if (process.env.NODE_ENV === 'development') {
-              console.error('Failed to save questions:', saveError);
-            }
-            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
-            // Don't trigger callback if save failed
-          }
-        } else if (Array.isArray(result.questions)) {
-          // User not authenticated, just show generation success
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('Questions generated but not saved - user is not authenticated');
-          }
-          toast.success(`✓ ${count} questions generated`, {
-            description: 'Sign in to save and review them',
-          });
-          // Don't trigger callback for unauthenticated users
-        } else {
-          toast.error('Failed to generate questions');
-        }
-
-        setTopic('');
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to generate questions');
-      }
+      setTopic('');
+      onGenerationSuccess?.();
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to generate questions:', error);
-      }
-      toast.error('Failed to generate questions. Please try again.');
+      handleJobCreationError(error);
     } finally {
       setIsGenerating(false);
     }
@@ -161,7 +116,7 @@ export function NothingDueEmptyState({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   const { isSignedIn } = useUser();
-  const saveQuestions = useMutation(api.questions.saveGeneratedQuestions);
+  const createJob = useMutation(api.generationJobs.createJob);
 
   const formatNextReviewTime = (timestamp: number | null) => {
     if (!timestamp) return null;
@@ -204,61 +159,22 @@ export function NothingDueEmptyState({
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/api/generate-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          difficulty: 'medium',
-        }),
+      if (!isSignedIn) {
+        toast.error('Please sign in to generate questions');
+        return;
+      }
+
+      await createJob({ prompt: topic.trim() });
+
+      toast.success('Generation started', {
+        description: 'Check Background Tasks to monitor progress',
+        duration: TOAST_DURATION.SUCCESS,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        const count = result.questions?.length || 0;
-
-        // Save questions if user is authenticated
-        if (isSignedIn && Array.isArray(result.questions)) {
-          try {
-            const questionsForSave = stripGeneratedQuestionMetadata(
-              result.questions as GeneratedQuestionPayload[]
-            );
-            await saveQuestions({
-              topic: result.topic,
-              difficulty: result.difficulty || 'medium',
-              questions: questionsForSave,
-            });
-            toast.success(`✓ ${count} questions generated`, {
-              description: "You'll see these in your review queue next",
-            });
-          } catch (saveError) {
-            if (process.env.NODE_ENV === 'development') {
-              console.error('Failed to save questions:', saveError);
-            }
-            toast.error(`Generated ${count} questions but failed to save. Please try again.`);
-          }
-        } else if (Array.isArray(result.questions)) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('Questions generated but not saved - user is not authenticated');
-          }
-          toast.success(`✓ ${count} questions generated`, {
-            description: 'Sign in to save and review them',
-          });
-        } else {
-          toast.error('Failed to generate questions');
-        }
-
-        setTopic('');
-        setShowGenerate(false);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to generate questions');
-      }
+      setTopic('');
+      setShowGenerate(false);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to generate questions:', error);
-      }
-      toast.error('Failed to generate questions. Please try again.');
+      handleJobCreationError(error);
     } finally {
       setIsGenerating(false);
     }

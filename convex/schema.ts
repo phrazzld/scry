@@ -14,10 +14,13 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_clerk_id', ['clerkId']),
 
+  // Note: 'difficulty' field removed in v2.0 (2025-01)
+  // - Never used by FSRS algorithm (uses fsrsDifficulty parameter instead)
+  // - Removed to simplify schema and avoid confusion with FSRS difficulty
+  // - Existing records migrated via migrations.ts:removeDifficultyFromQuestions
   questions: defineTable({
     userId: v.id('users'),
     topic: v.string(),
-    difficulty: v.string(),
     question: v.string(),
     type: v.union(v.literal('multiple-choice'), v.literal('true-false')),
     options: v.array(v.string()),
@@ -140,4 +143,47 @@ export default defineSchema({
   })
     .index('by_identifier', ['identifier', 'timestamp'])
     .index('by_operation', ['operation', 'timestamp']),
+
+  generationJobs: defineTable({
+    // Ownership
+    userId: v.id('users'),
+
+    // Input
+    prompt: v.string(), // Raw user input (sanitized)
+
+    // Status (simple state machine)
+    status: v.union(
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('completed'),
+      v.literal('failed'),
+      v.literal('cancelled')
+    ),
+
+    // Progress (flat fields, no nesting)
+    phase: v.union(v.literal('clarifying'), v.literal('generating'), v.literal('finalizing')),
+    questionsGenerated: v.number(), // Total AI generated
+    questionsSaved: v.number(), // Successfully saved to DB
+    estimatedTotal: v.optional(v.number()), // AI's estimate
+
+    // Results (flat fields)
+    topic: v.optional(v.string()), // Extracted topic
+    questionIds: v.array(v.id('questions')), // All saved questions
+    durationMs: v.optional(v.number()), // Total generation time
+
+    // Error handling (flat fields)
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()), // 'RATE_LIMIT' | 'API_KEY' | 'NETWORK' | 'UNKNOWN'
+    retryable: v.optional(v.boolean()),
+
+    // Timestamps
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+
+    // Rate limiting
+    ipAddress: v.optional(v.string()),
+  })
+    .index('by_user_status', ['userId', 'status', 'createdAt'])
+    .index('by_status_created', ['status', 'createdAt']),
 });

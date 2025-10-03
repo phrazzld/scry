@@ -35,7 +35,6 @@ class MutationLogicSimulator {
   async saveGeneratedQuestions(
     sessionToken: string,
     topic: string,
-    difficulty: string,
     questions: Array<{
       question: string;
       options: string[];
@@ -76,7 +75,6 @@ class MutationLogicSimulator {
         userId: userId as Id<'users'>,
         question: q.question,
         topic,
-        difficulty,
         type: 'multiple-choice' as const,
         generatedAt: Date.now(),
         options: q.options,
@@ -199,13 +197,11 @@ class MutationLogicSimulator {
       baseQuestion: {
         question: baseQuestion.question,
         topic: baseQuestion.topic,
-        difficulty: baseQuestion.difficulty,
         correctAnswer: baseQuestion.correctAnswer,
         explanation: baseQuestion.explanation,
       },
       count,
       topic: baseQuestion.topic,
-      difficulty: baseQuestion.difficulty,
     };
   }
 
@@ -226,7 +222,6 @@ class MutationLogicSimulator {
       userId: 'user123' as Id<'users'>,
       question: 'Test question?',
       topic: 'Test Topic',
-      difficulty: 'medium',
       type: 'multiple-choice' as const,
       generatedAt: Date.now(),
       options: ['A', 'B', 'C', 'D'],
@@ -267,7 +262,6 @@ describe('Questions Mutations Business Logic', () => {
       const result = await simulator.saveGeneratedQuestions(
         'valid_user123',
         'React Basics',
-        'easy',
         questions
       );
 
@@ -276,21 +270,21 @@ describe('Questions Mutations Business Logic', () => {
     });
 
     it('should validate session token', async () => {
-      await expect(
-        simulator.saveGeneratedQuestions('invalid_token', 'Topic', 'easy', [])
-      ).rejects.toThrow('Invalid session token');
+      await expect(simulator.saveGeneratedQuestions('invalid_token', 'Topic', [])).rejects.toThrow(
+        'Invalid session token'
+      );
     });
 
     it('should validate topic is provided', async () => {
-      await expect(
-        simulator.saveGeneratedQuestions('valid_user123', '', 'easy', [])
-      ).rejects.toThrow('Topic is required');
+      await expect(simulator.saveGeneratedQuestions('valid_user123', '', [])).rejects.toThrow(
+        'Topic is required'
+      );
     });
 
     it('should require at least one question', async () => {
-      await expect(
-        simulator.saveGeneratedQuestions('valid_user123', 'Topic', 'easy', [])
-      ).rejects.toThrow('At least one question is required');
+      await expect(simulator.saveGeneratedQuestions('valid_user123', 'Topic', [])).rejects.toThrow(
+        'At least one question is required'
+      );
     });
 
     it('should validate question structure', async () => {
@@ -303,7 +297,7 @@ describe('Questions Mutations Business Logic', () => {
       ];
 
       await expect(
-        simulator.saveGeneratedQuestions('valid_user123', 'Topic', 'easy', invalidQuestions)
+        simulator.saveGeneratedQuestions('valid_user123', 'Topic', invalidQuestions)
       ).rejects.toThrow('Question and correctAnswer are required');
     });
 
@@ -317,7 +311,7 @@ describe('Questions Mutations Business Logic', () => {
       ];
 
       await expect(
-        simulator.saveGeneratedQuestions('valid_user123', 'Topic', 'easy', invalidQuestions)
+        simulator.saveGeneratedQuestions('valid_user123', 'Topic', invalidQuestions)
       ).rejects.toThrow('At least 2 options are required');
     });
 
@@ -331,7 +325,7 @@ describe('Questions Mutations Business Logic', () => {
       ];
 
       await expect(
-        simulator.saveGeneratedQuestions('valid_user123', 'Topic', 'easy', invalidQuestions)
+        simulator.saveGeneratedQuestions('valid_user123', 'Topic', invalidQuestions)
       ).rejects.toThrow('Correct answer must be one of the options');
     });
 
@@ -344,12 +338,7 @@ describe('Questions Mutations Business Logic', () => {
         },
       ];
 
-      const result = await simulator.saveGeneratedQuestions(
-        'valid_user123',
-        'Topic',
-        'easy',
-        questions
-      );
+      const result = await simulator.saveGeneratedQuestions('valid_user123', 'Topic', questions);
 
       // Verify FSRS fields are properly initialized
       // In real implementation, we'd check the saved question has:
@@ -451,7 +440,6 @@ describe('Questions Mutations Business Logic', () => {
         userId: 'user123' as Id<'users'>,
         question: 'What is TypeScript?',
         topic: 'TypeScript',
-        difficulty: 'medium',
         correctAnswer: 'A superset of JavaScript',
         explanation: 'TypeScript adds static typing to JavaScript',
       });
@@ -465,7 +453,6 @@ describe('Questions Mutations Business Logic', () => {
       expect(result.baseQuestion.question).toBe('What is TypeScript?');
       expect(result.count).toBe(5);
       expect(result.topic).toBe('TypeScript');
-      expect(result.difficulty).toBe('medium');
     });
 
     it('should validate session token', async () => {

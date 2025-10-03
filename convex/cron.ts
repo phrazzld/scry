@@ -14,4 +14,15 @@ crons.hourly(
   internal.rateLimit.cleanupExpiredRateLimits
 );
 
+// Schedule job cleanup to run daily at 3 AM UTC
+// Removes old completed jobs (7 days) and failed jobs (30 days)
+crons.daily(
+  'cleanupOldJobs',
+  {
+    hourUTC: 3,
+    minuteUTC: 0,
+  },
+  internal.generationJobs.cleanup
+);
+
 export default crons;

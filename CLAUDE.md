@@ -90,27 +90,29 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 The application follows Next.js 15 App Router structure with Convex backend:
 
-- **app/api/generate-questions/**: API endpoint for AI question generation using Google Gemini
-- **app/api/quiz/complete/**: API endpoint for saving quiz results to Convex
-- **app/create/**: Quiz creation interface with topic selection and difficulty settings
+- **app/**: Next.js 15 App Router pages and layouts
 - **components/**: React components split between business logic and UI primitives (shadcn/ui)
 - **convex/**: Backend functions and schema definitions
-  - **schema.ts**: Database schema with users, sessions, questions, interactions, quizResults tables
+  - **schema.ts**: Database schema with users, sessions, questions, interactions, quizResults, generationJobs
   - **auth.ts**: Magic link authentication mutations
-  - **quiz.ts**: Quiz completion and history queries
   - **questions.ts**: Individual question persistence and interaction tracking
+  - **generationJobs.ts**: Background job CRUD and lifecycle management
+  - **aiGeneration.ts**: AI generation processing with streaming
+  - **cron.ts**: Scheduled tasks (cleanup, maintenance)
 - **lib/ai-client.ts**: AI integration using Vercel AI SDK with Google provider
+- **lib/constants/**: Configuration constants (jobs, timing, UI)
 - **types/**: TypeScript types for quiz data structures
 
 Key architectural decisions:
-- Convex for all backend needs (database, auth, real-time)
+- Convex for all backend needs (database, auth, real-time, background jobs)
 - Magic link authentication instead of OAuth
-- Server-side API routes only for AI generation
+- **Background job system** for non-blocking AI generation
 - React Hook Form with Zod for type-safe form validation
 - Radix UI primitives wrapped with custom styling
 - Tailwind CSS v4 for styling with CSS variables
 - **Individual question persistence**: Each generated question is saved immediately (not bundled in sessions)
 - **Granular interaction tracking**: Every answer attempt is recorded with timing and accuracy data
+- **Streaming generation**: Questions saved incrementally as they're generated
 
 ## Key Development Patterns
 
@@ -171,12 +173,162 @@ Before implementing ANY queue/scheduling feature, ask:
 The quiz generation system:
 - Uses Google Gemini 2.5 Flash model via Vercel AI SDK
 - Generates structured quiz data with JSON schema validation
-- Supports difficulty levels: easy, medium, hard
-- Creates 5 questions per quiz with 4 answer options each
+- Dynamically determines question count based on topic complexity
 - **Questions persist individually** upon generation (not just quiz results)
 - Each answer attempt is tracked with timing and accuracy
 
-API endpoint pattern: `/api/generate-questions` accepts POST with topic, difficulty, and optional sessionToken for authenticated saves.
+## Background Question Generation
+
+Scry uses a **background job system** for non-blocking AI question generation. This provides real-time progress tracking and supports cancellation without blocking the UI.
+
+### System Architecture
+
+**Components:**
+- `convex/generationJobs.ts` - Job CRUD operations and lifecycle management
+- `convex/aiGeneration.ts` - AI generation processing with streaming
+- `lib/constants/jobs.ts` - Configuration constants
+- `components/background-tasks-badge.tsx` - Navbar indicator for active jobs
+- `components/background-tasks-panel.tsx` - Side panel showing all jobs
+- `components/generation-task-card.tsx` - Individual job status card
+
+**Database Schema:**
+The `generationJobs` table tracks each generation request:
+```typescript
+{
+  userId: Id<"users">,
+  prompt: string,
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled",
+  phase: "clarifying" | "generating" | "finalizing",
+  questionsGenerated: number,
+  questionsSaved: number,
+  estimatedTotal?: number,
+  topic?: string,
+  questionIds: Id<"questions">[],
+  durationMs?: number,
+  errorMessage?: string,
+  errorCode?: string,
+  retryable?: boolean,
+  createdAt: number,
+  startedAt?: number,
+  completedAt?: number,
+  ipAddress?: string
+}
+```
+
+### Creating Jobs
+
+**From UI Components:**
+```typescript
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+
+const createJob = useMutation(api.generationJobs.createJob);
+
+// In your component
+await createJob({ prompt: userInput });
+```
+
+**Entry Points:**
+- `GenerationModal` - Main modal triggered by navbar "Generate" button
+- `NoCardsEmptyState` - First-time user onboarding
+- `NothingDueEmptyState` - When no reviews are due
+
+### Monitoring Progress
+
+**BackgroundTasksBadge** (in navbar):
+- Shows count of active jobs (`pending` or `processing`)
+- Badge appears automatically when jobs are active
+- Click to open BackgroundTasksPanel
+
+**BackgroundTasksPanel** (slide-out):
+- Lists recent 20 jobs
+- Shows real-time progress for processing jobs
+- Displays completion status and error messages
+- Allows cancellation of pending/processing jobs
+
+**Real-Time Updates:**
+Jobs use Convex's reactive queries - UI updates automatically as:
+- Job status changes (pending → processing → completed)
+- Questions are saved incrementally during generation
+- Progress percentages update in real-time
+
+### Job Lifecycle
+
+1. **Creation**: User submits prompt → `createJob` mutation validates and schedules job
+2. **Clarification**: AI clarifies intent and estimates question count
+3. **Generation**: Streams questions incrementally, saving as they arrive
+4. **Completion**: Job marked as completed with topic and question IDs
+
+**Cancellation:**
+- User can cancel `pending` or `processing` jobs
+- Partial results are preserved (questions already saved remain)
+- Job status updated to `cancelled` with partial questionIds
+
+**Error Handling:**
+Jobs classify errors for appropriate retry behavior:
+- `RATE_LIMIT` (retryable: true) - Hit AI API rate limits
+- `API_KEY` (retryable: false) - Invalid/missing API key
+- `NETWORK` (retryable: true) - Temporary network issues
+- `UNKNOWN` (retryable: false) - Unclassified errors
+
+### Configuration & Limits
+
+**File:** `lib/constants/jobs.ts`
+
+```typescript
+export const JOB_CONFIG = {
+  MAX_CONCURRENT_PER_USER: 3,      // Prevent resource exhaustion
+  MAX_PROMPT_LENGTH: 5000,         // Character limit for prompts
+  MIN_PROMPT_LENGTH: 3,            // Minimum viable prompt
+  COMPLETED_JOB_RETENTION_DAYS: 7, // Auto-delete after 7 days
+  FAILED_JOB_RETENTION_DAYS: 30,   // Keep longer for debugging
+};
+```
+
+**Rate Limiting:**
+Generation jobs respect global rate limiting (configured in `convex/rateLimit.ts`) to prevent API abuse.
+
+### Cleanup & Maintenance
+
+**Automated Cleanup:**
+A daily cron job (`convex/cron.ts`) runs at 3 AM UTC to delete old jobs:
+- Completed jobs: removed after 7 days
+- Failed jobs: removed after 30 days
+
+**Manual Cleanup:**
+The `cleanup` internal mutation can be triggered manually if needed:
+```bash
+# From Convex dashboard Functions tab
+internal.generationJobs.cleanup()
+```
+
+### Backend API Reference
+
+**Public Mutations (require authentication):**
+- `createJob({ prompt })` - Create new generation job
+- `cancelJob({ jobId })` - Cancel pending/processing job
+
+**Public Queries:**
+- `getRecentJobs({ limit? })` - Get user's recent jobs (default 20)
+- `getJobById({ jobId })` - Get specific job with ownership check
+
+**Internal Mutations (called by actions/crons):**
+- `updateProgress({ jobId, phase?, questionsGenerated?, ... })` - Update job progress
+- `completeJob({ jobId, topic, questionIds, durationMs })` - Mark job complete
+- `failJob({ jobId, errorMessage, errorCode, retryable })` - Mark job failed
+- `cleanup()` - Delete old completed/failed jobs
+
+**Internal Actions:**
+- `aiGeneration.processJob({ jobId })` - Main generation orchestrator
+
+### Best Practices
+
+1. **Never block the UI**: Jobs run in background, modal/forms close immediately
+2. **Show immediate feedback**: Toast notification confirms job creation
+3. **Guide to monitoring**: Direct users to Background Tasks panel
+4. **Preserve partial work**: Cancellation saves already-generated questions
+5. **Respect rate limits**: Enforce concurrent job limits per user
+6. **Clean up regularly**: Automated cron prevents database bloat
 
 ## Testing
 

@@ -6,10 +6,10 @@ import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { Plus, Settings } from 'lucide-react';
 
+import { BackgroundTasksBadge } from '@/components/background-tasks-badge';
 import { GenerationModal } from '@/components/generation-modal';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { useCurrentQuestion } from '@/contexts/current-question-context';
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance';
 import { getNavbarClassName } from '@/lib/layout-mode';
 
@@ -18,7 +18,6 @@ export function Navbar() {
   const clerkAppearance = useClerkAppearance();
   const pathname = usePathname();
   const [generateOpen, setGenerateOpen] = useState(false);
-  const { currentQuestion, clearCurrentQuestion } = useCurrentQuestion();
 
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
@@ -71,6 +70,7 @@ export function Navbar() {
                     <Settings className="h-4 w-4" />
                   </Link>
                 )}
+                <BackgroundTasksBadge />
                 <ThemeToggle />
                 <div
                   data-testid="user-menu"
@@ -86,13 +86,7 @@ export function Navbar() {
 
       <GenerationModal
         open={generateOpen}
-        onOpenChange={(open) => {
-          setGenerateOpen(open);
-          if (!open) {
-            clearCurrentQuestion(); // Clear context when modal closes
-          }
-        }}
-        currentQuestion={currentQuestion}
+        onOpenChange={setGenerateOpen}
         onGenerationSuccess={() => {
           // Dispatch event to trigger review if on homepage
           if (pathname === '/') {

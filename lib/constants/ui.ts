@@ -23,3 +23,15 @@ export const AUTO_FOCUS_DELAY = 50; // milliseconds
 
 // Delay before clearing optimistic updates to prevent flash of old data
 export const OPTIMISTIC_UPDATE_CLEAR_DELAY = 500; // milliseconds
+
+/**
+ * Toast notification durations
+ */
+
+/** Toast notification durations in milliseconds */
+export const TOAST_DURATION = {
+  /** Duration for success toast messages */
+  SUCCESS: 4000,
+  /** Duration for error toast messages */
+  ERROR: 5000,
+} as const;
