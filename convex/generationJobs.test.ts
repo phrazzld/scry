@@ -532,3 +532,403 @@ describe('GenerationJobs - Job Creation', () => {
     });
   });
 });
+
+describe('GenerationJobs - Job Mutations', () => {
+  let simulator: GenerationJobsSimulator;
+
+  beforeEach(() => {
+    simulator = new GenerationJobsSimulator();
+  });
+
+  describe('cancelJob', () => {
+    it('should cancel a pending job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user123' as Id<'users'>,
+        status: 'pending',
+      });
+
+      const result = await simulator.cancelJob('clerk_user123', jobId as string);
+
+      expect(result.success).toBe(true);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('cancelled');
+      expect(job?.completedAt).toBeDefined();
+    });
+
+    it('should cancel a processing job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user123' as Id<'users'>,
+        status: 'processing',
+        startedAt: Date.now(),
+      });
+
+      const result = await simulator.cancelJob('clerk_user123', jobId as string);
+
+      expect(result.success).toBe(true);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('cancelled');
+    });
+
+    it('should reject cancelling a completed job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user123' as Id<'users'>,
+        status: 'completed',
+      });
+
+      await expect(simulator.cancelJob('clerk_user123', jobId as string)).rejects.toThrow(
+        'Cannot cancel job with status: completed'
+      );
+    });
+
+    it('should reject cancelling a failed job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user123' as Id<'users'>,
+        status: 'failed',
+      });
+
+      await expect(simulator.cancelJob('clerk_user123', jobId as string)).rejects.toThrow(
+        'Cannot cancel job with status: failed'
+      );
+    });
+
+    it('should reject cancelling an already cancelled job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user123' as Id<'users'>,
+        status: 'cancelled',
+      });
+
+      await expect(simulator.cancelJob('clerk_user123', jobId as string)).rejects.toThrow(
+        'Cannot cancel job with status: cancelled'
+      );
+    });
+
+    it('should require authentication', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'pending',
+      });
+
+      await expect(simulator.cancelJob('invalid_clerk_id', jobId as string)).rejects.toThrow(
+        'Authentication required'
+      );
+    });
+
+    it('should enforce ownership check - cannot cancel other users job', async () => {
+      const jobId = simulator.addTestJob({
+        userId: 'user456' as Id<'users'>,
+        status: 'pending',
+      });
+
+      await expect(simulator.cancelJob('clerk_user123', jobId as string)).rejects.toThrow(
+        'Job not found or access denied'
+      );
+    });
+
+    it('should return error for non-existent job', async () => {
+      await expect(simulator.cancelJob('clerk_user123', 'nonexistent_id')).rejects.toThrow(
+        'Job not found or access denied'
+      );
+    });
+  });
+
+  describe('updateProgress', () => {
+    it('should update phase', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'pending',
+        phase: 'clarifying',
+      });
+
+      await simulator.updateProgress(jobId as string, { phase: 'generating' });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.phase).toBe('generating');
+    });
+
+    it('should update questionsGenerated', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+        questionsGenerated: 5,
+      });
+
+      await simulator.updateProgress(jobId as string, { questionsGenerated: 10 });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.questionsGenerated).toBe(10);
+    });
+
+    it('should update questionsSaved', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+        questionsSaved: 3,
+      });
+
+      await simulator.updateProgress(jobId as string, { questionsSaved: 8 });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.questionsSaved).toBe(8);
+    });
+
+    it('should update estimatedTotal', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.updateProgress(jobId as string, { estimatedTotal: 20 });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.estimatedTotal).toBe(20);
+    });
+
+    it('should update multiple fields at once', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.updateProgress(jobId as string, {
+        phase: 'finalizing',
+        questionsGenerated: 15,
+        questionsSaved: 15,
+        estimatedTotal: 15,
+      });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.phase).toBe('finalizing');
+      expect(job?.questionsGenerated).toBe(15);
+      expect(job?.questionsSaved).toBe(15);
+      expect(job?.estimatedTotal).toBe(15);
+    });
+
+    it('should transition pending job to processing and set startedAt', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'pending',
+      });
+
+      await simulator.updateProgress(jobId as string, { phase: 'generating' });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('processing');
+      expect(job?.startedAt).toBeDefined();
+    });
+
+    it('should not change status if already processing', async () => {
+      const startedAt = Date.now() - 10000;
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+        startedAt,
+      });
+
+      await simulator.updateProgress(jobId as string, { questionsGenerated: 5 });
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('processing');
+      expect(job?.startedAt).toBe(startedAt);
+    });
+  });
+
+  describe('completeJob', () => {
+    it('should mark job as completed with all required fields', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+        startedAt: Date.now() - 5000,
+      });
+
+      const questionIds = ['q1', 'q2', 'q3'];
+      await simulator.completeJob(jobId as string, 'React Basics', questionIds, 5000);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('completed');
+      expect(job?.topic).toBe('React Basics');
+      expect(job?.questionIds).toEqual(questionIds);
+      expect(job?.durationMs).toBe(5000);
+      expect(job?.completedAt).toBeDefined();
+    });
+
+    it('should handle empty questionIds array', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.completeJob(jobId as string, 'Topic', [], 1000);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('completed');
+      expect(job?.questionIds).toEqual([]);
+    });
+
+    it('should handle zero duration', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.completeJob(jobId as string, 'Topic', ['q1'], 0);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.durationMs).toBe(0);
+    });
+  });
+
+  describe('failJob', () => {
+    it('should mark job as failed with error details', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.failJob(jobId as string, 'API key invalid', 'API_KEY', false);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.status).toBe('failed');
+      expect(job?.errorMessage).toBe('API key invalid');
+      expect(job?.errorCode).toBe('API_KEY');
+      expect(job?.retryable).toBe(false);
+      expect(job?.completedAt).toBeDefined();
+    });
+
+    it('should handle retryable errors', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.failJob(jobId as string, 'Rate limit exceeded', 'RATE_LIMIT', true);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.errorCode).toBe('RATE_LIMIT');
+      expect(job?.retryable).toBe(true);
+    });
+
+    it('should handle network errors', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.failJob(jobId as string, 'Connection timeout', 'NETWORK', true);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.errorCode).toBe('NETWORK');
+      expect(job?.retryable).toBe(true);
+    });
+
+    it('should handle unknown errors', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      await simulator.failJob(jobId as string, 'Something went wrong', 'UNKNOWN', false);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.errorCode).toBe('UNKNOWN');
+      expect(job?.retryable).toBe(false);
+    });
+  });
+
+  describe('cleanup', () => {
+    it('should delete old completed jobs', async () => {
+      const oldDate =
+        Date.now() - (JOB_CONFIG.COMPLETED_JOB_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000;
+
+      simulator.addTestJob({
+        status: 'completed',
+        createdAt: oldDate,
+      });
+
+      const result = await simulator.cleanup();
+
+      expect(result.deletedCompleted).toBe(1);
+      expect(result.total).toBe(1);
+    });
+
+    it('should delete old failed jobs', async () => {
+      const oldDate = Date.now() - (JOB_CONFIG.FAILED_JOB_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000;
+
+      simulator.addTestJob({
+        status: 'failed',
+        createdAt: oldDate,
+      });
+
+      const result = await simulator.cleanup();
+
+      expect(result.deletedFailed).toBe(1);
+      expect(result.total).toBe(1);
+    });
+
+    it('should not delete recent completed jobs', async () => {
+      simulator.addTestJob({
+        status: 'completed',
+        createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000, // 1 day old
+      });
+
+      const result = await simulator.cleanup();
+
+      expect(result.deletedCompleted).toBe(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('should not delete recent failed jobs', async () => {
+      simulator.addTestJob({
+        status: 'failed',
+        createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000, // 1 day old
+      });
+
+      const result = await simulator.cleanup();
+
+      expect(result.deletedFailed).toBe(0);
+      expect(result.total).toBe(0);
+    });
+
+    it('should not delete pending, processing, or cancelled jobs', async () => {
+      const veryOldDate = Date.now() - 100 * 24 * 60 * 60 * 1000; // 100 days old
+
+      simulator.addTestJob({ status: 'pending', createdAt: veryOldDate });
+      simulator.addTestJob({ status: 'processing', createdAt: veryOldDate });
+      simulator.addTestJob({ status: 'cancelled', createdAt: veryOldDate });
+
+      const result = await simulator.cleanup();
+
+      expect(result.total).toBe(0);
+    });
+
+    it('should delete multiple jobs in one cleanup', async () => {
+      const oldCompletedDate =
+        Date.now() - (JOB_CONFIG.COMPLETED_JOB_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000;
+      const oldFailedDate =
+        Date.now() - (JOB_CONFIG.FAILED_JOB_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000;
+
+      simulator.addTestJob({ status: 'completed', createdAt: oldCompletedDate });
+      simulator.addTestJob({ status: 'completed', createdAt: oldCompletedDate });
+      simulator.addTestJob({ status: 'failed', createdAt: oldFailedDate });
+
+      const result = await simulator.cleanup();
+
+      expect(result.deletedCompleted).toBe(2);
+      expect(result.deletedFailed).toBe(1);
+      expect(result.total).toBe(3);
+    });
+
+    it('should use different retention periods for completed vs failed', async () => {
+      // Job at completed retention threshold (should be deleted)
+      const atCompletedThreshold =
+        Date.now() - (JOB_CONFIG.COMPLETED_JOB_RETENTION_DAYS + 0.1) * 24 * 60 * 60 * 1000;
+
+      // Job at failed retention threshold (should be deleted)
+      const atFailedThreshold =
+        Date.now() - (JOB_CONFIG.FAILED_JOB_RETENTION_DAYS + 0.1) * 24 * 60 * 60 * 1000;
+
+      simulator.addTestJob({ status: 'completed', createdAt: atCompletedThreshold });
+      simulator.addTestJob({ status: 'failed', createdAt: atFailedThreshold });
+
+      // Also add jobs just inside the threshold (should NOT be deleted)
+      const justInsideCompleted =
+        Date.now() - (JOB_CONFIG.COMPLETED_JOB_RETENTION_DAYS - 1) * 24 * 60 * 60 * 1000;
+      const justInsideFailed =
+        Date.now() - (JOB_CONFIG.FAILED_JOB_RETENTION_DAYS - 1) * 24 * 60 * 60 * 1000;
+
+      simulator.addTestJob({ status: 'completed', createdAt: justInsideCompleted });
+      simulator.addTestJob({ status: 'failed', createdAt: justInsideFailed });
+
+      const result = await simulator.cleanup();
+
+      // Should only delete the 2 old ones, not the 2 recent ones
+      expect(result.total).toBe(2);
+    });
+  });
+});
