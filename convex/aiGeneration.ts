@@ -238,6 +238,21 @@ export const processJob = internalAction({
 
       logger.info({ jobId: args.jobId }, 'Started streaming question generation');
 
+      // Helper function to validate question completeness
+      // Streaming can yield partial objects - only save when all required fields present
+      const isQuestionComplete = (q: unknown): boolean => {
+        if (!q || typeof q !== 'object') return false;
+        const obj = q as Record<string, unknown>;
+        return !!(
+          typeof obj.question === 'string' &&
+          obj.question.length > 0 &&
+          Array.isArray(obj.options) &&
+          obj.options.length >= 2 &&
+          typeof obj.correctAnswer === 'string' &&
+          obj.correctAnswer.length > 0
+        );
+      };
+
       // Track progress
       let savedCount = 0;
       const allQuestionIds: Id<'questions'>[] = [];
@@ -248,28 +263,33 @@ export const processJob = internalAction({
 
         const currentCount = partial.questions.length;
 
-        // Check if we have new questions to save
-        if (currentCount > savedCount) {
-          const newQuestions = partial.questions.slice(savedCount);
+        // Get candidate questions from where we left off
+        const candidateQuestions = partial.questions.slice(savedCount);
 
+        // Filter to only complete questions (streaming may yield partial objects)
+        const completeQuestions = candidateQuestions.filter(isQuestionComplete);
+
+        // Only save if we have complete questions
+        if (completeQuestions.length > 0) {
           logger.info(
             {
               jobId: args.jobId,
-              newQuestionCount: newQuestions.length,
+              newQuestionCount: completeQuestions.length,
               totalGenerated: currentCount,
+              candidateCount: candidateQuestions.length,
             },
-            'Saving new questions'
+            'Saving complete questions'
           );
 
           // Save batch using internal mutation
           const questionIds = await ctx.runMutation(internal.questions.saveBatch, {
             userId: job.userId,
             topic: job.prompt, // Use prompt as topic initially, will refine later
-            questions: newQuestions,
+            questions: completeQuestions,
           });
 
           allQuestionIds.push(...questionIds);
-          savedCount = currentCount;
+          savedCount += completeQuestions.length; // Increment by saved count, not total
 
           // Update progress
           await ctx.runMutation(internal.generationJobs.updateProgress, {

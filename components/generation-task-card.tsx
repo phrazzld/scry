@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useMutation } from 'convex/react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -31,7 +30,6 @@ interface GenerationTaskCardProps {
 }
 
 export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
-  const router = useRouter();
   const cancelJob = useMutation(api.generationJobs.cancelJob);
   const createJob = useMutation(api.generationJobs.createJob);
 
@@ -49,10 +47,6 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
     } catch (error) {
       console.error('Failed to retry job:', error);
     }
-  };
-
-  const handleViewQuestions = () => {
-    router.push(`/my-questions?topic=${encodeURIComponent(job.topic || job.prompt)}`);
   };
 
   // Calculate progress percentage
@@ -118,14 +112,9 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
         )}
 
         {isCompletedJob(job) && (
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">
-              Generated {job.questionIds.length} question{job.questionIds.length !== 1 ? 's' : ''}
-              {job.durationMs && ` in ${Math.round(job.durationMs / 1000)}s`}
-            </div>
-            <Button variant="outline" size="sm" onClick={handleViewQuestions} className="w-full">
-              View Questions
-            </Button>
+          <div className="text-sm text-muted-foreground">
+            Generated {job.questionIds.length} question{job.questionIds.length !== 1 ? 's' : ''}
+            {job.durationMs && ` in ${Math.round(job.durationMs / 1000)}s`}
           </div>
         )}
 
@@ -142,14 +131,9 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
         )}
 
         {isCancelledJob(job) && job.questionIds.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">
-              Saved {job.questionIds.length} partial question
-              {job.questionIds.length !== 1 ? 's' : ''}
-            </div>
-            <Button variant="outline" size="sm" onClick={handleViewQuestions} className="w-full">
-              View Partial Results
-            </Button>
+          <div className="text-sm text-muted-foreground">
+            Saved {job.questionIds.length} partial question
+            {job.questionIds.length !== 1 ? 's' : ''}
           </div>
         )}
       </div>

@@ -16,12 +16,12 @@ export function BackgroundTasksBadge() {
     <>
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         onClick={() => setIsPanelOpen(true)}
-        className={cn('relative', hasActive && 'text-primary')}
+        className={cn('relative size-9 rounded-full', hasActive && 'text-primary')}
         aria-label={`Background tasks${hasActive ? ` (${activeCount} active)` : ''}`}
       >
-        <ActivityIcon className="size-5" />
+        <ActivityIcon className="h-4 w-4" />
         {hasActive && (
           <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
             {activeCount}

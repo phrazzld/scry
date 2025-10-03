@@ -83,13 +83,16 @@ export const getRecentJobs = query({
     const user = await requireUserFromClerk(ctx);
     const limit = args.limit ?? 20;
 
+    // Query jobs ordered by createdAt descending (newest first)
     const jobs = await ctx.db
       .query('generationJobs')
       .withIndex('by_user_status', (q) => q.eq('userId', user._id))
-      .order('desc')
-      .take(limit);
+      .collect();
 
-    return jobs;
+    // Sort by createdAt descending to ensure newest jobs appear first
+    const sortedJobs = jobs.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+
+    return sortedJobs;
   },
 });
 
