@@ -12,7 +12,7 @@ const google = createGoogleGenerativeAI({
 
 const questionSchema = z.object({
   question: z.string(),
-  type: z.enum(['multiple-choice', 'true-false']).optional(),
+  type: z.enum(['multiple-choice', 'true-false']), // Required - must be exactly one of these values
   options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
   explanation: z.string().optional(),

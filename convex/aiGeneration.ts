@@ -1,19 +1,18 @@
 /**
  * AI Generation Action Module
  *
- * Processes background question generation jobs using streaming AI generation.
+ * Processes background question generation jobs using validated AI generation.
  * This module handles the complete lifecycle from job initialization through
- * intent clarification, question generation, incremental saving, and completion.
+ * intent clarification, question generation with schema validation, and completion.
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateText, streamObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { z } from 'zod';
 
 import { internal } from './_generated/api';
-import { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
 
 // Initialize Google AI with API key from environment
@@ -27,7 +26,7 @@ const logger = pino({ name: 'aiGeneration' });
 // Zod schemas for question generation
 const questionSchema = z.object({
   question: z.string(),
-  type: z.enum(['multiple-choice', 'true-false']).optional(),
+  type: z.enum(['multiple-choice', 'true-false']), // Required - must be exactly one of these values
   options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
   explanation: z.string().optional(),
@@ -78,6 +77,26 @@ ${clarifiedIntent}
 
 Produce a set of questions that, if mastered, would make the learner confident they've covered what matters.
 
+CRITICAL: Your response MUST match this exact JSON schema:
+
+{
+  "questions": [
+    {
+      "question": "string (the question text)",
+      "type": "multiple-choice" | "true-false",  // EXACTLY these values - no abbreviations!
+      "options": ["string", "string", ...],      // 2-4 options
+      "correctAnswer": "string (must be one of the options)",
+      "explanation": "string (optional teaching note)"
+    }
+  ]
+}
+
+STRICT SCHEMA REQUIREMENTS:
+• "type" field must be EXACTLY "multiple-choice" or "true-false" (not "multiple", "mc", "tf", etc.)
+• Multiple-choice questions: exactly 4 options
+• True/false questions: exactly 2 options ["True", "False"]
+• "correctAnswer" must match one of the "options" exactly
+
 CRITICAL COUNTING GUIDANCE:
 First, count what needs coverage. Then generate questions.
 
@@ -102,7 +121,7 @@ Vary form with purpose:
 - Order items so the learner warms up, then stretches.
 - For every item, include a short teaching explanation that addresses *why right*, *why wrong*, and the misconception to avoid.
 
-Return only the questions, answers, and explanations (no extra commentary).`;
+Return only the questions array matching the schema above (no extra commentary).`;
 }
 
 /**
@@ -134,6 +153,17 @@ function extractEstimatedCount(clarifiedIntent: string): number {
  */
 function classifyError(error: Error): { code: string; retryable: boolean } {
   const message = error.message.toLowerCase();
+  const errorName = error.name || '';
+
+  // Schema validation errors - AI generated invalid format
+  if (
+    errorName.includes('AI_NoObjectGeneratedError') ||
+    message.includes('schema') ||
+    message.includes('validation') ||
+    message.includes('does not match validator')
+  ) {
+    return { code: 'SCHEMA_VALIDATION', retryable: true };
+  }
 
   // Rate limit errors are transient and retryable
   if (message.includes('rate limit') || message.includes('429') || message.includes('quota')) {
@@ -227,115 +257,49 @@ export const processJob = internalAction({
         'Moving to generation phase'
       );
 
-      // Phase 2: Stream question generation
+      // Phase 2: Generate questions with full validation
       const questionPrompt = buildQuestionPromptFromIntent(clarifiedIntent);
 
-      const { partialObjectStream } = await streamObject({
+      logger.info({ jobId: args.jobId }, 'Starting question generation with schema validation');
+
+      const { object } = await generateObject({
         model: google('gemini-2.5-flash'),
         schema: questionsSchema,
         prompt: questionPrompt,
       });
 
-      logger.info({ jobId: args.jobId }, 'Started streaming question generation');
+      logger.info(
+        {
+          jobId: args.jobId,
+          questionCount: object.questions.length,
+        },
+        'Questions generated and validated'
+      );
 
-      // Helper function to validate question completeness
-      // Streaming can yield partial objects - only save when all required fields present
-      const isQuestionComplete = (q: unknown): boolean => {
-        if (!q || typeof q !== 'object') return false;
-        const obj = q as Record<string, unknown>;
-        return !!(
-          typeof obj.question === 'string' &&
-          obj.question.length > 0 &&
-          Array.isArray(obj.options) &&
-          obj.options.length >= 2 &&
-          typeof obj.correctAnswer === 'string' &&
-          obj.correctAnswer.length > 0
-        );
-      };
+      // Check for cancellation before saving
+      const currentJob = await ctx.runQuery(internal.generationJobs.getJobByIdInternal, {
+        jobId: args.jobId,
+      });
 
-      // Track progress
-      let savedCount = 0;
-      const allQuestionIds: Id<'questions'>[] = [];
-
-      // Stream and save questions incrementally
-      for await (const partial of partialObjectStream) {
-        if (!partial.questions) continue;
-
-        const currentCount = partial.questions.length;
-
-        // Get candidate questions from where we left off
-        const candidateQuestions = partial.questions.slice(savedCount);
-
-        // Filter to only complete questions (streaming may yield partial objects)
-        const completeQuestions = candidateQuestions.filter(isQuestionComplete);
-
-        // Only save if we have complete questions
-        if (completeQuestions.length > 0) {
-          logger.info(
-            {
-              jobId: args.jobId,
-              newQuestionCount: completeQuestions.length,
-              totalGenerated: currentCount,
-              candidateCount: candidateQuestions.length,
-            },
-            'Saving complete questions'
-          );
-
-          // Save batch using internal mutation
-          const questionIds = await ctx.runMutation(internal.questions.saveBatch, {
-            userId: job.userId,
-            topic: job.prompt, // Use prompt as topic initially, will refine later
-            questions: completeQuestions,
-          });
-
-          allQuestionIds.push(...questionIds);
-          savedCount += completeQuestions.length; // Increment by saved count, not total
-
-          // Update progress
-          await ctx.runMutation(internal.generationJobs.updateProgress, {
-            jobId: args.jobId,
-            questionsGenerated: currentCount,
-            questionsSaved: allQuestionIds.length,
-          });
-
-          logger.info(
-            {
-              jobId: args.jobId,
-              questionsGenerated: currentCount,
-              questionsSaved: allQuestionIds.length,
-            },
-            'Progress updated'
-          );
-
-          // Check for cancellation every 10 questions
-          if (allQuestionIds.length % 10 === 0) {
-            const currentJob = await ctx.runQuery(internal.generationJobs.getJobByIdInternal, {
-              jobId: args.jobId,
-            });
-
-            if (currentJob?.status === 'cancelled') {
-              logger.info(
-                {
-                  jobId: args.jobId,
-                  questionsSaved: allQuestionIds.length,
-                },
-                'Job cancelled by user, completing with partial results'
-              );
-
-              // Complete job with partial results
-              const durationMs = Date.now() - startTime;
-              await ctx.runMutation(internal.generationJobs.completeJob, {
-                jobId: args.jobId,
-                topic: job.prompt,
-                questionIds: allQuestionIds,
-                durationMs,
-              });
-
-              return;
-            }
-          }
-        }
+      if (currentJob?.status === 'cancelled') {
+        logger.info({ jobId: args.jobId }, 'Job cancelled by user before save');
+        return;
       }
+
+      // Save all validated questions atomically
+      const allQuestionIds = await ctx.runMutation(internal.questions.saveBatch, {
+        userId: job.userId,
+        topic: job.prompt,
+        questions: object.questions,
+      });
+
+      logger.info(
+        {
+          jobId: args.jobId,
+          questionsSaved: allQuestionIds.length,
+        },
+        'Questions saved to database'
+      );
 
       // Phase 3: Job completion
       const durationMs = Date.now() - startTime;
@@ -373,12 +337,26 @@ export const processJob = internalAction({
       const err = error as Error;
       const { code, retryable } = classifyError(err);
 
+      // Provide user-friendly error messages for common scenarios
+      let userMessage = err.message;
+      if (code === 'SCHEMA_VALIDATION') {
+        userMessage =
+          'The AI generated questions in an unexpected format. This is usually temporary. Please try again.';
+      } else if (code === 'RATE_LIMIT') {
+        userMessage = 'Rate limit reached. Please wait a moment and try again.';
+      } else if (code === 'API_KEY') {
+        userMessage = 'API configuration error. Please contact support.';
+      } else if (code === 'NETWORK') {
+        userMessage = 'Network error. Please check your connection and try again.';
+      }
+
       logger.error(
         {
           jobId: args.jobId,
           errorCode: code,
           retryable,
           errorMessage: err.message,
+          errorName: err.name,
           stack: err.stack,
         },
         'Job processing failed'
@@ -387,7 +365,7 @@ export const processJob = internalAction({
       // Mark job as failed
       await ctx.runMutation(internal.generationJobs.failJob, {
         jobId: args.jobId,
-        errorMessage: err.message,
+        errorMessage: userMessage,
         errorCode: code,
         retryable,
       });

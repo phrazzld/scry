@@ -10,6 +10,17 @@ import { describe, expect, it } from 'vitest';
  */
 function classifyError(error: Error): { code: string; retryable: boolean } {
   const message = error.message.toLowerCase();
+  const errorName = error.name || '';
+
+  // Schema validation errors - AI generated invalid format
+  if (
+    errorName.includes('AI_NoObjectGeneratedError') ||
+    message.includes('schema') ||
+    message.includes('validation') ||
+    message.includes('does not match validator')
+  ) {
+    return { code: 'SCHEMA_VALIDATION', retryable: true };
+  }
 
   // Rate limit errors are transient and retryable
   if (message.includes('rate limit') || message.includes('429') || message.includes('quota')) {
@@ -165,17 +176,44 @@ describe('AI Generation - Error Classification', () => {
     });
   });
 
+  describe('Schema Validation Errors', () => {
+    it('should classify schema error correctly', () => {
+      const error = new Error('Value does not match validator. Expected type: "multiple-choice"');
+      const result = classifyError(error);
+
+      expect(result.code).toBe('SCHEMA_VALIDATION');
+      expect(result.retryable).toBe(true);
+    });
+
+    it('should classify AI_NoObjectGeneratedError correctly', () => {
+      const error = new Error('Failed to generate object');
+      error.name = 'AI_NoObjectGeneratedError';
+      const result = classifyError(error);
+
+      expect(result.code).toBe('SCHEMA_VALIDATION');
+      expect(result.retryable).toBe(true);
+    });
+
+    it('should classify validation failure error correctly', () => {
+      const error = new Error('Validation failed for input schema');
+      const result = classifyError(error);
+
+      expect(result.code).toBe('SCHEMA_VALIDATION');
+      expect(result.retryable).toBe(true);
+    });
+
+    it('should classify "does not match validator" error correctly', () => {
+      const error = new Error('ArgumentValidationError: Value does not match validator');
+      const result = classifyError(error);
+
+      expect(result.code).toBe('SCHEMA_VALIDATION');
+      expect(result.retryable).toBe(true);
+    });
+  });
+
   describe('Unknown Errors', () => {
     it('should classify generic error as UNKNOWN', () => {
       const error = new Error('Something went wrong');
-      const result = classifyError(error);
-
-      expect(result.code).toBe('UNKNOWN');
-      expect(result.retryable).toBe(false);
-    });
-
-    it('should classify validation error as UNKNOWN', () => {
-      const error = new Error('Validation failed for input schema');
       const result = classifyError(error);
 
       expect(result.code).toBe('UNKNOWN');
@@ -329,11 +367,24 @@ describe('AI Generation - Error Classification', () => {
       });
     });
 
+    it('should mark all schema validation errors as retryable', () => {
+      const errors = [
+        new Error('Validation failed'),
+        new Error('Schema mismatch'),
+        new Error('Value does not match validator'),
+      ];
+
+      errors.forEach((error) => {
+        const result = classifyError(error);
+        expect(result.retryable).toBe(true);
+      });
+    });
+
     it('should mark all unknown errors as non-retryable', () => {
       const errors = [
         new Error('Generic error'),
-        new Error('Validation failed'),
         new Error('Internal server error'),
+        new Error('Unexpected application state'),
       ];
 
       errors.forEach((error) => {
