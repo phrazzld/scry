@@ -224,6 +224,7 @@ export const completeJob = internalMutation({
       status: 'completed',
       topic: args.topic,
       questionIds: args.questionIds,
+      questionsSaved: args.questionIds.length,
       durationMs: args.durationMs,
       completedAt: Date.now(),
     });

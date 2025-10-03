@@ -197,6 +197,7 @@ class GenerationJobsSimulator {
     job.status = 'completed';
     job.topic = topic;
     job.questionIds = questionIds as Id<'questions'>[];
+    job.questionsSaved = questionIds.length;
     job.durationMs = durationMs;
     job.completedAt = Date.now();
 
@@ -740,6 +741,7 @@ describe('GenerationJobs - Job Mutations', () => {
       expect(job?.status).toBe('completed');
       expect(job?.topic).toBe('React Basics');
       expect(job?.questionIds).toEqual(questionIds);
+      expect(job?.questionsSaved).toBe(questionIds.length);
       expect(job?.durationMs).toBe(5000);
       expect(job?.completedAt).toBeDefined();
     });
@@ -754,6 +756,7 @@ describe('GenerationJobs - Job Mutations', () => {
       const job = await simulator.getJobById('clerk_user123', jobId as string);
       expect(job?.status).toBe('completed');
       expect(job?.questionIds).toEqual([]);
+      expect(job?.questionsSaved).toBe(0);
     });
 
     it('should handle zero duration', async () => {
