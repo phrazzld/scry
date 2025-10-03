@@ -6,6 +6,7 @@ import { GenerationTaskCard } from '@/components/generation-task-card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
+import { JOB_CONFIG } from '@/lib/constants/jobs';
 
 interface BackgroundTasksPanelProps {
   open: boolean;
@@ -13,7 +14,9 @@ interface BackgroundTasksPanelProps {
 }
 
 export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProps) {
-  const jobs = useQuery(api.generationJobs.getRecentJobs, { limit: 20 });
+  const jobs = useQuery(api.generationJobs.getRecentJobs, {
+    limit: JOB_CONFIG.RECENT_JOBS_DISPLAY_LIMIT,
+  });
 
   // Group jobs by status
   const activeJobs =

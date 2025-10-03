@@ -19,4 +19,7 @@ export const JOB_CONFIG = {
 
   /** Days to retain failed jobs before cleanup */
   FAILED_JOB_RETENTION_DAYS: 30,
+
+  /** Number of recent jobs to display in background tasks panel */
+  RECENT_JOBS_DISPLAY_LIMIT: 20,
 } as const;

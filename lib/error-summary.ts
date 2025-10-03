@@ -5,6 +5,11 @@
  * should be available for background generation jobs.
  */
 
+/** Maximum length for error summary before truncation */
+const MAX_ERROR_SUMMARY_LENGTH = 80;
+/** Length of truncated error summary (accounting for "..." suffix) */
+const TRUNCATED_ERROR_LENGTH = MAX_ERROR_SUMMARY_LENGTH - 3;
+
 export interface ErrorSummary {
   /** User-friendly, concise error message */
   summary: string;
@@ -57,9 +62,9 @@ export function getErrorSummary(errorMessage?: string, errorCode?: string): Erro
   }
 
   // Handle long error messages by truncating
-  if (errorMessage.length > 80) {
+  if (errorMessage.length > MAX_ERROR_SUMMARY_LENGTH) {
     return {
-      summary: errorMessage.slice(0, 77) + '...',
+      summary: errorMessage.slice(0, TRUNCATED_ERROR_LENGTH) + '...',
       hasDetails: true,
     };
   }

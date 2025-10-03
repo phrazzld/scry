@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '@/convex/_generated/api';
 import { IMMINENT_REVIEW_THRESHOLD_MS } from '@/lib/constants/timing';
+import { TOAST_DURATION } from '@/lib/constants/ui';
+import { handleJobCreationError } from '@/lib/error-handlers';
 
 interface EmptyStateProps {
   className?: string;
@@ -52,21 +54,13 @@ export function NoCardsEmptyState({ onGenerationSuccess }: NoCardsEmptyStateProp
 
       toast.success('Generation started', {
         description: 'Check Background Tasks to monitor progress',
-        duration: 4000,
+        duration: TOAST_DURATION.SUCCESS,
       });
 
       setTopic('');
       onGenerationSuccess?.();
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create job:', error);
-      }
-
-      const errorMessage = (error as Error).message || 'Failed to start generation';
-      toast.error(errorMessage, {
-        description: 'Please try again',
-        duration: 5000,
-      });
+      handleJobCreationError(error);
     } finally {
       setIsGenerating(false);
     }
@@ -174,21 +168,13 @@ export function NothingDueEmptyState({
 
       toast.success('Generation started', {
         description: 'Check Background Tasks to monitor progress',
-        duration: 4000,
+        duration: TOAST_DURATION.SUCCESS,
       });
 
       setTopic('');
       setShowGenerate(false);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create job:', error);
-      }
-
-      const errorMessage = (error as Error).message || 'Failed to start generation';
-      toast.error(errorMessage, {
-        description: 'Please try again',
-        duration: 5000,
-      });
+      handleJobCreationError(error);
     } finally {
       setIsGenerating(false);
     }

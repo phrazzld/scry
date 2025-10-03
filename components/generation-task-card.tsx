@@ -43,7 +43,9 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
     try {
       await cancelJob({ jobId: job._id });
     } catch (error) {
-      console.error('Failed to cancel job:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to cancel job:', error);
+      }
     }
   };
 
@@ -51,7 +53,9 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
     try {
       await createJob({ prompt: job.prompt });
     } catch (error) {
-      console.error('Failed to retry job:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to retry job:', error);
+      }
     }
   };
 

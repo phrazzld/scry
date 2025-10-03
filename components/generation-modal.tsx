@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { api } from '@/convex/_generated/api';
-import { AUTO_FOCUS_DELAY } from '@/lib/constants/ui';
+import { AUTO_FOCUS_DELAY, TOAST_DURATION } from '@/lib/constants/ui';
+import { handleJobCreationError } from '@/lib/error-handlers';
 import { cn } from '@/lib/utils';
 
 interface GenerationModalProps {
@@ -53,21 +54,12 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
       toast.success('Generation started', {
         description: 'Check Background Tasks to monitor progress',
-        duration: 4000,
+        duration: TOAST_DURATION.SUCCESS,
       });
 
       onGenerationSuccess?.(0); // Call callback with 0 since we don't know count yet
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to create job:', error);
-      }
-
-      const errorMessage = (error as Error).message || 'Failed to start generation';
-
-      toast.error(errorMessage, {
-        description: 'Please try again',
-        duration: 5000,
-      });
+      handleJobCreationError(error);
     } finally {
       setIsGenerating(false);
     }
