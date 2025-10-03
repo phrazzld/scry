@@ -28,7 +28,7 @@ export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProp
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent
         className={cn(
-          'fixed right-0 top-0 h-full max-w-md w-full',
+          'fixed right-0 top-16 h-[calc(100vh-4rem)] max-w-md w-full z-50',
           'data-[state=open]:animate-in data-[state=closed]:animate-out',
           'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
           'rounded-l-lg rounded-r-none border-r-0',
