@@ -4,11 +4,14 @@
  * Validates that frontend and backend schema versions match.
  * Prevents runtime errors from deployment mismatches where
  * frontend code expects backend functions/fields that don't exist.
+ *
+ * BACKWARDS COMPATIBILITY: If the backend doesn't have the version
+ * function deployed yet, the check is skipped (no crash).
  */
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
 
 import { api } from '@/convex/_generated/api';
@@ -22,12 +25,19 @@ import { api } from '@/convex/_generated/api';
 const FRONTEND_VERSION = '2.2.0';
 
 /**
+ * Feature Flag: Enable Version Checking
+ *
+ * Can be disabled via environment variable for emergency bypass.
+ */
+const VERSION_CHECK_ENABLED = process.env.NEXT_PUBLIC_DISABLE_VERSION_CHECK !== 'true';
+
+/**
  * Deployment Version Check Hook
  *
  * Call this hook in root layout to validate deployment compatibility.
- * Throws error if backend version doesn't match frontend expectations.
+ * Gracefully handles backends without the version function (backwards compatible).
  *
- * @throws {Error} If schema version mismatch detected
+ * @throws {Error} If schema version mismatch detected (only when function exists)
  *
  * @example
  * ```tsx
@@ -38,9 +48,19 @@ const FRONTEND_VERSION = '2.2.0';
  * ```
  */
 export function useDeploymentCheck() {
+  const [hasChecked, setHasChecked] = useState(false);
   const backendVersion = useQuery(api.system.getSchemaVersion);
 
   useEffect(() => {
+    // Skip if disabled via feature flag
+    if (!VERSION_CHECK_ENABLED) {
+      if (!hasChecked) {
+        console.warn('⚠️ Version check disabled via NEXT_PUBLIC_DISABLE_VERSION_CHECK');
+        setHasChecked(true);
+      }
+      return;
+    }
+
     // Wait for query to resolve
     if (backendVersion === undefined) {
       return;
@@ -67,7 +87,9 @@ export function useDeploymentCheck() {
       // Throw to trigger error boundary
       throw error;
     }
-  }, [backendVersion]);
+
+    setHasChecked(true);
+  }, [backendVersion, hasChecked]);
 
   return backendVersion;
 }

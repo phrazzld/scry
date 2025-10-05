@@ -339,10 +339,22 @@ The application automatically validates frontend/backend compatibility:
 - **Frontend Version**: Defined in `lib/deployment-check.ts`
 - **Validation**: Runs on every page load via `DeploymentVersionGuard`
 
+**Backwards Compatibility:**
+- If backend doesn't have version checking function, check is **silently skipped**
+- Allows gradual rollout without breaking existing deployments
+- Console warning logged for debugging
+
 **On Version Mismatch:**
 - Error displayed to user with clear explanation
 - Instructions provided for fixing the mismatch
 - Prevents runtime errors from missing functions/fields
+
+**Feature Flag (Emergency Bypass):**
+Set `NEXT_PUBLIC_DISABLE_VERSION_CHECK=true` to disable version checking entirely.
+```bash
+# In Vercel dashboard or .env.local
+NEXT_PUBLIC_DISABLE_VERSION_CHECK=true
+```
 
 **Updating Schema Version:**
 1. Increment version in `convex/schemaVersion.ts` (semantic versioning)
