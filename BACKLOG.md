@@ -1,6 +1,14 @@
 # BACKLOG: Background Question Generation System
 
-This file tracks future enhancements and nice-to-have improvements that are out of scope for the initial implementation but worth considering later.
+> **Note**: For deployment-related enhancements, see [BACKLOG_DEPLOYMENT.md](./BACKLOG_DEPLOYMENT.md)
+
+- allow learners to postpone an item
+- allow users to see, at a glance, all of the items/questions in their library
+  * maybe tied to timestamped user inputs / submissions?
+  * maybe allow bulk edits / deletions as well?
+  * maybe show next review at as well?
+  * fuck it solid crazy maximally useful dashboard view here
+- better interleaving of content during reviews
 
 ---
 
@@ -16,11 +24,6 @@ This file tracks future enhancements and nice-to-have improvements that are out 
   - Value: Filters out low-quality AI generations
   - Estimated effort: S (implement scoring heuristics)
   - Implementation: Add `qualityScore` field to questions, filter/sort by score
-
-- **Profanity/inappropriate content filter**: Run generated questions through content moderation API before saving
-  - Value: Safety, prevents inappropriate content
-  - Estimated effort: S (integrate moderation API)
-  - Options: OpenAI Moderation API, custom filter
 
 ### Contextual Question Generation (Sophisticated v2)
 - **Topic-aware generation**: When user has 100+ questions on "React", suggest generating deeper subtopic questions (hooks, context, performance, etc.)

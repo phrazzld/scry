@@ -7,6 +7,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { ConditionalNavbar } from '@/components/conditional-navbar';
+import { DeploymentVersionGuard } from '@/components/deployment-version-guard';
 import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
@@ -51,17 +52,19 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClerkConvexProvider>
-            <CurrentQuestionProvider>
-              <div className={getLayoutClassName()}>
-                <ConditionalNavbar />
-                {needsNavbarSpacer() && <div className="h-16" />}
-                <main>{children}</main>
-                <Footer />
-              </div>
-              <Toaster />
-              <Analytics />
-              <SpeedInsights />
-            </CurrentQuestionProvider>
+            <DeploymentVersionGuard>
+              <CurrentQuestionProvider>
+                <div className={getLayoutClassName()}>
+                  <ConditionalNavbar />
+                  {needsNavbarSpacer() && <div className="h-16" />}
+                  <main>{children}</main>
+                  <Footer />
+                </div>
+                <Toaster />
+                <Analytics />
+                <SpeedInsights />
+              </CurrentQuestionProvider>
+            </DeploymentVersionGuard>
           </ClerkConvexProvider>
         </ThemeProvider>
       </body>
