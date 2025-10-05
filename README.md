@@ -405,6 +405,8 @@ npx convex logs
 - **Current Production**: https://scry-o08qcl16e-moomooskycow.vercel.app
 - **Health Check**: https://scry-o08qcl16e-moomooskycow.vercel.app/api/health
 
+<!-- Deployment test: verifying atomic Convex+Vercel deployment -->
+
 ## Architecture
 
 - **Framework**: Next.js 15 with App Router
