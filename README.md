@@ -405,7 +405,7 @@ npx convex logs
 - **Current Production**: https://scry-o08qcl16e-moomooskycow.vercel.app
 - **Health Check**: https://scry-o08qcl16e-moomooskycow.vercel.app/api/health
 
-<!-- Deployment test: verifying atomic Convex+Vercel deployment -->
+<!-- Deployment test: verifying atomic Convex+Vercel deployment (retry with fixed deploy key) -->
 
 ## Architecture
 
