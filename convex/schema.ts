@@ -43,8 +43,6 @@ export default defineSchema({
       v.union(v.literal('new'), v.literal('learning'), v.literal('review'), v.literal('relearning'))
     ),
     lastReview: v.optional(v.number()),
-    // Legacy field (deprecated, kept for backwards compatibility with production data)
-    difficulty: v.optional(v.string()),
     // Soft delete and update tracking
     deletedAt: v.optional(v.number()), // For soft delete
     updatedAt: v.optional(v.number()), // Track last update time

@@ -26,7 +26,6 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
     // Error boundary will handle the error display in UI
     // The error state is already captured via getDerivedStateFromError

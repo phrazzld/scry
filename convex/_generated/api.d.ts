@@ -24,7 +24,9 @@ import type * as lib_logger from "../lib/logger.js";
 import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
 import type * as rateLimit from "../rateLimit.js";
+import type * as schemaVersion from "../schemaVersion.js";
 import type * as spacedRepetition from "../spacedRepetition.js";
+import type * as system from "../system.js";
 import type * as types from "../types.js";
 
 /**
@@ -47,7 +49,9 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   questions: typeof questions;
   rateLimit: typeof rateLimit;
+  schemaVersion: typeof schemaVersion;
   spacedRepetition: typeof spacedRepetition;
+  system: typeof system;
   types: typeof types;
 }>;
 export declare const api: FilterApi<
