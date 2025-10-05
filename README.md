@@ -217,11 +217,15 @@ describe('yourFunction', () => {
 
 ## Deployment
 
-⚠️ **Important**: This project uses separate Convex instances:
-- Development: amicable-lobster-935 (local development)
-- Production: uncommon-axolotl-639 (Vercel deployments)
+⚠️ **Critical**: Backend functions MUST be deployed before frontend builds. This project uses automatic atomic deployment to prevent mismatches.
 
-Always deploy to production before merging schema changes!
+### Deployment Architecture
+
+This project uses separate Convex instances:
+- **Development**: `amicable-lobster-935` (local development)
+- **Production**: `uncommon-axolotl-639` (production deployments)
+
+**Deployment Order**: Convex Backend → Validation → Vercel Frontend
 
 ### Prerequisites
 
@@ -231,114 +235,170 @@ Always deploy to production before merging schema changes!
    vercel login
    ```
 
-2. **Environment Validation**: Ensure all required variables are set
+2. **Convex Deploy Key**: Get production deploy key
+   - Visit [Convex Dashboard](https://dashboard.convex.dev)
+   - Navigate to Settings → Deploy Keys
+   - Generate and copy **production deploy key** (starts with `prod:`)
+
+3. **Environment Validation**: Ensure all required variables are set
    ```bash
    pnpm env:validate:prod
    pnpm deploy:check
    ```
 
-### Deployment Process
+### Automated Deployment (Recommended)
 
-1. **Deploy Convex Backend**:
-   ```bash
-   npx convex deploy
-   ```
+The project uses automated atomic deployment via Vercel's build command:
 
-2. **Link Vercel Project** (first time only):
+#### Initial Setup
+
+1. **Link Vercel Project** (first time only):
    ```bash
    vercel link
    ```
 
-3. **Configure Environment Variables**:
-   ```bash
-   # Pull existing variables (if any)
-   vercel env pull .env.local
-   
-   # Add required variables via Vercel Dashboard or CLI
-   vercel env add GOOGLE_AI_API_KEY
-   vercel env add NEXT_PUBLIC_CONVEX_URL
-   vercel env add CONVEX_DEPLOY_KEY
-   vercel env add RESEND_API_KEY
-   vercel env add EMAIL_FROM
-   ```
-   
-   **Important**: Get your `CONVEX_DEPLOY_KEY` from the Convex Dashboard → Settings → Deploy Keys
+2. **Configure Environment Variables** in Vercel Dashboard:
+   - `GOOGLE_AI_API_KEY` - Google AI API key
+   - `NEXT_PUBLIC_CONVEX_URL` - Production Convex URL
+   - `CONVEX_DEPLOY_KEY` - Production deploy key (from step 2)
+   - `RESEND_API_KEY` - Resend API key for emails
+   - `EMAIL_FROM` - Email sender address
 
-4. **Deploy**:
-   ```bash
-   # Deploy to preview
-   vercel
-   
-   # Deploy to production
-   vercel --prod
-   ```
+   Set these for **both Production and Preview** environments.
 
-### Convex + Vercel Integration
+3. **Update Build Command** in Vercel Dashboard:
+   - Navigate to: Project Settings → Build & Development Settings
+   - Set "Build Command Override": `npx convex deploy --cmd 'pnpm build'`
+   - This is already configured in `vercel.json` but dashboard override provides redundancy
 
-This application uses a coordinated deployment strategy where Convex functions are deployed automatically as part of the Vercel build process.
-
-#### How It Works
-
-1. **Build Command Integration**: The `vercel.json` file configures Convex deployment as part of the build:
-   ```json
-   {
-     "buildCommand": "npx convex deploy --cmd 'pnpm build'"
-   }
-   ```
-
-2. **Automatic Deployment**: When you deploy to Vercel, it automatically:
-   - Deploys your Convex functions first
-   - Then builds and deploys your Next.js application
-   - Ensures both backend and frontend are synchronized
-
-#### Deployment Verification
-
-After deployment, verify everything is working:
+#### Deploying
 
 ```bash
-# Check deployment status
-node scripts/verify-deployment-setup.cjs
+# Deploy to preview environment
+vercel
 
-# Monitor Convex logs
-npx convex logs
-
-# Test the deployed application
-curl https://your-app.vercel.app/api/health
+# Deploy to production
+vercel --prod
 ```
 
-#### Troubleshooting Deployments
+**What Happens Automatically:**
+1. Vercel runs: `npx convex deploy --cmd 'pnpm build'`
+2. Convex functions deploy first using `CONVEX_DEPLOY_KEY`
+3. Schema version tracking validates compatibility
+4. Next.js application builds with deployed backend
+5. Frontend deploys to Vercel
 
-If deployments fail:
+### Manual Deployment (Production Hotfix)
 
-1. **Check Convex deployment first**:
-   ```bash
-   npx convex deploy --prod
-   ```
+For manual deployments or production hotfixes, use the atomic deployment script:
 
-2. **Verify environment variables** in Vercel dashboard
-3. **Check build logs** in Vercel deployment details
-4. **Review Convex logs** for backend errors: `npx convex logs`
+```bash
+# Export production deploy key
+export CONVEX_DEPLOY_KEY="prod:your-key-here"
 
-For detailed troubleshooting, see [docs/convex-deployment-fix.md](docs/convex-deployment-fix.md).
+# Run atomic deployment script
+./scripts/deploy-production.sh
+```
+
+**Script Steps:**
+1. Deploys Convex backend functions
+2. Runs health check to verify critical functions exist
+3. Deploys Vercel frontend (only if backend healthy)
+4. Exits with error at first failure
+
+### Deployment Validation
+
+#### Health Check Script
+
+Verify deployment health before and after deploying:
+
+```bash
+# Check that all critical functions are deployed
+./scripts/check-deployment-health.sh
+```
+
+**Validates:**
+- Convex deployment connectivity
+- Critical functions exist:
+  - `generationJobs:getRecentJobs`, `createJob`, `cancelJob`
+  - `aiGeneration:processJob`
+  - `questions:saveBatch`
+  - `spacedRepetition:getNextReview`, `scheduleReview`
+
+Exit codes: `0` = healthy, `1` = unhealthy with detailed error
+
+#### Schema Version Tracking
+
+The application automatically validates frontend/backend compatibility:
+
+- **Backend Version**: Defined in `convex/schemaVersion.ts`
+- **Frontend Version**: Defined in `lib/deployment-check.ts`
+- **Validation**: Runs on every page load via `DeploymentVersionGuard`
+
+**On Version Mismatch:**
+- Error displayed to user with clear explanation
+- Instructions provided for fixing the mismatch
+- Prevents runtime errors from missing functions/fields
+
+**Updating Schema Version:**
+1. Increment version in `convex/schemaVersion.ts` (semantic versioning)
+2. Update matching version in `lib/deployment-check.ts`
+3. Deploy backend first: `npx convex deploy`
+4. Deploy frontend second: `vercel --prod`
+5. Or use atomic script: `./scripts/deploy-production.sh`
 
 ### Production Monitoring
 
-After deployment, monitor your application:
+After deployment, verify functionality:
 
 ```bash
-# View production logs
-vercel logs <deployment-url>
+# View Vercel deployment logs
+vercel logs --prod
+vercel logs --prod --follow  # Real-time streaming
 
-# Follow real-time logs
-vercel logs <deployment-url> --follow
+# View Convex backend logs
+npx convex logs
 
-# View build logs
-vercel inspect --logs <deployment-url>
+# Run health check
+./scripts/check-deployment-health.sh
 ```
 
-**Health Check**: Visit `/api/health` on your deployed URL to verify system health.
+**Manual Verification:**
+1. Visit production URL and check for "Server Error"
+2. Open browser console - should be clean except preload warnings
+3. Test question generation flow
+4. Test spaced repetition reviews
+5. Verify schema version check passes (no error modal)
 
-For comprehensive monitoring setup, see [docs/monitoring-setup.md](docs/monitoring-setup.md).
+### Troubleshooting Deployments
+
+**"Function not found" errors in production:**
+- **Cause**: Frontend deployed before backend functions
+- **Fix**: Run `npx convex deploy` then redeploy frontend
+- **Prevention**: Use automated deployment or atomic script
+
+**Schema version mismatch errors:**
+- **Cause**: Backend and frontend versions don't match
+- **Fix**: Ensure both `convex/schemaVersion.ts` and `lib/deployment-check.ts` have same version
+- **Deploy**: Backend first, then frontend
+
+**Convex deploy fails in Vercel build:**
+- **Cause**: `CONVEX_DEPLOY_KEY` not set or invalid
+- **Fix**: Verify key exists in Vercel environment variables
+- **Scope**: Must be set for both Production AND Preview
+
+**Health check fails:**
+- **Cause**: Critical functions missing from deployment
+- **Fix**: Check Convex dashboard for deployment errors
+- **Retry**: `npx convex deploy` to redeploy functions
+
+### Deployment Best Practices
+
+1. **Always Use Atomic Deployment**: Prefer automated Vercel deployment or manual script
+2. **Validate Before Deploying**: Run `./scripts/check-deployment-health.sh` before production deploy
+3. **Update Schema Versions**: Keep frontend and backend versions in sync
+4. **Monitor After Deploy**: Check logs and run health check after every deployment
+5. **Test Preview First**: Deploy to preview environment before production
 
 ## Production URLs
 
