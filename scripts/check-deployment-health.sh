@@ -64,21 +64,29 @@ fi
 echo -e "${GREEN}✓${NC} Successfully connected to Convex deployment"
 echo ""
 
-# Check 3: Verify critical functions exist by attempting to call them
+# Check 3: Verify critical functions exist by listing all functions
 echo "📋 Checking for critical functions..."
+
+# Get list of all deployed functions
+# Format: "functionName" or "namespace:functionName"
+FUNCTIONS_LIST=$(npx convex functions list 2>&1 || echo "")
+
+if echo "$FUNCTIONS_LIST" | grep -q "Error\|error"; then
+  echo -e "${RED}❌ FAILED: Unable to list Convex functions${NC}"
+  echo "   Error output:"
+  echo "$FUNCTIONS_LIST" | head -10
+  exit 1
+fi
 
 MISSING_FUNCTIONS=()
 for func in "${CRITICAL_FUNCTIONS[@]}"; do
-  # Try to run the function with --help to see if it exists
-  # This doesn't execute the function, just checks if it's callable
-  RUN_OUTPUT=$(npx convex run "$func" --help 2>&1 || true)
-
-  # If the function doesn't exist, we get "Error: Function not found"
-  if echo "$RUN_OUTPUT" | grep -q "not found\|Function.*does not exist"; then
+  # Check if function appears in the list
+  # Match the full function name (namespace:functionName)
+  if echo "$FUNCTIONS_LIST" | grep -qF "$func"; then
+    echo -e "${GREEN}✓${NC} $func"
+  else
     echo -e "${RED}✗${NC} $func (not found)"
     MISSING_FUNCTIONS+=("$func")
-  else
-    echo -e "${GREEN}✓${NC} $func"
   fi
 done
 

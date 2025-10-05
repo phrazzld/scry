@@ -260,11 +260,15 @@ The project uses automated atomic deployment via Vercel's build command:
 2. **Configure Environment Variables** in Vercel Dashboard:
    - `GOOGLE_AI_API_KEY` - Google AI API key
    - `NEXT_PUBLIC_CONVEX_URL` - Production Convex URL
-   - `CONVEX_DEPLOY_KEY` - Production deploy key (from step 2)
+   - `CONVEX_DEPLOY_KEY` - Production deploy key (from step 2) - **Production only**
    - `RESEND_API_KEY` - Resend API key for emails
    - `EMAIL_FROM` - Email sender address
 
-   Set these for **both Production and Preview** environments.
+   **Important:**
+   - Set all variables for **both Production and Preview** environments
+   - **Exception:** `CONVEX_DEPLOY_KEY` is only needed for Production
+     - Preview deployments use the already-deployed development Convex instance
+     - They do not trigger new Convex deployments, only Next.js builds
 
 3. **Update Build Command** in Vercel Dashboard:
    - Navigate to: Project Settings → Build & Development Settings

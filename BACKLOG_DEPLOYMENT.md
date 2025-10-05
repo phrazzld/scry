@@ -58,6 +58,57 @@ This file tracks future deployment improvements that are out of scope for the im
 
 ---
 
+## PR Review Follow-Up Items
+
+These items came from PR #28 review feedback but are out of scope for the immediate deployment fix.
+
+### Graceful Version Mismatch UX
+- **Description**: Improve user experience when frontend/backend version mismatch occurs during rolling deployments
+- **Current State**: Version mismatch throws error unconditionally, crashing the entire app
+- **Problem**: During rolling deployments with edge cache serving stale frontend, users hit hard errors instead of graceful degradation
+- **Suggested Improvements**:
+  - Implement error boundary with user-friendly messaging
+  - Add automatic retry/reload mechanisms
+  - Consider progressive degradation vs hard error (e.g., show warning banner but allow read-only access)
+  - Display countdown timer for automatic retry
+  - Provide "Force Refresh" button for immediate resolution
+- **Value**: Better UX during deployments, reduced user frustration, fewer support tickets
+- **Estimated Effort**: M (2-3 hours)
+  - Design error boundary component
+  - Implement retry logic with exponential backoff
+  - Test during simulated rolling deployment
+  - Update deployment-check.ts to support degraded mode
+- **When to Implement**: After first user complaints about version mismatch errors
+- **Source**: Claude PR #28 review feedback (High Priority Recommendation #3)
+- **Related Files**: `lib/deployment-check.ts:68`, `components/deployment-version-guard.tsx`
+
+### Deployment Script Test Coverage
+- **Description**: Add automated tests for deployment shell scripts
+- **Current State**: No automated tests for `vercel-build.sh`, `check-deployment-health.sh`, `deploy-production.sh`
+- **Testing Gaps Identified**:
+  1. Environment-aware build script logic (VERCEL_ENV detection)
+  2. Health check failure scenarios (e.g., 1 out of 7 functions missing)
+  3. Version mismatch detection and error handling
+  4. Deployment script error handling and rollback
+- **Suggested Implementation**:
+  - Set up shell testing framework (bats-core or shunit2)
+  - Mock Convex CLI commands for isolated testing
+  - Test environment variable handling
+  - Test error conditions and exit codes
+  - Add to CI pipeline as pre-deployment validation
+- **Value**: Higher confidence in deployment automation, catch regressions before production
+- **Estimated Effort**: L (4-6 hours)
+  - Research and set up shell testing framework
+  - Write test cases for all three scripts
+  - Mock external dependencies (npx convex, vercel CLI)
+  - Integrate into CI/CD pipeline
+  - Document testing approach
+- **When to Implement**: When deployment frequency exceeds 2x per week or after first deployment script regression
+- **Source**: Claude PR #28 review feedback (Testing Gaps)
+- **Related Files**: `scripts/vercel-build.sh`, `scripts/check-deployment-health.sh`, `scripts/deploy-production.sh`
+
+---
+
 ## Nice-to-Have Improvements
 
 ### Deployment Notifications

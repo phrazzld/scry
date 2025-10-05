@@ -19,7 +19,7 @@ import { api } from '@/convex/_generated/api';
  * This MUST match SCHEMA_VERSION in convex/schemaVersion.ts.
  * Update this when deploying schema changes to prevent mismatches.
  */
-const FRONTEND_VERSION = '2.1.0';
+const FRONTEND_VERSION = '2.2.0';
 
 /**
  * Deployment Version Check Hook

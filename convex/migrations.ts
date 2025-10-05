@@ -536,7 +536,14 @@ async function removeDifficultyFromQuestionsInternal(
           if (!dryRun) {
             // Use replace to remove the field entirely
             // Convex doesn't have a built-in way to delete fields, so we reconstruct
-            const { difficulty: _difficulty, ...questionWithoutDifficulty } = question;
+            // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
+            // Convex's db.replace() rejects objects that include system fields
+            const {
+              difficulty: _difficulty,
+              _id,
+              _creationTime,
+              ...questionWithoutDifficulty
+            } = question;
 
             await ctx.db.replace(question._id, questionWithoutDifficulty);
           }
