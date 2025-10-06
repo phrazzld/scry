@@ -18,7 +18,10 @@ export function BackgroundTasksBadge() {
         variant="ghost"
         size="icon"
         onClick={() => setIsPanelOpen(true)}
-        className={cn('relative size-9 rounded-full', hasActive && 'text-primary')}
+        className={cn(
+          'relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0',
+          hasActive && 'bg-accent text-foreground'
+        )}
         aria-label={`Background tasks${hasActive ? ` (${activeCount} active)` : ''}`}
       >
         <ActivityIcon className="h-4 w-4" />
