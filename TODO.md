@@ -5,7 +5,8 @@
 ✅ **Phase 1: Backend Foundation** - COMPLETE
 ✅ **Phase 2: Desktop UI Foundation** - COMPLETE
 ✅ **Phase 3: Mobile & Polish** - COMPLETE (except Preview Dialog)
-⏳ **Phase 4: Testing & Edge Cases** - NOT STARTED
+✅ **Phase 5: QA Fixes** - COMPLETE (all 5 critical fixes implemented)
+⏳ **Phase 4: Testing & Edge Cases** - READY FOR QA
 
 ### Completed Work
 
@@ -27,7 +28,51 @@
 - ✅ Library link in navbar with active state
 - ✅ Empty states for all three tabs
 
+**QA Fixes (Phase 5):**
+- ✅ Fixed table width with explicit column sizing (40-400px constraints)
+- ✅ Implemented functional actions dropdown with context-dependent items
+- ✅ Added contextual date columns (Created/Archived/Deleted)
+- ✅ Conditional column visibility (hide Performance/Next Review in archived/trash)
+- ✅ Fixed content overflow and text bleeding with truncation
+
 ### Remaining Work
+
+**QA Fixes (Phase 5 - PRIORITY):**
+- [x] Fix table width and column sizing (tables very wide, need viewport fit)
+  - Add explicit column widths using TanStack Table size/minSize/maxSize
+  - Implement table-layout: fixed
+  - Reduce question column width constraints
+  - Success: Table fits viewport, no horizontal scroll
+  - Time: 1.5 hours
+
+- [x] Implement functional actions dropdown (currently not clickable)
+  - Replace placeholder "•••" with working DropdownMenu
+  - Add context-dependent items (Archive/Unarchive, Delete/Restore based on tab)
+  - Wire up individual mutations (reuse bulk mutations with single-item arrays)
+  - Success: All actions work for individual items
+  - Time: 2 hours
+
+- [x] Add contextual date columns (show archived/deleted dates in respective tabs)
+  - Active tab: "Created" (generatedAt)
+  - Archived tab: "Archived" (archivedAt)
+  - Trash tab: "Deleted" (deletedAt)
+  - Apply to both LibraryTable and LibraryCards
+  - Success: Appropriate dates shown in each tab
+  - Time: 1 hour
+
+- [x] Conditional column visibility (hide performance/next review in archived/trash)
+  - Hide Performance column in archived/trash tabs (not in review schedule)
+  - Hide Next Review column in archived/trash tabs
+  - Build columns array based on currentTab prop
+  - Success: Only relevant columns shown per tab
+  - Time: 45 minutes
+
+- [x] Fix content overflow/bleeding (text bleeds into neighboring columns)
+  - Add truncate class to all text cells
+  - Add overflow-hidden to TableCell wrapper
+  - Ensure proper width constraints
+  - Success: No text bleeding, proper truncation with ellipsis
+  - Time: 30 minutes
 
 **Preview Dialog (Phase 3 - Optional):**
 - [ ] Implement QuestionPreviewDialog component
@@ -605,6 +650,300 @@
 
   Success: Clicking question opens preview dialog, close button works
   Time: 20 minutes
+  ```
+
+---
+
+## Phase 5: QA Fixes [5.75 hours] ⏳ IN PROGRESS
+
+*Critical fixes identified during QA testing - must be completed before user testing*
+
+### Table Width & Responsiveness
+
+- [ ] Fix table column sizing and viewport overflow
+  ```
+  Files: app/library/_components/library-table.tsx:44-163 (column definitions)
+
+  🎯 MODULARITY: Column sizing separated from content rendering
+  🎯 TESTABILITY: Test at 1024px, 1440px, 1920px viewports
+
+  Current Issues:
+  - No width constraints on most columns
+  - Question column has max-w-md (448px) which is too wide
+  - No table-layout: fixed causing auto-expansion
+  - Horizontal scroll required on standard laptop screens
+
+  Approach:
+  - Add size property to each column definition:
+    { id: 'select', size: 40 }
+    { accessorKey: 'question', size: 300, minSize: 200, maxSize: 400 }
+    { accessorKey: 'topic', size: 120 }
+    { id: 'stats', size: 140 }
+    { accessorKey: 'generatedAt', size: 120 }
+    { accessorKey: 'nextReview', size: 120 }
+    { accessorKey: 'type', size: 60 }
+    { id: 'actions', size: 60 }
+
+  - Add table container styling:
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="table-fixed">
+
+  - Update question cell to use truncate:
+    className="text-left hover:underline truncate block max-w-full"
+
+  Success: Table fits 1024px viewport, no horizontal scroll, proper column distribution
+  Time: 1.5 hours
+  ```
+
+### Actions Dropdown Implementation
+
+- [ ] Implement functional actions dropdown menu
+  ```
+  Files:
+    - app/library/_components/library-table.tsx:155-162 (replace placeholder)
+    - app/library/_components/library-client.tsx:47-106 (add single-item handlers)
+
+  🎯 MODULARITY: DropdownMenu component reused from shadcn/ui
+  🎯 TESTABILITY: Test all actions in all tabs, verify correct API calls
+
+  Current Issue: Actions column shows "•••" placeholder, no functionality
+
+  Approach:
+  1. Import DropdownMenu components:
+     import {
+       DropdownMenu,
+       DropdownMenuContent,
+       DropdownMenuItem,
+       DropdownMenuTrigger,
+     } from '@/components/ui/dropdown-menu';
+     import { MoreHorizontal, Archive, Trash2, Edit } from 'lucide-react';
+
+  2. Replace actions column cell (line 159):
+     cell: ({ row }) => {
+       const question = row.original;
+       return (
+         <DropdownMenu>
+           <DropdownMenuTrigger asChild>
+             <Button variant="ghost" size="icon" className="h-8 w-8">
+               <MoreHorizontal className="h-4 w-4" />
+             </Button>
+           </DropdownMenuTrigger>
+           <DropdownMenuContent align="end">
+             {currentTab === 'active' && (
+               <>
+                 <DropdownMenuItem onClick={() => onArchive?.([question._id])}>
+                   <Archive className="mr-2 h-4 w-4" />
+                   Archive
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                   <Trash2 className="mr-2 h-4 w-4" />
+                   Delete
+                 </DropdownMenuItem>
+               </>
+             )}
+             {currentTab === 'archived' && (
+               <>
+                 <DropdownMenuItem onClick={() => onUnarchive?.([question._id])}>
+                   <Archive className="mr-2 h-4 w-4" />
+                   Unarchive
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                   <Trash2 className="mr-2 h-4 w-4" />
+                   Delete
+                 </DropdownMenuItem>
+               </>
+             )}
+             {currentTab === 'trash' && (
+               <>
+                 <DropdownMenuItem onClick={() => onRestore?.([question._id])}>
+                   Restore
+                 </DropdownMenuItem>
+                 <DropdownMenuItem
+                   variant="destructive"
+                   onClick={() => onPermanentDelete?.([question._id])}
+                 >
+                   Delete Permanently
+                 </DropdownMenuItem>
+               </>
+             )}
+           </DropdownMenuContent>
+         </DropdownMenu>
+       );
+     }
+
+  3. Update LibraryTable props to accept action handlers:
+     interface LibraryTableProps {
+       // ... existing props
+       onArchive?: (ids: Id<'questions'>[]) => void;
+       onUnarchive?: (ids: Id<'questions'>[]) => void;
+       onDelete?: (ids: Id<'questions'>[]) => void;
+       onRestore?: (ids: Id<'questions'>[]) => void;
+       onPermanentDelete?: (ids: Id<'questions'>[]) => void;
+     }
+
+  4. Pass handlers from LibraryClient (line 136, 161, 186):
+     <LibraryTable
+       {...existingProps}
+       onArchive={handleArchive}
+       onUnarchive={handleUnarchive}
+       onDelete={handleDelete}
+       onRestore={handleRestore}
+       onPermanentDelete={handlePermanentDelete}
+     />
+
+  Success: All actions work for individual items, context-appropriate menu shown
+  Time: 2 hours
+  ```
+
+### Contextual Date Columns
+
+- [ ] Add contextual date columns based on tab
+  ```
+  Files:
+    - app/library/_components/library-table.tsx:110-118 (modify date column)
+    - app/library/_components/library-cards.tsx:99-102 (modify date display)
+
+  🎯 MODULARITY: Date column logic isolated, easy to test different views
+  🎯 TESTABILITY: Test each tab shows appropriate date field
+
+  Current Issue: Always shows "Created" date (generatedAt), doesn't show archivedAt/deletedAt
+
+  Approach for LibraryTable:
+  1. Replace static "Created" column with conditional:
+     {
+       id: 'date',
+       header: () => {
+         if (currentTab === 'archived') return 'Archived';
+         if (currentTab === 'trash') return 'Deleted';
+         return 'Created';
+       },
+       cell: ({ row }) => {
+         const { archivedAt, deletedAt, generatedAt } = row.original;
+         let date = generatedAt;
+         if (currentTab === 'archived' && archivedAt) date = archivedAt;
+         if (currentTab === 'trash' && deletedAt) date = deletedAt;
+
+         return (
+           <span className="text-sm text-muted-foreground">
+             {formatDistanceToNow(date, { addSuffix: true })}
+           </span>
+         );
+       },
+       size: 120,
+     }
+
+  2. Apply same logic to LibraryCards (line 99-102):
+     <div className="text-muted-foreground">
+       {currentTab === 'archived' && question.archivedAt ? (
+         <>Archived {formatDistanceToNow(question.archivedAt, { addSuffix: true })}</>
+       ) : currentTab === 'trash' && question.deletedAt ? (
+         <>Deleted {formatDistanceToNow(question.deletedAt, { addSuffix: true })}</>
+       ) : (
+         <>Created {formatDistanceToNow(question.generatedAt, { addSuffix: true })}</>
+       )}
+     </div>
+
+  Success: Active shows "Created", Archived shows "Archived", Trash shows "Deleted"
+  Time: 1 hour
+  ```
+
+### Conditional Column Visibility
+
+- [ ] Hide inappropriate columns in archived/trash tabs
+  ```
+  Files:
+    - app/library/_components/library-table.tsx:44-163 (rebuild columns array)
+    - app/library/_components/library-cards.tsx:86-115 (conditional rendering)
+
+  🎯 MODULARITY: Column visibility logic separate from column definitions
+  🎯 TESTABILITY: Test each tab shows only relevant columns
+
+  Current Issue: Performance and Next Review columns shown in all tabs (irrelevant for archived/deleted)
+
+  Approach for LibraryTable:
+  1. Wrap column definitions in function that filters based on currentTab:
+     const getColumns = (currentTab: LibraryView): ColumnDef<LibraryQuestion>[] => {
+       const allColumns: ColumnDef<LibraryQuestion>[] = [
+         selectColumn,
+         questionColumn,
+         topicColumn,
+         ...(currentTab === 'active' ? [performanceColumn] : []),
+         dateColumn, // Already contextual from previous task
+         ...(currentTab === 'active' ? [nextReviewColumn] : []),
+         typeColumn,
+         actionsColumn,
+       ];
+       return allColumns;
+     };
+
+  2. Use dynamic columns in useReactTable:
+     const table = useReactTable({
+       data: questions,
+       columns: getColumns(currentTab),
+       // ... rest of config
+     });
+
+  3. Update LibraryCards to conditionally render (line 86-115):
+     <CardContent className="space-y-2 text-sm">
+       {currentTab === 'active' && (
+         <div>
+           {/* Performance stats - only for active */}
+         </div>
+       )}
+
+       {/* Date - always show, already contextual */}
+
+       {currentTab === 'active' && question.nextReview && (
+         <div>
+           {/* Next review - only for active */}
+         </div>
+       )}
+
+       {/* Type - always show */}
+     </CardContent>
+
+  Success: Active shows all columns, Archived/Trash hide Performance and Next Review
+  Time: 45 minutes
+  ```
+
+### Content Overflow Fix
+
+- [ ] Fix content bleeding/overflow in table cells
+  ```
+  Files: app/library/_components/library-table.tsx:66-82 (question cell), entire table
+
+  🎯 MODULARITY: Cell styling separated from content
+  🎯 TESTABILITY: Test with very long question text, long topic names
+
+  Current Issue: Text overflows and bleeds into neighboring columns
+
+  Approach:
+  1. Add truncate to all text cells:
+     - Question cell (line 74-80):
+       <button
+         onClick={() => onPreviewClick?.(row.original)}
+         className="text-left hover:underline text-sm truncate block w-full"
+       >
+         {truncated}
+       </button>
+
+     - Topic cell (line 88):
+       <Badge variant="secondary" className="truncate max-w-full">
+         {row.original.topic}
+       </Badge>
+
+     - All other text cells: Add "truncate" class
+
+  2. Ensure TableCell has overflow control:
+     - Check components/ui/table.tsx for TableCell className
+     - Should include: "overflow-hidden p-4"
+
+  3. Add width constraints to table:
+     <div className="rounded-md border overflow-x-auto">
+       <Table className="table-fixed w-full">
+
+  Success: No text bleeding, ellipsis shown for overflow, clean column boundaries
+  Time: 30 minutes
   ```
 
 ---
