@@ -587,6 +587,60 @@ export const getRecentTopics = query({
 });
 
 /**
+ * Get questions for library view with filtering by state
+ *
+ * Returns questions filtered by view (active/archived/trash) with derived stats.
+ * Active: not archived and not deleted
+ * Archived: archived but not deleted
+ * Trash: deleted (regardless of archive state)
+ */
+export const getLibrary = query({
+  args: {
+    view: v.union(v.literal('active'), v.literal('archived'), v.literal('trash')),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const limit = args.limit || 500;
+
+    // Query all user questions, ordered by most recent
+    let questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .take(limit * 2); // Over-fetch to account for filtering
+
+    // Filter based on view
+    questions = questions.filter((q) => {
+      const isArchived = !!q.archivedAt;
+      const isDeleted = !!q.deletedAt;
+
+      switch (args.view) {
+        case 'active':
+          return !isArchived && !isDeleted;
+        case 'archived':
+          return isArchived && !isDeleted;
+        case 'trash':
+          return isDeleted;
+        default:
+          return false;
+      }
+    });
+
+    // Take only requested limit after filtering
+    questions = questions.slice(0, limit);
+
+    // Add derived stats to each question
+    return questions.map((q) => ({
+      ...q,
+      failedCount: q.attemptCount - q.correctCount,
+      successRate: q.attemptCount > 0 ? Math.round((q.correctCount / q.attemptCount) * 100) : null,
+    }));
+  },
+});
+
+/**
  * Archive multiple questions (bulk operation)
  *
  * Sets archivedAt timestamp to remove questions from active review queue
