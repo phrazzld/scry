@@ -40,7 +40,7 @@ export function LibraryTable({
   onSelectionChange,
   onPreviewClick,
 }: LibraryTableProps) {
-  // Define columns
+  // Define columns with explicit sizing for proper table layout
   const columns: ColumnDef<LibraryQuestion>[] = [
     // 1. Selection checkbox column
     {
@@ -59,6 +59,7 @@ export function LibraryTable({
           aria-label="Select row"
         />
       ),
+      size: 40,
       enableSorting: false,
       enableHiding: false,
     },
@@ -73,12 +74,15 @@ export function LibraryTable({
         return (
           <button
             onClick={() => onPreviewClick?.(row.original)}
-            className="text-left hover:underline max-w-md text-sm"
+            className="text-left hover:underline truncate block w-full text-sm"
           >
             {truncated}
           </button>
         );
       },
+      size: 300,
+      minSize: 200,
+      maxSize: 400,
     },
 
     // 3. Topic badge column
@@ -86,6 +90,7 @@ export function LibraryTable({
       accessorKey: 'topic',
       header: 'Topic',
       cell: ({ row }) => <Badge variant="secondary">{row.original.topic}</Badge>,
+      size: 120,
     },
 
     // 4. Performance stats column
@@ -104,6 +109,7 @@ export function LibraryTable({
           </div>
         );
       },
+      size: 140,
     },
 
     // 5. Created date column
@@ -115,6 +121,7 @@ export function LibraryTable({
           {formatDistanceToNow(row.original.generatedAt, { addSuffix: true })}
         </span>
       ),
+      size: 120,
     },
 
     // 6. Next review column
@@ -136,6 +143,7 @@ export function LibraryTable({
           </span>
         );
       },
+      size: 120,
     },
 
     // 7. Type column
@@ -150,6 +158,7 @@ export function LibraryTable({
           </span>
         );
       },
+      size: 60,
     },
 
     // 8. Actions column (placeholder for future dropdown)
@@ -159,6 +168,7 @@ export function LibraryTable({
       cell: () => {
         return <span className="text-xs text-muted-foreground">•••</span>;
       },
+      size: 60,
     },
   ];
 
@@ -213,12 +223,17 @@ export function LibraryTable({
 
   return (
     <div className="rounded-md border">
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
+                <TableHead
+                  key={header.id}
+                  style={{
+                    width: header.getSize(),
+                  }}
+                >
                   {header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())}
@@ -232,7 +247,12 @@ export function LibraryTable({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell
+                    key={cell.id}
+                    style={{
+                      width: cell.column.getSize(),
+                    }}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
