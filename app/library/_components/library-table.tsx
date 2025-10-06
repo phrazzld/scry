@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
@@ -86,13 +87,21 @@ export function LibraryTable({
     cell: ({ row }) => {
       const question = row.original.question;
       const truncated = question.length > 100 ? `${question.slice(0, 100)}...` : question;
+
       return (
-        <button
-          onClick={() => onPreviewClick?.(row.original)}
-          className="text-left hover:underline truncate block w-full text-sm"
-        >
-          {truncated}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => onPreviewClick?.(row.original)}
+              className="text-left hover:underline truncate block w-full text-sm"
+            >
+              {truncated}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-md">
+            <p className="whitespace-pre-wrap break-words">{question}</p>
+          </TooltipContent>
+        </Tooltip>
       );
     },
     size: 300,
@@ -103,11 +112,21 @@ export function LibraryTable({
   const topicColumn: ColumnDef<LibraryQuestion> = {
     accessorKey: 'topic',
     header: 'Topic',
-    cell: ({ row }) => (
-      <Badge variant="secondary" className="truncate max-w-full block">
-        {row.original.topic}
-      </Badge>
-    ),
+    cell: ({ row }) => {
+      const topic = row.original.topic;
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="secondary" className="truncate max-w-full block cursor-default">
+              {topic}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{topic}</p>
+          </TooltipContent>
+        </Tooltip>
+      );
+    },
     size: 120,
   };
 

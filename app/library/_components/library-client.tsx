@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 
@@ -45,60 +46,90 @@ export function LibraryClient() {
   };
 
   // Bulk operation handlers with optimistic updates
-  const handleArchive = async () => {
-    const count = selectedIds.size;
+  const handleArchive = async (ids: Id<'questions'>[]) => {
+    const count = ids.length;
+    if (count === 0) return;
+
     try {
-      await archiveQuestions({ questionIds: Array.from(selectedIds) });
+      await archiveQuestions({ questionIds: ids });
       toast.success(`Archived ${count} ${count === 1 ? 'question' : 'questions'}`);
-      setSelectedIds(new Set());
+
+      // Remove operated items from selection
+      const newSelection = new Set(selectedIds);
+      ids.forEach((id) => newSelection.delete(id));
+      setSelectedIds(newSelection);
     } catch (error) {
       toast.error('Failed to archive questions');
       console.error(error);
     }
   };
 
-  const handleUnarchive = async () => {
-    const count = selectedIds.size;
+  const handleUnarchive = async (ids: Id<'questions'>[]) => {
+    const count = ids.length;
+    if (count === 0) return;
+
     try {
-      await unarchiveQuestions({ questionIds: Array.from(selectedIds) });
+      await unarchiveQuestions({ questionIds: ids });
       toast.success(`Unarchived ${count} ${count === 1 ? 'question' : 'questions'}`);
-      setSelectedIds(new Set());
+
+      // Remove operated items from selection
+      const newSelection = new Set(selectedIds);
+      ids.forEach((id) => newSelection.delete(id));
+      setSelectedIds(newSelection);
     } catch (error) {
       toast.error('Failed to unarchive questions');
       console.error(error);
     }
   };
 
-  const handleDelete = async () => {
-    const count = selectedIds.size;
+  const handleDelete = async (ids: Id<'questions'>[]) => {
+    const count = ids.length;
+    if (count === 0) return;
+
     try {
-      await bulkDelete({ questionIds: Array.from(selectedIds) });
+      await bulkDelete({ questionIds: ids });
       toast.success(`Deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
-      setSelectedIds(new Set());
+
+      // Remove operated items from selection
+      const newSelection = new Set(selectedIds);
+      ids.forEach((id) => newSelection.delete(id));
+      setSelectedIds(newSelection);
     } catch (error) {
       toast.error('Failed to delete questions');
       console.error(error);
     }
   };
 
-  const handleRestore = async () => {
-    const count = selectedIds.size;
+  const handleRestore = async (ids: Id<'questions'>[]) => {
+    const count = ids.length;
+    if (count === 0) return;
+
     try {
-      await restoreQuestions({ questionIds: Array.from(selectedIds) });
+      await restoreQuestions({ questionIds: ids });
       toast.success(`Restored ${count} ${count === 1 ? 'question' : 'questions'}`);
-      setSelectedIds(new Set());
+
+      // Remove operated items from selection
+      const newSelection = new Set(selectedIds);
+      ids.forEach((id) => newSelection.delete(id));
+      setSelectedIds(newSelection);
     } catch (error) {
       toast.error('Failed to restore questions');
       console.error(error);
     }
   };
 
-  const handlePermanentDelete = async () => {
-    const count = selectedIds.size;
+  const handlePermanentDelete = async (ids: Id<'questions'>[]) => {
+    const count = ids.length;
+    if (count === 0) return;
+
     try {
-      await permanentlyDelete({ questionIds: Array.from(selectedIds) });
+      await permanentlyDelete({ questionIds: ids });
       toast.success(`Permanently deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
-      setSelectedIds(new Set());
+
+      // Remove operated items from selection
+      const newSelection = new Set(selectedIds);
+      ids.forEach((id) => newSelection.delete(id));
+      setSelectedIds(newSelection);
     } catch (error) {
       toast.error('Failed to permanently delete questions');
       console.error(error);
@@ -106,117 +137,119 @@ export function LibraryClient() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <h1 className="text-3xl font-bold mb-6">Question Library</h1>
+    <TooltipProvider>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <h1 className="text-3xl font-bold mb-6">Question Library</h1>
 
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="archived">Archive</TabsTrigger>
-          <TabsTrigger value="trash">Trash</TabsTrigger>
-        </TabsList>
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList>
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="archived">Archive</TabsTrigger>
+            <TabsTrigger value="trash">Trash</TabsTrigger>
+          </TabsList>
 
-        <BulkActionsBar
-          selectedCount={selectedIds.size}
-          currentTab={currentTab}
-          onArchive={handleArchive}
-          onUnarchive={handleUnarchive}
-          onDelete={handleDelete}
-          onRestore={handleRestore}
-          onPermanentDelete={handlePermanentDelete}
-          onClearSelection={handleClearSelection}
-        />
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            currentTab={currentTab}
+            onArchive={() => handleArchive(Array.from(selectedIds))}
+            onUnarchive={() => handleUnarchive(Array.from(selectedIds))}
+            onDelete={() => handleDelete(Array.from(selectedIds))}
+            onRestore={() => handleRestore(Array.from(selectedIds))}
+            onPermanentDelete={() => handlePermanentDelete(Array.from(selectedIds))}
+            onClearSelection={handleClearSelection}
+          />
 
-        <TabsContent value="active" className="mt-6">
-          {questions === undefined ? (
-            <div className="text-center py-12 text-muted-foreground">Loading...</div>
-          ) : (
-            <>
-              <div className="hidden md:block">
-                <LibraryTable
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                  onArchive={handleArchive}
-                  onUnarchive={handleUnarchive}
-                  onDelete={handleDelete}
-                  onRestore={handleRestore}
-                  onPermanentDelete={handlePermanentDelete}
-                />
-              </div>
-              <div className="md:hidden">
-                <LibraryCards
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                />
-              </div>
-            </>
-          )}
-        </TabsContent>
+          <TabsContent value="active" className="mt-6">
+            {questions === undefined ? (
+              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <div className="hidden md:block">
+                  <LibraryTable
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                    onArchive={handleArchive}
+                    onUnarchive={handleUnarchive}
+                    onDelete={handleDelete}
+                    onRestore={handleRestore}
+                    onPermanentDelete={handlePermanentDelete}
+                  />
+                </div>
+                <div className="md:hidden">
+                  <LibraryCards
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                  />
+                </div>
+              </>
+            )}
+          </TabsContent>
 
-        <TabsContent value="archived" className="mt-6">
-          {questions === undefined ? (
-            <div className="text-center py-12 text-muted-foreground">Loading...</div>
-          ) : (
-            <>
-              <div className="hidden md:block">
-                <LibraryTable
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                  onArchive={handleArchive}
-                  onUnarchive={handleUnarchive}
-                  onDelete={handleDelete}
-                  onRestore={handleRestore}
-                  onPermanentDelete={handlePermanentDelete}
-                />
-              </div>
-              <div className="md:hidden">
-                <LibraryCards
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                />
-              </div>
-            </>
-          )}
-        </TabsContent>
+          <TabsContent value="archived" className="mt-6">
+            {questions === undefined ? (
+              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <div className="hidden md:block">
+                  <LibraryTable
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                    onArchive={handleArchive}
+                    onUnarchive={handleUnarchive}
+                    onDelete={handleDelete}
+                    onRestore={handleRestore}
+                    onPermanentDelete={handlePermanentDelete}
+                  />
+                </div>
+                <div className="md:hidden">
+                  <LibraryCards
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                  />
+                </div>
+              </>
+            )}
+          </TabsContent>
 
-        <TabsContent value="trash" className="mt-6">
-          {questions === undefined ? (
-            <div className="text-center py-12 text-muted-foreground">Loading...</div>
-          ) : (
-            <>
-              <div className="hidden md:block">
-                <LibraryTable
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                  onArchive={handleArchive}
-                  onUnarchive={handleUnarchive}
-                  onDelete={handleDelete}
-                  onRestore={handleRestore}
-                  onPermanentDelete={handlePermanentDelete}
-                />
-              </div>
-              <div className="md:hidden">
-                <LibraryCards
-                  questions={questions}
-                  currentTab={currentTab}
-                  selectedIds={selectedIds}
-                  onSelectionChange={handleSelectionChange}
-                />
-              </div>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value="trash" className="mt-6">
+            {questions === undefined ? (
+              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <div className="hidden md:block">
+                  <LibraryTable
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                    onArchive={handleArchive}
+                    onUnarchive={handleUnarchive}
+                    onDelete={handleDelete}
+                    onRestore={handleRestore}
+                    onPermanentDelete={handlePermanentDelete}
+                  />
+                </div>
+                <div className="md:hidden">
+                  <LibraryCards
+                    questions={questions}
+                    currentTab={currentTab}
+                    selectedIds={selectedIds}
+                    onSelectionChange={handleSelectionChange}
+                  />
+                </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

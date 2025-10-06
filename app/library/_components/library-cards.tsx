@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
@@ -68,16 +69,30 @@ export function LibraryCards({
                   aria-label="Select question"
                 />
                 <div className="flex-1">
-                  <button
-                    onClick={() => onPreviewClick?.(question)}
-                    className="text-left hover:underline text-sm font-medium"
-                  >
-                    {truncated}
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onPreviewClick?.(question)}
+                        className="text-left hover:underline text-sm font-medium"
+                      >
+                        {truncated}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md">
+                      <p className="whitespace-pre-wrap break-words">{question.question}</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <div className="mt-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {question.topic}
-                    </Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="text-xs cursor-default">
+                          {question.topic}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{question.topic}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               </div>
