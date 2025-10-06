@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 
+import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
+
 type LibraryView = 'active' | 'archived' | 'trash';
 
 // Extended question type with derived stats from getLibrary query
@@ -25,7 +27,7 @@ interface LibraryCardsProps {
 
 export function LibraryCards({
   questions,
-  currentTab: _currentTab,
+  currentTab,
   selectedIds,
   onSelectionChange,
   onPreviewClick,
@@ -40,8 +42,11 @@ export function LibraryCards({
     onSelectionChange(newSelection);
   };
 
+  // Show empty state if no questions
   if (!questions || questions.length === 0) {
-    return <div className="text-center py-12 text-muted-foreground">No questions found.</div>;
+    if (currentTab === 'active') return <ActiveEmptyState />;
+    if (currentTab === 'archived') return <ArchivedEmptyState />;
+    if (currentTab === 'trash') return <TrashEmptyState />;
   }
 
   return (

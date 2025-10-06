@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/table';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 
+import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
+
 type LibraryView = 'active' | 'archived' | 'trash';
 
 // Extended question type with derived stats from getLibrary query
@@ -33,7 +35,7 @@ interface LibraryTableProps {
 
 export function LibraryTable({
   questions,
-  currentTab: _currentTab,
+  currentTab,
   selectedIds,
   onSelectionChange,
   onPreviewClick,
@@ -201,6 +203,13 @@ export function LibraryTable({
       ),
     },
   });
+
+  // Show empty state if no questions
+  if (!questions || questions.length === 0) {
+    if (currentTab === 'active') return <ActiveEmptyState />;
+    if (currentTab === 'archived') return <ArchivedEmptyState />;
+    if (currentTab === 'trash') return <TrashEmptyState />;
+  }
 
   return (
     <div className="rounded-md border">
