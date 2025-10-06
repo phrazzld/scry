@@ -103,7 +103,11 @@ export function LibraryTable({
   const topicColumn: ColumnDef<LibraryQuestion> = {
     accessorKey: 'topic',
     header: 'Topic',
-    cell: ({ row }) => <Badge variant="secondary">{row.original.topic}</Badge>,
+    cell: ({ row }) => (
+      <Badge variant="secondary" className="truncate max-w-full block">
+        {row.original.topic}
+      </Badge>
+    ),
     size: 120,
   };
 
@@ -113,12 +117,12 @@ export function LibraryTable({
     cell: ({ row }) => {
       const { attemptCount, successRate } = row.original;
       if (attemptCount === 0) {
-        return <span className="text-sm text-muted-foreground">Not attempted</span>;
+        return <span className="text-sm text-muted-foreground truncate block">Not attempted</span>;
       }
       return (
-        <div className="text-sm">
-          <div className="font-medium">{successRate}% success</div>
-          <div className="text-muted-foreground">{attemptCount} attempts</div>
+        <div className="text-sm overflow-hidden">
+          <div className="font-medium truncate">{successRate}% success</div>
+          <div className="text-muted-foreground truncate">{attemptCount} attempts</div>
         </div>
       );
     },
@@ -139,7 +143,7 @@ export function LibraryTable({
       if (currentTab === 'trash' && deletedAt) date = deletedAt;
 
       return (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground truncate block">
           {formatDistanceToNow(date, { addSuffix: true })}
         </span>
       );
@@ -153,13 +157,13 @@ export function LibraryTable({
     cell: ({ row }) => {
       const { nextReview } = row.original;
       if (!nextReview) {
-        return <span className="text-sm text-muted-foreground">—</span>;
+        return <span className="text-sm text-muted-foreground truncate block">—</span>;
       }
 
       const isPast = nextReview < Date.now();
       return (
         <span
-          className={`text-sm ${isPast ? 'text-warning font-medium' : 'text-muted-foreground'}`}
+          className={`text-sm truncate block ${isPast ? 'text-warning font-medium' : 'text-muted-foreground'}`}
         >
           {isPast ? 'Due now' : formatDistanceToNow(nextReview, { addSuffix: true })}
         </span>
