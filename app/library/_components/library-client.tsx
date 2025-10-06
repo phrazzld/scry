@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
+import { toast } from 'sonner';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/convex/_generated/api';
@@ -19,6 +20,13 @@ export function LibraryClient() {
   // Query questions for current view
   const questions = useQuery(api.questions.getLibrary, { view: currentTab });
 
+  // Mutations for bulk operations
+  const archiveQuestions = useMutation(api.questions.archiveQuestions);
+  const unarchiveQuestions = useMutation(api.questions.unarchiveQuestions);
+  const bulkDelete = useMutation(api.questions.bulkDelete);
+  const restoreQuestions = useMutation(api.questions.restoreQuestions);
+  const permanentlyDelete = useMutation(api.questions.permanentlyDelete);
+
   // Handle selection changes
   const handleSelectionChange = (newSelectedIds: Set<Id<'questions'>>) => {
     setSelectedIds(newSelectedIds);
@@ -35,6 +43,67 @@ export function LibraryClient() {
     setSelectedIds(new Set());
   };
 
+  // Bulk operation handlers with optimistic updates
+  const handleArchive = async () => {
+    const count = selectedIds.size;
+    try {
+      await archiveQuestions({ questionIds: Array.from(selectedIds) });
+      toast.success(`Archived ${count} ${count === 1 ? 'question' : 'questions'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Failed to archive questions');
+      console.error(error);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    const count = selectedIds.size;
+    try {
+      await unarchiveQuestions({ questionIds: Array.from(selectedIds) });
+      toast.success(`Unarchived ${count} ${count === 1 ? 'question' : 'questions'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Failed to unarchive questions');
+      console.error(error);
+    }
+  };
+
+  const handleDelete = async () => {
+    const count = selectedIds.size;
+    try {
+      await bulkDelete({ questionIds: Array.from(selectedIds) });
+      toast.success(`Deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Failed to delete questions');
+      console.error(error);
+    }
+  };
+
+  const handleRestore = async () => {
+    const count = selectedIds.size;
+    try {
+      await restoreQuestions({ questionIds: Array.from(selectedIds) });
+      toast.success(`Restored ${count} ${count === 1 ? 'question' : 'questions'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Failed to restore questions');
+      console.error(error);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    const count = selectedIds.size;
+    try {
+      await permanentlyDelete({ questionIds: Array.from(selectedIds) });
+      toast.success(`Permanently deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Failed to permanently delete questions');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <h1 className="text-3xl font-bold mb-6">Question Library</h1>
@@ -49,6 +118,11 @@ export function LibraryClient() {
         <BulkActionsBar
           selectedCount={selectedIds.size}
           currentTab={currentTab}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
+          onDelete={handleDelete}
+          onRestore={handleRestore}
+          onPermanentDelete={handlePermanentDelete}
           onClearSelection={handleClearSelection}
         />
 
