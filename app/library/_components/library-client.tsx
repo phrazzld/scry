@@ -9,6 +9,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 
 import { BulkActionsBar } from './bulk-actions-bar';
+import { LibraryCards } from './library-cards';
 import { LibraryTable } from './library-table';
 
 type LibraryView = 'active' | 'archived' | 'trash';
@@ -130,12 +131,24 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <LibraryTable
-              questions={questions}
-              currentTab={currentTab}
-              selectedIds={selectedIds}
-              onSelectionChange={handleSelectionChange}
-            />
+            <>
+              <div className="hidden md:block">
+                <LibraryTable
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+              <div className="md:hidden">
+                <LibraryCards
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -143,12 +156,24 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <LibraryTable
-              questions={questions}
-              currentTab={currentTab}
-              selectedIds={selectedIds}
-              onSelectionChange={handleSelectionChange}
-            />
+            <>
+              <div className="hidden md:block">
+                <LibraryTable
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+              <div className="md:hidden">
+                <LibraryCards
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -156,12 +181,24 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <LibraryTable
-              questions={questions}
-              currentTab={currentTab}
-              selectedIds={selectedIds}
-              onSelectionChange={handleSelectionChange}
-            />
+            <>
+              <div className="hidden md:block">
+                <LibraryTable
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+              <div className="md:hidden">
+                <LibraryCards
+                  questions={questions}
+                  currentTab={currentTab}
+                  selectedIds={selectedIds}
+                  onSelectionChange={handleSelectionChange}
+                />
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>
