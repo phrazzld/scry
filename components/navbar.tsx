@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Plus, Settings } from 'lucide-react';
+import { Library, Plus, Settings } from 'lucide-react';
 
 import { BackgroundTasksBadge } from '@/components/background-tasks-badge';
 import { GenerationModal } from '@/components/generation-modal';
@@ -62,13 +62,30 @@ export function Navbar() {
                     <span className="sr-only">Generate questions</span>
                   </Button>
                 ) : (
-                  <Link
-                    href="/settings"
-                    className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    aria-label="Settings"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Link>
+                  <>
+                    <Link
+                      href="/library"
+                      className={`p-1.5 rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        pathname === '/library'
+                          ? 'text-foreground bg-accent'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                      aria-label="Question Library"
+                    >
+                      <Library className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className={`p-1.5 rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        pathname === '/settings'
+                          ? 'text-foreground bg-accent'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                      aria-label="Settings"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Link>
+                  </>
                 )}
                 <BackgroundTasksBadge />
                 <ThemeToggle />
