@@ -122,6 +122,13 @@ export function LibraryClient() {
     const count = ids.length;
     if (count === 0) return;
 
+    // Confirm before irreversible deletion
+    const confirmed = confirm(
+      `Permanently delete ${count} ${count === 1 ? 'question' : 'questions'}?\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
     try {
       await permanentlyDelete({ questionIds: ids });
       toast.success(`Permanently deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
