@@ -208,8 +208,10 @@ questions: defineTable({
   archivedAt: v.optional(v.number()),
   generationJobId: v.optional(v.id("generationJobs")),
 })
-  .index("by_user_active", ["userId", "archivedAt", "deletedAt"])
-  .index("by_user_archived", ["userId", "archivedAt"])
+  // CHANGED IN IMPLEMENTATION: Indexes removed in favor of client-side filtering
+  // Actual: Uses by_user index + .filter() for archive/delete states
+  // Reason: Simpler, more flexible, adequate performance for current scale
+  // See convex/schema.ts comments for details
 ```
 
 **New Mutations** (convex/questions.ts):

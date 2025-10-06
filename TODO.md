@@ -114,13 +114,14 @@
     archivedAt: v.optional(v.number()),
     generationJobId: v.optional(v.id("generationJobs")),
 
-  Add indexes after line 54:
-    .index("by_user_archived", ["userId", "archivedAt", "deletedAt"])
+  CHANGED IN IMPLEMENTATION:
+  Indexes NOT added - using client-side .filter() instead
+  Reason: Simpler, more flexible, adequate performance
+  Queries use existing by_user index + .filter() for archive/delete states
 
-  Update existing index by_user_active to compound:
-    .index("by_user_active", ["userId", "archivedAt", "deletedAt"])
+  See convex/schema.ts:57-60 for implementation notes
 
-  Success: Schema compiles, npx convex dev shows migration, no type errors
+  Success: Schema compiles, fields added, filtering works correctly
   Time: 15 minutes
   ```
 

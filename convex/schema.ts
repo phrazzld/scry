@@ -53,9 +53,11 @@ export default defineSchema({
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_topic', ['userId', 'topic', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
-    .index('by_user_next_review', ['userId', 'nextReview'])
-    .index('by_user_active', ['userId', 'archivedAt', 'deletedAt']) // For filtering active questions
-    .index('by_user_archived', ['userId', 'archivedAt', 'deletedAt']), // For filtering archived questions
+    .index('by_user_next_review', ['userId', 'nextReview']),
+  // Note: Archive/Delete filtering done client-side with .filter() for simplicity
+  // Single by_user index serves all views (active/archived/trash) via filtering
+  // Future: If users regularly have >1000 questions, consider compound index
+  // .index('by_user_state', ['userId', 'archivedAt', 'deletedAt'])
 
   interactions: defineTable({
     userId: v.id('users'),
