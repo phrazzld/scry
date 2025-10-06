@@ -39,12 +39,12 @@ export function ThemeToggle() {
       aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
     >
       <Sun
-        className={`relative h-[1.15rem] w-[1.15rem] text-yellow-500 transition-all duration-300 ${
+        className={`relative h-[1.15rem] w-[1.15rem] transition-all duration-300 ${
           isPressing ? 'animate-icon-switch' : ''
         } dark:scale-0 dark:opacity-0`}
       />
       <Moon
-        className={`absolute h-[1.1rem] w-[1.1rem] scale-0 opacity-0 text-slate-400 moon-glow transition-all duration-300 ${
+        className={`absolute h-[1.1rem] w-[1.1rem] scale-0 opacity-0 moon-glow transition-all duration-300 ${
           isPressing ? 'animate-icon-switch' : ''
         } dark:scale-100 dark:opacity-100`}
       />

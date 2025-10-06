@@ -213,27 +213,33 @@ export const getNextReview = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = new Date();
 
-    // First, try to get questions that are due for review (excluding deleted)
+    // First, try to get questions that are due for review (excluding deleted and archived)
     const dueQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user_next_review', (q) =>
         q.eq('userId', userId).lte('nextReview', now.getTime())
       )
-      .filter((q) => q.eq(q.field('deletedAt'), undefined))
+      .filter((q) =>
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+      )
       .take(100); // Get a batch to sort by retrievability
 
-    // Also get questions without nextReview (new questions, excluding deleted)
+    // Also get questions without nextReview (new questions, excluding deleted and archived)
     const newQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .filter((q) =>
-        q.and(q.eq(q.field('nextReview'), undefined), q.eq(q.field('deletedAt'), undefined))
+        q.and(
+          q.eq(q.field('nextReview'), undefined),
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined)
+        )
       )
       .take(10);
 
@@ -292,7 +298,7 @@ export const getDueCount = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
@@ -304,7 +310,9 @@ export const getDueCount = query({
     const dueQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user_next_review', (q) => q.eq('userId', userId).lte('nextReview', now))
-      .filter((q) => q.eq(q.field('deletedAt'), undefined))
+      .filter((q) =>
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+      )
       .take(1000); // Reasonable upper limit for counting
     dueCount = dueQuestions.length;
 
@@ -317,6 +325,7 @@ export const getDueCount = query({
         q.and(
           q.or(q.eq(q.field('state'), 'learning'), q.eq(q.field('state'), 'relearning')),
           q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined),
           // Don't double-count cards already in dueQuestions
           q.gt(q.field('nextReview'), now)
         )
@@ -330,7 +339,11 @@ export const getDueCount = query({
       .query('questions')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .filter((q) =>
-        q.and(q.eq(q.field('nextReview'), undefined), q.eq(q.field('deletedAt'), undefined))
+        q.and(
+          q.eq(q.field('nextReview'), undefined),
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined)
+        )
       )
       .take(1000); // Reasonable upper limit for counting
     newCount = newQuestions.length;
@@ -351,7 +364,7 @@ export const getUserCardStats = query({
   args: {
     _refreshTimestamp: v.optional(v.float64()),
   },
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;

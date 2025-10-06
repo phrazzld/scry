@@ -585,3 +585,216 @@ export const getRecentTopics = query({
     return topics;
   },
 });
+
+/**
+ * Get questions for library view with filtering by state
+ *
+ * Returns questions filtered by view (active/archived/trash) with derived stats.
+ * Active: not archived and not deleted
+ * Archived: archived but not deleted
+ * Trash: deleted (regardless of archive state)
+ */
+export const getLibrary = query({
+  args: {
+    view: v.union(v.literal('active'), v.literal('archived'), v.literal('trash')),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const limit = args.limit || 500;
+
+    // Query all user questions, ordered by most recent
+    let questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .take(limit * 2); // Over-fetch to account for filtering
+
+    // Filter based on view
+    questions = questions.filter((q) => {
+      const isArchived = !!q.archivedAt;
+      const isDeleted = !!q.deletedAt;
+
+      switch (args.view) {
+        case 'active':
+          return !isArchived && !isDeleted;
+        case 'archived':
+          return isArchived && !isDeleted;
+        case 'trash':
+          return isDeleted;
+        default:
+          return false;
+      }
+    });
+
+    // Take only requested limit after filtering
+    questions = questions.slice(0, limit);
+
+    // Add derived stats to each question
+    return questions.map((q) => ({
+      ...q,
+      failedCount: q.attemptCount - q.correctCount,
+      successRate: q.attemptCount > 0 ? Math.round((q.correctCount / q.attemptCount) * 100) : null,
+    }));
+  },
+});
+
+/**
+ * Archive multiple questions (bulk operation)
+ *
+ * Sets archivedAt timestamp to remove questions from active review queue
+ * while preserving all FSRS data and history. Archived questions can be unarchived.
+ */
+export const archiveQuestions = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
+          archivedAt: now,
+          updatedAt: now,
+        })
+      )
+    );
+
+    return { archived: args.questionIds.length };
+  },
+});
+
+/**
+ * Unarchive multiple questions (bulk operation)
+ *
+ * Clears archivedAt timestamp to return questions to active review queue.
+ */
+export const unarchiveQuestions = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
+          archivedAt: undefined,
+          updatedAt: now,
+        })
+      )
+    );
+
+    return { unarchived: args.questionIds.length };
+  },
+});
+
+/**
+ * Bulk soft delete questions
+ *
+ * Marks multiple questions as deleted but preserves them in database
+ * for recovery. Preserves all FSRS data and history.
+ */
+export const bulkDelete = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
+          deletedAt: now,
+          updatedAt: now,
+        })
+      )
+    );
+
+    return { deleted: args.questionIds.length };
+  },
+});
+
+/**
+ * Permanently delete questions (irreversible)
+ *
+ * Actually removes questions from the database. This operation cannot be undone.
+ * Should only be called from trash view with explicit user confirmation.
+ */
+export const permanentlyDelete = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute deletions in parallel
+    await Promise.all(args.questionIds.map((id) => ctx.db.delete(id)));
+
+    return { permanentlyDeleted: args.questionIds.length };
+  },
+});
