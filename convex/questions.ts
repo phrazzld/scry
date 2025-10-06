@@ -655,19 +655,27 @@ export const archiveQuestions = mutation({
     const userId = user._id;
     const now = Date.now();
 
-    // Verify ownership and update all questions in parallel
-    await Promise.all(
-      args.questionIds.map(async (id) => {
-        const question = await ctx.db.get(id);
-        if (!question || question.userId !== userId) {
-          throw new Error('Question not found or unauthorized');
-        }
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
 
-        await ctx.db.patch(id, {
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
           archivedAt: now,
           updatedAt: now,
-        });
-      })
+        })
+      )
     );
 
     return { archived: args.questionIds.length };
@@ -688,18 +696,27 @@ export const unarchiveQuestions = mutation({
     const userId = user._id;
     const now = Date.now();
 
-    await Promise.all(
-      args.questionIds.map(async (id) => {
-        const question = await ctx.db.get(id);
-        if (!question || question.userId !== userId) {
-          throw new Error('Question not found or unauthorized');
-        }
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
 
-        await ctx.db.patch(id, {
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
           archivedAt: undefined,
           updatedAt: now,
-        });
-      })
+        })
+      )
     );
 
     return { unarchived: args.questionIds.length };
@@ -721,18 +738,27 @@ export const bulkDelete = mutation({
     const userId = user._id;
     const now = Date.now();
 
-    await Promise.all(
-      args.questionIds.map(async (id) => {
-        const question = await ctx.db.get(id);
-        if (!question || question.userId !== userId) {
-          throw new Error('Question not found or unauthorized');
-        }
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
 
-        await ctx.db.patch(id, {
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
           deletedAt: now,
           updatedAt: now,
-        });
-      })
+        })
+      )
     );
 
     return { deleted: args.questionIds.length };
@@ -753,17 +779,21 @@ export const permanentlyDelete = mutation({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    await Promise.all(
-      args.questionIds.map(async (id) => {
-        const question = await ctx.db.get(id);
-        if (!question || question.userId !== userId) {
-          throw new Error('Question not found or unauthorized');
-        }
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
 
-        // Actually delete from database
-        await ctx.db.delete(id);
-      })
-    );
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute deletions in parallel
+    await Promise.all(args.questionIds.map((id) => ctx.db.delete(id)));
 
     return { permanentlyDeleted: args.questionIds.length };
   },
