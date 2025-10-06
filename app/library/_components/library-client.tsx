@@ -7,24 +7,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 
+import { LibraryTable } from './library-table';
+
 type LibraryView = 'active' | 'archived' | 'trash';
 
 export function LibraryClient() {
   const [currentTab, setCurrentTab] = useState<LibraryView>('active');
-  const [_selectedIds, _setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
 
   // Query questions for current view
   const questions = useQuery(api.questions.getLibrary, { view: currentTab });
 
-  // Handle selection changes (will be used when table is integrated)
-  const _handleSelectionChange = (newSelectedIds: Set<Id<'questions'>>) => {
-    _setSelectedIds(newSelectedIds);
+  // Handle selection changes
+  const handleSelectionChange = (newSelectedIds: Set<Id<'questions'>>) => {
+    setSelectedIds(newSelectedIds);
   };
 
   // Clear selection when switching tabs
   const handleTabChange = (value: string) => {
     setCurrentTab(value as LibraryView);
-    _setSelectedIds(new Set());
+    setSelectedIds(new Set());
   };
 
   return (
@@ -42,7 +44,12 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <div>Active questions: {questions.length}</div>
+            <LibraryTable
+              questions={questions}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+            />
           )}
         </TabsContent>
 
@@ -50,7 +57,12 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <div>Archived questions: {questions.length}</div>
+            <LibraryTable
+              questions={questions}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+            />
           )}
         </TabsContent>
 
@@ -58,7 +70,12 @@ export function LibraryClient() {
           {questions === undefined ? (
             <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : (
-            <div>Trash questions: {questions.length}</div>
+            <LibraryTable
+              questions={questions}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+            />
           )}
         </TabsContent>
       </Tabs>

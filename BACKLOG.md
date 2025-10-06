@@ -2,13 +2,144 @@
 
 > **Note**: For deployment-related enhancements, see [BACKLOG_DEPLOYMENT.md](./BACKLOG_DEPLOYMENT.md)
 
-- allow learners to postpone an item
-- allow users to see, at a glance, all of the items/questions in their library
-  * maybe tied to timestamped user inputs / submissions?
-  * maybe allow bulk edits / deletions as well?
-  * maybe show next review at as well?
-  * fuck it solid crazy maximally useful dashboard view here
+- ~~allow learners to postpone an item~~ → **IMPLEMENTED as Archive system in Library PR**
 - better interleaving of content during reviews
+
+---
+
+## Question Library Enhancements
+
+*Deferred from Library MVP (see TASK.md for implemented features)*
+
+### Search, Sort, Filter (Next PR Priority)
+
+**Search**:
+- **Plaintext search**: Full-text search across question text using Convex search index
+  - Value: Quickly find specific questions
+  - Estimated effort: S (add search index, search input component)
+  - Implementation: `questions.searchIndex("search_content", { searchField: "question" })`
+
+- **Semantic search**: Vector similarity search using embeddings
+  - Value: Find conceptually similar questions ("react hooks" matches "useState, useEffect")
+  - Estimated effort: L (embedding generation, vector DB integration, similarity search)
+  - Dependencies: OpenAI embeddings or similar service
+  - Trade-off: Costs per search, requires external service
+
+**Column Sorting**:
+- Sort by: Date (newest/oldest), Attempts (most/least), Success rate (high/low), Alphabetical (A-Z, Z-A)
+  - Value: Power users organizing large libraries
+  - Estimated effort: S (TanStack Table built-in sorting, already in framework)
+  - Implementation: Add `getSortedRowModel()` to table config
+
+**Filtering**:
+- Filter by: Topic (multi-select), Type (MC/TF), FSRS state (new/learning/review/relearning), Success rate threshold
+  - Value: Focus on specific question subsets
+  - Estimated effort: M (filter UI components, client-side filtering logic)
+  - Implementation: Filter chips with "Clear all" button, sidebar on desktop, sheet on mobile
+
+### Data Model Evolution (Tag System)
+
+**userPrompts Table**:
+```typescript
+userPrompts: defineTable({
+  userId: v.id("users"),
+  prompt: v.string(),           // Raw user input
+  clarifiedTopic: v.string(),   // AI's interpretation
+  createdAt: v.number(),
+  questionCount: v.number(),    // Denormalized count
+})
+  .index("by_user", ["userId", "createdAt"])
+```
+- Value: Track what users ask for, enable "generate more like this" feature
+- Estimated effort: M (new table, backfill from generationJobs, update generation flow)
+
+**questionTags Table** (many-to-many):
+```typescript
+questionTags: defineTable({
+  questionId: v.id("questions"),
+  tag: v.string(),
+  source: v.union(v.literal("ai"), v.literal("user")), // Who created tag
+  createdAt: v.number(),
+})
+  .index("by_question", ["questionId"])
+  .index("by_tag", ["tag"])
+```
+- Value: Multiple tags per question, flexible categorization, tag cloud UI
+- Estimated effort: L (new table, migration from topic field, tag management UI, tag autocomplete)
+- Migration path: Create initial tags from existing `topic` field
+
+**Tag Cloud Interface**:
+- Visual tag cloud with size based on question count
+- Click tag to filter library
+- Multi-tag selection (AND/OR logic)
+- Tag editing: rename, merge, delete
+  - Value: Horizontal organization vs hierarchical topics
+  - Estimated effort: M (tag cloud component, tag CRUD operations)
+
+### Export & Data Portability
+
+**Export formats**:
+- CSV: For spreadsheet analysis
+- JSON: For backup/import
+- Anki format: For users migrating to/from Anki
+  - Value: User owns their data, can analyze externally
+  - Estimated effort: M (export generation, file download, format conversion)
+
+**Import**:
+- Import from CSV/JSON/Anki
+- Bulk question upload
+  - Value: Onboarding users with existing question sets
+  - Estimated effort: L (parsing, validation, duplicate handling, UI)
+
+### Performance Optimizations
+
+**Virtual Scrolling** (only if needed):
+- Add TanStack Virtual when users have 1000+ questions
+- Conditional rendering based on dataset size
+  - Value: Maintains performance at extreme scale
+  - Estimated effort: S (already researched, TanStack Virtual integrates with Table)
+  - Threshold: Enable when `questionCount > 1000`
+
+**Cursor-based Pagination**:
+- Replace "load 500 max" with infinite scroll
+- Fetch next batch as user scrolls
+  - Value: Handle unlimited library size
+  - Estimated effort: M (cursor queries, pagination state, intersection observer)
+  - Trade-off: More complex, only needed if 500 limit is hit regularly
+
+### Analytics & Insights
+
+**Learning Analytics Dashboard**:
+- Forgetting curve visualization per topic
+- Retention rate graphs over time
+- Difficulty distribution histogram
+- Performance trends (improving/declining topics)
+  - Value: Data-driven learning insights
+  - Estimated effort: XL (data aggregation, chart library, statistical calculations)
+  - Dependencies: Chart library (recharts, visx, or similar)
+
+**Question Statistics**:
+- Per-question: First attempt success rate, average time to answer, FSRS stability/difficulty trends
+- Library-wide: Total learning time, most/least successful topics, review load forecast
+  - Value: Understand learning patterns
+  - Estimated effort: L (aggregation queries, visualization components)
+
+### Advanced Library Features
+
+**Shared Libraries** (far future):
+- Public question libraries (e.g., "React Interview Prep - 200 questions")
+- Import from shared libraries
+- Publish your library for others
+  - Value: Community learning, reduce generation costs
+  - Estimated effort: XL (permissions, discovery UI, import/export, moderation)
+  - Trade-off: Moderation burden, copyright concerns
+
+**Question History/Versioning**:
+- Track edits to questions over time
+- Revert to previous versions
+- See how question performance changed after edits
+  - Value: Understand impact of question quality on learning
+  - Estimated effort: M (history table, diff UI, version comparison)
 
 ---
 
