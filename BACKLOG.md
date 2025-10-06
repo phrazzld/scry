@@ -11,6 +11,131 @@
 
 *Deferred from Library MVP (see TASK.md for implemented features)*
 
+### Code Quality & Refactoring (From PR #30 Review)
+
+**Selection State Simplification**:
+- **Issue**: Complex bidirectional conversion between TanStack Table's `Record<string, boolean>` and `Set<Id<'questions'>>`
+- **Location**: `app/library/_components/library-table.tsx:262-300`
+- **Solution**: Use TanStack Table's `getRowId` option to use stable IDs instead of array indices
+- **Value**: Eliminates O(n) conversion overhead, prevents stale index bugs on real-time updates
+- **Estimated effort**: M (refactor table configuration, update selection callbacks)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+- **Implementation**:
+  ```typescript
+  const table = useReactTable({
+    // ...
+    getRowId: (row) => row._id, // Use question ID instead of index
+    // Now rowSelection uses IDs directly: { "questionId1": true, "questionId2": true }
+  });
+  ```
+
+**Extract Mutation Logic into Custom Hook**:
+- **Issue**: `LibraryClient` component has 5 mutation handlers (150+ lines) making it harder to test and reuse
+- **Solution**: Create `hooks/use-library-mutations.ts` hook
+- **Value**: Better separation of concerns, testable mutation logic, reusable across components
+- **Estimated effort**: M (extract handlers, create hook, update imports)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+- **Implementation Pattern**:
+  ```typescript
+  export function useLibraryMutations() {
+    const archiveQuestions = useMutation(api.questions.archiveQuestions);
+    // ... other mutations
+
+    const handleArchive = async (ids: Id<'questions'>[]) => {
+      try {
+        await archiveQuestions({ questionIds: ids });
+        toast.success(`Archived ${ids.length} questions`);
+        return { success: true };
+      } catch (error) {
+        toast.error('Failed to archive questions');
+        return { success: false, error };
+      }
+    };
+
+    return { handleArchive, handleUnarchive, ... };
+  }
+  ```
+
+**Empty State Text Correction**:
+- **Issue**: `TrashEmptyState` mentions "30 days" auto-deletion but no cron job exists
+- **Location**: `app/library/_components/library-empty-states.tsx:42-52`
+- **Options**:
+  1. Remove "30 days" claim from empty state text (5 min fix)
+  2. Implement auto-deletion cron job in `convex/cron.ts` (M effort)
+- **Value**: Accurate user communication OR automated cleanup
+- **Estimated effort**: XS (text change) or M (cron implementation)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+
+### Performance Monitoring & Optimization
+
+**Client-Side Filtering Monitoring**:
+- **Context**: `getLibrary` query over-fetches `limit * 2` questions then filters in-memory
+- **Location**: `convex/questions.ts:597-641`, documented in `convex/schema.ts:57-60`
+- **Current Trade-off**:
+  - ✅ Simple implementation (follows hypersimplicity)
+  - ✅ Avoids compound indexes (easier schema)
+  - ❌ Inefficient for users with balanced states (e.g., 400 active, 400 archived, 200 trash)
+  - ❌ May hit Convex query limits (1000 docs)
+- **Action**: Add analytics to track question distribution (active/archived/trash ratios)
+- **Optimization Trigger**: If >10% of users have 500+ questions per state, add compound index:
+  ```typescript
+  .index('by_user_state', ['userId', 'archivedAt', 'deletedAt', 'generatedAt'])
+  ```
+- **Value**: Data-driven decision on when to optimize
+- **Estimated effort**: S (add analytics tracking) + M (implement compound index if needed)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30) - Documented as acceptable MVP trade-off
+
+### Testing Expansion
+
+**Unit Tests for Bulk Operations**:
+- **Coverage Gaps**: No tests for `archiveQuestions`, `unarchiveQuestions`, `bulkDelete`, `permanentlyDelete`
+- **Critical Test Cases**:
+  1. Ownership verification before operations
+  2. Atomic validation (all-or-nothing behavior)
+  3. Partial failure scenarios
+  4. Large batch performance (100+ questions)
+  5. Concurrent operation handling
+- **Estimated effort**: L (write tests using Convex test framework)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+- **Example Structure**:
+  ```typescript
+  describe('archiveQuestions', () => {
+    it('should verify ownership before archiving', async () => {
+      // Create question owned by user A
+      // Attempt archive as user B
+      // Expect error, no questions archived
+    });
+
+    it('should archive multiple questions atomically', async () => {
+      // Create 10 questions
+      // Archive all
+      // Verify all have archivedAt timestamp
+      // Verify all excluded from active view
+    });
+  });
+  ```
+
+**Integration Tests for FSRS Integration**:
+- **Coverage Gaps**: Archive/trash impact on review queue not tested
+- **Critical Test Cases**:
+  1. Archived questions excluded from `getNextReview`
+  2. Archived questions excluded from `getDueCount`
+  3. Restored questions re-appear in review queue with preserved FSRS data
+  4. Full lifecycle: Generate → Review → Archive → Restore → Review again
+- **Estimated effort**: M (integration tests with Convex test harness)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+
+**E2E Tests for User Workflows**:
+- **Coverage Gaps**: No browser-based tests for library UI
+- **Critical Test Cases**:
+  1. Full lifecycle via UI: Generate → Archive → Delete → Restore
+  2. Mobile responsive layout (Playwright viewport switching)
+  3. Empty state rendering for each tab
+  4. Selection persistence across operations
+  5. Error handling and toast notifications
+- **Estimated effort**: L (set up Playwright, write E2E suite)
+- **Reference**: [PR #30 Review Comments](https://github.com/phrazzld/scry/pull/30)
+
 ### Search, Sort, Filter (Next PR Priority)
 
 **Search**:
