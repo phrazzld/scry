@@ -96,9 +96,15 @@ export function LibraryCards({
                 )}
               </div>
 
-              {/* Created date */}
+              {/* Contextual date */}
               <div className="text-muted-foreground">
-                Created {formatDistanceToNow(question.generatedAt, { addSuffix: true })}
+                {currentTab === 'archived' && question.archivedAt ? (
+                  <>Archived {formatDistanceToNow(question.archivedAt, { addSuffix: true })}</>
+                ) : currentTab === 'trash' && question.deletedAt ? (
+                  <>Deleted {formatDistanceToNow(question.deletedAt, { addSuffix: true })}</>
+                ) : (
+                  <>Created {formatDistanceToNow(question.generatedAt, { addSuffix: true })}</>
+                )}
               </div>
 
               {/* Next review */}

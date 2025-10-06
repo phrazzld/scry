@@ -130,15 +130,26 @@ export function LibraryTable({
       size: 140,
     },
 
-    // 5. Created date column
+    // 5. Contextual date column (Created/Archived/Deleted based on tab)
     {
-      accessorKey: 'generatedAt',
-      header: 'Created',
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDistanceToNow(row.original.generatedAt, { addSuffix: true })}
-        </span>
-      ),
+      id: 'date',
+      header: () => {
+        if (currentTab === 'archived') return 'Archived';
+        if (currentTab === 'trash') return 'Deleted';
+        return 'Created';
+      },
+      cell: ({ row }) => {
+        const { archivedAt, deletedAt, generatedAt } = row.original;
+        let date = generatedAt;
+        if (currentTab === 'archived' && archivedAt) date = archivedAt;
+        if (currentTab === 'trash' && deletedAt) date = deletedAt;
+
+        return (
+          <span className="text-sm text-muted-foreground">
+            {formatDistanceToNow(date, { addSuffix: true })}
+          </span>
+        );
+      },
       size: 120,
     },
 
