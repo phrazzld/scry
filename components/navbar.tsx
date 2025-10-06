@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Library, Plus, Settings } from 'lucide-react';
+import { Library, Plus } from 'lucide-react';
 
 import { BackgroundTasksBadge } from '@/components/background-tasks-badge';
 import { GenerationModal } from '@/components/generation-modal';
@@ -29,8 +29,6 @@ export function Navbar() {
     return () => window.removeEventListener('open-generation-modal', handleOpenGenerationModal);
   }, []);
 
-  const isHomepage = pathname === '/';
-
   // Hide navbar completely when unauthenticated
   if (!isSignedIn && isLoaded) return null;
 
@@ -50,43 +48,28 @@ export function Navbar() {
           <div className="flex items-center gap-4">
             {isSignedIn && (
               <>
-                {isHomepage ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
-                    onClick={() => setGenerateOpen(true)}
-                    title="Generate questions (G)"
-                  >
-                    <Plus className="relative h-4 w-4" />
-                    <span className="sr-only">Generate questions</span>
-                  </Button>
-                ) : (
-                  <>
-                    <Link
-                      href="/library"
-                      className={`p-1.5 rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        pathname === '/library'
-                          ? 'text-foreground bg-accent'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                      }`}
-                      aria-label="Question Library"
-                    >
-                      <Library className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href="/settings"
-                      className={`p-1.5 rounded transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                        pathname === '/settings'
-                          ? 'text-foreground bg-accent'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                      }`}
-                      aria-label="Settings"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Link>
-                  </>
-                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative size-9 rounded-full bg-accent/50 text-muted-foreground transition-all duration-200 hover:bg-accent/70 hover:text-foreground hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+                  onClick={() => setGenerateOpen(true)}
+                  title="Generate questions (G)"
+                >
+                  <Plus className="relative h-4 w-4" />
+                  <span className="sr-only">Generate questions</span>
+                </Button>
+                <Link
+                  href="/library"
+                  className={`relative size-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 ${
+                    pathname === '/library'
+                      ? 'bg-accent text-foreground'
+                      : 'bg-accent/50 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                  }`}
+                  aria-label="Question Library"
+                  title="Question Library"
+                >
+                  <Library className="h-4 w-4" />
+                </Link>
                 <BackgroundTasksBadge />
                 <ThemeToggle />
                 <div
