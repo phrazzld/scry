@@ -58,198 +58,200 @@ export function LibraryTable({
   onRestore,
   onPermanentDelete,
 }: LibraryTableProps) {
-  // Define columns with explicit sizing for proper table layout
+  // Build columns array conditionally based on currentTab
+  const selectColumn: ColumnDef<LibraryQuestion> = {
+    id: 'select',
+    header: ({ table }) => (
+      <Checkbox
+        checked={table.getIsAllPageRowsSelected()}
+        onCheckedChange={(value: boolean) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label="Select all"
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
+        aria-label="Select row"
+      />
+    ),
+    size: 40,
+    enableSorting: false,
+    enableHiding: false,
+  };
+
+  const questionColumn: ColumnDef<LibraryQuestion> = {
+    accessorKey: 'question',
+    header: 'Question',
+    cell: ({ row }) => {
+      const question = row.original.question;
+      const truncated = question.length > 100 ? `${question.slice(0, 100)}...` : question;
+      return (
+        <button
+          onClick={() => onPreviewClick?.(row.original)}
+          className="text-left hover:underline truncate block w-full text-sm"
+        >
+          {truncated}
+        </button>
+      );
+    },
+    size: 300,
+    minSize: 200,
+    maxSize: 400,
+  };
+
+  const topicColumn: ColumnDef<LibraryQuestion> = {
+    accessorKey: 'topic',
+    header: 'Topic',
+    cell: ({ row }) => <Badge variant="secondary">{row.original.topic}</Badge>,
+    size: 120,
+  };
+
+  const performanceColumn: ColumnDef<LibraryQuestion> = {
+    id: 'stats',
+    header: 'Performance',
+    cell: ({ row }) => {
+      const { attemptCount, successRate } = row.original;
+      if (attemptCount === 0) {
+        return <span className="text-sm text-muted-foreground">Not attempted</span>;
+      }
+      return (
+        <div className="text-sm">
+          <div className="font-medium">{successRate}% success</div>
+          <div className="text-muted-foreground">{attemptCount} attempts</div>
+        </div>
+      );
+    },
+    size: 140,
+  };
+
+  const dateColumn: ColumnDef<LibraryQuestion> = {
+    id: 'date',
+    header: () => {
+      if (currentTab === 'archived') return 'Archived';
+      if (currentTab === 'trash') return 'Deleted';
+      return 'Created';
+    },
+    cell: ({ row }) => {
+      const { archivedAt, deletedAt, generatedAt } = row.original;
+      let date = generatedAt;
+      if (currentTab === 'archived' && archivedAt) date = archivedAt;
+      if (currentTab === 'trash' && deletedAt) date = deletedAt;
+
+      return (
+        <span className="text-sm text-muted-foreground">
+          {formatDistanceToNow(date, { addSuffix: true })}
+        </span>
+      );
+    },
+    size: 120,
+  };
+
+  const nextReviewColumn: ColumnDef<LibraryQuestion> = {
+    accessorKey: 'nextReview',
+    header: 'Next Review',
+    cell: ({ row }) => {
+      const { nextReview } = row.original;
+      if (!nextReview) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+
+      const isPast = nextReview < Date.now();
+      return (
+        <span
+          className={`text-sm ${isPast ? 'text-warning font-medium' : 'text-muted-foreground'}`}
+        >
+          {isPast ? 'Due now' : formatDistanceToNow(nextReview, { addSuffix: true })}
+        </span>
+      );
+    },
+    size: 120,
+  };
+
+  const typeColumn: ColumnDef<LibraryQuestion> = {
+    accessorKey: 'type',
+    header: 'Type',
+    cell: ({ row }) => {
+      const type = row.original.type;
+      return (
+        <span className="text-xs text-muted-foreground">
+          {type === 'multiple-choice' ? 'MC' : 'T/F'}
+        </span>
+      );
+    },
+    size: 60,
+  };
+
+  const actionsColumn: ColumnDef<LibraryQuestion> = {
+    id: 'actions',
+    header: 'Actions',
+    cell: ({ row }) => {
+      const question = row.original;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {currentTab === 'active' && (
+              <>
+                <DropdownMenuItem onClick={() => onArchive?.([question._id])}>
+                  <Archive className="mr-2 h-4 w-4" />
+                  Archive
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+            {currentTab === 'archived' && (
+              <>
+                <DropdownMenuItem onClick={() => onUnarchive?.([question._id])}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Unarchive
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+            {currentTab === 'trash' && (
+              <>
+                <DropdownMenuItem onClick={() => onRestore?.([question._id])}>
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Restore
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => onPermanentDelete?.([question._id])}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Permanently
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+    size: 60,
+  };
+
+  // Conditionally build columns array based on currentTab
   const columns: ColumnDef<LibraryQuestion>[] = [
-    // 1. Selection checkbox column
-    {
-      id: 'select',
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value: boolean) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value: boolean) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      size: 40,
-      enableSorting: false,
-      enableHiding: false,
-    },
-
-    // 2. Question column (truncated, clickable)
-    {
-      accessorKey: 'question',
-      header: 'Question',
-      cell: ({ row }) => {
-        const question = row.original.question;
-        const truncated = question.length > 100 ? `${question.slice(0, 100)}...` : question;
-        return (
-          <button
-            onClick={() => onPreviewClick?.(row.original)}
-            className="text-left hover:underline truncate block w-full text-sm"
-          >
-            {truncated}
-          </button>
-        );
-      },
-      size: 300,
-      minSize: 200,
-      maxSize: 400,
-    },
-
-    // 3. Topic badge column
-    {
-      accessorKey: 'topic',
-      header: 'Topic',
-      cell: ({ row }) => <Badge variant="secondary">{row.original.topic}</Badge>,
-      size: 120,
-    },
-
-    // 4. Performance stats column
-    {
-      id: 'stats',
-      header: 'Performance',
-      cell: ({ row }) => {
-        const { attemptCount, successRate } = row.original;
-        if (attemptCount === 0) {
-          return <span className="text-sm text-muted-foreground">Not attempted</span>;
-        }
-        return (
-          <div className="text-sm">
-            <div className="font-medium">{successRate}% success</div>
-            <div className="text-muted-foreground">{attemptCount} attempts</div>
-          </div>
-        );
-      },
-      size: 140,
-    },
-
-    // 5. Contextual date column (Created/Archived/Deleted based on tab)
-    {
-      id: 'date',
-      header: () => {
-        if (currentTab === 'archived') return 'Archived';
-        if (currentTab === 'trash') return 'Deleted';
-        return 'Created';
-      },
-      cell: ({ row }) => {
-        const { archivedAt, deletedAt, generatedAt } = row.original;
-        let date = generatedAt;
-        if (currentTab === 'archived' && archivedAt) date = archivedAt;
-        if (currentTab === 'trash' && deletedAt) date = deletedAt;
-
-        return (
-          <span className="text-sm text-muted-foreground">
-            {formatDistanceToNow(date, { addSuffix: true })}
-          </span>
-        );
-      },
-      size: 120,
-    },
-
-    // 6. Next review column
-    {
-      accessorKey: 'nextReview',
-      header: 'Next Review',
-      cell: ({ row }) => {
-        const { nextReview } = row.original;
-        if (!nextReview) {
-          return <span className="text-sm text-muted-foreground">—</span>;
-        }
-
-        const isPast = nextReview < Date.now();
-        return (
-          <span
-            className={`text-sm ${isPast ? 'text-warning font-medium' : 'text-muted-foreground'}`}
-          >
-            {isPast ? 'Due now' : formatDistanceToNow(nextReview, { addSuffix: true })}
-          </span>
-        );
-      },
-      size: 120,
-    },
-
-    // 7. Type column
-    {
-      accessorKey: 'type',
-      header: 'Type',
-      cell: ({ row }) => {
-        const type = row.original.type;
-        return (
-          <span className="text-xs text-muted-foreground">
-            {type === 'multiple-choice' ? 'MC' : 'T/F'}
-          </span>
-        );
-      },
-      size: 60,
-    },
-
-    // 8. Actions column with dropdown menu
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const question = row.original;
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {currentTab === 'active' && (
-                <>
-                  <DropdownMenuItem onClick={() => onArchive?.([question._id])}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    Archive
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-              {currentTab === 'archived' && (
-                <>
-                  <DropdownMenuItem onClick={() => onUnarchive?.([question._id])}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Unarchive
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-              {currentTab === 'trash' && (
-                <>
-                  <DropdownMenuItem onClick={() => onRestore?.([question._id])}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Restore
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => onPermanentDelete?.([question._id])}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Permanently
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-      size: 60,
-    },
+    selectColumn,
+    questionColumn,
+    topicColumn,
+    ...(currentTab === 'active' ? [performanceColumn] : []),
+    dateColumn,
+    ...(currentTab === 'active' ? [nextReviewColumn] : []),
+    typeColumn,
+    actionsColumn,
   ];
 
   // Initialize TanStack Table

@@ -84,17 +84,19 @@ export function LibraryCards({
             </CardHeader>
 
             <CardContent className="space-y-2 text-sm">
-              {/* Performance stats */}
-              <div>
-                {question.attemptCount === 0 ? (
-                  <span className="text-muted-foreground">Not attempted</span>
-                ) : (
-                  <div>
-                    <div className="font-medium">{question.successRate}% success</div>
-                    <div className="text-muted-foreground">{question.attemptCount} attempts</div>
-                  </div>
-                )}
-              </div>
+              {/* Performance stats - only for active tab */}
+              {currentTab === 'active' && (
+                <div>
+                  {question.attemptCount === 0 ? (
+                    <span className="text-muted-foreground">Not attempted</span>
+                  ) : (
+                    <div>
+                      <div className="font-medium">{question.successRate}% success</div>
+                      <div className="text-muted-foreground">{question.attemptCount} attempts</div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Contextual date */}
               <div className="text-muted-foreground">
@@ -107,8 +109,8 @@ export function LibraryCards({
                 )}
               </div>
 
-              {/* Next review */}
-              {question.nextReview && (
+              {/* Next review - only for active tab */}
+              {currentTab === 'active' && question.nextReview && (
                 <div>
                   {question.nextReview < Date.now() ? (
                     <span className="text-warning font-medium">Due now</span>
