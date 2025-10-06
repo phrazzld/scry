@@ -46,12 +46,16 @@ export default defineSchema({
     // Soft delete and update tracking
     deletedAt: v.optional(v.number()), // For soft delete
     updatedAt: v.optional(v.number()), // Track last update time
+    // Archive and generation tracking
+    archivedAt: v.optional(v.number()), // For pausing questions without deleting
+    generationJobId: v.optional(v.id('generationJobs')), // Link to source generation job
   })
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_topic', ['userId', 'topic', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
     .index('by_user_next_review', ['userId', 'nextReview'])
-    .index('by_user_active', ['userId', 'deletedAt']), // For filtering deleted questions
+    .index('by_user_active', ['userId', 'archivedAt', 'deletedAt']) // For filtering active questions
+    .index('by_user_archived', ['userId', 'archivedAt', 'deletedAt']), // For filtering archived questions
 
   interactions: defineTable({
     userId: v.id('users'),
