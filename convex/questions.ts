@@ -585,3 +585,132 @@ export const getRecentTopics = query({
     return topics;
   },
 });
+
+/**
+ * Archive multiple questions (bulk operation)
+ *
+ * Sets archivedAt timestamp to remove questions from active review queue
+ * while preserving all FSRS data and history. Archived questions can be unarchived.
+ */
+export const archiveQuestions = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Verify ownership and update all questions in parallel
+    await Promise.all(
+      args.questionIds.map(async (id) => {
+        const question = await ctx.db.get(id);
+        if (!question || question.userId !== userId) {
+          throw new Error('Question not found or unauthorized');
+        }
+
+        await ctx.db.patch(id, {
+          archivedAt: now,
+          updatedAt: now,
+        });
+      })
+    );
+
+    return { archived: args.questionIds.length };
+  },
+});
+
+/**
+ * Unarchive multiple questions (bulk operation)
+ *
+ * Clears archivedAt timestamp to return questions to active review queue.
+ */
+export const unarchiveQuestions = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    await Promise.all(
+      args.questionIds.map(async (id) => {
+        const question = await ctx.db.get(id);
+        if (!question || question.userId !== userId) {
+          throw new Error('Question not found or unauthorized');
+        }
+
+        await ctx.db.patch(id, {
+          archivedAt: undefined,
+          updatedAt: now,
+        });
+      })
+    );
+
+    return { unarchived: args.questionIds.length };
+  },
+});
+
+/**
+ * Bulk soft delete questions
+ *
+ * Marks multiple questions as deleted but preserves them in database
+ * for recovery. Preserves all FSRS data and history.
+ */
+export const bulkDelete = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    await Promise.all(
+      args.questionIds.map(async (id) => {
+        const question = await ctx.db.get(id);
+        if (!question || question.userId !== userId) {
+          throw new Error('Question not found or unauthorized');
+        }
+
+        await ctx.db.patch(id, {
+          deletedAt: now,
+          updatedAt: now,
+        });
+      })
+    );
+
+    return { deleted: args.questionIds.length };
+  },
+});
+
+/**
+ * Permanently delete questions (irreversible)
+ *
+ * Actually removes questions from the database. This operation cannot be undone.
+ * Should only be called from trash view with explicit user confirmation.
+ */
+export const permanentlyDelete = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+
+    await Promise.all(
+      args.questionIds.map(async (id) => {
+        const question = await ctx.db.get(id);
+        if (!question || question.userId !== userId) {
+          throw new Error('Question not found or unauthorized');
+        }
+
+        // Actually delete from database
+        await ctx.db.delete(id);
+      })
+    );
+
+    return { permanentlyDeleted: args.questionIds.length };
+  },
+});
