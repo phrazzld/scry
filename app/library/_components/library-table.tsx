@@ -2,9 +2,17 @@
 
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
 import { formatDistanceToNow } from 'date-fns';
+import { Archive, MoreHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -31,6 +39,11 @@ interface LibraryTableProps {
   selectedIds: Set<Id<'questions'>>;
   onSelectionChange: (selectedIds: Set<Id<'questions'>>) => void;
   onPreviewClick?: (question: LibraryQuestion) => void;
+  onArchive?: (ids: Id<'questions'>[]) => void;
+  onUnarchive?: (ids: Id<'questions'>[]) => void;
+  onDelete?: (ids: Id<'questions'>[]) => void;
+  onRestore?: (ids: Id<'questions'>[]) => void;
+  onPermanentDelete?: (ids: Id<'questions'>[]) => void;
 }
 
 export function LibraryTable({
@@ -39,6 +52,11 @@ export function LibraryTable({
   selectedIds,
   onSelectionChange,
   onPreviewClick,
+  onArchive,
+  onUnarchive,
+  onDelete,
+  onRestore,
+  onPermanentDelete,
 }: LibraryTableProps) {
   // Define columns with explicit sizing for proper table layout
   const columns: ColumnDef<LibraryQuestion>[] = [
@@ -161,12 +179,63 @@ export function LibraryTable({
       size: 60,
     },
 
-    // 8. Actions column (placeholder for future dropdown)
+    // 8. Actions column with dropdown menu
     {
       id: 'actions',
       header: 'Actions',
-      cell: () => {
-        return <span className="text-xs text-muted-foreground">•••</span>;
+      cell: ({ row }) => {
+        const question = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {currentTab === 'active' && (
+                <>
+                  <DropdownMenuItem onClick={() => onArchive?.([question._id])}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+              {currentTab === 'archived' && (
+                <>
+                  <DropdownMenuItem onClick={() => onUnarchive?.([question._id])}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Unarchive
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDelete?.([question._id])}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+              {currentTab === 'trash' && (
+                <>
+                  <DropdownMenuItem onClick={() => onRestore?.([question._id])}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onPermanentDelete?.([question._id])}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
       },
       size: 60,
     },

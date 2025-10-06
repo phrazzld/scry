@@ -138,6 +138,11 @@ export function LibraryClient() {
                   currentTab={currentTab}
                   selectedIds={selectedIds}
                   onSelectionChange={handleSelectionChange}
+                  onArchive={handleArchive}
+                  onUnarchive={handleUnarchive}
+                  onDelete={handleDelete}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
                 />
               </div>
               <div className="md:hidden">
@@ -163,6 +168,11 @@ export function LibraryClient() {
                   currentTab={currentTab}
                   selectedIds={selectedIds}
                   onSelectionChange={handleSelectionChange}
+                  onArchive={handleArchive}
+                  onUnarchive={handleUnarchive}
+                  onDelete={handleDelete}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
                 />
               </div>
               <div className="md:hidden">
@@ -188,6 +198,11 @@ export function LibraryClient() {
                   currentTab={currentTab}
                   selectedIds={selectedIds}
                   onSelectionChange={handleSelectionChange}
+                  onArchive={handleArchive}
+                  onUnarchive={handleUnarchive}
+                  onDelete={handleDelete}
+                  onRestore={handleRestore}
+                  onPermanentDelete={handlePermanentDelete}
                 />
               </div>
               <div className="md:hidden">
