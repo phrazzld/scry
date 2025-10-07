@@ -11,8 +11,19 @@ interface UndoableActionOptions {
 }
 
 /**
- * Hook for executing actions with undo toast support
- * Shows success toast with undo button for reversible operations
+ * Hook for executing actions with undo support
+ *
+ * Shows a success toast with undo button for reversible operations.
+ * Use for soft deletes, archives, and other reversible actions.
+ *
+ * @example
+ * const undoableAction = useUndoableAction();
+ * await undoableAction({
+ *   action: () => archiveQuestion(id),
+ *   message: 'Question archived',
+ *   undo: () => unarchiveQuestion(id),
+ *   duration: 5000, // Optional: toast duration in ms
+ * });
  */
 export function useUndoableAction() {
   const execute = useCallback(

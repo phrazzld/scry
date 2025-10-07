@@ -37,7 +37,19 @@ type ConfirmationFn = (options: ConfirmationOptions) => Promise<boolean>;
 // Context
 const ConfirmationContext = React.createContext<ConfirmationFn | null>(null);
 
-// Provider
+/**
+ * Provider component for confirmation dialogs
+ *
+ * Manages a queue of confirmation requests to prevent race conditions.
+ * Only one dialog is visible at a time (FIFO order).
+ *
+ * Must wrap the app root to make useConfirmation() available globally.
+ *
+ * @example
+ * <ConfirmationProvider>
+ *   <App />
+ * </ConfirmationProvider>
+ */
 export function ConfirmationProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = React.useState<ConfirmationRequest[]>([]);
   const [typedText, setTypedText] = React.useState('');
@@ -123,7 +135,26 @@ export function ConfirmationProvider({ children }: { children: React.ReactNode }
   );
 }
 
-// Consumer hook
+/**
+ * Hook for showing confirmation dialogs
+ *
+ * Returns a promise-based confirm function that blocks until user responds.
+ * Handles focus restoration and keyboard navigation automatically.
+ *
+ * @throws {Error} If used outside ConfirmationProvider
+ *
+ * @example
+ * const confirm = useConfirmation();
+ * const confirmed = await confirm({
+ *   title: 'Delete item?',
+ *   description: 'This action cannot be undone.',
+ *   variant: 'destructive',
+ *   requireTyping: 'DELETE', // Optional: require typing text to confirm
+ * });
+ * if (confirmed) {
+ *   await deleteItem();
+ * }
+ */
 export function useConfirmation() {
   const context = React.useContext(ConfirmationContext);
   if (!context) {
