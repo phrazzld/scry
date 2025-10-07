@@ -129,6 +129,57 @@ When implementing features:
 - Follow existing component patterns in the codebase
 - Maintain consistency with the minimal, clean UI design
 
+## Confirmation Patterns
+
+### Destructive Actions
+
+Use `useConfirmation()` hook for irreversible actions:
+
+```typescript
+import { useConfirmation } from '@/hooks/use-confirmation';
+
+const confirm = useConfirmation();
+const confirmed = await confirm({
+  title: 'Permanent action?',
+  description: 'This cannot be undone.',
+  variant: 'destructive',
+  requireTyping: 'DELETE', // For truly irreversible actions
+});
+if (confirmed) {
+  await destructiveAction();
+}
+```
+
+### Reversible Actions
+
+Use `useUndoableAction()` hook for soft deletes and archives:
+
+```typescript
+import { useUndoableAction } from '@/hooks/use-undoable-action';
+
+const undoableAction = useUndoableAction();
+await undoableAction({
+  action: () => archiveItem(id),
+  message: 'Item archived',
+  undo: () => unarchiveItem(id),
+});
+```
+
+### When to Use Which
+
+- **Permanent delete from trash** → `useConfirmation()` with `requireTyping`
+- **Soft delete to trash** → `useUndoableAction()`
+- **Archive/unarchive** → `useUndoableAction()`
+- **Any truly irreversible action** → `useConfirmation()` with `variant: 'destructive'`
+
+### Key Features
+
+- **Queue management**: Multiple confirmations handled FIFO (no race conditions)
+- **Focus restoration**: Focus returns to trigger element after dialog closes
+- **Keyboard accessible**: Escape cancels, Tab cycles, Enter confirms
+- **Mobile-friendly**: 44x44px touch targets, theme-consistent
+- **Type-to-confirm**: Prevents accidental permanent deletion
+
 ## Core Principles: Hypersimplicity and Pure Memory Science
 
 ### The Hypersimple Truth
