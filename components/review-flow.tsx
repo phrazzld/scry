@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
 import type { Doc } from '@/convex/_generated/dataModel';
+import { useConfirmation } from '@/hooks/use-confirmation';
 import { useReviewShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useQuestionMutations } from '@/hooks/use-question-mutations';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
@@ -52,6 +53,7 @@ export function ReviewFlow() {
   // Edit/Delete functionality
   const [editModalOpen, setEditModalOpen] = useState(false);
   const { optimisticEdit, optimisticDelete } = useQuestionMutations();
+  const confirm = useConfirmation();
 
   // Update context when current question changes
   useEffect(() => {
@@ -131,9 +133,14 @@ export function ReviewFlow() {
   const handleDelete = useCallback(async () => {
     if (!question || !questionId) return;
 
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this question? This action cannot be undone.'
-    );
+    const confirmed = await confirm({
+      title: 'Delete this question?',
+      description:
+        'This will move the question to trash. You can restore it later from the Library.',
+      confirmText: 'Move to Trash',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
 
     if (confirmed) {
       const result = await optimisticDelete({ questionId });
@@ -143,7 +150,7 @@ export function ReviewFlow() {
         handlers.onReviewComplete();
       }
     }
-  }, [question, questionId, optimisticDelete, handlers]);
+  }, [question, questionId, optimisticDelete, handlers, confirm]);
 
   // Handle save from edit modal - now supports all fields
   const handleSaveEdit = useCallback(

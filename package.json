@@ -16,6 +16,7 @@
     "test:ci": "vitest --run --coverage",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
+    "test:contract": "vitest --run tests/api-contract.test.ts",
     "test:lighthouse": "lighthouse http://localhost:3000/quiz-mode --view --preset=desktop --only-categories=performance",
     "test:tti": "node --input-type=module scripts/lighthouse-tti-test.js",
     "test:perf": "node scripts/measure-review-performance.js",

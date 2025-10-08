@@ -12,6 +12,7 @@ import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { CurrentQuestionProvider } from '@/contexts/current-question-context';
+import { ConfirmationProvider } from '@/hooks/use-confirmation';
 import { validateEnv } from '@/lib/env';
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode';
 
@@ -51,21 +52,23 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ClerkConvexProvider>
-            <DeploymentVersionGuard>
-              <CurrentQuestionProvider>
-                <div className={getLayoutClassName()}>
-                  <ConditionalNavbar />
-                  {needsNavbarSpacer() && <div className="h-16" />}
-                  <main>{children}</main>
-                  <Footer />
-                </div>
-                <Toaster />
-                <Analytics />
-                <SpeedInsights />
-              </CurrentQuestionProvider>
-            </DeploymentVersionGuard>
-          </ClerkConvexProvider>
+          <ConfirmationProvider>
+            <ClerkConvexProvider>
+              <DeploymentVersionGuard>
+                <CurrentQuestionProvider>
+                  <div className={getLayoutClassName()}>
+                    <ConditionalNavbar />
+                    {needsNavbarSpacer() && <div className="h-16" />}
+                    <main>{children}</main>
+                    <Footer />
+                  </div>
+                  <Toaster />
+                  <Analytics />
+                  <SpeedInsights />
+                </CurrentQuestionProvider>
+              </DeploymentVersionGuard>
+            </ClerkConvexProvider>
+          </ConfirmationProvider>
         </ThemeProvider>
       </body>
     </html>

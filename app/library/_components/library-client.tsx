@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { useConfirmation } from '@/hooks/use-confirmation';
+import { useUndoableAction } from '@/hooks/use-undoable-action';
 
 import { BulkActionsBar } from './bulk-actions-bar';
 import { LibraryCards } from './library-cards';
@@ -29,6 +31,10 @@ export function LibraryClient() {
   const restoreQuestions = useMutation(api.questions.restoreQuestions);
   const permanentlyDelete = useMutation(api.questions.permanentlyDelete);
 
+  // Confirmation and undo hooks
+  const confirm = useConfirmation();
+  const undoableAction = useUndoableAction();
+
   // Handle selection changes
   const handleSelectionChange = (newSelectedIds: Set<Id<'questions'>>) => {
     setSelectedIds(newSelectedIds);
@@ -45,14 +51,17 @@ export function LibraryClient() {
     setSelectedIds(new Set());
   };
 
-  // Bulk operation handlers with optimistic updates
+  // Bulk operation handlers with undo pattern for reversible actions
   const handleArchive = async (ids: Id<'questions'>[]) => {
     const count = ids.length;
     if (count === 0) return;
 
     try {
-      await archiveQuestions({ questionIds: ids });
-      toast.success(`Archived ${count} ${count === 1 ? 'question' : 'questions'}`);
+      await undoableAction({
+        action: () => archiveQuestions({ questionIds: ids }),
+        message: `Archived ${count} ${count === 1 ? 'question' : 'questions'}`,
+        undo: () => unarchiveQuestions({ questionIds: ids }),
+      });
 
       // Remove operated items from selection
       const newSelection = new Set(selectedIds);
@@ -69,8 +78,11 @@ export function LibraryClient() {
     if (count === 0) return;
 
     try {
-      await unarchiveQuestions({ questionIds: ids });
-      toast.success(`Unarchived ${count} ${count === 1 ? 'question' : 'questions'}`);
+      await undoableAction({
+        action: () => unarchiveQuestions({ questionIds: ids }),
+        message: `Unarchived ${count} ${count === 1 ? 'question' : 'questions'}`,
+        undo: () => archiveQuestions({ questionIds: ids }),
+      });
 
       // Remove operated items from selection
       const newSelection = new Set(selectedIds);
@@ -87,8 +99,11 @@ export function LibraryClient() {
     if (count === 0) return;
 
     try {
-      await bulkDelete({ questionIds: ids });
-      toast.success(`Deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
+      await undoableAction({
+        action: () => bulkDelete({ questionIds: ids }),
+        message: `Deleted ${count} ${count === 1 ? 'question' : 'questions'}`,
+        undo: () => restoreQuestions({ questionIds: ids }),
+      });
 
       // Remove operated items from selection
       const newSelection = new Set(selectedIds);
@@ -105,8 +120,11 @@ export function LibraryClient() {
     if (count === 0) return;
 
     try {
-      await restoreQuestions({ questionIds: ids });
-      toast.success(`Restored ${count} ${count === 1 ? 'question' : 'questions'}`);
+      await undoableAction({
+        action: () => restoreQuestions({ questionIds: ids }),
+        message: `Restored ${count} ${count === 1 ? 'question' : 'questions'}`,
+        undo: () => bulkDelete({ questionIds: ids }),
+      });
 
       // Remove operated items from selection
       const newSelection = new Set(selectedIds);
@@ -122,10 +140,14 @@ export function LibraryClient() {
     const count = ids.length;
     if (count === 0) return;
 
-    // Confirm before irreversible deletion
-    const confirmed = confirm(
-      `Permanently delete ${count} ${count === 1 ? 'question' : 'questions'}?\n\nThis action cannot be undone.`
-    );
+    const confirmed = await confirm({
+      title: `Permanently delete ${count} ${count === 1 ? 'question' : 'questions'}?`,
+      description: 'This action cannot be undone. Type DELETE to confirm.',
+      confirmText: 'Delete Forever',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+      requireTyping: 'DELETE',
+    });
 
     if (!confirmed) return;
 

@@ -129,6 +129,111 @@ When implementing features:
 - Follow existing component patterns in the codebase
 - Maintain consistency with the minimal, clean UI design
 
+## Backend-First Development Workflow
+
+When implementing features that require new backend mutations or queries, follow this strict order to prevent frontend-backend contract mismatches:
+
+### Checklist for Backend-Requiring Features
+
+1. **Backend First**: Implement mutation/query in `convex/`
+   - Define args schema with `v.object({ ... })`
+   - Implement handler with proper auth and validation
+   - Follow atomic validation pattern for bulk operations
+   - Add JSDoc comments explaining purpose and edge cases
+
+2. **Generate Types**: Ensure types are current
+   - Verify `npx convex dev` is running and sees your changes
+   - Wait for "Convex functions ready!" message in terminal
+   - Confirm `convex/_generated/api.d.ts` contains new function
+
+3. **Frontend Second**: Use mutation/query in components
+   - Import from generated API: `import { api } from '@/convex/_generated/api'`
+   - Use with Convex hooks: `useMutation(api.module.function)`
+   - TypeScript autocomplete should show your new function
+
+4. **Type Check**: Verify before committing
+   - Run `pnpm build` or `pnpm exec tsc --noEmit`
+   - Fix any type errors before staging changes
+   - Pre-commit hook will enforce this automatically
+
+5. **Test Integration**: Manual end-to-end test
+   - Test happy path in development environment
+   - Test error cases (auth failures, invalid data)
+   - Verify loading states and error messages
+
+### Anti-Pattern: Frontend-First (Causes Runtime Errors)
+
+❌ **Don't do this:**
+```typescript
+// Writing frontend code first, assuming backend exists
+const restore = useMutation(api.questions.restoreQuestions); // DOESN'T EXIST YET!
+```
+
+This compiles but fails at runtime with "Could not find public function" error.
+
+✅ **Do this instead:**
+1. Implement `restoreQuestions` in `convex/questions.ts`
+2. Wait for type generation
+3. Then use in frontend
+
+### Mutation Pairs Require Both Implementations
+
+When implementing undo patterns:
+- ✅ Implement both action and undo mutations BEFORE writing frontend code
+- ✅ Test both directions work (archive → unarchive, delete → restore)
+- ✅ Add contract tests to prevent future regressions
+
+## Confirmation Patterns
+
+### Destructive Actions
+
+Use `useConfirmation()` hook for irreversible actions:
+
+```typescript
+import { useConfirmation } from '@/hooks/use-confirmation';
+
+const confirm = useConfirmation();
+const confirmed = await confirm({
+  title: 'Permanent action?',
+  description: 'This cannot be undone.',
+  variant: 'destructive',
+  requireTyping: 'DELETE', // For truly irreversible actions
+});
+if (confirmed) {
+  await destructiveAction();
+}
+```
+
+### Reversible Actions
+
+Use `useUndoableAction()` hook for soft deletes and archives:
+
+```typescript
+import { useUndoableAction } from '@/hooks/use-undoable-action';
+
+const undoableAction = useUndoableAction();
+await undoableAction({
+  action: () => archiveItem(id),
+  message: 'Item archived',
+  undo: () => unarchiveItem(id),
+});
+```
+
+### When to Use Which
+
+- **Permanent delete from trash** → `useConfirmation()` with `requireTyping`
+- **Soft delete to trash** → `useUndoableAction()`
+- **Archive/unarchive** → `useUndoableAction()`
+- **Any truly irreversible action** → `useConfirmation()` with `variant: 'destructive'`
+
+### Key Features
+
+- **Queue management**: Multiple confirmations handled FIFO (no race conditions)
+- **Focus restoration**: Focus returns to trigger element after dialog closes
+- **Keyboard accessible**: Escape cancels, Tab cycles, Enter confirms
+- **Mobile-friendly**: 44x44px touch targets, theme-consistent
+- **Type-to-confirm**: Prevents accidental permanent deletion
+
 ## Core Principles: Hypersimplicity and Pure Memory Science
 
 ### The Hypersimple Truth
@@ -329,6 +434,64 @@ internal.generationJobs.cleanup()
 4. **Preserve partial work**: Cancellation saves already-generated questions
 5. **Respect rate limits**: Enforce concurrent job limits per user
 6. **Clean up regularly**: Automated cron prevents database bloat
+
+## Convex Mutations: Reversible Operations
+
+### Mutation Pairs (Action ↔ Undo)
+
+The application implements reversible operations using mutation pairs. Every action mutation MUST have a corresponding undo mutation implemented in the backend.
+
+| Action | Mutation | Effect | Undo | Mutation | Effect |
+|--------|----------|--------|------|----------|--------|
+| Archive | `archiveQuestions` | Sets `archivedAt: now` | Unarchive | `unarchiveQuestions` | Clears `archivedAt` |
+| Soft Delete | `bulkDelete` | Sets `deletedAt: now` | Restore | `restoreQuestions` | Clears `deletedAt` |
+| Hard Delete | `permanentlyDelete` | Removes from DB | ❌ None | - | **Irreversible** |
+
+### Critical Rule: Mutation Symmetry
+
+**Before implementing undo UI pattern:**
+1. ✅ Verify BOTH mutations exist in `convex/questions.ts`
+2. ✅ Test both forward and reverse operations manually
+3. ✅ Add contract tests in `tests/api-contract.test.ts`
+
+**Common failure mode:** Implementing frontend undo assuming backend mutation exists, discovering at runtime the mutation is missing. Pre-commit hooks and contract tests prevent this.
+
+### Mutation Implementation Pattern
+
+**File:** `convex/questions.ts`
+
+Standard pattern for all bulk mutations:
+
+```typescript
+export const operationName = mutation({
+  args: { questionIds: v.array(v.id('questions')) },
+  handler: async (ctx, args) => {
+    // 1. Auth
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+
+    // 2. Atomic validation (fetch ALL first)
+    const questions = await Promise.all(
+      args.questionIds.map((id) => ctx.db.get(id))
+    );
+
+    // 3. Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) throw new Error(`Question not found: ${args.questionIds[index]}`);
+      if (question.userId !== userId) throw new Error(`Unauthorized: ${args.questionIds[index]}`);
+    });
+
+    // 4. Execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) => ctx.db.patch(id, { /* changes */ }))
+    );
+
+    return { count: args.questionIds.length };
+  },
+});
+```
+
+**Why atomic validation?** Prevents partial failures - either ALL operations succeed or ALL fail. No orphaned state.
 
 ## Testing
 
