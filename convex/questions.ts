@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { cardToDb, initializeCard, scheduleNextReview } from './fsrs';
+import { getScheduler } from './scheduling';
 
 export const saveGeneratedQuestions = mutation({
   args: {
@@ -23,8 +23,8 @@ export const saveGeneratedQuestions = mutation({
     const userId = user._id;
 
     // Initialize FSRS card for new questions
-    const initialCard = initializeCard();
-    const fsrsFields = cardToDb(initialCard);
+    const scheduler = getScheduler();
+    const fsrsFields = scheduler.initializeCard();
 
     const questionIds = await Promise.all(
       args.questions.map((q) =>
@@ -72,8 +72,8 @@ export const saveBatch = internalMutation({
   },
   handler: async (ctx, args): Promise<Id<'questions'>[]> => {
     // Initialize FSRS card for new questions
-    const initialCard = initializeCard();
-    const fsrsFields = cardToDb(initialCard);
+    const scheduler = getScheduler();
+    const fsrsFields = scheduler.initializeCard();
 
     // Insert all questions in parallel
     const questionIds = await Promise.all(
@@ -150,27 +150,27 @@ export const recordInteraction = mutation({
       lastAttemptedAt: Date.now(),
     };
 
-    // Calculate FSRS scheduling
+    // Calculate FSRS scheduling using scheduler interface
+    const scheduler = getScheduler();
     const now = new Date();
     let fsrsFields: Partial<typeof question> = {};
 
     // If this is the first interaction and question has no FSRS state, initialize it
     if (!question.state) {
-      const initialCard = initializeCard();
-      const initialDbFields = cardToDb(initialCard);
+      const initialDbFields = scheduler.initializeCard();
 
       // Schedule the first review
-      const { dbFields: scheduledFields } = scheduleNextReview(
+      const result = scheduler.scheduleNextReview(
         { ...question, ...initialDbFields },
         args.isCorrect,
         now
       );
 
-      fsrsFields = scheduledFields;
+      fsrsFields = result.dbFields;
     } else {
       // For subsequent reviews, use existing FSRS state
-      const { dbFields: scheduledFields } = scheduleNextReview(question, args.isCorrect, now);
-      fsrsFields = scheduledFields;
+      const result = scheduler.scheduleNextReview(question, args.isCorrect, now);
+      fsrsFields = result.dbFields;
     }
 
     // Update question with both stats and FSRS fields
@@ -512,8 +512,8 @@ export const saveRelatedQuestions = mutation({
     }
 
     // Initialize FSRS card for new questions
-    const initialCard = initializeCard();
-    const fsrsFields = cardToDb(initialCard);
+    const scheduler = getScheduler();
+    const fsrsFields = scheduler.initializeCard();
 
     // Save all related questions with same topic as base
     const questionIds = await Promise.all(
