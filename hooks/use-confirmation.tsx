@@ -15,6 +15,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+// Helper to generate unique IDs with fallback for environments without crypto.randomUUID
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback: timestamp + random for older browsers and test environments
+  return `conf-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 // Types
 type ConfirmationOptions = {
   title: React.ReactNode;
@@ -63,7 +72,7 @@ export function ConfirmationProvider({ children }: { children: React.ReactNode }
       setQueue((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateId(),
           options,
           resolve,
           triggerRef: { current: document.activeElement as HTMLElement },
