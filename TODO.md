@@ -1,0 +1,561 @@
+# TODO: Questions Module Refactoring - God Object Decomposition + FSRS Decoupling
+
+**Status**: In Progress
+**Estimated Effort**: 10-13 hours
+**PR Scope**: Single atomic PR with all changes
+
+---
+
+## Context
+
+**Approach**: Decompose 843-line `convex/questions.ts` god object into 5 focused modules (~150 lines each) while extracting scheduling interface to decouple FSRS implementation.
+
+**Module Strategy**:
+- `scheduling.ts` - Scheduling abstraction (IScheduler interface + FSRS impl)
+- `lib/validation.ts` - Shared validation helpers (removes ~140 lines duplication)
+- `questionsCrud.ts` - CRUD operations (~150 lines)
+- `questionsBulk.ts` - Bulk operations (~150 lines)
+- `questionsInteractions.ts` - Answer recording + scheduling (~100 lines)
+- `questionsLibrary.ts` - Library queries (~150 lines)
+- `questionsRelated.ts` - Related question generation (~100 lines)
+
+**Key Patterns to Follow**:
+- Module-level JSDoc: See `convex/generationJobs.ts:1-8`
+- Helper utilities: See `convex/lib/logger.ts` structure
+- Mutation structure: See `convex/generationJobs.ts:16-70`
+- Test organization: Mirror module structure (1 test file per module)
+
+**Success Criteria**:
+- ✅ All 200+ existing tests pass
+- ✅ `pnpm build` succeeds (TypeScript compilation)
+- ✅ Each module < 200 lines
+- ✅ Zero direct imports from `fsrs.ts` in question modules
+- ✅ Can swap FSRS for SM-2 by changing `getScheduler()` return
+
+---
+
+## Phase 1: Scheduling Foundation (3-4 hours)
+
+### Backend: Create Scheduling Abstraction
+
+- [x] **Create `convex/scheduling.ts` with IScheduler interface**
+  ```
+  ✅ COMPLETED - commit de5eed4
+  Files: convex/scheduling.ts (NEW), convex/fsrs.ts:15-183 (reference)
+  Approach: Extract interface from fsrs.ts patterns
+  Module: Scheduling abstraction - hides FSRS library details behind clean interface
+  Success:
+    - IScheduler interface defined with initializeCard() and scheduleNextReview()
+    - SchedulingResult interface with dbFields, nextReviewDate, scheduledDays, newState
+    - FsrsScheduler class implements IScheduler
+    - getScheduler() factory returns FsrsScheduler instance
+    - Zero direct ts-fsrs imports outside this module
+  Test: Unit tests for interface contract, FSRS implementation
+  Time: 2h
+  Dependencies: None (independent module)
+  ```
+
+- [x] **Create `convex/lib/validation.ts` with shared helpers**
+  ```
+  ✅ COMPLETED - commit e0197df
+  Files: convex/lib/validation.ts (NEW), convex/questions.ts:658-669 (pattern)
+  Approach: Follow convex/lib/logger.ts structure for lib utilities
+  Module: Validation helpers - hides atomic validation pattern
+  Success:
+    - validateBulkOwnership() helper exported
+    - Takes (ctx, userId, questionIds) → returns validated questions
+    - Throws on not found or unauthorized
+    - JSDoc explains atomic validation (fetch ALL, validate ALL, mutate ALL)
+  Test: Unit tests for validation logic, error cases
+  Time: 30min
+  Dependencies: None (pure utility)
+  ```
+
+### Backend: Proof of Concept
+
+- [x] **Update `convex/questions.ts` to use getScheduler()**
+  ```
+  ✅ COMPLETED - commit b9c04d6
+  Files: convex/questions.ts:6,117-189 (recordInteraction)
+  Approach: Replace direct fsrs.ts imports with scheduling interface
+  Module: Proof that interface works in existing code
+  Success:
+    - Import replaced: `import { getScheduler } from './scheduling'`
+    - recordInteraction uses `const scheduler = getScheduler()`
+    - All FSRS calls go through scheduler interface
+    - Zero direct fsrs.ts imports remain in questions.ts
+  Test: Existing tests pass (no behavior change)
+  Time: 1h
+  Dependencies: scheduling.ts complete
+  ```
+
+### Validation
+
+- [x] **Validate Phase 1 foundation**
+  ```
+  ✅ COMPLETED
+  Commands:
+    - pnpm test (all tests must pass) ✅ 238 tests passing
+    - npx convex dev (types regenerate successfully) ✅ Running in background
+    - pnpm build (TypeScript compilation succeeds) ✅ Build successful
+    - grep "import.*fsrs" convex/questions.ts ✅ Zero matches
+  Success: All commands pass, zero TypeScript errors
+  Time: 30min
+  Dependencies: All Phase 1 tasks complete
+  ```
+
+**Phase 1 Deliverable**: Working scheduling abstraction with proof of concept
+
+---
+
+## Phase 2: Module Decomposition (4-5 hours)
+
+### Backend: Create Question Modules
+
+- [ ] **Create `convex/questionsCrud.ts` - CRUD operations**
+  ```
+  Files: convex/questionsCrud.ts (NEW), convex/questions.ts:8-100,275-405 (copy)
+  Approach: Follow generationJobs.ts module structure
+  Module: Question content lifecycle - hides field validation, FSRS init, ownership
+  Success:
+    - Exports: saveGeneratedQuestions, saveBatch, updateQuestion, softDeleteQuestion, restoreQuestion
+    - Uses getScheduler() for FSRS initialization
+    - Module-level JSDoc explaining CRUD responsibility
+    - < 200 lines
+  Test: Migrate tests from questions.crud.test.ts
+  Time: 1h
+  Dependencies: scheduling.ts complete
+  ```
+
+  **Functions to copy**:
+  - `saveGeneratedQuestions` (lines 8-50)
+  - `saveBatch` (lines 59-100)
+  - `updateQuestion` (lines 275-359)
+  - `softDeleteQuestion` (lines 367-403) - mark as deprecated, use bulk
+  - `restoreQuestion` (lines 405-438) - mark as deprecated, use bulk
+
+  **Updates needed**:
+  - Replace FSRS imports with `getScheduler()`
+  - Add module JSDoc (see generationJobs.ts:1-8)
+
+- [ ] **Create `convex/questionsBulk.ts` - Bulk operations**
+  ```
+  Files: convex/questionsBulk.ts (NEW), convex/questions.ts:649-843 (copy)
+  Approach: Replace validation with validateBulkOwnership() helper
+  Module: Multi-question operations - hides atomic transaction pattern
+  Success:
+    - Exports: archiveQuestions, unarchiveQuestions, bulkDelete, restoreQuestions, permanentlyDelete
+    - Uses validateBulkOwnership() from lib/validation.ts
+    - Module-level JSDoc explaining bulk operations
+    - ~140 lines (duplication removed)
+  Test: Migrate tests from questions.mutations.test.ts
+  Time: 1h
+  Dependencies: lib/validation.ts complete
+  ```
+
+  **Functions to copy**:
+  - `archiveQuestions` (lines 649-683)
+  - `unarchiveQuestions` (lines 690-724)
+  - `bulkDelete` (lines 732-766)
+  - `restoreQuestions` (lines 775-809)
+  - `permanentlyDelete` (lines 817-843)
+
+  **Key change**: Replace lines 658-669 in each with single call to `validateBulkOwnership()`
+
+- [ ] **Create `convex/questionsInteractions.ts` - Answer recording**
+  ```
+  Files: convex/questionsInteractions.ts (NEW), convex/questions.ts:117-189 (copy)
+  Approach: Keep existing logic, use getScheduler() interface
+  Module: Answer recording + scheduling - hides stat updates, FSRS scheduling
+  Success:
+    - Exports: recordInteraction
+    - Uses getScheduler() for scheduling calculations
+    - Module-level JSDoc explaining integration point
+    - ~100 lines
+  Test: Create questionsInteractions.test.ts
+  Time: 45min
+  Dependencies: scheduling.ts complete
+  ```
+
+  **Implementation notes**:
+  - This is THE key integration point between questions and scheduling
+  - Document clearly: "Uses injected scheduler to avoid FSRS coupling"
+
+- [ ] **Create `convex/questionsLibrary.ts` - Library queries**
+  ```
+  Files: convex/questionsLibrary.ts (NEW), convex/questions.ts:191-267,548-640 (copy)
+  Approach: Pure queries, no scheduling dependencies
+  Module: Question browsing - hides index selection, client-side filtering
+  Success:
+    - Exports: getLibrary, getRecentTopics, getUserQuestions, getQuizInteractionStats
+    - Module-level JSDoc explaining library responsibility
+    - ~150 lines
+  Test: Create questionsLibrary.test.ts
+  Time: 1h
+  Dependencies: None (pure queries)
+  ```
+
+  **Functions to copy**:
+  - `getUserQuestions` (lines 191-238)
+  - `getQuizInteractionStats` (lines 240-267)
+  - `getRecentTopics` (lines 548-587)
+  - `getLibrary` (lines 597-641)
+
+- [ ] **Create `convex/questionsRelated.ts` - Related generation**
+  ```
+  Files: convex/questionsRelated.ts (NEW), convex/questions.ts:440-545 (copy)
+  Approach: Use getScheduler() for FSRS initialization
+  Module: AI-powered related questions - hides topic inheritance, AI integration
+  Success:
+    - Exports: prepareRelatedGeneration, saveRelatedQuestions
+    - Uses getScheduler() for FSRS initialization
+    - Module-level JSDoc explaining related generation
+    - ~100 lines
+  Test: Create questionsRelated.test.ts
+  Time: 45min
+  Dependencies: scheduling.ts complete
+  ```
+
+  **Functions to copy**:
+  - `prepareRelatedGeneration` (lines 440-482)
+  - `saveRelatedQuestions` (lines 485-545)
+
+- [ ] **Update `convex/spacedRepetition.ts` to use getScheduler()**
+  ```
+  Files: convex/spacedRepetition.ts:42,lines with FSRS calls
+  Approach: Same pattern as questions.ts proof of concept
+  Module: Decouple spacedRepetition from FSRS
+  Success:
+    - Import replaced with getScheduler()
+    - All FSRS function calls go through scheduler interface
+    - Zero direct fsrs.ts imports
+  Test: Existing tests pass (no behavior change)
+  Time: 30min
+  Dependencies: scheduling.ts complete
+  ```
+
+  **Lines to update**:
+  - Line 42: Replace FSRS imports
+  - Find all calls to `initializeCard()`, `scheduleNextReview()`, etc.
+  - Replace with `scheduler.initializeCard()`, `scheduler.scheduleNextReview()`
+
+### Validation
+
+- [ ] **Validate Phase 2 modules**
+  ```
+  Commands:
+    - npx convex dev (types regenerate)
+    - Check each module < 200 lines: wc -l convex/questions*.ts convex/scheduling.ts
+    - grep -r "import.*fsrs" convex/questions*.ts convex/spacedRepetition.ts (should be empty)
+  Success: All modules created, types generated, no direct FSRS imports
+  Time: 15min
+  Dependencies: All Phase 2 tasks complete
+  ```
+
+**Phase 2 Deliverable**: 5 focused modules + updated spacedRepetition.ts
+
+---
+
+## Phase 3: Test Migration (2-3 hours)
+
+### Backend: Create Module-Specific Tests
+
+- [ ] **Create `convex/questionsCrud.test.ts`**
+  ```
+  Files: convex/questionsCrud.test.ts (NEW), convex/questions.crud.test.ts (migrate)
+  Approach: Migrate relevant tests, add scheduler integration tests
+  Success:
+    - Tests for saveGeneratedQuestions, saveBatch, updateQuestion
+    - Tests for FSRS initialization via scheduler
+    - All tests pass
+  Time: 30min
+  Dependencies: questionsCrud.ts complete
+  ```
+
+- [ ] **Create `convex/questionsBulk.test.ts`**
+  ```
+  Files: convex/questionsBulk.test.ts (NEW), convex/questions.mutations.test.ts (migrate)
+  Approach: Migrate bulk operation tests, add validateBulkOwnership integration
+  Success:
+    - Tests for all 5 bulk operations
+    - Tests for validateBulkOwnership() integration
+    - All tests pass
+  Time: 45min
+  Dependencies: questionsBulk.ts complete
+  ```
+
+- [ ] **Create `convex/questionsInteractions.test.ts`**
+  ```
+  Files: convex/questionsInteractions.test.ts (NEW), existing tests (migrate)
+  Approach: Migrate interaction tests, add scheduling integration tests
+  Success:
+    - Tests for recordInteraction
+    - Tests for scheduling integration
+    - Tests for stat updates
+    - All tests pass
+  Time: 30min
+  Dependencies: questionsInteractions.ts complete
+  ```
+
+- [ ] **Create `convex/questionsLibrary.test.ts`**
+  ```
+  Files: convex/questionsLibrary.test.ts (NEW), existing tests (migrate)
+  Approach: Migrate library query tests
+  Success:
+    - Tests for getLibrary, getRecentTopics, getUserQuestions, getQuizInteractionStats
+    - Tests for filtering logic
+    - Tests for derived stats
+    - All tests pass
+  Time: 30min
+  Dependencies: questionsLibrary.ts complete
+  ```
+
+- [ ] **Create `convex/questionsRelated.test.ts`**
+  ```
+  Files: convex/questionsRelated.test.ts (NEW), existing tests (migrate)
+  Approach: Migrate related generation tests
+  Success:
+    - Tests for prepareRelatedGeneration, saveRelatedQuestions
+    - Tests for topic inheritance
+    - Tests for FSRS initialization
+    - All tests pass
+  Time: 30min
+  Dependencies: questionsRelated.ts complete
+  ```
+
+- [ ] **Create `convex/scheduling.test.ts`**
+  ```
+  Files: convex/scheduling.test.ts (NEW), convex/fsrs.test.ts (reference)
+  Approach: Test interface contract and FSRS implementation
+  Success:
+    - Tests for IScheduler interface contract
+    - Tests for FsrsScheduler implementation
+    - Tests for getScheduler() factory
+    - Tests for rating calculation logic
+    - All tests pass
+  Time: 45min
+  Dependencies: scheduling.ts complete
+  ```
+
+### Validation
+
+- [ ] **Validate Phase 3 tests**
+  ```
+  Commands:
+    - pnpm test (all 200+ tests must pass)
+    - Check test count matches or exceeds original
+  Success: All tests pass, coverage maintained
+  Time: 15min
+  Dependencies: All Phase 3 tasks complete
+  ```
+
+**Phase 3 Deliverable**: Complete test coverage mirroring module structure
+
+---
+
+## Phase 4: Frontend Migration (2-3 hours)
+
+### Frontend: Update Import Sites
+
+- [ ] **Update `hooks/use-question-mutations.ts`**
+  ```
+  Files: hooks/use-question-mutations.ts:46-47
+  Approach: Replace api.questions.* → api.questionsCrud.*
+  Success:
+    - api.questions.updateQuestion → api.questionsCrud.updateQuestion
+    - api.questions.softDeleteQuestion → api.questionsCrud.softDeleteQuestion
+    - pnpm build succeeds
+  Time: 15min
+  Dependencies: questionsCrud.ts deployed, types regenerated
+  ```
+
+- [ ] **Update `hooks/use-quiz-interactions.ts`**
+  ```
+  Files: hooks/use-quiz-interactions.ts:8
+  Approach: Replace api.questions.* → api.questionsInteractions.*
+  Success:
+    - api.questions.recordInteraction → api.questionsInteractions.recordInteraction
+    - pnpm build succeeds
+  Time: 10min
+  Dependencies: questionsInteractions.ts deployed, types regenerated
+  ```
+
+- [ ] **Update `app/library/_components/library-client.tsx`**
+  ```
+  Files: app/library/_components/library-client.tsx:25-32
+  Approach: Replace api.questions.* → api.questionsLibrary.*, api.questionsBulk.*
+  Success:
+    - api.questions.getLibrary → api.questionsLibrary.getLibrary
+    - api.questions.archiveQuestions → api.questionsBulk.archiveQuestions
+    - api.questions.unarchiveQuestions → api.questionsBulk.unarchiveQuestions
+    - api.questions.bulkDelete → api.questionsBulk.bulkDelete
+    - api.questions.restoreQuestions → api.questionsBulk.restoreQuestions
+    - api.questions.permanentlyDelete → api.questionsBulk.permanentlyDelete
+    - pnpm build succeeds
+  Time: 20min
+  Dependencies: questionsLibrary.ts, questionsBulk.ts deployed
+  ```
+
+- [ ] **Update `tests/api-contract.test.ts`**
+  ```
+  Files: tests/api-contract.test.ts:18-73
+  Approach: Update all mutation pair assertions
+  Success:
+    - All api.questions.* references updated to new modules
+    - All assertions pass
+    - pnpm test succeeds
+  Time: 30min
+  Dependencies: All modules deployed, types regenerated
+  ```
+
+- [ ] **Search and update remaining references**
+  ```
+  Commands:
+    - grep -r "api\.questions\." --include="*.ts" --include="*.tsx" app/ hooks/ tests/ components/
+    - Update any missed sites
+    - Verify zero api.questions.* references remain
+  Success: No api.questions.* references remain in frontend code
+  Time: 30min
+  Dependencies: All other frontend updates complete
+  ```
+
+### Validation
+
+- [ ] **Comprehensive frontend validation**
+  ```
+  Commands:
+    - pnpm build (TypeScript compilation must pass)
+    - pnpm test (all tests must pass)
+    - pnpm lint (no new lint errors)
+    - npx convex dev (types regenerate successfully)
+    - Manual smoke test: create question, archive, delete, restore
+  Success: All commands pass, manual testing confirms functionality
+  Time: 45min
+  Dependencies: All Phase 4 tasks complete
+  ```
+
+**Phase 4 Deliverable**: Fully migrated frontend with type safety
+
+---
+
+## Phase 5: Cleanup & Documentation (1 hour)
+
+### Cleanup: Remove Old Code
+
+- [ ] **Delete old files**
+  ```
+  Files to delete:
+    - convex/questions.ts (original 843-line god object)
+    - convex/questions.crud.test.ts
+    - convex/questions.mutations.test.ts
+    - convex/questions.lifecycle.test.ts
+  Commands:
+    - git rm convex/questions.ts convex/questions.*.test.ts
+  Success: Old files removed, git status clean
+  Time: 10min
+  Dependencies: All migrations complete, all tests passing
+  ```
+
+### Documentation: Update Project Docs
+
+- [ ] **Update `BACKLOG.md`**
+  ```
+  Files: BACKLOG.md:2-33,95-124
+  Approach: Delete completed tickets, add completion note
+  Success:
+    - Lines 2-33 (god object ticket) - marked complete or deleted
+    - Lines 95-124 (FSRS coupling ticket) - deleted
+    - Added completion note with date
+  Time: 15min
+  Dependencies: Refactoring complete
+  ```
+
+- [ ] **Update `CLAUDE.md`**
+  ```
+  Files: CLAUDE.md (Backend API Reference section)
+  Approach: Document new module structure
+  Success:
+    - Backend API Reference updated with new modules
+    - Import examples show new paths (api.questionsCrud.*, etc.)
+    - Scheduling abstraction documented
+    - Module responsibilities documented
+  Time: 20min
+  Dependencies: Refactoring complete
+  ```
+
+### Validation: Final Checks
+
+- [ ] **Final validation before commit**
+  ```
+  Commands:
+    - pnpm build (final TypeScript compilation check)
+    - pnpm test (final test run)
+    - npx convex dev (final type generation check)
+    - git status (verify no unexpected changes)
+  Success: All commands pass, ready for commit
+  Time: 15min
+  Dependencies: All cleanup complete
+  ```
+
+**Phase 5 Deliverable**: Clean codebase with updated documentation
+
+---
+
+## Success Metrics Checklist
+
+### Code Quality
+- [ ] Each module < 200 lines (target: ~150)
+- [ ] Zero atomic validation duplication (was 5×, now 1× in helper)
+- [ ] Zero `any` types introduced
+- [ ] All functions have proper JSDoc
+
+### Architecture
+- [ ] Zero direct imports from `fsrs.ts` in question modules
+- [ ] Can swap FSRS for SM-2 by changing `getScheduler()` return
+- [ ] Each module has single, clear responsibility
+- [ ] No cross-module dependencies except interfaces
+
+### Testing & Build
+- [ ] All 200+ existing tests pass
+- [ ] `pnpm build` succeeds
+- [ ] `pnpm test` succeeds
+- [ ] `pnpm lint` succeeds
+- [ ] `npx convex dev` regenerates types successfully
+
+### Manual Smoke Test
+- [ ] Generate questions (tests questionsCrud.ts)
+- [ ] Answer question (tests questionsInteractions.ts + scheduling.ts)
+- [ ] Archive question (tests questionsBulk.ts)
+- [ ] View library (tests questionsLibrary.ts)
+- [ ] Generate related questions (tests questionsRelated.ts)
+
+---
+
+## Module Value Analysis
+
+Each module follows the **Deep Module** principle: simple interface hiding complex implementation.
+
+**Module Value = Functionality - Interface Complexity**
+
+| Module | Interface | Hidden Complexity | Value |
+|--------|-----------|-------------------|-------|
+| **scheduling.ts** | 2 methods | FSRS library, Card conversion, Rating mapping | HIGH |
+| **questionsCrud.ts** | 5 mutations | Field validation, FSRS init, ownership checks | HIGH |
+| **questionsBulk.ts** | 5 mutations | Atomic transactions, ownership verification | HIGH |
+| **questionsInteractions.ts** | 1 mutation | Stat updates, FSRS scheduling, rating calc | HIGH |
+| **questionsLibrary.ts** | 4 queries | Index selection, filtering, derived stats | MEDIUM |
+| **questionsRelated.ts** | 2 mutations | Topic inheritance, AI integration | MEDIUM |
+| **lib/validation.ts** | 1 helper | Atomic validation pattern | HIGH |
+
+All modules pass the deep module test: implementation changes don't affect callers.
+
+---
+
+## Automation Opportunities
+
+**Identified during implementation**:
+- AST-based import path migration (could automate api.questions.* → new paths)
+- Convex type generation integration with pre-commit hooks
+- Module size linting (fail if > 200 lines)
+
+**Add to BACKLOG.md for future consideration**.
