@@ -766,6 +766,49 @@ export const bulkDelete = mutation({
 });
 
 /**
+ * Restore questions from trash (undo soft delete)
+ *
+ * Clears the deletedAt timestamp, moving questions back from trash to active state.
+ * This is the inverse operation of bulkDelete, enabling undo functionality.
+ * Preserves all FSRS data and history.
+ */
+export const restoreQuestions = mutation({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const now = Date.now();
+
+    // Atomic validation: fetch all questions first
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+
+    // Validate ALL before mutating ANY
+    questions.forEach((question, index) => {
+      if (!question) {
+        throw new Error(`Question not found: ${args.questionIds[index]}`);
+      }
+      if (question.userId !== userId) {
+        throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+      }
+    });
+
+    // All validations passed - execute mutations in parallel
+    await Promise.all(
+      args.questionIds.map((id) =>
+        ctx.db.patch(id, {
+          deletedAt: undefined, // Clear soft delete
+          updatedAt: now,
+        })
+      )
+    );
+
+    return { restored: args.questionIds.length };
+  },
+});
+
+/**
  * Permanently delete questions (irreversible)
  *
  * Actually removes questions from the database. This operation cannot be undone.
