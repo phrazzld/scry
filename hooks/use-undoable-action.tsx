@@ -8,6 +8,10 @@ interface UndoableActionOptions {
   message: string;
   undo: () => Promise<void>;
   duration?: number;
+  /** Custom error message for failed action (default: "Action failed") */
+  errorMessage?: string;
+  /** Custom error message for failed undo (default: "Failed to undo action") */
+  undoErrorMessage?: string;
 }
 
 /**
@@ -27,7 +31,14 @@ interface UndoableActionOptions {
  */
 export function useUndoableAction() {
   const execute = useCallback(
-    async ({ action, message, undo, duration = 5000 }: UndoableActionOptions) => {
+    async ({
+      action,
+      message,
+      undo,
+      duration = 5000,
+      errorMessage = 'Action failed',
+      undoErrorMessage = 'Failed to undo action',
+    }: UndoableActionOptions) => {
       try {
         // Execute action optimistically
         await action();
@@ -42,7 +53,10 @@ export function useUndoableAction() {
                 toast.success('Action undone');
               } catch (error) {
                 console.error('Failed to undo action:', error);
-                toast.error('Failed to undo action');
+                const errorDetail = error instanceof Error ? error.message : '';
+                toast.error(undoErrorMessage, {
+                  description: errorDetail || undefined,
+                });
               }
             },
           },
@@ -50,7 +64,10 @@ export function useUndoableAction() {
         });
       } catch (error) {
         console.error('Action failed:', error);
-        toast.error('Action failed');
+        const errorDetail = error instanceof Error ? error.message : '';
+        toast.error(errorMessage, {
+          description: errorDetail || undefined,
+        });
         throw error;
       }
     },
