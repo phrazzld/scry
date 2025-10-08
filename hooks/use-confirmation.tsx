@@ -77,7 +77,28 @@ export function ConfirmationProvider({ children }: { children: React.ReactNode }
       if (!activeRequest) return;
 
       activeRequest.resolve(confirmed);
-      activeRequest.triggerRef.current?.focus();
+
+      // Focus restoration with fallback
+      try {
+        const trigger = activeRequest.triggerRef.current;
+        if (trigger && document.contains(trigger)) {
+          trigger.focus();
+        } else {
+          // Fallback: Focus first focusable element or body
+          const firstFocusable = document.querySelector<HTMLElement>(
+            'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable) {
+            firstFocusable.focus();
+          } else {
+            document.body.focus();
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to restore focus:', error);
+        document.body.focus();
+      }
+
       setQueue((prev) => prev.slice(1));
       setTypedText(''); // Reset for next confirmation
     },
