@@ -88,7 +88,7 @@ export function ConfirmationProvider({ children }: { children: React.ReactNode }
     <ConfirmationContext.Provider value={confirm}>
       {children}
       {activeRequest && (
-        <AlertDialog open={true} onOpenChange={() => handleClose(false)}>
+        <AlertDialog open={true}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{activeRequest.options.title}</AlertDialogTitle>
