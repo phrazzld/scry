@@ -1,8 +1,350 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-07
-**Analysis Method**: 6-perspective specialized audit (complexity, architecture, security, performance, maintainability, UX)
+**Last Groomed**: 2025-10-08
+**Analysis Method**: 6-perspective specialized audit (complexity, architecture, security, performance, maintainability, UX) + PR #31 code review feedback
 **Reviewed & Cleaned**: Removed false positives, clarified trade-offs, aligned with hypersimplicity principle
+
+---
+
+## PR #31 Follow-Up Work (Post-Merge)
+
+**Context**: Accessible confirmation system (`useConfirmation()` + `useUndoableAction()`) code reviews identified high-value enhancements deferred to avoid scope creep. Critical bugs addressed in TODO.md before merge.
+
+**Source**: 4 code reviews (3 Claude, 1 Codex) on PR #31
+
+---
+
+### [Testing] Unit Tests for Confirmation Hooks
+
+**Files**: Need `hooks/use-confirmation.test.tsx` and `hooks/use-undoable-action.test.tsx`
+**Severity**: HIGH (prevents regressions)
+**Source**: All 3 Claude reviews flagged this
+
+**Problem**: New hooks have zero test coverage. Critical functionality (queue, focus, undo) not regression-protected.
+
+**Missing Test Coverage**:
+1. **useConfirmation() hook**:
+   - FIFO queue behavior (multiple simultaneous confirmations)
+   - Focus restoration to trigger element
+   - Type-to-confirm validation (case-insensitive matching)
+   - Keyboard navigation (Escape cancels, Enter confirms, Tab cycles)
+   - Button disabled state when type-to-confirm invalid
+   - Error thrown when used outside ConfirmationProvider
+
+2. **useUndoableAction() hook**:
+   - Successful action execution
+   - Success toast with undo button
+   - Undo callback execution within timeout
+   - Error handling for failed actions (network errors, permission errors)
+   - Error handling for failed undo operations
+   - Toast duration configuration
+
+**Implementation**:
+```typescript
+// hooks/use-confirmation.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { ConfirmationProvider, useConfirmation } from './use-confirmation';
+
+describe('useConfirmation', () => {
+  it('should throw error when used outside provider', () => {
+    expect(() => {
+      renderHook(() => useConfirmation());
+    }).toThrow('useConfirmation must be used within a ConfirmationProvider');
+  });
+
+  it('should handle FIFO queue correctly', async () => {
+    const wrapper = ({ children }) => <ConfirmationProvider>{children}</ConfirmationProvider>;
+    const { result } = renderHook(() => useConfirmation(), { wrapper });
+
+    const promises = [
+      result.current({ title: 'First', description: 'First confirmation' }),
+      result.current({ title: 'Second', description: 'Second confirmation' }),
+    ];
+
+    // Verify first dialog shown
+    await waitFor(() => {
+      expect(screen.getByText('First')).toBeInTheDocument();
+    });
+
+    // Confirm first
+    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+    // Verify second dialog shown
+    await waitFor(() => {
+      expect(screen.getByText('Second')).toBeInTheDocument();
+    });
+
+    // Both promises should resolve
+    const results = await Promise.all(promises);
+    expect(results).toEqual([true, false]); // Second auto-cancelled for test
+  });
+
+  it('should restore focus after confirmation', async () => {
+    // ... test focus restoration
+  });
+
+  it('should validate type-to-confirm (case-insensitive)', async () => {
+    // ... test type-to-confirm
+  });
+});
+
+// hooks/use-undoable-action.test.tsx
+describe('useUndoableAction', () => {
+  it('should execute action and show success toast with undo', async () => {
+    // ... test undo flow
+  });
+
+  it('should handle failed actions gracefully', async () => {
+    // ... test error handling
+  });
+});
+```
+
+**Effort**: 2-3 hours
+**Priority**: HIGH (prevents regressions as feature evolves)
+
+---
+
+### [Accessibility] Enhance ARIA Announcements
+
+**File**: `hooks/use-confirmation.tsx:91-133`
+**Severity**: MEDIUM (WCAG 2.1 AA compliance)
+**Source**: Claude review
+
+**Problem**: AlertDialog lacks proper `aria-describedby` connection. Screen readers may not announce dialog purpose clearly.
+
+**Current**:
+```typescript
+<AlertDialogContent>
+  <AlertDialogHeader>
+    <AlertDialogTitle>{activeRequest.options.title}</AlertDialogTitle>
+    <AlertDialogDescription>{activeRequest.options.description}</AlertDialogDescription>
+  </AlertDialogHeader>
+</AlertDialogContent>
+```
+
+**Enhancement**:
+```typescript
+<AlertDialogContent aria-describedby="dialog-description">
+  <AlertDialogHeader>
+    <AlertDialogTitle id="dialog-title">
+      {activeRequest.options.title}
+    </AlertDialogTitle>
+    <AlertDialogDescription id="dialog-description">
+      {activeRequest.options.description}
+    </AlertDialogDescription>
+  </AlertDialogHeader>
+</AlertDialogContent>
+```
+
+**Additional ARIA Improvements**:
+- Add `role="alertdialog"` explicitly (may be inherited from Radix)
+- Add `aria-modal="true"` to prevent background interaction
+- Consider `aria-live="polite"` region for queue status
+
+**Testing Requirements**:
+- Test with VoiceOver (macOS)
+- Test with NVDA (Windows)
+- Verify dialog title and description are announced
+- Verify focus trap works correctly
+
+**Effort**: 30-45 minutes
+**Priority**: MEDIUM (improves accessibility, required for WCAG AA)
+
+---
+
+### [UX] Type-to-Confirm Positive Visual Feedback
+
+**File**: `hooks/use-confirmation.tsx:107-111`
+**Severity**: LOW (UX polish)
+**Source**: Claude review
+
+**Problem**: Only shows error state (red border) when typing is incorrect. No positive feedback when typing matches.
+
+**Current**:
+```typescript
+<Input
+  value={typedText}
+  onChange={(e) => setTypedText(e.target.value)}
+  className={typedText && !isTypingValid ? 'border-error' : ''}
+/>
+{typedText && !isTypingValid && (
+  <p className="text-xs text-error">Text does not match</p>
+)}
+```
+
+**Enhancement**:
+```typescript
+<Input
+  value={typedText}
+  onChange={(e) => setTypedText(e.target.value)}
+  className={cn(
+    typedText && !isTypingValid && 'border-error',
+    isTypingValid && 'border-success'
+  )}
+/>
+{typedText && !isTypingValid && (
+  <p className="text-xs text-error">Text does not match</p>
+)}
+{isTypingValid && (
+  <p className="text-xs text-success flex items-center gap-1">
+    <CheckCircle className="h-3 w-3" />
+    Confirmed
+  </p>
+)}
+```
+
+**Benefit**: Positive reinforcement when user types correctly, reducing anxiety about whether they typed it right.
+
+**Effort**: 15-20 minutes
+**Priority**: LOW (nice-to-have, improves confidence)
+
+---
+
+### [Code Quality] Extract Duplicated Library Tab Content
+
+**File**: `app/library/_components/library-client.tsx:191-279`
+**Severity**: MEDIUM (maintainability)
+**Source**: 2 Claude reviews
+
+**Problem**: Tab content JSX duplicated 3 times (active, archived, trash tabs). Total 267 lines of duplication.
+
+**Current Structure**:
+```typescript
+<TabsContent value="active">
+  {questions === undefined ? (
+    <div>Loading...</div>
+  ) : (
+    <>
+      <div className="hidden md:block">
+        <LibraryTable {...allProps} />
+      </div>
+      <div className="md:hidden">
+        <LibraryCards {...allProps} />
+      </div>
+    </>
+  )}
+</TabsContent>
+<TabsContent value="archived">
+  {/* Exact duplicate */}
+</TabsContent>
+<TabsContent value="trash">
+  {/* Exact duplicate */}
+</TabsContent>
+```
+
+**Refactored**:
+```typescript
+// Extract component
+function LibraryTabContent({
+  questions,
+  currentTab,
+  selectedIds,
+  handlers,
+}: {
+  questions: typeof questions;
+  currentTab: LibraryView;
+  selectedIds: Set<Id<'questions'>>;
+  handlers: {
+    onSelectionChange: (ids: Set<Id<'questions'>>) => void;
+    onArchive: (ids: Id<'questions'>[]) => void;
+    onUnarchive: (ids: Id<'questions'>[]) => void;
+    onDelete: (ids: Id<'questions'>[]) => void;
+    onRestore: (ids: Id<'questions'>[]) => void;
+    onPermanentDelete: (ids: Id<'questions'>[]) => void;
+  };
+}) {
+  if (questions === undefined) {
+    return <div className="text-center py-12 text-muted-foreground">Loading...</div>;
+  }
+
+  return (
+    <>
+      <div className="hidden md:block">
+        <LibraryTable
+          questions={questions}
+          currentTab={currentTab}
+          selectedIds={selectedIds}
+          onSelectionChange={handlers.onSelectionChange}
+          onArchive={handlers.onArchive}
+          onUnarchive={handlers.onUnarchive}
+          onDelete={handlers.onDelete}
+          onRestore={handlers.onRestore}
+          onPermanentDelete={handlers.onPermanentDelete}
+        />
+      </div>
+      <div className="md:hidden">
+        <LibraryCards
+          questions={questions}
+          currentTab={currentTab}
+          selectedIds={selectedIds}
+          onSelectionChange={handlers.onSelectionChange}
+        />
+      </div>
+    </>
+  );
+}
+
+// Then use
+<TabsContent value="active">
+  <LibraryTabContent questions={questions} currentTab="active" {...props} />
+</TabsContent>
+<TabsContent value="archived">
+  <LibraryTabContent questions={questions} currentTab="archived" {...props} />
+</TabsContent>
+<TabsContent value="trash">
+  <LibraryTabContent questions={questions} currentTab="trash" {...props} />
+</TabsContent>
+```
+
+**Benefit**: 267 lines → ~80 lines total, single source of truth for tab rendering.
+
+**Effort**: 30-45 minutes
+**Priority**: MEDIUM (improves maintainability, reduces duplication)
+
+---
+
+### [Documentation] Document Case-Insensitive Type-to-Confirm Trade-off
+
+**Files**: `CLAUDE.md`, `hooks/use-confirmation.tsx`
+**Severity**: LOW (future developer guidance)
+**Source**: Claude review
+
+**Problem**: Type-to-confirm uses case-insensitive matching (`typedText.toLowerCase() === requireTyping.toLowerCase()`), but this design decision is not documented.
+
+**Trade-off Analysis**:
+- **Pro (case-insensitive)**: Mobile auto-capitalization won't break flow, more accessible
+- **Con (case-insensitive)**: Reduces friction, potentially weakens protection against accidental deletion
+- **Decision**: Chose accessibility over security friction
+
+**Documentation Additions**:
+
+1. **In `hooks/use-confirmation.tsx` JSDoc**:
+```typescript
+/**
+ * @param requireTyping - Text user must type to enable confirm button.
+ *   Case-insensitive to accommodate mobile auto-capitalization.
+ *   Trade-off: Accessibility (mobile UX) > security friction.
+ *   For maximum security (e.g., account deletion), consider exact case match.
+ */
+```
+
+2. **In CLAUDE.md "Confirmation Patterns" section**:
+```markdown
+### Type-to-Confirm Validation
+
+**Case-Insensitive Matching**: Type-to-confirm uses `toLowerCase()` comparison to handle mobile auto-capitalization gracefully.
+
+**Rationale**: Mobile keyboards auto-capitalize first letter, breaking exact-match validation. Users shouldn't fight their keyboard to delete a question.
+
+**Trade-off**: Accessibility (mobile UX) wins over security friction. For truly destructive actions (e.g., account deletion, production database wipe), consider requiring exact case match.
+
+**Current Usage**: `requireTyping: 'DELETE'` accepts "delete", "DELETE", "Delete", etc.
+```
+
+**Effort**: 10-15 minutes
+**Priority**: LOW (improves future developer understanding)
 
 ---
 
