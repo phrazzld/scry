@@ -6,6 +6,74 @@
 
 ---
 
+## Type Safety & Developer Experience Enhancements
+
+### [DevOps] Convex Import Validation Feature Request
+
+**Context**: Frontend can import non-existent Convex functions, causing runtime errors that bypass TypeScript checking.
+
+**Current Gap**: TypeScript validates against generated `api.d.ts`, but if types are stale or Convex deployment hasn't synced, imports resolve at compile-time but fail at runtime with "Could not find public function" error.
+
+**Proposal**: File feature request with Convex to add deployment-time validation:
+- Warn when frontend code imports functions not present in current deployment
+- Similar to Next.js API route validation
+- Fail builds when imports reference missing functions
+
+**Value**: Prevents entire class of frontend-backend contract mismatches. Caught `restoreQuestions` bug would have been caught at build time instead of QA.
+
+**Effort**: Feature request submission (30m) + monitoring for Convex team response
+
+---
+
+### [Testing] Automated Mutation Symmetry Checker
+
+**Context**: Reversible operations require mutation pairs (archive ↔ unarchive, delete ↔ restore). Manual verification is error-prone.
+
+**Proposal**: Create automated tool that:
+1. Parses `convex/questions.ts` to extract all mutations
+2. Identifies mutations with semantic pairs (based on naming convention)
+3. Validates both pair members exist
+4. Runs in CI pipeline to prevent asymmetric mutations
+
+**Implementation**:
+```typescript
+// scripts/check-mutation-pairs.ts
+const EXPECTED_PAIRS = [
+  ['archiveQuestions', 'unarchiveQuestions'],
+  ['bulkDelete', 'restoreQuestions'],
+];
+
+EXPECTED_PAIRS.forEach(([action, undo]) => {
+  if (!mutations.includes(action) || !mutations.includes(undo)) {
+    throw new Error(`Missing mutation pair: ${action} ↔ ${undo}`);
+  }
+});
+```
+
+**Value**: Prevents bugs like missing `restoreQuestions`. Enforces architectural invariant that reversible operations have both directions implemented.
+
+**Effort**: 2-3h (script + CI integration) | **Impact**: Eliminates mutation asymmetry bugs
+
+---
+
+### [Documentation] Interactive Mutation Contract Explorer
+
+**Context**: Current documentation is static markdown. Developers must manually verify mutations exist.
+
+**Proposal**: Generate interactive HTML documentation from Convex schema:
+- Visual graph of mutation relationships (action → undo)
+- Live status (✅ implemented / ❌ missing)
+- Auto-updated from `convex/_generated/api.d.ts`
+- Hosted at `/docs/api-contract` in dev server
+
+**Technology**: TypeDoc or custom parser + React component
+
+**Value**: Makes mutation contracts discoverable, reduces cognitive load, prevents assumptions about missing mutations.
+
+**Effort**: 4-6h (parser + UI) | **Impact**: Developer experience improvement, self-documenting API
+
+---
+
 ## Immediate Concerns
 
 ### [Security] Webhook Endpoint Fails Open Without Secret

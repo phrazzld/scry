@@ -1,985 +1,392 @@
-# TODO: Replace Native Confirmations with Accessible AlertDialog System
+# TODO: Fix restoreQuestions Bug + Type Safety Infrastructure
 
-## Context
+**Context**: Frontend-backend contract mismatch - `library-client.tsx` calls non-existent `restoreQuestions()` mutation, causing undo functionality to fail at runtime with "Could not find public function" error.
 
-**Approach:** Promise-based confirmation hook with queue management + undo toast pattern for soft deletes
+**Root Cause**: Implemented undo pattern assuming symmetric mutation pairs existed, but backend only has `bulkDelete` (soft delete) without its inverse `restoreQuestions`.
 
-**Key Files to Create:**
-- `hooks/use-confirmation.tsx` - Confirmation hook with Context provider
-- `hooks/use-undoable-action.tsx` - Undo toast hook for reversible actions
-
-**Key Files to Modify:**
-- `app/layout.tsx:54` - Add ConfirmationProvider
-- `app/library/_components/library-client.tsx:121-144` - Replace confirm() + add undo toasts
-- `components/review-flow.tsx:131-146` - Replace window.confirm()
-
-**Patterns to Follow:**
-- Context pattern: `contexts/current-question-context.tsx` (createContext, Provider, consumer hook)
-- Hook structure: `hooks/use-question-mutations.ts` (useCallback, optimistic updates)
-- Hook tests: `hooks/use-question-mutations.test.ts` (vitest, renderHook, mock convex)
-- Toast patterns: `app/library/_components/library-client.tsx:55-141` (success/error messages)
-
-**Build/Test Commands:**
-```bash
-pnpm lint           # ESLint checking
-pnpm test           # Run vitest tests
-pnpm build          # Next.js build (includes type checking)
-```
+**Impact**: Users cannot undo delete operations in Library, breaking core UX pattern.
 
 ---
 
-## Phase 1: Core Confirmation Infrastructure (2-3 hours)
+## Phase 1: Critical Bug Fix
 
-### Task 1.1: Create Confirmation Hook with Context Provider
+### Backend Implementation
 
-**Module:** `hooks/use-confirmation.tsx` (~150 lines)
+- [ ] **Create `restoreQuestions` mutation in `convex/questions.ts`**
 
-**Responsibility:** Global confirmation dialog system with queue management, focus restoration, and type-to-confirm support
+  Location: After `bulkDelete` mutation (line ~766)
 
-**Interface (What it hides):**
-- Queue-based state management (FIFO for race conditions)
-- Focus restoration via triggerRef storage
-- AlertDialog rendering via Portal
-- Keyboard event handling (Escape, Tab, Enter)
-- Type-to-confirm input validation
+  Implementation requirements:
+  - Follow atomic validation pattern from `bulkDelete`:
+    1. Fetch all questions first (`Promise.all` + `ctx.db.get`)
+    2. Validate ALL before mutating ANY (existence + ownership checks)
+    3. Execute patches in parallel only after validation passes
+  - Clear soft delete: `deletedAt: undefined`
+  - Update timestamp: `updatedAt: now`
+  - Return object: `{ restored: args.questionIds.length }`
+  - Use same error messages as sibling mutations for consistency
 
-```typescript
-// Public API
-<ConfirmationProvider>{children}</ConfirmationProvider>
-const confirm = useConfirmation();
-const confirmed = await confirm({
-  title: string | ReactNode,
-  description: string | ReactNode,
-  confirmText?: string,
-  cancelText?: string,
-  variant?: 'default' | 'destructive',
-  requireTyping?: string,
-});
-```
+  Success criteria: Mutation clears `deletedAt` field, restoring questions from trash to active state. Maintains same validation rigor as `bulkDelete`.
 
-**Files:**
-- Create: `hooks/use-confirmation.tsx`
+  ```typescript
+  export const restoreQuestions = mutation({
+    args: {
+      questionIds: v.array(v.id('questions')),
+    },
+    handler: async (ctx, args) => {
+      const user = await requireUserFromClerk(ctx);
+      const userId = user._id;
+      const now = Date.now();
 
-**Approach:**
-Follow `contexts/current-question-context.tsx` pattern:
-1. Define types for ConfirmationOptions and ConfirmationRequest
-2. Create Context with createContext<ConfirmationFn | null>(null)
-3. ConfirmationProvider component with queue state management
-4. AlertDialog renderer (only shows activeRequest = queue[0])
-5. useConfirmation hook with error if outside Provider
+      // Atomic validation: fetch all questions first
+      const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
 
-**Implementation Details:**
-
-```typescript
-'use client';
-
-import * as React from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-
-// Types
-type ConfirmationOptions = {
-  title: React.ReactNode;
-  description: React.ReactNode;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'default' | 'destructive';
-  requireTyping?: string;
-};
-
-type ConfirmationRequest = {
-  id: string;
-  options: ConfirmationOptions;
-  resolve: (confirmed: boolean) => void;
-  triggerRef: React.RefObject<HTMLElement>;
-};
-
-type ConfirmationFn = (options: ConfirmationOptions) => Promise<boolean>;
-
-// Context
-const ConfirmationContext = React.createContext<ConfirmationFn | null>(null);
-
-// Provider
-export function ConfirmationProvider({ children }: { children: React.ReactNode }) {
-  const [queue, setQueue] = React.useState<ConfirmationRequest[]>([]);
-  const [typedText, setTypedText] = React.useState('');
-
-  const activeRequest = queue[0];
-  const requireTyping = activeRequest?.options.requireTyping;
-  const isTypingValid = !requireTyping ||
-    typedText.toLowerCase() === requireTyping.toLowerCase();
-
-  const confirm = React.useCallback((options: ConfirmationOptions) => {
-    return new Promise<boolean>((resolve) => {
-      setQueue((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        options,
-        resolve,
-        triggerRef: { current: document.activeElement as HTMLElement },
-      }]);
-    });
-  }, []);
-
-  const handleClose = React.useCallback((confirmed: boolean) => {
-    if (!activeRequest) return;
-
-    activeRequest.resolve(confirmed);
-    activeRequest.triggerRef.current?.focus();
-    setQueue((prev) => prev.slice(1));
-    setTypedText(''); // Reset for next confirmation
-  }, [activeRequest]);
-
-  return (
-    <ConfirmationContext.Provider value={confirm}>
-      {children}
-      {activeRequest && (
-        <AlertDialog open={true} onOpenChange={() => handleClose(false)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{activeRequest.options.title}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {activeRequest.options.description}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-
-            {requireTyping && (
-              <div className="space-y-2">
-                <Label htmlFor="confirm-typing">
-                  Type "{requireTyping}" to confirm:
-                </Label>
-                <Input
-                  id="confirm-typing"
-                  value={typedText}
-                  onChange={(e) => setTypedText(e.target.value)}
-                  placeholder={requireTyping}
-                  autoFocus
-                  className={typedText && !isTypingValid ? 'border-error' : ''}
-                />
-                {typedText && !isTypingValid && (
-                  <p className="text-xs text-error">Text does not match</p>
-                )}
-              </div>
-            )}
-
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => handleClose(false)}>
-                {activeRequest.options.cancelText || 'Cancel'}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => handleClose(true)}
-                disabled={!isTypingValid}
-                className={
-                  activeRequest.options.variant === 'destructive'
-                    ? 'bg-error hover:bg-error/90'
-                    : ''
-                }
-              >
-                {activeRequest.options.confirmText || 'Confirm'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </ConfirmationContext.Provider>
-  );
-}
-
-// Consumer hook
-export function useConfirmation() {
-  const context = React.useContext(ConfirmationContext);
-  if (!context) {
-    throw new Error('useConfirmation must be used within a ConfirmationProvider');
-  }
-  return context;
-}
-```
-
-**Success Criteria:**
-- ✅ TypeScript compiles without errors
-- ✅ Hook throws error if used outside Provider
-- ✅ Queue handles multiple simultaneous requests (FIFO)
-- ✅ Focus returns to trigger element on close
-- ✅ Type-to-confirm disables button until valid
-- ✅ Escape closes dialog, Cancel button works
-- ✅ Destructive variant applies red styling
-
-**Test Strategy:**
-- Unit tests not required initially (Provider needs DOM, complex to mock)
-- Manual testing: Multiple confirm() calls, keyboard nav, type-to-confirm
-- Integration test in Phase 3 after usage sites implemented
-
-**Time Estimate:** 1.5-2 hours
-
----
-
-### Task 1.2: Integrate ConfirmationProvider into App Layout
-
-**Module:** `app/layout.tsx`
-
-**Responsibility:** Add ConfirmationProvider to provider tree, making useConfirmation() available globally
-
-**Files:**
-- Modify: `app/layout.tsx:54-68`
-
-**Approach:**
-Wrap ClerkConvexProvider with ConfirmationProvider (similar to ThemeProvider wrapping):
-
-```typescript
-// Line 11 - Add import
-import { ConfirmationProvider } from '@/hooks/use-confirmation';
-
-// Line 54-68 - Wrap ClerkConvexProvider
-<ThemeProvider
-  attribute="class"
-  defaultTheme="system"
-  enableSystem
-  disableTransitionOnChange
->
-  <ConfirmationProvider>
-    <ClerkConvexProvider>
-      <DeploymentVersionGuard>
-        {/* ... rest unchanged ... */}
-      </DeploymentVersionGuard>
-    </ClerkConvexProvider>
-  </ConfirmationProvider>
-</ThemeProvider>
-```
-
-**Success Criteria:**
-- ✅ App builds without errors (`pnpm build`)
-- ✅ No hydration errors in browser console
-- ✅ useConfirmation() can be called in any client component
-
-**Test Strategy:**
-- Build test: `pnpm build` succeeds
-- Runtime test: Navigate to /library, no console errors
-- Hook test: Import useConfirmation in library-client.tsx (next phase)
-
-**Time Estimate:** 15 min
-
----
-
-## Phase 2: Undo Toast Pattern (1-2 hours)
-
-### Task 2.1: Create Undoable Action Hook
-
-**Module:** `hooks/use-undoable-action.tsx` (~80 lines)
-
-**Responsibility:** Optimistic updates with undo toasts for reversible actions
-
-**Interface (What it hides):**
-- Optimistic update orchestration
-- Toast lifecycle management (create, show, dismiss)
-- Undo timeout handling (default 5s)
-- Loading state during undo execution
-- Error handling for failed undo
-
-```typescript
-// Public API
-const undoableAction = useUndoableAction();
-await undoableAction({
-  action: () => Promise<void>,
-  message: string,
-  undo: () => Promise<void>,
-  duration?: number,
-});
-```
-
-**Files:**
-- Create: `hooks/use-undoable-action.tsx`
-
-**Approach:**
-Simple hook returning single function (similar to `hooks/use-quiz-interactions.ts`):
-
-```typescript
-'use client';
-
-import { useCallback } from 'react';
-import { toast } from 'sonner';
-
-interface UndoableActionOptions {
-  action: () => Promise<void>;
-  message: string;
-  undo: () => Promise<void>;
-  duration?: number;
-}
-
-/**
- * Hook for executing actions with undo toast support
- * Shows success toast with undo button for reversible operations
- */
-export function useUndoableAction() {
-  const execute = useCallback(async ({
-    action,
-    message,
-    undo,
-    duration = 5000,
-  }: UndoableActionOptions) => {
-    try {
-      // Execute action optimistically
-      await action();
-
-      // Show success toast with undo option
-      toast.success(message, {
-        action: {
-          label: 'Undo',
-          onClick: async () => {
-            try {
-              await undo();
-              toast.success('Action undone');
-            } catch (error) {
-              console.error('Failed to undo action:', error);
-              toast.error('Failed to undo action');
-            }
-          },
-        },
-        duration,
+      // Validate ALL before mutating ANY
+      questions.forEach((question, index) => {
+        if (!question) {
+          throw new Error(`Question not found: ${args.questionIds[index]}`);
+        }
+        if (question.userId !== userId) {
+          throw new Error(`Unauthorized access to question: ${args.questionIds[index]}`);
+        }
       });
-    } catch (error) {
-      console.error('Action failed:', error);
-      toast.error('Action failed');
-      throw error;
-    }
-  }, []);
 
-  return execute;
-}
-```
+      // All validations passed - execute mutations in parallel
+      await Promise.all(
+        args.questionIds.map((id) =>
+          ctx.db.patch(id, {
+            deletedAt: undefined,  // Clear soft delete
+            updatedAt: now,
+          })
+        )
+      );
 
-**Success Criteria:**
-- ✅ TypeScript compiles without errors
-- ✅ Action executes immediately (optimistic)
-- ✅ Toast shows with undo button
-- ✅ Undo button triggers reverse mutation
-- ✅ Error handling for both action and undo failures
+      return { restored: args.questionIds.length };
+    },
+  });
+  ```
 
-**Test Strategy:**
-- Unit tests optional (simple orchestration, hard to mock toast)
-- Integration test in Phase 3 with actual mutations
-- Manual test: Archive question, click undo, verify restored
+### Type System Verification
 
-**Time Estimate:** 45 min - 1 hour
+- [ ] **Verify Convex type generation and imports**
+
+  Process:
+  1. Save mutation in `convex/questions.ts`
+  2. Observe `npx convex dev` output for "Convex functions ready!" message
+  3. Check `convex/_generated/api.d.ts` contains `restoreQuestions` in exports
+  4. Open `app/library/_components/library-client.tsx` in editor
+  5. Verify TypeScript autocomplete shows `api.questions.restoreQuestions`
+  6. Run `pnpm build` - should complete without errors
+
+  Success criteria: No TypeScript errors, mutation properly typed in `api.questions` namespace, frontend imports resolve correctly.
+
+### Integration Testing
+
+- [ ] **Manual test: Delete → Undo flow in Library**
+
+  Test scenario:
+  1. Navigate to `/library` in development server
+  2. Select 1-3 questions from Active tab
+  3. Click "Delete" action (moves to trash via `bulkDelete`)
+  4. Observe success toast with "Undo" button appears
+  5. Click "Undo" button within 5 seconds
+  6. Verify questions reappear in Active tab (not in Trash)
+  7. Check browser console - should be no errors
+  8. Verify Convex logs show successful `restoreQuestions` mutation
+
+  Success criteria: Undo button successfully calls `restoreQuestions`, questions move from trash back to active state, no console errors, toast shows "Action undone" confirmation.
+
+- [ ] **Manual test: Restore → Undo flow in Library**
+
+  Test scenario:
+  1. Navigate to `/library` → Trash tab
+  2. Select questions already in trash
+  3. Click "Restore" action (moves to active via `restoreQuestions`)
+  4. Observe success toast with "Undo" button
+  5. Click "Undo" button
+  6. Verify questions move back to Trash (via `bulkDelete`)
+  7. Check both forward and reverse operations work
+
+  Success criteria: Restore and its undo both work correctly, demonstrating proper mutation pairing.
 
 ---
 
-## Phase 3: Migration & Integration (1-2 hours)
+## Phase 2: Type Safety Infrastructure
 
-### Task 3.1: Replace Permanent Delete Confirmation in Library
+### Pre-Commit Type Checking
 
-**Module:** `app/library/_components/library-client.tsx`
+- [ ] **Install Husky for Git hooks** (if not already installed)
 
-**Responsibility:** Replace native confirm() with type-to-confirm AlertDialog
+  Commands:
+  ```bash
+  pnpm add -D husky
+  npx husky init
+  ```
 
-**Files:**
-- Modify: `app/library/_components/library-client.tsx:121-144`
+  Success criteria: `.husky/` directory created, `package.json` has Husky prepare script.
 
-**Approach:**
+- [ ] **Create pre-commit hook for type checking**
 
-1. Add import at top:
-```typescript
-import { useConfirmation } from '@/hooks/use-confirmation';
-```
+  File: `.husky/pre-commit`
 
-2. In LibraryClient component, after existing hooks:
-```typescript
-const confirm = useConfirmation();
-```
+  Implementation:
+  ```bash
+  #!/bin/sh
+  . "$(dirname "$0")/_/husky.sh"
 
-3. Replace handlePermanentDelete function (lines 121-144):
-```typescript
-const handlePermanentDelete = async (ids: Id<'questions'>[]) => {
-  const count = ids.length;
-  if (count === 0) return;
+  echo "🔍 Running pre-commit type check..."
 
-  const confirmed = await confirm({
-    title: `Permanently delete ${count} ${count === 1 ? 'question' : 'questions'}?`,
-    description: 'This action cannot be undone. Type DELETE to confirm.',
-    confirmText: 'Delete Forever',
-    cancelText: 'Cancel',
-    variant: 'destructive',
-    requireTyping: 'DELETE',
+  # Type check without building (faster)
+  pnpm exec tsc --noEmit
+
+  if [ $? -ne 0 ]; then
+    echo "❌ Type check failed - frontend references non-existent backend functions"
+    echo "Run 'npx convex dev' to ensure types are current, then fix type errors"
+    exit 1
+  fi
+
+  echo "✅ Type check passed"
+  ```
+
+  Make executable: `chmod +x .husky/pre-commit`
+
+  Success criteria: Committing code with missing mutation reference (e.g., `api.questions.nonExistent`) fails with clear error message before commit is created.
+
+- [ ] **Test pre-commit hook catches missing mutations**
+
+  Test scenario:
+  1. Temporarily add line to `library-client.tsx`: `const test = useMutation(api.questions.fakeFunction);`
+  2. Stage change: `git add app/library/_components/library-client.tsx`
+  3. Attempt commit: `git commit -m "test"`
+  4. Observe hook runs `tsc --noEmit` and fails
+  5. Remove test line, verify normal commits work
+
+  Success criteria: Hook prevents committing code with type errors, provides actionable error message.
+
+### API Contract Testing
+
+- [ ] **Create API contract test suite**
+
+  File: `tests/api-contract.test.ts`
+
+  Implementation:
+  ```typescript
+  import { describe, expect, it } from 'vitest';
+  import { api } from '@/convex/_generated/api';
+
+  describe('API Contract: Library Mutations', () => {
+    it('all required mutations exist', () => {
+      // Archive operations (reversible pair)
+      expect(api.questions.archiveQuestions).toBeDefined();
+      expect(api.questions.unarchiveQuestions).toBeDefined();
+
+      // Delete/Restore operations (reversible pair)
+      expect(api.questions.bulkDelete).toBeDefined();
+      expect(api.questions.restoreQuestions).toBeDefined();
+
+      // Permanent delete (irreversible)
+      expect(api.questions.permanentlyDelete).toBeDefined();
+    });
+
+    it('mutation pairs are symmetric', () => {
+      // Archive ↔ Unarchive
+      expect(api.questions.archiveQuestions).toBeDefined();
+      expect(api.questions.unarchiveQuestions).toBeDefined();
+
+      // Delete ↔ Restore
+      expect(api.questions.bulkDelete).toBeDefined();
+      expect(api.questions.restoreQuestions).toBeDefined();
+    });
+
+    it('library-client.tsx dependencies are satisfied', () => {
+      // All mutations referenced in library-client.tsx must exist
+      const requiredMutations = [
+        'archiveQuestions',
+        'unarchiveQuestions',
+        'bulkDelete',
+        'restoreQuestions',
+        'permanentlyDelete',
+      ] as const;
+
+      requiredMutations.forEach((mutation) => {
+        expect(api.questions[mutation]).toBeDefined();
+      });
+    });
   });
 
-  if (!confirmed) return;
-
-  try {
-    await permanentlyDelete({ questionIds: ids });
-    toast.success(`Permanently deleted ${count} ${count === 1 ? 'question' : 'questions'}`);
-
-    // Remove operated items from selection
-    const newSelection = new Set(selectedIds);
-    ids.forEach((id) => newSelection.delete(id));
-    setSelectedIds(newSelection);
-  } catch (error) {
-    toast.error('Failed to permanently delete questions');
-    console.error(error);
-  }
-};
-```
-
-**Success Criteria:**
-- ✅ No more native confirm() in handlePermanentDelete
-- ✅ Dialog shows with type-to-confirm input
-- ✅ Button disabled until "DELETE" typed
-- ✅ Case-insensitive match works
-- ✅ Clicking cancel dismisses without deleting
-- ✅ Successful deletion shows toast
-
-**Test Strategy:**
-- Manual test: Go to Library → Trash → Select questions → Delete Permanently
-- Keyboard test: Escape cancels, Tab cycles, Enter confirms
-- Mobile test: Touch targets are 44x44px minimum
-
-**Time Estimate:** 30 min
-
----
-
-### Task 3.2: Replace Soft Delete Handlers with Undo Toasts
-
-**Module:** `app/library/_components/library-client.tsx`
-
-**Responsibility:** Replace immediate success toasts with undoable action pattern
-
-**Files:**
-- Modify: `app/library/_components/library-client.tsx:49-119` (4 handlers)
-
-**Approach:**
-
-1. Add import:
-```typescript
-import { useUndoableAction } from '@/hooks/use-undoable-action';
-```
-
-2. Add hook after useConfirmation:
-```typescript
-const undoableAction = useUndoableAction();
-```
-
-3. Replace 4 handlers:
-
-**handleArchive (lines 49-65):**
-```typescript
-const handleArchive = async (ids: Id<'questions'>[]) => {
-  const count = ids.length;
-  if (count === 0) return;
-
-  try {
-    await undoableAction({
-      action: () => archiveQuestions({ questionIds: ids }),
-      message: `Archived ${count} ${count === 1 ? 'question' : 'questions'}`,
-      undo: () => unarchiveQuestions({ questionIds: ids }),
+  describe('API Contract: Review Flow Mutations', () => {
+    it('review-flow.tsx dependencies are satisfied', () => {
+      // Mutations used in review-flow.tsx
+      expect(api.questions.updateQuestion).toBeDefined();
+      expect(api.questions.softDeleteQuestion).toBeDefined();
     });
-
-    // Remove operated items from selection
-    const newSelection = new Set(selectedIds);
-    ids.forEach((id) => newSelection.delete(id));
-    setSelectedIds(newSelection);
-  } catch (error) {
-    toast.error('Failed to archive questions');
-    console.error(error);
-  }
-};
-```
-
-**handleUnarchive (lines 67-83):**
-```typescript
-const handleUnarchive = async (ids: Id<'questions'>[]) => {
-  const count = ids.length;
-  if (count === 0) return;
-
-  try {
-    await undoableAction({
-      action: () => unarchiveQuestions({ questionIds: ids }),
-      message: `Unarchived ${count} ${count === 1 ? 'question' : 'questions'}`,
-      undo: () => archiveQuestions({ questionIds: ids }),
-    });
-
-    const newSelection = new Set(selectedIds);
-    ids.forEach((id) => newSelection.delete(id));
-    setSelectedIds(newSelection);
-  } catch (error) {
-    toast.error('Failed to unarchive questions');
-    console.error(error);
-  }
-};
-```
-
-**handleDelete (lines 85-101):**
-```typescript
-const handleDelete = async (ids: Id<'questions'>[]) => {
-  const count = ids.length;
-  if (count === 0) return;
-
-  try {
-    await undoableAction({
-      action: () => bulkDelete({ questionIds: ids }),
-      message: `Deleted ${count} ${count === 1 ? 'question' : 'questions'}`,
-      undo: () => restoreQuestions({ questionIds: ids }),
-    });
-
-    const newSelection = new Set(selectedIds);
-    ids.forEach((id) => newSelection.delete(id));
-    setSelectedIds(newSelection);
-  } catch (error) {
-    toast.error('Failed to delete questions');
-    console.error(error);
-  }
-};
-```
-
-**handleRestore (lines 103-119):**
-```typescript
-const handleRestore = async (ids: Id<'questions'>[]) => {
-  const count = ids.length;
-  if (count === 0) return;
-
-  try {
-    await undoableAction({
-      action: () => restoreQuestions({ questionIds: ids }),
-      message: `Restored ${count} ${count === 1 ? 'question' : 'questions'}`,
-      undo: () => bulkDelete({ questionIds: ids }),
-    });
-
-    const newSelection = new Set(selectedIds);
-    ids.forEach((id) => newSelection.delete(id));
-    setSelectedIds(newSelection);
-  } catch (error) {
-    toast.error('Failed to restore questions');
-    console.error(error);
-  }
-};
-```
-
-**Success Criteria:**
-- ✅ No blocking confirmation dialogs for soft deletes
-- ✅ Success toast appears with undo button
-- ✅ Undo button reverses action
-- ✅ Toast dismisses after 5 seconds
-- ✅ Error handling preserved
-
-**Test Strategy:**
-- Manual test: Archive → Undo → Verify active
-- Manual test: Delete → Undo → Verify active
-- Manual test: Let toast timeout → Verify no undo
-- Error test: Disconnect network, trigger action
-
-**Time Estimate:** 45 min - 1 hour
-
----
-
-### Task 3.3: Replace Question Delete in Review Flow
-
-**Module:** `components/review-flow.tsx`
-
-**Responsibility:** Replace window.confirm() with confirmation hook
-
-**Files:**
-- Modify: `components/review-flow.tsx:131-146`
-
-**Approach:**
-
-1. Add import after existing imports (line ~6):
-```typescript
-import { useConfirmation } from '@/hooks/use-confirmation';
-```
-
-2. Add hook in ReviewFlow component (after existing hooks, ~line 35):
-```typescript
-const confirm = useConfirmation();
-```
-
-3. Replace handleDelete function (lines 131-146):
-```typescript
-// Delete handler with confirmation
-const handleDelete = useCallback(async () => {
-  if (!question || !questionId) return;
-
-  const confirmed = await confirm({
-    title: 'Delete this question?',
-    description: 'This will move the question to trash. You can restore it later from the Library.',
-    confirmText: 'Move to Trash',
-    cancelText: 'Cancel',
-    variant: 'destructive',
   });
+  ```
 
-  if (confirmed) {
-    const result = await optimisticDelete({ questionId });
-    if (result.success) {
-      // Toast already shown by optimisticDelete hook
-      // Move to next question after delete
-      handlers.onReviewComplete();
-    }
+  Success criteria: Tests pass when all mutations exist, fail immediately if any mutation is removed or renamed. Serves as living documentation of frontend-backend contract.
+
+- [ ] **Add contract tests to CI pipeline**
+
+  File: `package.json` (update test script)
+
+  Change:
+  ```json
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:contract": "vitest run tests/api-contract.test.ts"
   }
-}, [question, questionId, optimisticDelete, handlers, confirm]);
-```
+  ```
 
-**Success Criteria:**
-- ✅ No more window.confirm() in review-flow.tsx
-- ✅ Dialog shows with clear messaging
-- ✅ Cancel preserves question
-- ✅ Confirm moves to trash and advances to next question
-- ✅ Keyboard navigation works (Escape cancels)
-
-**Test Strategy:**
-- Manual test: Review flow → Click delete icon → Verify dialog
-- Manual test: Cancel → Question remains
-- Manual test: Confirm → Question deleted, next question loads
-- Keyboard test: Escape cancels, Enter confirms
-
-**Time Estimate:** 20 min
+  Success criteria: `pnpm test` runs contract tests, `pnpm build` includes contract validation in CI workflow.
 
 ---
 
-### Task 3.4: Verify No Remaining Native Confirmations
+## Phase 3: Documentation & Developer Experience
 
-**Module:** Codebase-wide verification
+### Mutation Pair Documentation
 
-**Responsibility:** Ensure no window.confirm() or confirm() usage remains
+- [ ] **Add "Convex Mutations: Reversible Operations" section to CLAUDE.md**
 
-**Files:**
-- All TypeScript/TSX files
+  Location: After "Background Question Generation" section (around line 280)
 
-**Approach:**
+  Content:
+  ```markdown
+  ## Convex Mutations: Reversible Operations
 
-Run grep to find any remaining usage:
-```bash
-grep -r "window\.confirm\|^\s*confirm(" \
-  --include="*.ts" --include="*.tsx" \
-  app/ components/ hooks/ contexts/ lib/ \
-  | grep -v node_modules \
-  | grep -v ".next"
-```
+  ### Mutation Pairs (Action ↔ Undo)
 
-Expected output: None (or only in comments/tests)
+  The application implements reversible operations using mutation pairs. Every action mutation MUST have a corresponding undo mutation implemented in the backend.
 
-**Success Criteria:**
-- ✅ No window.confirm() in production code
-- ✅ No standalone confirm() calls (except our hook)
-- ✅ Comments/documentation updated if needed
+  | Action | Mutation | Effect | Undo | Mutation | Effect |
+  |--------|----------|--------|------|----------|--------|
+  | Archive | `archiveQuestions` | Sets `archivedAt: now` | Unarchive | `unarchiveQuestions` | Clears `archivedAt` |
+  | Soft Delete | `bulkDelete` | Sets `deletedAt: now` | Restore | `restoreQuestions` | Clears `deletedAt` |
+  | Hard Delete | `permanentlyDelete` | Removes from DB | ❌ None | - | **Irreversible** |
 
-**Test Strategy:**
-- Grep search as above
-- Build test: `pnpm build` succeeds
-- Lint test: `pnpm lint` passes
+  ### Critical Rule: Mutation Symmetry
 
-**Time Estimate:** 10 min
+  **Before implementing undo UI pattern:**
+  1. ✅ Verify BOTH mutations exist in `convex/questions.ts`
+  2. ✅ Test both forward and reverse operations manually
+  3. ✅ Add contract tests in `tests/api-contract.test.ts`
 
----
+  **Common failure mode:** Implementing frontend undo assuming backend mutation exists, discovering at runtime the mutation is missing. Pre-commit hooks and contract tests prevent this.
 
-## Phase 4: Polish & Accessibility (30min-1h)
+  ### File: `convex/questions.ts`
 
-### Task 4.1: Add JSDoc Documentation to Hooks
+  **Mutation Implementation Pattern:**
+  ```typescript
+  // Standard pattern for all bulk mutations
+  export const operationName = mutation({
+    args: { questionIds: v.array(v.id('questions')) },
+    handler: async (ctx, args) => {
+      // 1. Auth
+      const user = await requireUserFromClerk(ctx);
 
-**Module:** Hook documentation
+      // 2. Atomic validation (fetch ALL first)
+      const questions = await Promise.all(
+        args.questionIds.map((id) => ctx.db.get(id))
+      );
 
-**Responsibility:** Document public APIs for future developers
+      // 3. Validate ALL before mutating ANY
+      questions.forEach((question, index) => {
+        if (!question) throw new Error(`Question not found: ${args.questionIds[index]}`);
+        if (question.userId !== userId) throw new Error(`Unauthorized: ${args.questionIds[index]}`);
+      });
 
-**Files:**
-- Modify: `hooks/use-confirmation.tsx` (add JSDoc)
-- Modify: `hooks/use-undoable-action.tsx` (add JSDoc)
+      // 4. Execute mutations in parallel
+      await Promise.all(
+        args.questionIds.map((id) => ctx.db.patch(id, { /* changes */ }))
+      );
 
-**Approach:**
+      return { count: args.questionIds.length };
+    },
+  });
+  ```
+  ```
 
-Add JSDoc comments to exported functions:
+  Success criteria: Future developers can quickly identify required mutation pairs, understand implementation pattern, avoid frontend-backend contract mismatches.
 
-**use-confirmation.tsx:**
-```typescript
-/**
- * Provider component for confirmation dialogs
- *
- * Manages a queue of confirmation requests to prevent race conditions.
- * Only one dialog is visible at a time (FIFO order).
- *
- * Must wrap the app root to make useConfirmation() available globally.
- *
- * @example
- * <ConfirmationProvider>
- *   <App />
- * </ConfirmationProvider>
- */
-export function ConfirmationProvider({ children }: { children: React.ReactNode }) {
-  // ...
-}
+### Development Workflow Documentation
 
-/**
- * Hook for showing confirmation dialogs
- *
- * Returns a promise-based confirm function that blocks until user responds.
- * Handles focus restoration and keyboard navigation automatically.
- *
- * @throws {Error} If used outside ConfirmationProvider
- *
- * @example
- * const confirm = useConfirmation();
- * const confirmed = await confirm({
- *   title: 'Delete item?',
- *   description: 'This action cannot be undone.',
- *   variant: 'destructive',
- *   requireTyping: 'DELETE', // Optional: require typing text to confirm
- * });
- * if (confirmed) {
- *   await deleteItem();
- * }
- */
-export function useConfirmation() {
-  // ...
-}
-```
+- [ ] **Add "Backend-First Development Workflow" to CLAUDE.md**
 
-**use-undoable-action.tsx:**
-```typescript
-/**
- * Hook for executing actions with undo support
- *
- * Shows a success toast with undo button for reversible operations.
- * Use for soft deletes, archives, and other reversible actions.
- *
- * @example
- * const undoableAction = useUndoableAction();
- * await undoableAction({
- *   action: () => archiveQuestion(id),
- *   message: 'Question archived',
- *   undo: () => unarchiveQuestion(id),
- *   duration: 5000, // Optional: toast duration in ms
- * });
- */
-export function useUndoableAction() {
-  // ...
-}
-```
+  Location: After "Key Development Patterns" section
 
-**Success Criteria:**
-- ✅ All exported functions have JSDoc
-- ✅ Examples show typical usage
-- ✅ Edge cases documented (requireTyping, error handling)
-- ✅ TypeScript hover shows documentation
+  Content:
+  ```markdown
+  ## Backend-First Development Workflow
 
-**Test Strategy:**
-- Hover test: In VSCode, hover over useConfirmation() → See JSDoc
-- Build test: `pnpm build` succeeds (JSDoc syntax valid)
+  When implementing features that require new backend mutations or queries, follow this strict order to prevent frontend-backend contract mismatches:
 
-**Time Estimate:** 20 min
+  ### Checklist for Backend-Requiring Features
 
----
+  1. **Backend First**: Implement mutation/query in `convex/`
+     - Define args schema with `v.object({ ... })`
+     - Implement handler with proper auth and validation
+     - Follow atomic validation pattern for bulk operations
+     - Add JSDoc comments explaining purpose and edge cases
 
-### Task 4.2: Manual Accessibility Testing
+  2. **Generate Types**: Ensure types are current
+     - Verify `npx convex dev` is running and sees your changes
+     - Wait for "Convex functions ready!" message in terminal
+     - Confirm `convex/_generated/api.d.ts` contains new function
 
-**Module:** Accessibility validation
+  3. **Frontend Second**: Use mutation/query in components
+     - Import from generated API: `import { api } from '@/convex/_generated/api'`
+     - Use with Convex hooks: `useMutation(api.module.function)`
+     - TypeScript autocomplete should show your new function
 
-**Responsibility:** Verify WCAG 2.1 AA compliance
+  4. **Type Check**: Verify before committing
+     - Run `pnpm build` or `pnpm exec tsc --noEmit`
+     - Fix any type errors before staging changes
+     - Pre-commit hook will enforce this automatically
 
-**Files:**
-- Test: All confirmation dialogs
+  5. **Test Integration**: Manual end-to-end test
+     - Test happy path in development environment
+     - Test error cases (auth failures, invalid data)
+     - Verify loading states and error messages
 
-**Approach:**
+  ### Anti-Pattern: Frontend-First (Causes Runtime Errors)
 
-**Keyboard Navigation Test:**
-1. Library permanent delete:
-   - Tab cycles: Cancel → Input → Delete button
-   - Escape closes dialog
-   - Enter in input does NOT submit (only clicking button should)
+  ❌ **Don't do this:**
+  ```typescript
+  // Writing frontend code first, assuming backend exists
+  const restore = useMutation(api.questions.restoreQuestions); // DOESN'T EXIST YET!
+  ```
 
-2. Review question delete:
-   - Tab cycles: Cancel → Delete button
-   - Escape closes
-   - Enter on focused button confirms
+  This compiles but fails at runtime with "Could not find public function" error.
 
-**Screen Reader Test (macOS VoiceOver):**
-1. Enable VoiceOver: Cmd+F5
-2. Trigger permanent delete dialog
-3. Verify announces:
-   - "Alert dialog"
-   - Title text
-   - Description text
-   - "Type DELETE to confirm" for input
-   - Button labels ("Cancel", "Delete Forever")
+  ✅ **Do this instead:**
+  1. Implement `restoreQuestions` in `convex/questions.ts`
+  2. Wait for type generation
+  3. Then use in frontend
 
-**Mobile Touch Test:**
-1. Open on iPhone/Android
-2. Verify touch targets:
-   - Cancel button: ≥44x44px
-   - Confirm button: ≥44x44px
-   - Input field: Easy to tap
-3. Verify keyboard doesn't obscure dialog
+  ### Mutation Pairs Require Both Implementations
 
-**Success Criteria:**
-- ✅ All keyboard shortcuts work as documented
-- ✅ Focus indicators visible (2px blue outline)
-- ✅ Screen reader announces dialog role and content
-- ✅ Touch targets meet 44x44px minimum
-- ✅ Mobile keyboard doesn't break layout
+  When implementing undo patterns:
+  - ✅ Implement both action and undo mutations BEFORE writing frontend code
+  - ✅ Test both directions work (archive → unarchive, delete → restore)
+  - ✅ Add contract tests to prevent future regressions
+  ```
 
-**Test Strategy:**
-- Desktop: Chrome DevTools accessibility audit
-- Mobile: Test on actual device (iOS Safari, Chrome Android)
-- Screen reader: VoiceOver on macOS
-
-**Time Estimate:** 30 min
+  Success criteria: Clear, actionable guidance prevents common mistake of implementing frontend before backend. New developers understand correct workflow order.
 
 ---
 
-## Phase 5: Documentation Update (15 min)
+## Testing & Verification
 
-### Task 5.1: Update CLAUDE.md with Confirmation Patterns
+- [ ] **End-to-end workflow test**
 
-**Module:** Project documentation
+  Full test scenario combining all phases:
+  1. Make trivial change to `library-client.tsx` (add comment)
+  2. Stage change: `git add app/library/_components/library-client.tsx`
+  3. Commit: `git commit -m "test: verify pre-commit hook"`
+  4. Verify commit succeeds (types are valid)
+  5. Run `pnpm test` - contract tests should pass
+  6. Navigate to `/library` in browser
+  7. Test delete → undo flow (Phase 1 verification)
+  8. Test restore → undo flow (Phase 1 verification)
 
-**Responsibility:** Document new patterns for future development
-
-**Files:**
-- Modify: `CLAUDE.md`
-
-**Approach:**
-
-Add section after existing patterns (around line 50):
-
-```markdown
-## Confirmation Patterns
-
-### Destructive Actions
-Use `useConfirmation()` hook for irreversible actions:
-
-```typescript
-import { useConfirmation } from '@/hooks/use-confirmation';
-
-const confirm = useConfirmation();
-const confirmed = await confirm({
-  title: 'Permanent action?',
-  description: 'This cannot be undone.',
-  variant: 'destructive',
-  requireTyping: 'DELETE', // For truly irreversible actions
-});
-if (confirmed) {
-  await destructiveAction();
-}
-```
-
-### Reversible Actions
-Use `useUndoableAction()` hook for soft deletes and archives:
-
-```typescript
-import { useUndoableAction } from '@/hooks/use-undoable-action';
-
-const undoableAction = useUndoableAction();
-await undoableAction({
-  action: () => archiveItem(id),
-  message: 'Item archived',
-  undo: () => unarchiveItem(id),
-});
-```
-
-**When to Use Which:**
-- Permanent delete from trash → `useConfirmation()` with `requireTyping`
-- Soft delete to trash → `useUndoableAction()`
-- Archive/unarchive → `useUndoableAction()`
-- Any truly irreversible action → `useConfirmation()` with `variant: 'destructive'`
-```
-
-**Success Criteria:**
-- ✅ Patterns documented with examples
-- ✅ Clear guidance on when to use each pattern
-- ✅ Code examples are copy-pasteable
-
-**Test Strategy:**
-- Readability check: Can new dev understand and use patterns?
-
-**Time Estimate:** 15 min
-
----
-
-## Design Iteration Points
-
-**After Phase 1 (Core Infrastructure):**
-- Review queue logic: Are race conditions handled correctly?
-- Test focus restoration: Does focus return to trigger element?
-- Validate type-to-confirm UX: Too frustrating or appropriately cautious?
-
-**After Phase 2 (Undo Pattern):**
-- Measure undo usage: Are users clicking undo? (Track in analytics if available)
-- Review toast duration: Is 5 seconds right, or too short/long?
-- Test error handling: What happens if undo fails?
-
-**After Phase 3 (Migration):**
-- Search for other potential confirmation needs (quiz discard, settings reset)
-- Review mobile UX: Are touch targets large enough? Keyboard issues?
-- Measure permanent delete cancellation rate: Are users typing DELETE and canceling?
-
-**After Phase 4 (Polish):**
-- Accessibility audit with axe-core or similar tool
-- Cross-browser testing (Safari, Firefox, mobile browsers)
-- Performance check: Any layout shifts or jank?
-
----
-
-## Validation Checklist
-
-**Code Quality:**
-- [ ] Zero TypeScript errors (`pnpm build`)
-- [ ] Zero ESLint errors (`pnpm lint`)
-- [ ] No window.confirm() in codebase (grep)
-- [ ] All hooks have JSDoc documentation
-
-**Functionality:**
-- [ ] ConfirmationProvider in app layout
-- [ ] Permanent delete requires typing "DELETE"
-- [ ] Soft deletes show undo toasts
-- [ ] Undo button reverses actions
-- [ ] Error handling preserved in all handlers
-
-**Accessibility:**
-- [ ] Keyboard navigation works (Tab, Escape, Enter)
-- [ ] Focus restoration works
-- [ ] Screen reader announces dialog role
-- [ ] Touch targets ≥44x44px on mobile
-- [ ] Focus indicators visible
-
-**User Experience:**
-- [ ] Confirmation dialogs match app theme
-- [ ] Clear, specific messaging (not "Are you sure?")
-- [ ] Destructive actions use red variant
-- [ ] Non-blocking UX for reversible actions
-- [ ] Mobile keyboard doesn't obscure dialogs
-
----
-
-## Automation Opportunities
-
-**Future Enhancements:**
-1. Add Playwright E2E tests for confirmation flows
-2. Create custom ESLint rule to prevent window.confirm() usage
-3. Add Storybook stories for confirmation dialogs (design system)
-4. Track undo usage in analytics (measure feature value)
-5. A/B test undo duration (3s vs 5s vs 7s) if conversion rates matter
-
----
-
-## Time Estimates Summary
-
-| Phase | Tasks | Estimated Time |
-|-------|-------|----------------|
-| Phase 1 | Core confirmation infrastructure | 2-2.25h |
-| Phase 2 | Undo toast pattern | 0.75-1h |
-| Phase 3 | Migration (4 tasks) | 1.75-2h |
-| Phase 4 | Polish & accessibility | 0.5-0.75h |
-| Phase 5 | Documentation | 0.25h |
-| **Total** | **11 tasks** | **5.25-6.25 hours** |
-
-**Critical Path:**
-- Phase 1 → Phase 3.1 (permanent delete needs confirmation hook)
-- Phase 2 → Phase 3.2 (soft deletes need undo hook)
-- Phases 1-2 can be done in parallel if two developers
-
-**Parallelization Opportunities:**
-- Task 1.1 + Task 2.1 (independent modules)
-- Task 3.1 + Task 3.3 (different files)
-- Task 4.1 + Task 4.2 (different concerns)
+  Success criteria: All systems work together - pre-commit hook validates types, contract tests pass, undo functionality works in UI, documentation provides clear guidance for future work.
