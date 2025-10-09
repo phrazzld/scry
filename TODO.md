@@ -17,46 +17,30 @@
 
 **Implementation Steps**:
 
-- [ ] **Update `convex/scheduling.ts` interface** (10min)
-  ```typescript
-  // Add to IScheduler interface (line ~30)
-  export interface IScheduler {
-    initializeCard(): Partial<Doc<'questions'>>;
-    scheduleNextReview(question: Doc<'questions'>, isCorrect: boolean, now: Date): SchedulingResult;
-    getRetrievability(question: Doc<'questions'>, now: Date): number; // NEW
-  }
-
-  // Implement in FsrsScheduler class (line ~120)
-  getRetrievability(question: Doc<'questions'>, now: Date): number {
-    return getRetrievability(this.convertToFsrsCard(question), now);
-  }
+- [x] **Update `convex/scheduling.ts` interface** (10min)
+  ```
+  ✅ COMPLETED - commit f346665
+  Added getRetrievability() method to IScheduler interface
   ```
 
-- [ ] **Update `convex/spacedRepetition.ts` imports** (5min)
-  ```typescript
-  // OLD (line 42):
-  import { getRetrievability } from './fsrs';
-
-  // NEW:
-  // Remove direct import, use scheduler instead
+- [x] **Update `convex/spacedRepetition.ts` imports** (5min)
+  ```
+  ✅ COMPLETED - commit f346665
+  Removed direct getRetrievability import from fsrs.ts
   ```
 
-- [ ] **Update `convex/spacedRepetition.ts` usage** (10min)
-  ```typescript
-  // In getNextReview query (around line 118):
-  // OLD:
-  const retrievability = getRetrievability(fsrsCard, now);
-
-  // NEW:
-  const scheduler = getScheduler();
-  const retrievability = scheduler.getRetrievability(question, now);
+- [x] **Update `convex/spacedRepetition.ts` usage** (10min)
+  ```
+  ✅ COMPLETED - commit f346665
+  Updated calculateRetrievabilityScore to use scheduler.getRetrievability()
   ```
 
-- [ ] **Test changes** (5min)
-  ```bash
-  pnpm test  # All 358 tests should still pass
-  pnpm build # TypeScript compilation should succeed
-  grep "import.*getRetrievability.*from.*fsrs" convex/spacedRepetition.ts  # Should return nothing
+- [x] **Test changes** (5min)
+  ```
+  ✅ COMPLETED - All validation passed:
+  - pnpm test: 358/358 tests passing ✓
+  - pnpm build: TypeScript compilation successful ✓
+  - Zero direct fsrs.ts imports in spacedRepetition.ts ✓
   ```
 
 **Success Criteria**:
