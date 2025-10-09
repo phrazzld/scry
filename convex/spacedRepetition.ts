@@ -39,7 +39,6 @@ import { v } from 'convex/values';
 import { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { getRetrievability } from './fsrs';
 import { getScheduler } from './scheduling';
 
 // Export for testing
@@ -95,8 +94,9 @@ function calculateRetrievabilityScore(question: Doc<'questions'>, now: Date = ne
     return -1 - freshnessBoost;
   }
 
-  // Reviewed question - use standard FSRS retrievability (0-1)
-  return getRetrievability(question, now);
+  // Reviewed question - use scheduler interface for algorithm-agnostic retrievability
+  const scheduler = getScheduler();
+  return scheduler.getRetrievability(question, now);
 }
 
 /**

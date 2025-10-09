@@ -55,6 +55,18 @@ export interface IScheduler {
    * @returns Scheduling result with next review time and updated fields
    */
   scheduleNextReview(question: Doc<'questions'>, isCorrect: boolean, now: Date): SchedulingResult;
+
+  /**
+   * Get retrievability score for a question (probability of successful recall)
+   *
+   * Used for review queue prioritization - lower values indicate higher urgency.
+   * New questions typically return -1 (highest priority).
+   *
+   * @param question - Question document from database
+   * @param now - Current timestamp for calculation
+   * @returns Retrievability score (typically -1 for new, 0-1 for reviewed questions)
+   */
+  getRetrievability(question: Doc<'questions'>, now: Date): number;
 }
 
 // ============================================================================
@@ -121,6 +133,28 @@ class FsrsScheduler implements IScheduler {
       scheduledDays: updatedCard.scheduled_days,
       newState: this.mapFsrsStateToDb(updatedCard.state),
     };
+  }
+
+  /**
+   * Get retrievability score (probability of successful recall)
+   *
+   * This method calculates how likely a user is to successfully recall the answer
+   * to a question based on the current time and the question's FSRS state.
+   *
+   * @param question - The question document from the database
+   * @param now - Current date for calculation
+   * @returns Retrievability score:
+   *          - -1 for new questions (highest priority)
+   *          - 0-1 for reviewed questions (0 = forgotten, 1 = perfect recall)
+   */
+  getRetrievability(question: Doc<'questions'>, now: Date): number {
+    // Convert database question to FSRS Card format
+    const card = this.dbToCard(question);
+
+    // FSRS retrievability returns a value between 0 and 1
+    // 1 = perfect recall, 0 = completely forgotten
+    // The third parameter 'false' returns the numeric value instead of formatted string
+    return this.fsrs.get_retrievability(card, now, false) as number;
   }
 
   // ==========================================================================
