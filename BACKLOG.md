@@ -92,68 +92,33 @@ catch (error) {
 
 ## High-Value Improvements (Fix Soon)
 
-### [Architecture] convex/questions.ts - God Object with 7 Responsibilities
-**File**: `convex/questions.ts:1-844`
-**Perspectives**: complexity-archaeologist, architecture-guardian, maintainability-maven
-**Metrics**: 844 lines, 17 exported functions, 7 distinct concerns
+### ✅ [COMPLETED 2025-10-08] Architecture - Questions Module Decomposition + FSRS Decoupling
 
-**Violations**:
-- Ousterhout: God object anti-pattern
-- Single Responsibility Principle
-- Maintainability: Comprehension barrier
+**Original Issues**:
+1. 843-line `convex/questions.ts` god object with 7 responsibilities
+2. Tight FSRS coupling preventing algorithm swapping
+3. 140 lines of duplicated atomic validation across 5 bulk operations
 
-**Responsibilities**:
-1. Question CRUD (saveGeneratedQuestions, updateQuestion, softDeleteQuestion, restoreQuestion)
-2. Bulk operations (archiveQuestions, unarchiveQuestions, bulkDelete, restoreQuestions, permanentlyDelete)
-3. Interaction recording (recordInteraction with FSRS logic)
-4. Related generation (prepareRelatedGeneration, saveRelatedQuestions)
-5. Library queries (getLibrary, getRecentTopics)
-6. Session stats (getQuizInteractionStats)
-7. User queries (getUserQuestions)
+**Solution Implemented**:
+- Created `convex/scheduling.ts` with `IScheduler` interface + `FsrsScheduler` implementation
+- Decomposed into 5 focused modules:
+  - `questionsCrud.ts` (287 lines) - CRUD operations
+  - `questionsBulk.ts` (166 lines) - Bulk operations
+  - `questionsInteractions.ts` (100 lines) - Answer recording + scheduling
+  - `questionsLibrary.ts` (208 lines) - Library queries
+  - `questionsRelated.ts` (131 lines) - Related generation
+- Created `convex/lib/validation.ts` shared helper (eliminates duplication)
+- Updated `spacedRepetition.ts` to use scheduling interface
 
-**Fix**: Extract into focused modules:
-```
-convex/questions/
-  ├── crud.ts           # saveGeneratedQuestions, updateQuestion (150 lines)
-  ├── bulk.ts           # archive/unarchive/delete/restore/permanent (300 lines)
-  ├── interactions.ts   # recordInteraction with FSRS (100 lines)
-  ├── library.ts        # getLibrary, getRecentTopics (150 lines)
-  ├── related.ts        # prepareRelatedGeneration, saveRelatedQuestions (100 lines)
-  └── index.ts          # Re-export public API
-```
+**Results**:
+- ✅ Can swap FSRS for SM-2 by changing `getScheduler()` return value
+- ✅ Zero direct FSRS imports in question modules
+- ✅ All 358 tests passing
+- ✅ Each module < 300 lines (most < 200)
+- ✅ Coupling reduced from 8/10 → 2/10
 
-**Effort**: 6-8h | **Impact**: 844-line god object → 5 focused modules, parallel development enabled
-
----
-
-### [Architecture] Tight FSRS Coupling - Dependency Inversion Violation
-**File**: `convex/questions.ts:117-189` ↔ `convex/fsrs.ts`
-**Perspectives**: architecture-guardian, complexity-archaeologist
-
-**Problem**: High-level questions module directly depends on low-level FSRS implementation. Cannot swap algorithms.
-
-**Test**: "Can we replace FSRS with SM-2 algorithm without changing questions.ts?" → **NO**
-
-**Fix**: Create scheduling abstraction:
-```typescript
-// convex/scheduling/interface.ts
-export interface IScheduler {
-  calculateNextReview(
-    question: Doc<'questions'>,
-    isCorrect: boolean,
-    now: Date
-  ): SchedulingResult;
-}
-
-// convex/scheduling/fsrs-scheduler.ts
-export class FsrsScheduler implements IScheduler { /* ... */ }
-
-// convex/questions/interactions.ts
-const scheduler = getScheduler(); // Factory pattern
-const result = scheduler.calculateNextReview(question, isCorrect, now);
-```
-
-**Effort**: 4h | **Impact**: Coupling 8/10 → 2/10, enables algorithm swapping, testable
+**PR**: `refactor/questions-module-decomposition` (14 commits)
+**Effort**: 8 hours | **Impact**: Major architectural improvement
 
 ---
 
