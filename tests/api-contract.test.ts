@@ -15,25 +15,25 @@ import { api } from '@/convex/_generated/api';
 describe('API Contract: Library Mutations', () => {
   it('all required mutations exist', () => {
     // Archive operations (reversible pair)
-    expect(api.questions.archiveQuestions).toBeDefined();
-    expect(api.questions.unarchiveQuestions).toBeDefined();
+    expect(api.questionsBulk.archiveQuestions).toBeDefined();
+    expect(api.questionsBulk.unarchiveQuestions).toBeDefined();
 
     // Delete/Restore operations (reversible pair)
-    expect(api.questions.bulkDelete).toBeDefined();
-    expect(api.questions.restoreQuestions).toBeDefined();
+    expect(api.questionsBulk.bulkDelete).toBeDefined();
+    expect(api.questionsBulk.restoreQuestions).toBeDefined();
 
     // Permanent delete (irreversible)
-    expect(api.questions.permanentlyDelete).toBeDefined();
+    expect(api.questionsBulk.permanentlyDelete).toBeDefined();
   });
 
   it('mutation pairs are symmetric', () => {
     // Archive ↔ Unarchive
-    expect(api.questions.archiveQuestions).toBeDefined();
-    expect(api.questions.unarchiveQuestions).toBeDefined();
+    expect(api.questionsBulk.archiveQuestions).toBeDefined();
+    expect(api.questionsBulk.unarchiveQuestions).toBeDefined();
 
     // Delete ↔ Restore
-    expect(api.questions.bulkDelete).toBeDefined();
-    expect(api.questions.restoreQuestions).toBeDefined();
+    expect(api.questionsBulk.bulkDelete).toBeDefined();
+    expect(api.questionsBulk.restoreQuestions).toBeDefined();
   });
 
   it('library-client.tsx dependencies are satisfied', () => {
@@ -47,7 +47,7 @@ describe('API Contract: Library Mutations', () => {
     ] as const;
 
     requiredMutations.forEach((mutation) => {
-      expect(api.questions[mutation]).toBeDefined();
+      expect(api.questionsBulk[mutation]).toBeDefined();
     });
   });
 });
@@ -55,8 +55,8 @@ describe('API Contract: Library Mutations', () => {
 describe('API Contract: Review Flow Mutations', () => {
   it('review-flow.tsx dependencies are satisfied', () => {
     // Mutations used in review-flow.tsx
-    expect(api.questions.updateQuestion).toBeDefined();
-    expect(api.questions.softDeleteQuestion).toBeDefined();
+    expect(api.questionsCrud.updateQuestion).toBeDefined();
+    expect(api.questionsCrud.softDeleteQuestion).toBeDefined();
   });
 });
 
@@ -69,8 +69,8 @@ describe('API Contract: Question Generation', () => {
     expect(api.generationJobs.getJobById).toBeDefined();
 
     // Question queries
-    expect(api.questions.getUserQuestions).toBeDefined();
-    expect(api.questions.getLibrary).toBeDefined();
+    expect(api.questionsLibrary.getUserQuestions).toBeDefined();
+    expect(api.questionsLibrary.getLibrary).toBeDefined();
   });
 });
 
