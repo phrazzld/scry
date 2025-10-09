@@ -236,62 +236,48 @@
 
 ### Cleanup: Remove Old Code
 
-- [ ] **Delete old files**
+- [x] **Delete old files**
   ```
-  Files to delete:
-    - convex/questions.ts (original 843-line god object)
+  ✅ COMPLETED - commit 4dd9296
+  Deleted:
+    - convex/questions.ts (843-line god object)
     - convex/questions.crud.test.ts
     - convex/questions.mutations.test.ts
     - convex/questions.lifecycle.test.ts
-  Commands:
-    - git rm convex/questions.ts convex/questions.*.test.ts
-  Success: Old files removed, git status clean
-  Time: 10min
-  Dependencies: All migrations complete, all tests passing
+  Result: 2,201 lines removed, 358/358 tests passing
   ```
 
 ### Documentation: Update Project Docs
 
-- [ ] **Update `BACKLOG.md`**
+- [x] **Update `BACKLOG.md`**
   ```
-  Files: BACKLOG.md:2-33,95-124
-  Approach: Delete completed tickets, add completion note
-  Success:
-    - Lines 2-33 (god object ticket) - marked complete or deleted
-    - Lines 95-124 (FSRS coupling ticket) - deleted
-    - Added completion note with date
-  Time: 15min
-  Dependencies: Refactoring complete
+  ✅ COMPLETED - commit 1b7262b
+  - Marked FSRS coupling + god object tickets complete
+  - Added completion entry with solution details, metrics, PR reference
+  - Reduced duplication by removing detailed fix examples (now implemented)
   ```
 
-- [ ] **Update `CLAUDE.md`**
+- [x] **Update `CLAUDE.md`**
   ```
-  Files: CLAUDE.md (Backend API Reference section)
-  Approach: Document new module structure
-  Success:
-    - Backend API Reference updated with new modules
-    - Import examples show new paths (api.questionsCrud.*, etc.)
-    - Scheduling abstraction documented
-    - Module responsibilities documented
-  Time: 20min
-  Dependencies: Refactoring complete
+  ✅ COMPLETED - commit 80a894a
+  - Architecture overview: Listed all 5 new modules + scheduling.ts
+  - Mutation patterns: Updated to questionsBulk.ts with validateBulkOwnership()
+  - FSRS integration: Documented scheduling abstraction layer
+  - Removed all references to old questions.ts god object
   ```
 
 ### Validation: Final Checks
 
-- [ ] **Final validation before commit**
+- [x] **Final validation before commit**
   ```
-  Commands:
-    - pnpm build (final TypeScript compilation check)
-    - pnpm test (final test run)
-    - npx convex dev (final type generation check)
-    - git status (verify no unexpected changes)
-  Success: All commands pass, ready for commit
-  Time: 15min
-  Dependencies: All cleanup complete
+  ✅ COMPLETED
+  - pnpm build: ✅ Successful (TypeScript compilation)
+  - pnpm test: ✅ All 358 tests passing
+  - pnpm lint: ✅ No ESLint warnings or errors
+  - npx convex dev: ✅ Running in background, types regenerated
   ```
 
-**Phase 5 Deliverable**: Clean codebase with updated documentation
+**Phase 5 Deliverable**: Clean codebase with updated documentation ✅
 
 ---
 
