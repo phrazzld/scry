@@ -92,6 +92,185 @@ catch (error) {
 
 ## High-Value Improvements (Fix Soon)
 
+### [Testing] Unit Tests for Core Scheduling Abstractions
+**Files**: `convex/scheduling.test.ts` (NEW), `convex/lib/validation.test.ts` (NEW)
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: HIGH
+**Impact**: Core abstractions (`IScheduler` interface, `validateBulkOwnership` helper) lack dedicated unit tests
+
+**Rationale**: These modules are foundational to the questions system. While integration tests cover usage, dedicated unit tests would:
+1. Document expected behavior of the `IScheduler` interface contract
+2. Test edge cases in FSRS implementation (boundary conditions, state transitions)
+3. Validate atomic validation failure scenarios (partial authorization, missing questions)
+4. Enable confident refactoring of scheduling logic
+
+**Implementation**:
+
+```typescript
+// convex/scheduling.test.ts - Test IScheduler interface contract
+describe('IScheduler interface', () => {
+  describe('initializeCard', () => {
+    it('should return valid FSRS initial state')
+    it('should set state to "new"')
+    it('should initialize stability and difficulty')
+  });
+
+  describe('scheduleNextReview', () => {
+    it('should handle correct answer on new card')
+    it('should handle incorrect answer on new card')
+    it('should progress through learning states correctly')
+    it('should handle lapse scenarios (review → relearning)')
+    it('should calculate retrievability correctly')
+  });
+
+  describe('getRetrievability', () => {
+    it('should return -1 for new questions')
+    it('should return 0-1 for due questions based on time')
+    it('should handle edge case: exactly at review time')
+  });
+});
+
+// convex/lib/validation.test.ts - Test atomic validation
+describe('validateBulkOwnership', () => {
+  it('should return all questions when user owns all')
+  it('should throw when question not found')
+  it('should throw when user lacks ownership (partial auth bypass)')
+  it('should throw on first failure (fail fast for security)')
+  it('should handle empty question array')
+});
+```
+
+**Effort**: 2 hours | **Value**: HIGH - Confidence in core abstractions
+
+---
+
+### [Documentation] Document Library Query Over-Fetch Strategy
+**File**: `convex/questionsLibrary.ts:42`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: MEDIUM
+**Impact**: Future maintainers won't understand performance tradeoffs
+
+**Problem**: `getLibrary` query over-fetches (`limit * 2`) then filters client-side. No JSDoc explaining why this approach was chosen over separate indexes.
+
+**Tradeoff Analysis**:
+- **Current approach** (over-fetch + filter):
+  - ✅ Pro: Single index (`by_user`), simple schema
+  - ✅ Pro: Flexible filtering without index changes
+  - ❌ Con: Over-fetches 2x data, O(n) client-side filtering
+  - 📊 Performance: Fine for <1000 questions per user
+
+- **Alternative** (separate indexes):
+  - ✅ Pro: Exact fetch, O(1) server-side filtering
+  - ❌ Con: 3 indexes needed (`by_user_active`, `by_user_archived`, `by_user_deleted`)
+  - ❌ Con: Schema complexity, index maintenance overhead
+  - 📊 Performance: Better at 1000+ questions per user
+
+**Fix**: Add JSDoc explaining the tradeoff:
+
+```typescript
+/**
+ * Get questions for library view with filtering by state
+ *
+ * **Performance Strategy**: Over-fetches (limit * 2) then filters client-side
+ * instead of using separate indexes (by_user_active, by_user_archived, by_user_deleted).
+ *
+ * **Rationale**:
+ * - Tradeoff: Simplicity (1 index) vs. performance (3 indexes)
+ * - Current approach fine for <1000 questions/user (typical use case)
+ * - If user libraries grow, consider separate indexes for exact fetching
+ *
+ * **Migration threshold**: When p95 query time >500ms or avg library size >1000 questions
+ */
+export const getLibrary = query({ ... });
+```
+
+**Effort**: 15 minutes | **Value**: MEDIUM - Future maintainer clarity
+
+---
+
+### [Cleanup] Remove Deprecated Question Mutations
+**Files**: `convex/questionsCrud.ts:127-155, 158-186`
+**Functions**: `softDeleteQuestion`, `restoreQuestion`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: LOW
+**Impact**: Tech debt accumulation, API surface bloat
+
+**Problem**: Functions marked `@deprecated` but no removal timeline specified.
+
+**Current Deprecation Notices**:
+```typescript
+/**
+ * @deprecated Use bulkDelete from questionsBulk.ts for consistent UX
+ */
+export const softDeleteQuestion = mutation({ ... });
+
+/**
+ * @deprecated Use restoreQuestions from questionsBulk.ts for consistent UX
+ */
+export const restoreQuestion = mutation({ ... });
+```
+
+**Proposed Timeline**:
+```typescript
+/**
+ * @deprecated Use bulkDelete from questionsBulk.ts for consistent UX
+ * TODO: Remove in v2.0 after frontend migration complete (target: 2025-11-01)
+ * Migration: Replace with `questionsBulk.bulkDelete({ questionIds: [id] })`
+ */
+```
+
+**Pre-removal Checklist**:
+- [ ] Verify zero usage: `grep -r "softDeleteQuestion\|restoreQuestion" app/ hooks/ components/`
+- [ ] Add warning logs to deprecated functions (helps catch missed usages)
+- [ ] Update CLAUDE.md to remove references
+- [ ] Create migration guide if needed
+
+**Effort**: 5 minutes (add timeline) + 30 minutes (eventual removal) | **Value**: LOW - Code hygiene
+
+---
+
+### [Performance] Monitor getLibrary Query Performance at Scale
+**File**: `convex/questionsLibrary.ts:27-60`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: LOW (proactive)
+**Impact**: Future performance degradation if user libraries grow beyond 1000 questions
+
+**Problem**: Current over-fetch + filter approach fine for MVP but may need optimization at scale.
+
+**Monitoring Plan**:
+
+1. **Add performance tracking** (30min):
+   ```typescript
+   export const getLibrary = query({
+     handler: async (ctx, args) => {
+       const startTime = Date.now();
+
+       // ... existing logic ...
+
+       const duration = Date.now() - startTime;
+       if (duration > 500) {
+         console.warn(`[Performance] getLibrary slow: ${duration}ms for ${questions.length} questions`);
+       }
+
+       return questions;
+     }
+   });
+   ```
+
+2. **Set optimization threshold** (planning):
+   - **Trigger**: p95 query time >500ms OR avg library size >1000 questions
+   - **Action**: Create separate indexes (`by_user_active`, `by_user_archived`, `by_user_deleted`)
+
+3. **Optimization implementation** (when triggered, ~3h):
+   - Update schema with 3 new indexes
+   - Migrate `getLibrary` to use appropriate index per view
+   - Benchmark before/after with 1000+ question dataset
+   - Update documentation with new approach
+
+**Effort**: 30min (monitoring) + 3h (optimization if needed) | **Value**: LOW - Future-proofing
+
+---
+
 ### ✅ [COMPLETED 2025-10-08] Architecture - Questions Module Decomposition + FSRS Decoupling
 
 **Original Issues**:
