@@ -1,108 +1,76 @@
-# TODO: PR #32 Review Feedback - Pre-Merge Improvements
+# TODO: PR #32 Review Feedback - Pre-Merge Critical Fix
 
 **Status**: In Progress
-**Estimated Effort**: 45 minutes
-**Context**: Address blocking and in-scope feedback from Claude's automated code review
-**PR Reference**: https://github.com/phrazzld/scry/pull/32#issuecomment-3386367273
+**Estimated Effort**: 5 minutes
+**Context**: Address NEW critical issue found by Codex automated review (broken internal mutation reference)
+**PR Reference**: https://github.com/phrazzld/scry/pull/32
 
 ---
 
-## Critical (Merge-Blocking)
+## 🚨 CRITICAL (Merge-Blocking) - NEW ISSUE
 
-### 🚨 Fix Incomplete FSRS Decoupling
+### Fix Broken Internal Mutation Reference
 
-**Issue**: `convex/spacedRepetition.ts:42` still imports `getRetrievability` directly from `fsrs.ts`, breaking the scheduling abstraction.
+**Issue**: `convex/aiGeneration.ts:340` calls `internal.questions.saveBatch` but `questions.ts` was deleted in the refactor. This will cause runtime failure: "No such function: questions.saveBatch"
 
-**Why this matters**: If we want to swap FSRS for SM-2, we'd need to modify both `scheduling.ts` AND `spacedRepetition.ts`. The abstraction should hide ALL algorithm details.
+**Why this matters**: Breaks core feature (AI question generation). Users won't be able to generate new questions.
+
+**Source**: Codex inline review comment (2025-10-10)
 
 **Implementation Steps**:
 
-- [x] **Update `convex/scheduling.ts` interface** (10min)
+- [ ] **Update mutation reference** (1min)
   ```
-  ✅ COMPLETED - commit f346665
-  Added getRetrievability() method to IScheduler interface
-  ```
-
-- [x] **Update `convex/spacedRepetition.ts` imports** (5min)
-  ```
-  ✅ COMPLETED - commit f346665
-  Removed direct getRetrievability import from fsrs.ts
+  File: convex/aiGeneration.ts:340
+  Change: internal.questions.saveBatch → internal.questionsCrud.saveBatch
   ```
 
-- [x] **Update `convex/spacedRepetition.ts` usage** (10min)
+- [ ] **Verify TypeScript compilation** (1min)
   ```
-  ✅ COMPLETED - commit f346665
-  Updated calculateRetrievabilityScore to use scheduler.getRetrievability()
+  Run: pnpm build
+  Expected: Successful compilation
   ```
 
-- [x] **Test changes** (5min)
+- [ ] **Verify Convex API types** (1min)
   ```
-  ✅ COMPLETED - All validation passed:
-  - pnpm test: 358/358 tests passing ✓
-  - pnpm build: TypeScript compilation successful ✓
-  - Zero direct fsrs.ts imports in spacedRepetition.ts ✓
+  Check: convex/_generated/api.d.ts includes questionsCrud module
+  Verify: internal.questionsCrud.saveBatch exists
+  ```
+
+- [ ] **Run test suite** (2min)
+  ```
+  Run: pnpm test
+  Expected: 358/358 tests passing
+  ```
+
+- [ ] **Commit fix** (1min)
+  ```
+  Message: "fix: update saveBatch reference to questionsCrud module"
   ```
 
 **Success Criteria**:
-- Zero direct `fsrs.ts` imports in `spacedRepetition.ts`
-- All tests passing (358/358)
-- `spacedRepetition.ts` is 100% algorithm-agnostic
-
-**Estimated Time**: 30 minutes
-
----
-
-## In-Scope Improvements
-
-### ✅ Add Type Safety Enhancement
-
-**Issue**: `convex/questionsInteractions.ts:71-78` uses type spread that might lose type safety.
-
-**Implementation**:
-
-- [x] **Add explicit type assertion** (5min)
-  ```
-  ✅ COMPLETED - commit df49215
-  - Added explicit 'as Doc<questions>' assertion
-  - Added missing Doc import to questionsInteractions.ts
-  - TypeScript compilation successful ✓
-  ```
-
-**Success Criteria**: TypeScript inference explicit, prevents future type issues ✅
+- TypeScript compilation successful
+- All 358 tests passing
+- AI question generation works end-to-end
 
 **Estimated Time**: 5 minutes
 
 ---
 
-### ✅ Standardize Error Messages
+## ✅ Previously Completed Tasks
 
-**Issue**: Error messages inconsistent across modules (some include questionId, some don't).
+### Fix Incomplete FSRS Decoupling (commit f346665)
+- ✅ Added getRetrievability() to IScheduler interface
+- ✅ Removed direct fsrs.ts import from spacedRepetition.ts
+- ✅ Updated calculateRetrievabilityScore to use scheduler interface
 
-**Implementation**:
+### Add Type Safety Enhancement (commit df49215)
+- ✅ Added explicit `as Doc<'questions'>` assertion
+- ✅ Added missing Doc import to questionsInteractions.ts
 
-- [x] **Standardize `questionsCrud.ts` errors** (3min)
-  ```
-  ✅ COMPLETED - commit df49215
-  Updated 3 error sites with questionId context
-  ```
-
-- [x] **Standardize `questionsInteractions.ts` errors** (3min)
-  ```
-  ✅ COMPLETED - commit df49215
-  Updated 1 error site with questionId context
-  ```
-
-- [x] **Verify consistency** (4min)
-  ```
-  ✅ COMPLETED - All validation passed:
-  - 4 error messages updated with questionId ✓
-  - All 358 tests passing ✓
-  - Improved debugging experience ✓
-  ```
-
-**Success Criteria**: All error messages include question ID for debugging ✅
-
-**Estimated Time**: 10 minutes
+### Standardize Error Messages (commit df49215)
+- ✅ Updated 4 error sites to include questionId context
+- ✅ Improved debugging experience across modules
 
 ---
 
@@ -110,19 +78,18 @@
 
 Before marking PR ready for merge:
 
-- [x] All critical tasks complete (FSRS decoupling) ✅
-- [x] All in-scope improvements applied (type safety, error messages) ✅
-- [x] Tests passing: `pnpm test` (358/358) ✅
-- [x] Build successful: `pnpm build` ✅
-- [x] Lint clean: `pnpm lint` ✅
-- [x] Zero direct `fsrs.ts` imports: `grep -r "from.*fsrs" convex/questions*.ts convex/spacedRepetition.ts` ✅
+- [x] All Claude review feedback addressed (FSRS decoupling, type safety, error messages) ✅
+- [ ] Codex review feedback addressed (broken mutation reference)
+- [ ] Tests passing: `pnpm test` (358/358)
+- [ ] Build successful: `pnpm build`
+- [ ] Lint clean: `pnpm lint`
 
-**Status**: ✅ READY FOR MERGE - All pre-merge requirements satisfied
+**Status**: 🔄 IN PROGRESS - Addressing Codex critical feedback
 
 ---
 
 ## Notes
 
 - Follow-up work (unit tests, documentation, deprecation timelines) tracked in `BACKLOG.md`
-- All feedback from Claude's review acknowledged and categorized
-- Estimated total effort: 45 minutes for pre-merge improvements
+- All feedback from both Claude and Codex reviews acknowledged and categorized
+- Previous effort: 45 minutes (Claude feedback) + 5 minutes (Codex feedback) = 50 minutes total
