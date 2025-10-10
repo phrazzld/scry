@@ -9,6 +9,7 @@
  */
 import { v } from 'convex/values';
 
+import { Doc } from './_generated/dataModel';
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { getScheduler } from './scheduling';
@@ -36,7 +37,7 @@ export const recordInteraction = mutation({
     // Verify user owns this question
     const question = await ctx.db.get(args.questionId);
     if (!question || question.userId !== userId) {
-      throw new Error('Question not found or unauthorized');
+      throw new Error(`Question not found or unauthorized: ${args.questionId}`);
     }
 
     // Record interaction
@@ -72,7 +73,7 @@ export const recordInteraction = mutation({
       // 2. Full doc shape to safely compute next review
       // 3. Any existing partial FSRS fields to be overwritten (migration safety)
       const result = scheduler.scheduleNextReview(
-        { ...question, ...initialDbFields },
+        { ...question, ...initialDbFields } as Doc<'questions'>,
         args.isCorrect,
         now
       );

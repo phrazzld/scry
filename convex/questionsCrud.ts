@@ -137,7 +137,7 @@ export const updateQuestion = mutation({
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
     if (!question || question.userId !== userId) {
-      throw new Error('Question not found or unauthorized');
+      throw new Error(`Question not found or unauthorized: ${args.questionId}`);
     }
 
     // 3. Check if already deleted
@@ -225,7 +225,7 @@ export const softDeleteQuestion = mutation({
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
     if (!question || question.userId !== userId) {
-      throw new Error('Question not found or unauthorized');
+      throw new Error(`Question not found or unauthorized: ${args.questionId}`);
     }
 
     // 3. Check if already deleted
@@ -264,7 +264,7 @@ export const restoreQuestion = mutation({
     // 2. Verify ownership
     const question = await ctx.db.get(args.questionId);
     if (!question || question.userId !== userId) {
-      throw new Error('Question not found or unauthorized');
+      throw new Error(`Question not found or unauthorized: ${args.questionId}`);
     }
 
     // 3. Check if deleted
