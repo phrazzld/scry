@@ -139,6 +139,7 @@ COVERAGE REQUIREMENTS:
 QUESTION QUALITY:
 - Multiple-choice: Exactly 4 options with distinct, plausible distractors reflecting real confusions
 - True/False: Exactly 2 options ["True", "False"] for crisp, unambiguous claims
+- **CRITICAL**: Randomize the order of answer options. Do NOT always put the correct answer first.
 - Order questions from simpler to more complex (warm up, then stretch)
 - Every question includes explanation addressing: why correct, why wrong options are wrong, common misconception to avoid
 
@@ -195,6 +196,7 @@ REQUIREMENTS:
 • Every atom must be tested
 • No gaps in coverage
 • Mix question types: multiple-choice (exactly 4 options) and true-false (exactly 2 options: "True", "False")
+• **CRITICAL**: Randomize the order of answer options. Do NOT always put the correct answer first.
 • Include explanations for each answer
 
 Generate the questions now:`;

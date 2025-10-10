@@ -7,6 +7,7 @@ import { QuestionHistory } from '@/components/question-history';
 import { Button } from '@/components/ui/button';
 import type { Doc } from '@/convex/_generated/dataModel';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
+import { useShuffledOptions } from '@/hooks/use-shuffled-options';
 import { cn } from '@/lib/utils';
 import type { SimpleQuestion } from '@/types/questions';
 
@@ -38,6 +39,9 @@ export function ReviewSession({
   const { trackAnswer } = useQuizInteractions();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime] = useState(Date.now());
+
+  // Shuffle options deterministically based on questionId + userId
+  const shuffledOptions = useShuffledOptions(question.options, questionId ?? null);
 
   const isCorrect = selectedAnswer === question.correctAnswer;
 
@@ -93,7 +97,7 @@ export function ReviewSession({
           {question.type === 'true-false' ? (
             // True/False specific layout
             <div className="grid grid-cols-2 gap-4">
-              {question.options.map((option, index) => (
+              {shuffledOptions.map((option, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswerSelect(option)}
@@ -136,7 +140,7 @@ export function ReviewSession({
             </div>
           ) : (
             // Multiple choice layout
-            question.options.map((option, index) => (
+            shuffledOptions.map((option, index) => (
               <button
                 key={index}
                 onClick={() => handleAnswerSelect(option)}

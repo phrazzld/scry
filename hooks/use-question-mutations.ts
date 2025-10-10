@@ -43,8 +43,8 @@ interface OptimisticDeleteParams {
  */
 export function useQuestionMutations() {
   const { isSignedIn } = useUser();
-  const updateQuestion = useMutation(api.questions.updateQuestion);
-  const softDeleteQuestion = useMutation(api.questions.softDeleteQuestion);
+  const updateQuestion = useMutation(api.questionsCrud.updateQuestion);
+  const softDeleteQuestion = useMutation(api.questionsCrud.softDeleteQuestion);
 
   // Local state to trigger re-renders when optimistic state changes
   const [optimisticEdits, setOptimisticEdits] = useState(optimisticStore.edits);

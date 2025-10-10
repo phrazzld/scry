@@ -22,14 +22,14 @@ export function LibraryClient() {
   const [selectedIds, setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
 
   // Query questions for current view
-  const questions = useQuery(api.questions.getLibrary, { view: currentTab });
+  const questions = useQuery(api.questionsLibrary.getLibrary, { view: currentTab });
 
   // Mutations for bulk operations
-  const archiveQuestions = useMutation(api.questions.archiveQuestions);
-  const unarchiveQuestions = useMutation(api.questions.unarchiveQuestions);
-  const bulkDelete = useMutation(api.questions.bulkDelete);
-  const restoreQuestions = useMutation(api.questions.restoreQuestions);
-  const permanentlyDelete = useMutation(api.questions.permanentlyDelete);
+  const archiveQuestions = useMutation(api.questionsBulk.archiveQuestions);
+  const unarchiveQuestions = useMutation(api.questionsBulk.unarchiveQuestions);
+  const bulkDelete = useMutation(api.questionsBulk.bulkDelete);
+  const restoreQuestions = useMutation(api.questionsBulk.restoreQuestions);
+  const permanentlyDelete = useMutation(api.questionsBulk.permanentlyDelete);
 
   // Confirmation and undo hooks
   const confirm = useConfirmation();

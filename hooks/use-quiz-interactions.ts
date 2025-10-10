@@ -5,7 +5,7 @@ import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
 export function useQuizInteractions() {
-  const recordInteraction = useMutation(api.questions.recordInteraction);
+  const recordInteraction = useMutation(api.questionsInteractions.recordInteraction);
   const { isSignedIn } = useUser();
 
   const trackAnswer = useCallback(

@@ -4,6 +4,7 @@ import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 
 import type { Id } from '@/convex/_generated/dataModel';
+import { useShuffledOptions } from '@/hooks/use-shuffled-options';
 import { cn } from '@/lib/utils';
 import type { SimpleQuestion } from '@/types/questions';
 
@@ -19,13 +20,20 @@ interface ReviewQuestionDisplayProps {
  * Pure component for rendering a quiz question with answer options
  * Memoized to prevent unnecessary re-renders when parent state changes
  * Only re-renders when question ID, selected answer, or feedback state changes
+ *
+ * Answer options are shuffled deterministically based on questionId + userId
+ * to prevent the correct answer from always appearing in the same position
  */
 function ReviewQuestionDisplayComponent({
   question,
+  questionId,
   selectedAnswer,
   showFeedback,
   onAnswerSelect,
 }: ReviewQuestionDisplayProps) {
+  // Shuffle options deterministically based on questionId + userId
+  const shuffledOptions = useShuffledOptions(question.options, questionId);
+
   return (
     <>
       <h2 className="text-xl font-semibold">{question.question}</h2>
@@ -34,7 +42,7 @@ function ReviewQuestionDisplayComponent({
         {question.type === 'true-false' ? (
           // True/False specific layout
           <div className="grid grid-cols-2 gap-4">
-            {question.options.map((option, index) => (
+            {shuffledOptions.map((option, index) => (
               <button
                 key={index}
                 data-testid={`answer-option-${index}`}
@@ -78,7 +86,7 @@ function ReviewQuestionDisplayComponent({
           </div>
         ) : (
           // Multiple choice layout
-          question.options.map((option, index) => (
+          shuffledOptions.map((option, index) => (
             <button
               key={index}
               data-testid={`answer-option-${index}`}

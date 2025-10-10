@@ -207,11 +207,7 @@ export function ReviewFlow() {
   }
 
   if (phase === 'empty') {
-    return (
-      <div className="min-h-[400px] flex items-start justify-center">
-        <ReviewEmptyState />
-      </div>
-    );
+    return <ReviewEmptyState />;
   }
 
   if (phase === 'reviewing' && question) {
