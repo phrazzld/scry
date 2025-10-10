@@ -60,27 +60,15 @@
 
 **Implementation**:
 
-- [ ] **Add explicit type assertion** (5min)
-  ```typescript
-  // File: convex/questionsInteractions.ts
-  // Line: 74-78
-
-  // OLD:
-  const result = scheduler.scheduleNextReview(
-    { ...question, ...initialDbFields },
-    args.isCorrect,
-    now
-  );
-
-  // NEW:
-  const result = scheduler.scheduleNextReview(
-    { ...question, ...initialDbFields } as Doc<'questions'>,
-    args.isCorrect,
-    now
-  );
+- [x] **Add explicit type assertion** (5min)
+  ```
+  ✅ COMPLETED - commit df49215
+  - Added explicit 'as Doc<questions>' assertion
+  - Added missing Doc import to questionsInteractions.ts
+  - TypeScript compilation successful ✓
   ```
 
-**Success Criteria**: TypeScript inference explicit, prevents future type issues
+**Success Criteria**: TypeScript inference explicit, prevents future type issues ✅
 
 **Estimated Time**: 5 minutes
 
@@ -92,37 +80,27 @@
 
 **Implementation**:
 
-- [ ] **Standardize `questionsCrud.ts` errors** (3min)
-  ```typescript
-  // File: convex/questionsCrud.ts
-  // Line: 140, 171
-
-  // OLD:
-  throw new Error('Question not found or unauthorized');
-
-  // NEW:
-  throw new Error(`Question not found or unauthorized: ${args.questionId}`);
+- [x] **Standardize `questionsCrud.ts` errors** (3min)
+  ```
+  ✅ COMPLETED - commit df49215
+  Updated 3 error sites with questionId context
   ```
 
-- [ ] **Standardize `questionsInteractions.ts` errors** (3min)
-  ```typescript
-  // File: convex/questionsInteractions.ts
-  // Line: 39
-
-  // OLD:
-  throw new Error('Question not found or unauthorized');
-
-  // NEW:
-  throw new Error(`Question not found or unauthorized: ${args.questionId}`);
+- [x] **Standardize `questionsInteractions.ts` errors** (3min)
+  ```
+  ✅ COMPLETED - commit df49215
+  Updated 1 error site with questionId context
   ```
 
-- [ ] **Verify consistency** (4min)
-  ```bash
-  # All error messages should include context (ID, operation, etc)
-  grep -n "throw new Error" convex/questions*.ts
+- [x] **Verify consistency** (4min)
+  ```
+  ✅ COMPLETED - All validation passed:
+  - 4 error messages updated with questionId ✓
+  - All 358 tests passing ✓
+  - Improved debugging experience ✓
   ```
 
-**Success Criteria**: All error messages include question ID for debugging
+**Success Criteria**: All error messages include question ID for debugging ✅
 
 **Estimated Time**: 10 minutes
 
@@ -132,12 +110,14 @@
 
 Before marking PR ready for merge:
 
-- [ ] All critical tasks complete (FSRS decoupling)
-- [ ] All in-scope improvements applied (type safety, error messages)
-- [ ] Tests passing: `pnpm test` (358/358)
-- [ ] Build successful: `pnpm build`
-- [ ] Lint clean: `pnpm lint`
-- [ ] Zero direct `fsrs.ts` imports: `grep -r "from.*fsrs" convex/questions*.ts convex/spacedRepetition.ts`
+- [x] All critical tasks complete (FSRS decoupling) ✅
+- [x] All in-scope improvements applied (type safety, error messages) ✅
+- [x] Tests passing: `pnpm test` (358/358) ✅
+- [x] Build successful: `pnpm build` ✅
+- [x] Lint clean: `pnpm lint` ✅
+- [x] Zero direct `fsrs.ts` imports: `grep -r "from.*fsrs" convex/questions*.ts convex/spacedRepetition.ts` ✅
+
+**Status**: ✅ READY FOR MERGE - All pre-merge requirements satisfied
 
 ---
 
