@@ -1,49 +1,64 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Target } from 'lucide-react';
+import { useQuery } from 'convex/react';
 
 import { Button } from '@/components/ui/button';
+import { api } from '@/convex/_generated/api';
+import { formatNextReviewTime } from '@/lib/format-review-time';
 
+/**
+ * Minimalist zen empty state for when all reviews are complete
+ *
+ * Design philosophy:
+ * - Maximum white space for calm, meditative feel
+ * - Hero typography (text-8xl) matches Scry branding
+ * - Shows next review time (respects Pure FSRS timing)
+ * - Single clear action (generate questions)
+ * - No redundant "Go Home" button (this IS home)
+ */
 export function ReviewEmptyState() {
   const router = useRouter();
 
-  return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            No Reviews Due
-          </h2>
-          <p className="text-muted-foreground">
-            You have no questions due for review right now. Great job staying on top of your
-            learning!
-          </p>
-        </div>
+  // Get next review time from user stats
+  const stats = useQuery(api.spacedRepetition.getUserCardStats);
+  const nextReviewTime = stats?.nextReviewTime ?? null;
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Your next review will be available soon. In the meantime, you can:
+  return (
+    <div className="h-[90vh] flex items-center justify-center px-6">
+      <div className="text-center space-y-8 max-w-2xl">
+        {/* Hero message - matches SignInLanding typography */}
+        <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
+          All done<span className="opacity-70">.</span>
+        </h1>
+
+        {/* Success message */}
+        <p className="text-2xl md:text-3xl text-muted-foreground">
+          You&apos;re on top of your learning.
+        </p>
+
+        {/* Next review time - shows when to return */}
+        {nextReviewTime && (
+          <p className="text-lg text-muted-foreground/80">
+            Next review {formatNextReviewTime(nextReviewTime)}
           </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={() => {
-                router.push('/');
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('open-generation-modal'));
-                }, 100);
-              }}
-              variant="default"
-            >
-              Generate Questions
-            </Button>
-            <Button onClick={() => router.push('/')} variant="outline">
-              Go Home
-            </Button>
-          </div>
+        )}
+
+        {/* Single prominent action */}
+        <div className="pt-4">
+          <Button
+            onClick={() => {
+              router.push('/');
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('open-generation-modal'));
+              }, 100);
+            }}
+            size="lg"
+          >
+            Generate Questions
+          </Button>
         </div>
       </div>
-    </article>
+    </div>
   );
 }
