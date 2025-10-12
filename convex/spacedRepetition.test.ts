@@ -809,6 +809,75 @@ describe('Retrievability Scoring Functions', () => {
       });
     });
 
+    describe('new questions with initialized FSRS fields (regression test for PR #32)', () => {
+      it('should apply freshness boost to newly created cards with state="new"', () => {
+        // Regression test: After CRUD refactor, new questions have FSRS fields initialized.
+        // They should STILL receive the freshness boost, not be treated as reviewed cards.
+        const newlyCreatedQuestion = createMockQuestion({
+          _creationTime: now.getTime(), // Just created
+          state: 'new',
+          nextReview: now.getTime() + 600000, // Has nextReview set by initializeCard()
+          stability: 0,
+          fsrsDifficulty: 0,
+          reps: 0,
+          lapses: 0,
+        });
+
+        const score = calculateRetrievabilityScore(newlyCreatedQuestion, now);
+
+        // Should get ultra-fresh priority: -2 (not 0-1 like reviewed cards)
+        expect(score).toBeLessThanOrEqual(-1.0);
+        expect(score).toBeGreaterThanOrEqual(-2.0);
+        expect(score).toBeCloseTo(-2.0, 1); // Should be close to -2 for just-created card
+      });
+
+      it('should apply freshness decay to new cards with reps=0', () => {
+        const twelveHoursAgo = now.getTime() - 12 * 3600000;
+        const newButNotUltraFresh = createMockQuestion({
+          _creationTime: twelveHoursAgo,
+          state: 'new',
+          nextReview: now.getTime() + 600000,
+          reps: 0,
+        });
+
+        const score = calculateRetrievabilityScore(newButNotUltraFresh, now);
+
+        // Should still get freshness boost, but decayed from -2
+        expect(score).toBeLessThanOrEqual(-1.0);
+        expect(score).toBeGreaterThanOrEqual(-2.0);
+        expect(score).toBeGreaterThan(-2.0); // Should be less fresh than ultra-fresh
+        expect(score).toBeLessThan(-1.0); // Should still have some boost
+      });
+
+      it('should prioritize new cards with FSRS fields over reviewed cards', () => {
+        const newCard = createMockQuestion({
+          _creationTime: now.getTime(),
+          state: 'new',
+          nextReview: now.getTime() + 600000, // Has nextReview
+          reps: 0,
+        });
+
+        const reviewedCard = createMockQuestion({
+          nextReview: now.getTime() - 86400000, // 1 day overdue
+          state: 'review',
+          stability: 10,
+          lastReview: now.getTime() - 86400000 * 5, // Required for FSRS
+          elapsedDays: 5,
+          scheduledDays: 4,
+          reps: 5,
+          lapses: 0,
+        });
+
+        const newScore = calculateRetrievabilityScore(newCard, now);
+        const reviewedScore = calculateRetrievabilityScore(reviewedCard, now);
+
+        // New card should have LOWER score (higher priority)
+        expect(newScore).toBeLessThan(reviewedScore);
+        expect(newScore).toBeLessThan(-1.0); // Freshness boost range
+        expect(reviewedScore).toBeGreaterThanOrEqual(0); // FSRS retrievability range
+      });
+    });
+
     describe('reviewed questions (has nextReview)', () => {
       it('should use FSRS retrievability for reviewed questions', () => {
         const reviewedQuestion = createMockQuestion({

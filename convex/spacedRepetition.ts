@@ -82,7 +82,11 @@ function calculateFreshnessDecay(hoursSinceCreation: number): number {
  * @returns Priority score: -2 to -1 for new questions, 0 to 1 for reviewed questions
  */
 function calculateRetrievabilityScore(question: Doc<'questions'>, now: Date = new Date()): number {
-  if (question.nextReview === undefined) {
+  // Check if question has never been reviewed
+  // Note: After CRUD refactor, new questions have FSRS fields initialized on creation,
+  // so we check state === 'new' instead of relying solely on undefined nextReview.
+  // This ensures newly created cards still receive the -2 to -1 freshness boost.
+  if (question.state === 'new' || question.nextReview === undefined || question.reps === 0) {
     // New question - apply freshness decay
     const hoursSinceCreation = (now.getTime() - question._creationTime) / 3600000;
 
