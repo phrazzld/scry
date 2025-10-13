@@ -83,6 +83,8 @@ if [ -n "$CONVEX_ENV_FLAG" ] || [ "$ENVIRONMENT" = "development" ]; then
 
   for var in "${CONVEX_REQUIRED_VARS[@]}"; do
     # Use npx convex env get to check if variable exists
+    # Security note: Only display variable NAMES (from our controlled array), NEVER raw values
+    # If displaying values in the future, must sanitize: printf '%q' "$VALUE"
     if npx convex env get "$var" $CONVEX_ENV_FLAG &>/dev/null; then
       echo -e "${GREEN}✓${NC} Convex: $var"
     else

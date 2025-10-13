@@ -15,12 +15,14 @@ import { query } from './_generated/server';
  * - RESEND_API_KEY: Used for sending magic link emails
  * - EMAIL_FROM: From address for emails
  * - NEXT_PUBLIC_APP_URL: Application URL for magic links
+ * - CONVEX_CLOUD_URL: Deployment URL (automatically set by Convex)
  */
 const REQUIRED_ENV_VARS = [
   'GOOGLE_AI_API_KEY',
   'RESEND_API_KEY',
   'EMAIL_FROM',
   'NEXT_PUBLIC_APP_URL',
+  'CONVEX_CLOUD_URL',
 ] as const;
 
 /**
@@ -114,9 +116,9 @@ export const detailed = query({
 
     // Determine overall status
     const hasCriticalFailures = Object.entries(checks).some(
-      ([_, check]) => check.critical && check.status !== 'ok'
+      ([, check]) => check.critical && check.status !== 'ok'
     );
-    const hasAnyFailures = Object.entries(checks).some(([_, check]) => check.status !== 'ok');
+    const hasAnyFailures = Object.entries(checks).some(([, check]) => check.status !== 'ok');
 
     const status = hasCriticalFailures ? 'unhealthy' : hasAnyFailures ? 'degraded' : 'healthy';
 

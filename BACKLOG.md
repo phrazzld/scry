@@ -62,6 +62,37 @@ const index = questionIndexMap.get(id); // O(1)!
 
 ## High-Value Improvements (Fix Soon)
 
+### [Testing] Environment Validation Test Coverage
+**Context**: PR #34 review feedback
+**Files**: `convex/health.test.ts` (NEW), `tests/scripts/*.bats` (NEW)
+**Perspectives**: maintainability-maven, security-sentinel
+**Severity**: HIGH
+**Impact**: Health checks and validation scripts lack automated tests, regression risk
+
+**Problem**: Critical infrastructure (health checks, validation scripts) has no automated test coverage.
+
+**Requirements**:
+1. Unit tests for `convex/health.ts` queries (45 min)
+   - Test healthy/unhealthy states
+   - Test edge cases (empty strings, whitespace)
+   - Test critical vs non-critical classification
+
+2. Shell script tests with BATS (2 hours)
+   - Test `validate-env-vars.sh` error paths
+   - Test `check-deployment-health.sh` JSON parsing
+   - Mock Convex/Vercel CLI responses
+
+3. CI/CD integration (1 hour)
+   - Add `validate-env` job to GitHub Actions
+   - Run validation before deployments
+   - Fail CI on missing environment variables
+
+**Effort**: 3-4h | **Value**: HIGH - Prevents regression in critical validation logic
+
+**See**: `TODO.md` for detailed implementation plan
+
+---
+
 ### [Architecture] Split spacedRepetition.ts God Object
 **File**: `convex/spacedRepetition.ts:1-674`
 **Perspectives**: complexity-archaeologist, architecture-guardian, maintainability-maven

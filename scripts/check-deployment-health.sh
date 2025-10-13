@@ -82,8 +82,24 @@ if echo "$HEALTH_CHECK_OUTPUT" | grep -q "ERROR\|Error\|error"; then
 fi
 
 # Parse the health check output (JSON)
-# Look for "healthy": true/false and "missing": [...]
-if echo "$HEALTH_CHECK_OUTPUT" | grep -q '"healthy":\s*true'; then
+# Use jq if available for robust parsing, fall back to grep if not
+if command -v jq &>/dev/null; then
+  # Use jq for reliable JSON parsing
+  IS_HEALTHY=$(echo "$HEALTH_CHECK_OUTPUT" | jq -r '.healthy' 2>/dev/null || echo "false")
+  MISSING_VARS=$(echo "$HEALTH_CHECK_OUTPUT" | jq -r '.missing[]' 2>/dev/null || echo "")
+else
+  # Fall back to grep with relaxed pattern (handles various whitespace)
+  if echo "$HEALTH_CHECK_OUTPUT" | grep -q '"healthy"\s*:\s*true'; then
+    IS_HEALTHY="true"
+  else
+    IS_HEALTHY="false"
+  fi
+
+  # Extract missing variables with grep/sed
+  MISSING_VARS=$(echo "$HEALTH_CHECK_OUTPUT" | grep -o '"missing":\s*\[[^]]*\]' | sed 's/"missing":\s*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' '\n')
+fi
+
+if [ "$IS_HEALTHY" = "true" ]; then
   echo -e "${GREEN}✓${NC} All required environment variables are present"
   echo ""
   echo -e "${GREEN}✅ Deployment is fully healthy!${NC} 🎉"
@@ -92,9 +108,6 @@ if echo "$HEALTH_CHECK_OUTPUT" | grep -q '"healthy":\s*true'; then
 else
   echo -e "${RED}✗${NC} Some required environment variables are missing"
   echo ""
-
-  # Extract missing variables from JSON output
-  MISSING_VARS=$(echo "$HEALTH_CHECK_OUTPUT" | grep -o '"missing":\s*\[[^]]*\]' | sed 's/"missing":\s*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' '\n')
 
   if [ -n "$MISSING_VARS" ]; then
     echo -e "${RED}❌ FAILED: Missing environment variables:${NC}"
