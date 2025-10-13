@@ -43,7 +43,7 @@ npx convex env set GOOGLE_AI_API_KEY "AIzaSy..." --prod
 Verification:
 ```bash
 $ npx convex env get GOOGLE_AI_API_KEY --prod
-***REMOVED*** ✅
+AIzaSyBMaKauEuY42AscRKVTnXlyFpdTn9Fcmhs ✅
 ```
 
 ## Prevention Measures

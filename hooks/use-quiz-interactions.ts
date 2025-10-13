@@ -4,6 +4,7 @@ import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
 
 import { api } from '@/convex/_generated/api';
+import { TOAST_DURATION } from '@/lib/constants/ui';
 
 export function useQuizInteractions() {
   const recordInteraction = useMutation(api.questionsInteractions.recordInteraction);
@@ -40,7 +41,7 @@ export function useQuizInteractions() {
 
         toast.error('Failed to save your answer', {
           description: "Your progress wasn't saved. Please try again.",
-          duration: 8000, // Longer for critical errors
+          duration: TOAST_DURATION.ERROR + 3000, // Extended for critical errors
         });
 
         return null;

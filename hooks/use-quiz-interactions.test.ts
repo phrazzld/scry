@@ -158,7 +158,7 @@ describe('useQuizInteractions', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to track interaction:', mockError);
       expect(toast.error).toHaveBeenCalledWith('Failed to save your answer', {
         description: "Your progress wasn't saved. Please try again.",
-        duration: 8000,
+        duration: 8000, // 5000 (ERROR) + 3000 (critical extension)
       });
       expect(response).toBeNull();
 
