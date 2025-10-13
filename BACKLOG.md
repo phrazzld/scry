@@ -92,68 +92,212 @@ catch (error) {
 
 ## High-Value Improvements (Fix Soon)
 
-### [Architecture] convex/questions.ts - God Object with 7 Responsibilities
-**File**: `convex/questions.ts:1-844`
-**Perspectives**: complexity-archaeologist, architecture-guardian, maintainability-maven
-**Metrics**: 844 lines, 17 exported functions, 7 distinct concerns
+### [Testing] Unit Tests for Core Scheduling Abstractions
+**Files**: `convex/scheduling.test.ts` (NEW), `convex/lib/validation.test.ts` (NEW)
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: HIGH
+**Impact**: Core abstractions (`IScheduler` interface, `validateBulkOwnership` helper) lack dedicated unit tests
 
-**Violations**:
-- Ousterhout: God object anti-pattern
-- Single Responsibility Principle
-- Maintainability: Comprehension barrier
+**Rationale**: These modules are foundational to the questions system. While integration tests cover usage, dedicated unit tests would:
+1. Document expected behavior of the `IScheduler` interface contract
+2. Test edge cases in FSRS implementation (boundary conditions, state transitions)
+3. Validate atomic validation failure scenarios (partial authorization, missing questions)
+4. Enable confident refactoring of scheduling logic
 
-**Responsibilities**:
-1. Question CRUD (saveGeneratedQuestions, updateQuestion, softDeleteQuestion, restoreQuestion)
-2. Bulk operations (archiveQuestions, unarchiveQuestions, bulkDelete, restoreQuestions, permanentlyDelete)
-3. Interaction recording (recordInteraction with FSRS logic)
-4. Related generation (prepareRelatedGeneration, saveRelatedQuestions)
-5. Library queries (getLibrary, getRecentTopics)
-6. Session stats (getQuizInteractionStats)
-7. User queries (getUserQuestions)
+**Implementation**:
 
-**Fix**: Extract into focused modules:
+```typescript
+// convex/scheduling.test.ts - Test IScheduler interface contract
+describe('IScheduler interface', () => {
+  describe('initializeCard', () => {
+    it('should return valid FSRS initial state')
+    it('should set state to "new"')
+    it('should initialize stability and difficulty')
+  });
+
+  describe('scheduleNextReview', () => {
+    it('should handle correct answer on new card')
+    it('should handle incorrect answer on new card')
+    it('should progress through learning states correctly')
+    it('should handle lapse scenarios (review → relearning)')
+    it('should calculate retrievability correctly')
+  });
+
+  describe('getRetrievability', () => {
+    it('should return -1 for new questions')
+    it('should return 0-1 for due questions based on time')
+    it('should handle edge case: exactly at review time')
+  });
+});
+
+// convex/lib/validation.test.ts - Test atomic validation
+describe('validateBulkOwnership', () => {
+  it('should return all questions when user owns all')
+  it('should throw when question not found')
+  it('should throw when user lacks ownership (partial auth bypass)')
+  it('should throw on first failure (fail fast for security)')
+  it('should handle empty question array')
+});
 ```
-convex/questions/
-  ├── crud.ts           # saveGeneratedQuestions, updateQuestion (150 lines)
-  ├── bulk.ts           # archive/unarchive/delete/restore/permanent (300 lines)
-  ├── interactions.ts   # recordInteraction with FSRS (100 lines)
-  ├── library.ts        # getLibrary, getRecentTopics (150 lines)
-  ├── related.ts        # prepareRelatedGeneration, saveRelatedQuestions (100 lines)
-  └── index.ts          # Re-export public API
-```
 
-**Effort**: 6-8h | **Impact**: 844-line god object → 5 focused modules, parallel development enabled
+**Effort**: 2 hours | **Value**: HIGH - Confidence in core abstractions
 
 ---
 
-### [Architecture] Tight FSRS Coupling - Dependency Inversion Violation
-**File**: `convex/questions.ts:117-189` ↔ `convex/fsrs.ts`
-**Perspectives**: architecture-guardian, complexity-archaeologist
+### [Documentation] Document Library Query Over-Fetch Strategy
+**File**: `convex/questionsLibrary.ts:42`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: MEDIUM
+**Impact**: Future maintainers won't understand performance tradeoffs
 
-**Problem**: High-level questions module directly depends on low-level FSRS implementation. Cannot swap algorithms.
+**Problem**: `getLibrary` query over-fetches (`limit * 2`) then filters client-side. No JSDoc explaining why this approach was chosen over separate indexes.
 
-**Test**: "Can we replace FSRS with SM-2 algorithm without changing questions.ts?" → **NO**
+**Tradeoff Analysis**:
+- **Current approach** (over-fetch + filter):
+  - ✅ Pro: Single index (`by_user`), simple schema
+  - ✅ Pro: Flexible filtering without index changes
+  - ❌ Con: Over-fetches 2x data, O(n) client-side filtering
+  - 📊 Performance: Fine for <1000 questions per user
 
-**Fix**: Create scheduling abstraction:
+- **Alternative** (separate indexes):
+  - ✅ Pro: Exact fetch, O(1) server-side filtering
+  - ❌ Con: 3 indexes needed (`by_user_active`, `by_user_archived`, `by_user_deleted`)
+  - ❌ Con: Schema complexity, index maintenance overhead
+  - 📊 Performance: Better at 1000+ questions per user
+
+**Fix**: Add JSDoc explaining the tradeoff:
+
 ```typescript
-// convex/scheduling/interface.ts
-export interface IScheduler {
-  calculateNextReview(
-    question: Doc<'questions'>,
-    isCorrect: boolean,
-    now: Date
-  ): SchedulingResult;
-}
-
-// convex/scheduling/fsrs-scheduler.ts
-export class FsrsScheduler implements IScheduler { /* ... */ }
-
-// convex/questions/interactions.ts
-const scheduler = getScheduler(); // Factory pattern
-const result = scheduler.calculateNextReview(question, isCorrect, now);
+/**
+ * Get questions for library view with filtering by state
+ *
+ * **Performance Strategy**: Over-fetches (limit * 2) then filters client-side
+ * instead of using separate indexes (by_user_active, by_user_archived, by_user_deleted).
+ *
+ * **Rationale**:
+ * - Tradeoff: Simplicity (1 index) vs. performance (3 indexes)
+ * - Current approach fine for <1000 questions/user (typical use case)
+ * - If user libraries grow, consider separate indexes for exact fetching
+ *
+ * **Migration threshold**: When p95 query time >500ms or avg library size >1000 questions
+ */
+export const getLibrary = query({ ... });
 ```
 
-**Effort**: 4h | **Impact**: Coupling 8/10 → 2/10, enables algorithm swapping, testable
+**Effort**: 15 minutes | **Value**: MEDIUM - Future maintainer clarity
+
+---
+
+### [Cleanup] Remove Deprecated Question Mutations
+**Files**: `convex/questionsCrud.ts:127-155, 158-186`
+**Functions**: `softDeleteQuestion`, `restoreQuestion`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: LOW
+**Impact**: Tech debt accumulation, API surface bloat
+
+**Problem**: Functions marked `@deprecated` but no removal timeline specified.
+
+**Current Deprecation Notices**:
+```typescript
+/**
+ * @deprecated Use bulkDelete from questionsBulk.ts for consistent UX
+ */
+export const softDeleteQuestion = mutation({ ... });
+
+/**
+ * @deprecated Use restoreQuestions from questionsBulk.ts for consistent UX
+ */
+export const restoreQuestion = mutation({ ... });
+```
+
+**Proposed Timeline**:
+```typescript
+/**
+ * @deprecated Use bulkDelete from questionsBulk.ts for consistent UX
+ * TODO: Remove in v2.0 after frontend migration complete (target: 2025-11-01)
+ * Migration: Replace with `questionsBulk.bulkDelete({ questionIds: [id] })`
+ */
+```
+
+**Pre-removal Checklist**:
+- [ ] Verify zero usage: `grep -r "softDeleteQuestion\|restoreQuestion" app/ hooks/ components/`
+- [ ] Add warning logs to deprecated functions (helps catch missed usages)
+- [ ] Update CLAUDE.md to remove references
+- [ ] Create migration guide if needed
+
+**Effort**: 5 minutes (add timeline) + 30 minutes (eventual removal) | **Value**: LOW - Code hygiene
+
+---
+
+### [Performance] Monitor getLibrary Query Performance at Scale
+**File**: `convex/questionsLibrary.ts:27-60`
+**Source**: PR #32 Code Review - Claude automated review
+**Severity**: LOW (proactive)
+**Impact**: Future performance degradation if user libraries grow beyond 1000 questions
+
+**Problem**: Current over-fetch + filter approach fine for MVP but may need optimization at scale.
+
+**Monitoring Plan**:
+
+1. **Add performance tracking** (30min):
+   ```typescript
+   export const getLibrary = query({
+     handler: async (ctx, args) => {
+       const startTime = Date.now();
+
+       // ... existing logic ...
+
+       const duration = Date.now() - startTime;
+       if (duration > 500) {
+         console.warn(`[Performance] getLibrary slow: ${duration}ms for ${questions.length} questions`);
+       }
+
+       return questions;
+     }
+   });
+   ```
+
+2. **Set optimization threshold** (planning):
+   - **Trigger**: p95 query time >500ms OR avg library size >1000 questions
+   - **Action**: Create separate indexes (`by_user_active`, `by_user_archived`, `by_user_deleted`)
+
+3. **Optimization implementation** (when triggered, ~3h):
+   - Update schema with 3 new indexes
+   - Migrate `getLibrary` to use appropriate index per view
+   - Benchmark before/after with 1000+ question dataset
+   - Update documentation with new approach
+
+**Effort**: 30min (monitoring) + 3h (optimization if needed) | **Value**: LOW - Future-proofing
+
+---
+
+### ✅ [COMPLETED 2025-10-08] Architecture - Questions Module Decomposition + FSRS Decoupling
+
+**Original Issues**:
+1. 843-line `convex/questions.ts` god object with 7 responsibilities
+2. Tight FSRS coupling preventing algorithm swapping
+3. 140 lines of duplicated atomic validation across 5 bulk operations
+
+**Solution Implemented**:
+- Created `convex/scheduling.ts` with `IScheduler` interface + `FsrsScheduler` implementation
+- Decomposed into 5 focused modules:
+  - `questionsCrud.ts` (287 lines) - CRUD operations
+  - `questionsBulk.ts` (166 lines) - Bulk operations
+  - `questionsInteractions.ts` (100 lines) - Answer recording + scheduling
+  - `questionsLibrary.ts` (208 lines) - Library queries
+  - `questionsRelated.ts` (131 lines) - Related generation
+- Created `convex/lib/validation.ts` shared helper (eliminates duplication)
+- Updated `spacedRepetition.ts` to use scheduling interface
+
+**Results**:
+- ✅ Can swap FSRS for SM-2 by changing `getScheduler()` return value
+- ✅ Zero direct FSRS imports in question modules
+- ✅ All 358 tests passing
+- ✅ Each module < 300 lines (most < 200)
+- ✅ Coupling reduced from 8/10 → 2/10
+
+**PR**: `refactor/questions-module-decomposition` (14 commits)
+**Effort**: 8 hours | **Impact**: Major architectural improvement
 
 ---
 

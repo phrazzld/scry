@@ -23,9 +23,9 @@ vi.mock('@clerk/nextjs', () => ({
 
 vi.mock('@/convex/_generated/api', () => ({
   api: {
-    questions: {
-      updateQuestion: { _functionPath: 'questions:updateQuestion' },
-      softDeleteQuestion: { _functionPath: 'questions:softDeleteQuestion' },
+    questionsCrud: {
+      updateQuestion: { _functionPath: 'questionsCrud:updateQuestion' },
+      softDeleteQuestion: { _functionPath: 'questionsCrud:softDeleteQuestion' },
     },
   },
 }));
@@ -45,8 +45,8 @@ describe('useQuestionMutations', () => {
     (useMutation as any).mockImplementation((mutation: any) => {
       // Check the function path to determine which mock to return
       const functionPath = mutation?._functionPath || '';
-      if (functionPath === 'questions:updateQuestion') return mockUpdateQuestion;
-      if (functionPath === 'questions:softDeleteQuestion') return mockDeleteQuestion;
+      if (functionPath === 'questionsCrud:updateQuestion') return mockUpdateQuestion;
+      if (functionPath === 'questionsCrud:softDeleteQuestion') return mockDeleteQuestion;
       return vi.fn();
     });
 

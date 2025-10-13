@@ -92,13 +92,20 @@ The application follows Next.js 15 App Router structure with Convex backend:
 
 - **app/**: Next.js 15 App Router pages and layouts
 - **components/**: React components split between business logic and UI primitives (shadcn/ui)
-- **convex/**: Backend functions and schema definitions
+- **convex/**: Backend functions and schema definitions (modular architecture)
   - **schema.ts**: Database schema with users, sessions, questions, interactions, quizResults, generationJobs
   - **auth.ts**: Magic link authentication mutations
-  - **questions.ts**: Individual question persistence and interaction tracking
+  - **scheduling.ts**: Scheduling abstraction (IScheduler interface + FSRS implementation)
+  - **questionsCrud.ts**: Question CRUD operations (create, update, soft delete, restore)
+  - **questionsBulk.ts**: Bulk operations (archive, unarchive, delete, restore, permanent delete)
+  - **questionsInteractions.ts**: Answer recording with automatic FSRS scheduling
+  - **questionsLibrary.ts**: Library queries (browse, filter, stats)
+  - **questionsRelated.ts**: AI-powered related question generation
+  - **spacedRepetition.ts**: Spaced repetition system (queue, reviews, Pure FSRS)
   - **generationJobs.ts**: Background job CRUD and lifecycle management
   - **aiGeneration.ts**: AI generation processing with streaming
   - **cron.ts**: Scheduled tasks (cleanup, maintenance)
+  - **lib/validation.ts**: Shared validation helpers (atomic bulk operations)
 - **lib/ai-client.ts**: AI integration using Vercel AI SDK with Google provider
 - **lib/constants/**: Configuration constants (jobs, timing, UI)
 - **types/**: TypeScript types for quiz data structures
@@ -450,7 +457,7 @@ The application implements reversible operations using mutation pairs. Every act
 ### Critical Rule: Mutation Symmetry
 
 **Before implementing undo UI pattern:**
-1. ✅ Verify BOTH mutations exist in `convex/questions.ts`
+1. ✅ Verify BOTH mutations exist in `convex/questionsBulk.ts`
 2. ✅ Test both forward and reverse operations manually
 3. ✅ Add contract tests in `tests/api-contract.test.ts`
 
@@ -458,9 +465,9 @@ The application implements reversible operations using mutation pairs. Every act
 
 ### Mutation Implementation Pattern
 
-**File:** `convex/questions.ts`
+**File:** `convex/questionsBulk.ts`
 
-Standard pattern for all bulk mutations:
+Standard pattern for all bulk mutations (using shared validation helper):
 
 ```typescript
 export const operationName = mutation({
@@ -470,18 +477,10 @@ export const operationName = mutation({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    // 2. Atomic validation (fetch ALL first)
-    const questions = await Promise.all(
-      args.questionIds.map((id) => ctx.db.get(id))
-    );
+    // 2. Atomic validation via shared helper
+    await validateBulkOwnership(ctx, userId, args.questionIds);
 
-    // 3. Validate ALL before mutating ANY
-    questions.forEach((question, index) => {
-      if (!question) throw new Error(`Question not found: ${args.questionIds[index]}`);
-      if (question.userId !== userId) throw new Error(`Unauthorized: ${args.questionIds[index]}`);
-    });
-
-    // 4. Execute mutations in parallel
+    // 3. Execute mutations in parallel
     await Promise.all(
       args.questionIds.map((id) => ctx.db.patch(id, { /* changes */ }))
     );
@@ -491,7 +490,7 @@ export const operationName = mutation({
 });
 ```
 
-**Why atomic validation?** Prevents partial failures - either ALL operations succeed or ALL fail. No orphaned state.
+**Why atomic validation?** Prevents partial failures - either ALL operations succeed or ALL fail. No orphaned state. The `validateBulkOwnership()` helper (in `convex/lib/validation.ts`) eliminates ~140 lines of duplication across bulk operations.
 
 ## Testing
 
@@ -575,9 +574,10 @@ The system automatically determines review ratings based on answer correctness, 
 ### FSRS Integration
 
 **Key Components:**
-- **convex/fsrs.ts**: Core FSRS utilities and rating calculation
+- **convex/fsrs.ts**: Core FSRS utilities and rating calculation (low-level implementation)
+- **convex/scheduling.ts**: IScheduler interface + FsrsScheduler implementation (dependency injection)
 - **convex/spacedRepetition.ts**: Mutations and queries for review scheduling
-- **convex/questions.ts**: Integration with question recording
+- **convex/questionsInteractions.ts**: Answer recording with automatic FSRS scheduling
 
 **Scheduling Flow:**
 1. User answers a question (correct/incorrect)

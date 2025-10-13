@@ -39,7 +39,7 @@ import { v } from 'convex/values';
 import { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { cardToDb, getRetrievability, initializeCard, scheduleNextReview } from './fsrs';
+import { getScheduler } from './scheduling';
 
 // Export for testing
 export { calculateFreshnessDecay, calculateRetrievabilityScore };
@@ -82,7 +82,11 @@ function calculateFreshnessDecay(hoursSinceCreation: number): number {
  * @returns Priority score: -2 to -1 for new questions, 0 to 1 for reviewed questions
  */
 function calculateRetrievabilityScore(question: Doc<'questions'>, now: Date = new Date()): number {
-  if (question.nextReview === undefined) {
+  // Check if question has never been reviewed
+  // Note: After CRUD refactor, new questions have FSRS fields initialized on creation,
+  // so we check state === 'new' instead of relying solely on undefined nextReview.
+  // This ensures newly created cards still receive the -2 to -1 freshness boost.
+  if (question.state === 'new' || question.nextReview === undefined || question.reps === 0) {
     // New question - apply freshness decay
     const hoursSinceCreation = (now.getTime() - question._creationTime) / 3600000;
 
@@ -94,8 +98,9 @@ function calculateRetrievabilityScore(question: Doc<'questions'>, now: Date = ne
     return -1 - freshnessBoost;
   }
 
-  // Reviewed question - use standard FSRS retrievability (0-1)
-  return getRetrievability(question, now);
+  // Reviewed question - use scheduler interface for algorithm-agnostic retrievability
+  const scheduler = getScheduler();
+  return scheduler.getRetrievability(question, now);
 }
 
 /**
@@ -156,15 +161,16 @@ export const scheduleReview = mutation({
 
     // If this is the first interaction and question has no FSRS state, initialize it
     if (!question.state) {
-      const initialCard = initializeCard();
-      const initialDbFields = cardToDb(initialCard);
+      const scheduler = getScheduler();
+      const initialDbFields = scheduler.initializeCard();
 
       // Schedule the first review
-      const { dbFields: scheduledFields } = scheduleNextReview(
+      const result = scheduler.scheduleNextReview(
         { ...question, ...initialDbFields },
         args.isCorrect,
         now
       );
+      const scheduledFields = result.dbFields;
 
       // Update question with both stats and FSRS fields
       await ctx.db.patch(args.questionId, {
@@ -181,7 +187,9 @@ export const scheduleReview = mutation({
     }
 
     // For subsequent reviews, use existing FSRS state
-    const { dbFields: scheduledFields } = scheduleNextReview(question, args.isCorrect, now);
+    const scheduler = getScheduler();
+    const result = scheduler.scheduleNextReview(question, args.isCorrect, now);
+    const scheduledFields = result.dbFields;
 
     // Update question with both stats and FSRS fields
     await ctx.db.patch(args.questionId, {
@@ -213,7 +221,7 @@ export const getNextReview = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-   
+
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
@@ -298,7 +306,7 @@ export const getDueCount = query({
   args: {
     _refreshTimestamp: v.optional(v.number()), // For periodic refresh
   },
-   
+
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
@@ -364,7 +372,7 @@ export const getUserCardStats = query({
   args: {
     _refreshTimestamp: v.optional(v.float64()),
   },
-   
+
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;

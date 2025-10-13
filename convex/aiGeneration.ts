@@ -337,7 +337,7 @@ export const processJob = internalAction({
       }
 
       // Save all validated questions atomically
-      const allQuestionIds = await ctx.runMutation(internal.questions.saveBatch, {
+      const allQuestionIds = await ctx.runMutation(internal.questionsCrud.saveBatch, {
         userId: job.userId,
         topic: job.prompt,
         questions: object.questions,

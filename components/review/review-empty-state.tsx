@@ -1,49 +1,73 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Target } from 'lucide-react';
+import { useQuery } from 'convex/react';
 
-import { Button } from '@/components/ui/button';
+import { api } from '@/convex/_generated/api';
+import { formatNextReviewTime } from '@/lib/format-review-time';
 
+/**
+ * Minimalist zen empty state for when all reviews are complete
+ *
+ * Design philosophy:
+ * - Maximum white space for calm, meditative feel
+ * - Hero typography (text-8xl) matches Scry branding
+ * - Shows next review time (respects Pure FSRS timing)
+ * - Single clear action (generate questions)
+ * - No redundant "Go Home" button (this IS home)
+ */
 export function ReviewEmptyState() {
   const router = useRouter();
 
+  // Get next review time from user stats
+  const stats = useQuery(api.spacedRepetition.getUserCardStats);
+  const nextReviewTime = stats?.nextReviewTime ?? null;
+
   return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            No Reviews Due
-          </h2>
-          <p className="text-muted-foreground">
-            You have no questions due for review right now. Great job staying on top of your
-            learning!
+    <div className="h-[90vh] flex items-center px-6">
+      <div className="max-w-7xl">
+        {/* Hero section - tight grouping for related message */}
+        <div className="space-y-4">
+          <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
+            All done<span className="opacity-70">.</span>
+          </h1>
+
+          <p className="text-2xl md:text-3xl text-muted-foreground">
+            You&apos;re on top of your learning.
           </p>
         </div>
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Your next review will be available soon. In the meantime, you can:
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button
-              onClick={() => {
-                router.push('/');
-                setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('open-generation-modal'));
-                }, 100);
-              }}
-              variant="default"
-            >
-              Generate Questions
-            </Button>
-            <Button onClick={() => router.push('/')} variant="outline">
-              Go Home
-            </Button>
+        {/* Metadata section - structured label + value */}
+        {nextReviewTime && (
+          <div className="mt-12">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
+              Next Review
+            </div>
+            <div className="text-sm text-muted-foreground/90 mt-1">
+              {formatNextReviewTime(nextReviewTime)}
+            </div>
           </div>
+        )}
+
+        {/* Action section - matches editorial label pattern */}
+        <div className="mt-8">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
+            Ready for More?
+          </div>
+          <button
+            onClick={() => {
+              router.push('/');
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('open-generation-modal'));
+              }, 100);
+            }}
+            className="group mt-1 text-base text-foreground hover:text-foreground/80 transition-colors flex items-center gap-2"
+          >
+            <span>Generate Questions</span>
+            <span className="transition-transform group-hover:translate-x-1">→</span>
+          </button>
         </div>
       </div>
-    </article>
+    </div>
   );
 }
