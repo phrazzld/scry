@@ -35,8 +35,26 @@ echo "$ROCKET Production Deployment Pipeline"
 echo "========================================="
 echo ""
 
+# Step 0: Validate Environment Variables
+echo -e "${BLUE}Step 0/4:${NC} Validating environment configuration..."
+echo ""
+
+if ./scripts/validate-env-vars.sh production; then
+  echo ""
+  echo -e "${CHECK} ${GREEN}Environment validation passed${NC}"
+else
+  echo ""
+  echo -e "${CROSS} ${RED}FAILED: Environment validation failed${NC}"
+  echo ""
+  echo -e "${YELLOW}${WARNING} Fix missing environment variables before deploying${NC}"
+  echo ""
+  exit 1
+fi
+
+echo ""
+
 # Step 1: Deploy Convex Backend
-echo -e "${BLUE}Step 1/3:${NC} Deploying Convex backend functions..."
+echo -e "${BLUE}Step 1/4:${NC} Deploying Convex backend functions..."
 echo ""
 
 if [ -z "${CONVEX_DEPLOY_KEY:-}" ]; then
@@ -69,7 +87,7 @@ fi
 echo ""
 
 # Step 2: Validate Deployment Health
-echo -e "${BLUE}Step 2/3:${NC} Validating deployment health..."
+echo -e "${BLUE}Step 2/4:${NC} Validating deployment health..."
 echo ""
 
 if ./scripts/check-deployment-health.sh; then
@@ -92,7 +110,7 @@ fi
 echo ""
 
 # Step 3: Deploy Vercel Frontend
-echo -e "${BLUE}Step 3/3:${NC} Deploying Vercel frontend..."
+echo -e "${BLUE}Step 3/4:${NC} Deploying Vercel frontend..."
 echo ""
 
 if vercel --prod; then
