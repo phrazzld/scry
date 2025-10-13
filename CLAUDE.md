@@ -69,22 +69,72 @@ npx convex deploy
 
 ## Environment Setup
 
+### Critical: Vercel vs Convex Environment Variables
+
+**Vercel and Convex maintain SEPARATE environment variable systems.** Setting a variable in one does NOT automatically sync to the other. This is a common source of production deployment issues.
+
+**Architecture:**
+- **Vercel** (Next.js frontend/API routes): Reads from Vercel environment variables
+- **Convex** (Backend functions): Reads from Convex environment variables
+- These are SEPARATE systems running in different infrastructures
+
+**Variable Distribution:**
+
+| Variable | Vercel | Convex | Purpose |
+|----------|--------|--------|---------|
+| `GOOGLE_AI_API_KEY` | ❌ | ✅ | Used by `convex/aiGeneration.ts` for quiz generation |
+| `RESEND_API_KEY` | ❌ | ✅ | Used by Convex for sending magic link emails |
+| `EMAIL_FROM` | ❌ | ✅ | From address for emails |
+| `NEXT_PUBLIC_APP_URL` | ❌ | ✅ | Application URL for magic links |
+| `NEXT_PUBLIC_CONVEX_URL` | ✅ | ❌ | Frontend needs to know Convex backend URL |
+| `CONVEX_DEPLOY_KEY` | ✅ | ❌ | Vercel build needs to deploy Convex |
+| `CLERK_*` | ✅ | ❌ | Frontend authentication configuration |
+
+**Setting Environment Variables:**
+
+```bash
+# Set Convex variables (for backend functions)
+npx convex env set GOOGLE_AI_API_KEY "your-key" --prod
+npx convex env set RESEND_API_KEY "your-key" --prod
+npx convex env set EMAIL_FROM "noreply@scry.study" --prod
+npx convex env set NEXT_PUBLIC_APP_URL "https://www.scry.study" --prod
+
+# Set Vercel variables (for frontend/build)
+vercel env add NEXT_PUBLIC_CONVEX_URL production
+vercel env add CONVEX_DEPLOY_KEY production
+vercel env add CLERK_SECRET_KEY production
+vercel env add CLERK_WEBHOOK_SECRET production
+vercel env add NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY production
+```
+
+**Local Development:**
+
 Create `.env.local` with these required variables:
 
 ```bash
-# Google AI API key for quiz generation
-GOOGLE_AI_API_KEY=your-google-ai-api-key
+# Convex Backend URL (dev: amicable-lobster, prod: uncommon-axolotl)
+NEXT_PUBLIC_CONVEX_URL="https://amicable-lobster-935.convex.cloud"
 
-# Convex deployment URL (from Convex dashboard)
-NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+# Application URL for magic links (port 3002 since 3000 is taken)
+NEXT_PUBLIC_APP_URL="http://localhost:3002"
 
-# Email configuration (for magic links)
-RESEND_API_KEY=your-resend-api-key
-EMAIL_FROM=noreply@yourdomain.com
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+CLERK_WEBHOOK_SECRET=whsec_...
 
-# Optional: Application URL for magic links
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+# AI API key for quiz generation (ALSO set in Convex!)
+GOOGLE_AI_API_KEY="AIzaSy..."
+
+# Email service configuration (ALSO set in Convex!)
+RESEND_API_KEY="re_..."
+EMAIL_FROM="Scry <noreply@scry.study>"
+
+# Convex deployment (automatically set by `npx convex dev`)
+CONVEX_DEPLOYMENT=dev:amicable-lobster-935
 ```
+
+**Note:** In development, Convex reads from `.env.local` via `npx convex dev`. In production, Convex reads from its own dashboard environment variables.
 
 ## Architecture Overview
 
