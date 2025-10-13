@@ -2,6 +2,7 @@
 
 # Deployment Health Check Script
 # Validates that Convex backend functions are deployed and accessible
+# Also validates that all required environment variables are present
 #
 # Usage:
 #   ./scripts/check-deployment-health.sh
@@ -31,6 +32,7 @@ CRITICAL_FUNCTIONS=(
   "questions:saveBatch"
   "spacedRepetition:getNextReview"
   "spacedRepetition:scheduleReview"
+  "health:check"
 )
 
 echo "🏥 Convex Deployment Health Check"
@@ -64,14 +66,14 @@ fi
 echo -e "${GREEN}✓${NC} Successfully connected to Convex deployment"
 echo ""
 
-# Check 3: Verify critical functions exist by listing all functions
+# Check 3: Verify critical functions exist
 echo "📋 Checking for critical functions..."
+echo ""
 
-# Get list of all deployed functions
-# Format: "functionName" or "namespace:functionName"
-FUNCTIONS_LIST=$(npx convex functions list 2>&1 || echo "")
+# Get list of all deployed functions using function-spec
+FUNCTIONS_LIST=$(npx convex function-spec 2>&1 || echo "ERROR")
 
-if echo "$FUNCTIONS_LIST" | grep -q "Error\|error"; then
+if echo "$FUNCTIONS_LIST" | grep -q "Error\|error\|ECONNREFUSED"; then
   echo -e "${RED}❌ FAILED: Unable to list Convex functions${NC}"
   echo "   Error output:"
   echo "$FUNCTIONS_LIST" | head -10
@@ -80,8 +82,8 @@ fi
 
 MISSING_FUNCTIONS=()
 for func in "${CRITICAL_FUNCTIONS[@]}"; do
-  # Check if function appears in the list
-  # Match the full function name (namespace:functionName)
+  # Check if function appears in the function spec output
+  # Function names in spec are formatted as "moduleName:functionName"
   if echo "$FUNCTIONS_LIST" | grep -qF "$func"; then
     echo -e "${GREEN}✓${NC} $func"
   else
@@ -92,20 +94,84 @@ done
 
 echo ""
 
-# Report results
-if [ ${#MISSING_FUNCTIONS[@]} -eq 0 ]; then
-  echo -e "${GREEN}✅ All critical functions are deployed and accessible${NC}"
-  echo ""
-  echo "Deployment is healthy! 🎉"
-  exit 0
-else
+# Check if any functions are missing before proceeding
+if [ ${#MISSING_FUNCTIONS[@]} -gt 0 ]; then
   echo -e "${RED}❌ FAILED: ${#MISSING_FUNCTIONS[@]} critical function(s) missing${NC}"
-  echo ""
-  echo "Missing functions:"
   for func in "${MISSING_FUNCTIONS[@]}"; do
     echo "  - $func"
   done
   echo ""
-  echo -e "${YELLOW}💡 Fix: Run 'npx convex deploy' to deploy backend functions${NC}"
+  echo -e "${YELLOW}💡 Fix: Ensure Convex deployment completed successfully${NC}"
+  echo "   Run: npx convex deploy"
+  echo "   Check dashboard: https://dashboard.convex.dev"
+  echo ""
+  exit 1
+fi
+
+echo -e "${GREEN}✅ All critical functions are deployed${NC}"
+echo ""
+
+# Check 4: Verify deployment health via health check query
+# This validates that env vars are present and functions are callable
+echo "🔐 Checking environment variables..."
+echo ""
+
+# Call the health:check query to validate env vars
+HEALTH_CHECK_OUTPUT=$(npx convex run health:check 2>&1 || echo "ERROR")
+
+if echo "$HEALTH_CHECK_OUTPUT" | grep -q "ERROR\|Error\|error"; then
+  echo -e "${RED}❌ FAILED: Unable to run health check query${NC}"
+  echo "   Error output:"
+  echo "$HEALTH_CHECK_OUTPUT" | head -10
+  exit 1
+fi
+
+# Parse the health check output (JSON)
+# Use jq if available for robust parsing, fall back to grep if not
+if command -v jq &>/dev/null; then
+  # Use jq for reliable JSON parsing
+  IS_HEALTHY=$(echo "$HEALTH_CHECK_OUTPUT" | jq -r '.healthy' 2>/dev/null || echo "false")
+  MISSING_VARS=$(echo "$HEALTH_CHECK_OUTPUT" | jq -r '.missing[]' 2>/dev/null || echo "")
+else
+  # Fall back to grep with relaxed pattern (handles various whitespace)
+  if echo "$HEALTH_CHECK_OUTPUT" | grep -q '"healthy"\s*:\s*true'; then
+    IS_HEALTHY="true"
+  else
+    IS_HEALTHY="false"
+  fi
+
+  # Extract missing variables with grep/sed
+  MISSING_VARS=$(echo "$HEALTH_CHECK_OUTPUT" | grep -o '"missing":\s*\[[^]]*\]' | sed 's/"missing":\s*\[\(.*\)\]/\1/' | tr -d '"' | tr ',' '\n')
+fi
+
+if [ "$IS_HEALTHY" = "true" ]; then
+  echo -e "${GREEN}✓${NC} All required environment variables are present"
+  echo ""
+  echo -e "${GREEN}✅ Deployment is fully healthy!${NC} 🎉"
+  echo ""
+  exit 0
+else
+  echo -e "${RED}✗${NC} Some required environment variables are missing"
+  echo ""
+
+  if [ -n "$MISSING_VARS" ]; then
+    echo -e "${RED}❌ FAILED: Missing environment variables:${NC}"
+    echo "$MISSING_VARS" | while read -r var; do
+      [ -n "$var" ] && echo "  - $var"
+    done
+    echo ""
+    echo -e "${YELLOW}💡 Fix: Set missing variables in Convex dashboard${NC}"
+    echo "   Visit: https://dashboard.convex.dev → Settings → Environment Variables"
+    echo ""
+    echo "   Or use CLI:"
+    echo "   npx convex env set VAR_NAME \"value\" --prod"
+    echo ""
+  else
+    echo -e "${RED}❌ FAILED: Health check reported unhealthy but couldn't parse missing vars${NC}"
+    echo "   Full output:"
+    echo "$HEALTH_CHECK_OUTPUT"
+    echo ""
+  fi
+
   exit 1
 fi
