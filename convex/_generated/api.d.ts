@@ -19,6 +19,7 @@ import type * as cron from "../cron.js";
 import type * as deployments from "../deployments.js";
 import type * as fsrs from "../fsrs.js";
 import type * as generationJobs from "../generationJobs.js";
+import type * as health from "../health.js";
 import type * as http from "../http.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_validation from "../lib/validation.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   deployments: typeof deployments;
   fsrs: typeof fsrs;
   generationJobs: typeof generationJobs;
+  health: typeof health;
   http: typeof http;
   "lib/logger": typeof lib_logger;
   "lib/validation": typeof lib_validation;
