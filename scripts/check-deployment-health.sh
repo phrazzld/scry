@@ -66,8 +66,53 @@ fi
 echo -e "${GREEN}✓${NC} Successfully connected to Convex deployment"
 echo ""
 
-# Check 3: Verify deployment health via health check query
-# This validates both that functions are deployed AND env vars are present
+# Check 3: Verify critical functions exist
+echo "📋 Checking for critical functions..."
+echo ""
+
+# Get list of all deployed functions using function-spec
+FUNCTIONS_LIST=$(npx convex function-spec 2>&1 || echo "ERROR")
+
+if echo "$FUNCTIONS_LIST" | grep -q "Error\|error\|ECONNREFUSED"; then
+  echo -e "${RED}❌ FAILED: Unable to list Convex functions${NC}"
+  echo "   Error output:"
+  echo "$FUNCTIONS_LIST" | head -10
+  exit 1
+fi
+
+MISSING_FUNCTIONS=()
+for func in "${CRITICAL_FUNCTIONS[@]}"; do
+  # Check if function appears in the function spec output
+  # Function names in spec are formatted as "moduleName:functionName"
+  if echo "$FUNCTIONS_LIST" | grep -qF "$func"; then
+    echo -e "${GREEN}✓${NC} $func"
+  else
+    echo -e "${RED}✗${NC} $func (not found)"
+    MISSING_FUNCTIONS+=("$func")
+  fi
+done
+
+echo ""
+
+# Check if any functions are missing before proceeding
+if [ ${#MISSING_FUNCTIONS[@]} -gt 0 ]; then
+  echo -e "${RED}❌ FAILED: ${#MISSING_FUNCTIONS[@]} critical function(s) missing${NC}"
+  for func in "${MISSING_FUNCTIONS[@]}"; do
+    echo "  - $func"
+  done
+  echo ""
+  echo -e "${YELLOW}💡 Fix: Ensure Convex deployment completed successfully${NC}"
+  echo "   Run: npx convex deploy"
+  echo "   Check dashboard: https://dashboard.convex.dev"
+  echo ""
+  exit 1
+fi
+
+echo -e "${GREEN}✅ All critical functions are deployed${NC}"
+echo ""
+
+# Check 4: Verify deployment health via health check query
+# This validates that env vars are present and functions are callable
 echo "🔐 Checking environment variables..."
 echo ""
 
