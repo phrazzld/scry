@@ -40,7 +40,7 @@ GOOGLE_AI_API_KEY="your-key-here"    # Placeholder
 
 **Bad:**
 ```bash
-GOOGLE_AI_API_KEY="AIzaSyBMaKauEuY42AscRKVTnXlyFpdTn9Fcmhs"  # Real key
+GOOGLE_AI_API_KEY="AIzaSyC_RealKeyExample_NEVER_COMMIT_THIS"  # Full real key (DO NOT DO THIS)
 ```
 
 ## Secret Scanning
@@ -147,5 +147,43 @@ If you discover a security vulnerability:
 
 ---
 
-**Last Updated:** 2025-10-13 (After AIzaSy... exposure incident)
+## Security Incident Log
+
+### 2025-10-13: Missing GOOGLE_AI_API_KEY in Convex Production
+
+**Incident**: Preview deployment failed with `API_KEY` error. Quiz generation failed with "API configuration error. Please contact support."
+
+**Root Cause**: `GOOGLE_AI_API_KEY` was missing or invalid in Convex production environment. On Convex free tier, preview deployments share the production backend, so missing Convex environment variables affect BOTH preview AND production.
+
+**Impact**:
+- Preview deployments unable to generate quizzes
+- User experience degraded (error messages not actionable)
+- Configuration issue not caught until runtime
+
+**Resolution**:
+1. Set `GOOGLE_AI_API_KEY` in Convex production: `npx convex env set GOOGLE_AI_API_KEY "new-key" --prod`
+2. Verified fix with health check endpoint: `/api/health/preview`
+3. Confirmed quiz generation working in preview deployment
+
+**Prevention Measures Implemented**:
+1. **Build Script Validation** (`scripts/vercel-build.sh`): Added automatic validation of Convex environment variables during deployment
+2. **Functional Health Checks** (`convex/health.ts`): Created functional API key testing (not just existence check)
+3. **Enhanced Error Messages** (`app/api/health/preview/route.ts`): Health check now actually tests API key and provides actionable recommendations
+4. **Documentation** (`CLAUDE.md`): Added prominent warnings about Convex free tier preview limitations
+5. **Incident Response Procedures**: Documented in this section for future reference
+
+**Key Learnings**:
+- Vercel environment variables ≠ Convex environment variables (separate systems)
+- Preview deployments on free tier share production Convex backend
+- Health checks should test functionality, not just configuration existence
+- Validation should happen at build time, not runtime
+
+**Related Documentation**:
+- Preview deployment architecture: `CLAUDE.md` lines 81-125
+- Environment validation script: `scripts/validate-env-vars.sh`
+- Health check implementation: `convex/health.ts`
+
+---
+
+**Last Updated:** 2025-10-13 (After AIzaSy... exposure incident + API_KEY incident)
 **Next Review:** 2025-11-13
