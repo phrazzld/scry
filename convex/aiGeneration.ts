@@ -14,11 +14,7 @@ import { z } from 'zod';
 
 import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
-
-// Initialize Google AI with API key from environment
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_AI_API_KEY || '',
-});
+import { getSecretDiagnostics } from './lib/envDiagnostics';
 
 // Logger for this module
 const logger = pino({ name: 'aiGeneration' });
@@ -248,6 +244,40 @@ export const processJob = internalAction({
   handler: async (ctx, args) => {
     const startTime = Date.now();
 
+    // Initialize Google AI client with API key from environment at runtime
+    // This ensures the key is read fresh from env vars, not cached from module load time
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const keyDiagnostics = getSecretDiagnostics(apiKey);
+
+    logger.info(
+      {
+        jobId: args.jobId,
+        keyDiagnostics,
+        deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+      },
+      'Read Google AI API key metadata from environment'
+    );
+
+    if (!apiKey || apiKey === '') {
+      const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
+      logger.error(
+        {
+          jobId: args.jobId,
+          keyDiagnostics,
+          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+        },
+        errorMessage
+      );
+      await ctx.runMutation(internal.generationJobs.failJob, {
+        jobId: args.jobId,
+        errorMessage,
+        errorCode: 'API_KEY',
+        retryable: false,
+      });
+      throw new Error(errorMessage);
+    }
+    const google = createGoogleGenerativeAI({ apiKey });
+
     try {
       logger.info({ jobId: args.jobId }, 'Starting job processing');
 
@@ -408,6 +438,8 @@ export const processJob = internalAction({
           errorMessage: err.message,
           errorName: err.name,
           stack: err.stack,
+          keyDiagnostics,
+          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
         },
         'Job processing failed'
       );

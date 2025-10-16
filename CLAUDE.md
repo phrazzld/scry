@@ -78,6 +78,52 @@ npx convex deploy
 - **Convex** (Backend functions): Reads from Convex environment variables
 - These are SEPARATE systems running in different infrastructures
 
+### ⚠️ CRITICAL: Preview Deployment Architecture (Free Tier Limitation)
+
+**ON CONVEX FREE TIER, PREVIEW DEPLOYMENTS SHARE THE PRODUCTION CONVEX BACKEND.**
+
+This is the #1 source of configuration errors. Here's what this means:
+
+```
+┌─────────────────────────────────────────┐
+│ Vercel Preview (Next.js Frontend)      │
+│ - Different URL per PR branch          │
+│ - Isolated frontend deployment         │
+└──────────────┬──────────────────────────┘
+               │
+               │ HTTP requests to Convex
+               ▼
+┌─────────────────────────────────────────┐
+│ Convex PRODUCTION Backend (SHARED!)    │
+│ - SINGLE backend for all previews      │
+│ - Uses PRODUCTION environment variables │
+│ - Affects PRODUCTION data               │
+│ - Missing API keys break EVERYTHING    │
+└─────────────────────────────────────────┘
+```
+
+**What This Means For You:**
+1. **API Configuration Affects Everything**: If `GOOGLE_AI_API_KEY` is missing/invalid in Convex production, BOTH preview AND production fail
+2. **No Environment Isolation**: Can't test with different API keys in preview
+3. **Shared Database**: Preview mutations modify production data (be careful!)
+4. **Single Point of Failure**: One misconfigured env var breaks all environments
+
+**Why This Happens:**
+- Convex free tier only provides: 1 production deployment + 1 dev deployment per developer
+- Preview Convex deployments require Convex Pro ($25/month)
+- Our build script (`scripts/vercel-build.sh`) only deploys Next.js for previews, not Convex
+
+**Solution Options:**
+1. **Accept Free Tier Limitations** (Current): Understand that preview = production backend
+2. **Upgrade to Convex Pro** ($25/mo): Get isolated preview Convex deployments with separate environment variables
+3. **Test in Dev Deployment**: Use `npx convex dev` for testing instead of preview URLs
+
+**Preventing Configuration Issues:**
+- Always validate Convex production environment variables before deployment
+- Use health check endpoint: `curl https://your-preview.vercel.app/api/health/preview`
+- Run validation script: `./scripts/validate-env-vars.sh production`
+- Test API keys locally before committing changes
+
 **Variable Distribution:**
 
 | Variable | Vercel | Convex | Purpose |

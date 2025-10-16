@@ -1,6 +1,7 @@
 import { useUser } from '@clerk/nextjs';
 import { act, renderHook } from '@testing-library/react';
 import { useMutation } from 'convex/react';
+import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useQuizInteractions } from './use-quiz-interactions';
@@ -12,6 +13,13 @@ vi.mock('convex/react', () => ({
 
 vi.mock('@clerk/nextjs', () => ({
   useUser: vi.fn(() => ({ isSignedIn: true, user: { id: 'test-token' } })),
+}));
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
 }));
 
 describe('useQuizInteractions', () => {
@@ -28,6 +36,9 @@ describe('useQuizInteractions', () => {
     mockRecordInteraction = vi.fn();
     (useMutation as any).mockReturnValue(mockRecordInteraction);
     (useUser as any).mockReturnValue({ isSignedIn: true, user: { id: 'test-token' } });
+
+    // Clear toast mocks
+    vi.mocked(toast.error).mockClear();
   });
 
   afterEach(() => {
@@ -129,7 +140,7 @@ describe('useQuizInteractions', () => {
       expect(response).toBeNull();
     });
 
-    it('should handle errors gracefully', async () => {
+    it('should handle errors gracefully and show toast notification', async () => {
       // Mock NODE_ENV to be development for console.error to fire
       vi.stubEnv('NODE_ENV', 'development');
 
@@ -145,6 +156,10 @@ describe('useQuizInteractions', () => {
 
       expect(mockRecordInteraction).toHaveBeenCalled();
       expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to track interaction:', mockError);
+      expect(toast.error).toHaveBeenCalledWith('Failed to save your answer', {
+        description: "Your progress wasn't saved. Please try again.",
+        duration: 8000, // 5000 (ERROR) + 3000 (critical extension)
+      });
       expect(response).toBeNull();
 
       // Restore original NODE_ENV (vi.stubEnv is automatically cleaned up)

@@ -9,28 +9,6 @@
 
 ## Immediate Concerns (Fix Now)
 
-### [CRITICAL] Silent Answer Tracking Failures
-**File**: `hooks/use-quiz-interactions.ts:35-40`
-**Perspectives**: user-experience-advocate, security-sentinel (data integrity)
-**Severity**: CRITICAL
-**Impact**: Silent data loss - users think progress tracked but it fails, corrupts FSRS scheduling
-
-**Problem**: No user feedback when answer submission fails. Users assume progress saved.
-
-**Fix**:
-```typescript
-catch (error) {
-  console.error('Failed to track interaction:', error);
-  toast.error('Failed to save your answer', {
-    description: 'Your progress wasn\'t saved. Please try again.',
-    duration: 8000, // Longer for critical errors
-  });
-  return null;
-}
-```
-
-**Effort**: 15m | **Value**: CRITICAL - Prevents data loss for 100% of network issue cases
-
 ---
 
 ### [CRITICAL] O(n²) Library Table Selection Algorithm
@@ -196,6 +174,116 @@ export const updateDueCountCache = internalMutation({
 ```
 
 **Effort**: 3h | **Impact**: 500ms → 10ms (50x), 1.5MB → 50KB (30x memory)
+
+---
+
+### [UX] Error-Specific Toast Messages for Answer Tracking
+**Context**: PR #35 review feedback - deferred enhancement
+**File**: `hooks/use-quiz-interactions.ts:42-45`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: More helpful error messages for users when answer submission fails
+
+**Problem**: Current generic "Failed to save your answer" message doesn't distinguish between error types (network, auth, rate limit).
+
+**Current**:
+```typescript
+toast.error('Failed to save your answer', {
+  description: "Your progress wasn't saved. Please try again.",
+  duration: TOAST_DURATION.ERROR + 3000,
+});
+```
+
+**Enhancement**:
+```typescript
+// Parse error type for specific messaging
+const errorType = parseErrorType(error);
+
+switch (errorType) {
+  case 'network':
+    toast.error('Connection lost', {
+      description: "Your answer wasn't saved. Check your internet connection.",
+      duration: TOAST_DURATION.ERROR + 3000,
+    });
+    break;
+  case 'auth':
+    toast.error('Session expired', {
+      description: "Please log in again to save your progress.",
+      duration: TOAST_DURATION.ERROR + 3000,
+      action: { label: 'Log in', onClick: () => /* redirect */ }
+    });
+    break;
+  case 'rate_limit':
+    toast.error('Too many requests', {
+      description: "Please wait a moment before trying again.",
+      duration: TOAST_DURATION.ERROR + 3000,
+    });
+    break;
+  default:
+    // Fallback to current generic message
+}
+```
+
+**Rationale for deferring**:
+- Current generic message is "perfectly acceptable for MVP" (PR #35 review)
+- Requires error parsing logic (adds complexity)
+- No user complaints about error message clarity yet
+- Can add when/if users report confusion about error causes
+
+**Effort**: 1-2h | **Impact**: Better UX for error scenarios, clearer retry guidance
+
+---
+
+### [Refactor] Centralize Answer Tracking Error Handler
+**Context**: PR #35 review feedback - optional refactoring
+**File**: `hooks/use-quiz-interactions.ts` → `lib/error-handlers.ts`
+**Perspectives**: maintainability-maven, architecture-guardian
+**Severity**: LOW
+**Impact**: Consistency with existing error handling patterns
+
+**Suggestion**: Extract error handling to centralized handler, similar to `handleJobCreationError`:
+
+**Current** (inline in hook):
+```typescript
+catch (error) {
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Failed to track interaction:', error);
+  }
+  toast.error('Failed to save your answer', {
+    description: "Your progress wasn't saved. Please try again.",
+    duration: TOAST_DURATION.ERROR + 3000,
+  });
+  return null;
+}
+```
+
+**Proposed** (centralized):
+```typescript
+// lib/error-handlers.ts
+export function handleInteractionError(error: unknown): void {
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Failed to track interaction:', error);
+  }
+  toast.error('Failed to save your answer', {
+    description: "Your progress wasn't saved. Please try again.",
+    duration: TOAST_DURATION.ERROR + 3000,
+  });
+}
+
+// hooks/use-quiz-interactions.ts
+catch (error) {
+  handleInteractionError(error);
+  return null;
+}
+```
+
+**Rationale for deferring**:
+- Single use case currently (YAGNI principle)
+- "Keep as-is for now, refactor if pattern emerges elsewhere" (PR #35 review)
+- Current inline approach is acceptable
+- Can refactor when second instance of this pattern appears
+
+**Effort**: 30m | **Impact**: Improved maintainability if pattern reused, otherwise minimal value
 
 ---
 

@@ -47,6 +47,7 @@ export async function GET() {
       status: 'unknown',
       configured: false,
       error: null as string | null,
+      details: {} as Record<string, unknown>,
     },
     sessionCreation: {
       status: 'unknown',
@@ -144,13 +145,59 @@ export async function GET() {
       checks.convexSchema.error = 'Cannot check schema without Convex connection';
     }
 
-    // Check Google AI API key
-    if (process.env.GOOGLE_AI_API_KEY) {
-      checks.googleAiKey.configured = true;
-      checks.googleAiKey.status = 'ok';
+    // Check Google AI API key (functional test via Convex)
+    // Note: GOOGLE_AI_API_KEY in Next.js env is NOT used for generation
+    // The actual key used by Convex backend is tested via functional health check
+    if (checks.convexConnection.status === 'ok' && convexUrl) {
+      try {
+        const client = new ConvexHttpClient(convexUrl);
+        // Call the functional health check that tests the actual API key
+        const healthResult = await client.action(api.health.functional, {});
+        const aiKeyCheck = healthResult.checks.googleAiKeyFunctional;
+        const aiKeyDetails = aiKeyCheck.details as {
+          configured: boolean;
+          valid: boolean;
+          error: string | null;
+          errorCode: string | null;
+        };
+        const diagnostics = (healthResult.diagnostics?.googleApiKey ?? null) as {
+          present: boolean;
+          length: number;
+          fingerprint: string | null;
+        } | null;
+
+        if (aiKeyDetails.configured && aiKeyDetails.valid) {
+          checks.googleAiKey.configured = true;
+          checks.googleAiKey.status = 'ok';
+          checks.googleAiKey.details = {
+            message: 'API key is valid and functional',
+            diagnostics,
+          };
+        } else if (!aiKeyDetails.configured) {
+          checks.googleAiKey.configured = false;
+          checks.googleAiKey.status = 'missing';
+          checks.googleAiKey.error = 'GOOGLE_AI_API_KEY not set in Convex production environment';
+          checks.googleAiKey.details = {
+            diagnostics,
+          };
+        } else {
+          // Key is set but not working
+          checks.googleAiKey.configured = true;
+          checks.googleAiKey.status = 'error';
+          checks.googleAiKey.error = `API key test failed: ${aiKeyDetails.errorCode} - ${aiKeyDetails.error}`;
+          checks.googleAiKey.details = {
+            errorCode: aiKeyDetails.errorCode,
+            message: aiKeyDetails.error,
+            diagnostics,
+          };
+        }
+      } catch (error) {
+        checks.googleAiKey.status = 'error';
+        checks.googleAiKey.error = `Failed to test API key: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      }
     } else {
-      checks.googleAiKey.status = 'missing';
-      checks.googleAiKey.error = 'GOOGLE_AI_API_KEY not configured';
+      checks.googleAiKey.status = 'skipped';
+      checks.googleAiKey.error = 'Cannot test API key without Convex connection';
     }
 
     // Check if we can create sessions with proper environment tagging
@@ -194,8 +241,31 @@ function getRecommendations(checks: HealthChecks): string[] {
 
   if (checks.googleAiKey.status === 'missing') {
     recommendations.push(
-      'GOOGLE_AI_API_KEY is not configured. Quiz generation will use placeholder questions.'
+      'GOOGLE_AI_API_KEY is not set in Convex production environment. ' +
+        'Quiz generation will fail. Set it using: npx convex env set GOOGLE_AI_API_KEY "your-key" --prod'
     );
+  } else if (checks.googleAiKey.status === 'error') {
+    const details = checks.googleAiKey.details as { errorCode?: string } | undefined;
+    const errorCode = details?.errorCode;
+
+    if (errorCode === 'INVALID_KEY') {
+      recommendations.push(
+        'GOOGLE_AI_API_KEY is invalid or expired. Generate a new key at https://aistudio.google.com/app/apikey ' +
+          'and update Convex: npx convex env set GOOGLE_AI_API_KEY "new-key" --prod'
+      );
+    } else if (errorCode === 'RATE_LIMIT') {
+      recommendations.push(
+        'Google AI API rate limit reached. Wait for the limit to reset or upgrade your quota.'
+      );
+    } else if (errorCode === 'API_DISABLED') {
+      recommendations.push(
+        'Google AI API is disabled. Enable the Generative Language API in Google Cloud Console.'
+      );
+    } else {
+      recommendations.push(
+        'GOOGLE_AI_API_KEY test failed. Check Convex logs for details: https://dashboard.convex.dev'
+      );
+    }
   }
 
   if (checks.convexConnection.status === 'error') {
@@ -217,10 +287,20 @@ function getRecommendations(checks: HealthChecks): string[] {
     recommendations.push(
       'This is a preview deployment. Sessions created here will not work in production.'
     );
+    recommendations.push(
+      '⚠️  IMPORTANT: Preview deployments use the PRODUCTION Convex backend (free tier limitation). ' +
+        'API configuration issues affect BOTH preview AND production environments.'
+    );
 
     if (checks.convexSchema.status === 'error' || checks.convexSchema.status === 'warning') {
       recommendations.push(
         'Preview deployments use production Convex backend. Schema mismatches will affect all preview deployments.'
+      );
+    }
+
+    if (checks.googleAiKey.status !== 'ok') {
+      recommendations.push(
+        'To isolate preview from production, upgrade to Convex Pro ($25/mo) for separate preview deployments: https://convex.dev/pricing'
       );
     }
   }

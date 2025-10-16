@@ -6,9 +6,70 @@ import type { SimpleQuestion } from '@/types/questions';
 
 import { aiLogger, loggers } from './logger';
 
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_AI_API_KEY || '',
-});
+type GoogleProvider = ReturnType<typeof createGoogleGenerativeAI>;
+
+type SecretDiagnostics = {
+  present: boolean;
+  length: number;
+  fingerprint: string | null;
+};
+
+function getSecretDiagnostics(value: string | undefined): SecretDiagnostics {
+  if (!value) {
+    return {
+      present: false,
+      length: 0,
+      fingerprint: null,
+    };
+  }
+
+  const fingerprint = hashString(value).slice(0, 8);
+
+  return {
+    present: true,
+    length: value.length,
+    fingerprint,
+  };
+}
+
+function hashString(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = (hash * 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+function ensureGoogleClient() {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const diagnostics = getSecretDiagnostics(apiKey);
+
+  if (!apiKey || apiKey === '') {
+    const message = 'GOOGLE_AI_API_KEY not configured in Next.js environment';
+    aiLogger.error(
+      {
+        event: 'ai.google-client.missing-key',
+        diagnostics,
+      },
+      message
+    );
+
+    const error = new Error(message);
+    error.name = 'API_KEY_NOT_CONFIGURED';
+    throw error;
+  }
+
+  aiLogger.info(
+    {
+      event: 'ai.google-client.initialized',
+      diagnostics,
+    },
+    'Initialized Google AI client with sanitized diagnostics'
+  );
+
+  return { googleProvider: createGoogleGenerativeAI({ apiKey }), diagnostics };
+}
 
 const questionSchema = z.object({
   question: z.string(),
@@ -154,12 +215,15 @@ Generate the questions now. Return only the questions array (no extra commentary
 /**
  * Step 1: Clarify learning intent from raw user input (unstructured)
  */
-async function clarifyLearningIntent(userInput: string): Promise<string> {
+async function clarifyLearningIntent(
+  userInput: string,
+  googleProvider: GoogleProvider
+): Promise<string> {
   const prompt = buildIntentClarificationPrompt(userInput);
 
   try {
     const response = await generateText({
-      model: google('gemini-2.5-flash'),
+      model: googleProvider('gemini-2.5-flash'),
       prompt,
     });
 
@@ -175,7 +239,10 @@ async function clarifyLearningIntent(userInput: string): Promise<string> {
 /**
  * Fallback: Generate questions directly without intent clarification
  */
-async function generateQuestionsDirectly(topic: string): Promise<SimpleQuestion[]> {
+async function generateQuestionsDirectly(
+  topic: string,
+  googleProvider: GoogleProvider
+): Promise<SimpleQuestion[]> {
   const prompt = `You are an expert educational assessment designer creating comprehensive mastery questions.
 
 TOPIC: "${topic}"
@@ -202,7 +269,7 @@ REQUIREMENTS:
 Generate the questions now:`;
 
   const { object } = await generateObject({
-    model: google('gemini-2.5-flash'),
+    model: googleProvider('gemini-2.5-flash'),
     schema: questionsSchema,
     prompt,
   });
@@ -219,7 +286,12 @@ Generate the questions now:`;
 }
 
 export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[]> {
+  let apiKeyDiagnostics: SecretDiagnostics | null = null;
+
   try {
+    const { googleProvider, diagnostics } = ensureGoogleClient();
+    apiKeyDiagnostics = diagnostics;
+
     const overallTimer = loggers.time(`ai.question-generation.${topic}`, 'ai');
 
     aiLogger.info(
@@ -237,7 +309,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
 
     let clarifiedIntent: string;
     try {
-      clarifiedIntent = await clarifyLearningIntent(topic);
+      clarifiedIntent = await clarifyLearningIntent(topic, googleProvider);
 
       const intentDuration = intentTimer.end({ originalInput: topic });
 
@@ -264,7 +336,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
         'Intent clarification failed, falling back to direct generation'
       );
 
-      const questions = await generateQuestionsDirectly(topic);
+      const questions = await generateQuestionsDirectly(topic, googleProvider);
 
       const overallDuration = overallTimer.end({
         topic,
@@ -293,7 +365,7 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
     const questionPrompt = buildQuestionPromptFromIntent(clarifiedIntent);
 
     const { object } = await generateObject({
-      model: google('gemini-2.5-flash'),
+      model: googleProvider('gemini-2.5-flash'),
       schema: questionsSchema,
       prompt: questionPrompt,
     });
@@ -374,14 +446,19 @@ export async function generateQuizWithAI(topic: string): Promise<SimpleQuestion[
         model: 'gemini-2.5-flash',
         errorType,
         errorMessage,
+        apiKeyDiagnostics,
       },
       `Failed to generate questions: ${errorMessage}`
     );
 
     // Re-throw error with enhanced context for proper error handling upstream
-    const enhancedError = new Error(errorMessage) as Error & { originalError?: unknown };
+    const enhancedError = new Error(errorMessage) as Error & {
+      originalError?: unknown;
+      apiKeyDiagnostics?: SecretDiagnostics | null;
+    };
     enhancedError.name = errorType;
     enhancedError.originalError = error;
+    enhancedError.apiKeyDiagnostics = apiKeyDiagnostics;
     throw enhancedError;
   }
 }
