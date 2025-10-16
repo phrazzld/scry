@@ -8,7 +8,8 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 
-import { query } from './_generated/server';
+import { action, query } from './_generated/server';
+import { getSecretDiagnostics } from './lib/envDiagnostics';
 
 /**
  * Required environment variables for Convex functions to work properly
@@ -27,6 +28,97 @@ const REQUIRED_ENV_VARS = [
   'NEXT_PUBLIC_APP_URL',
   'CONVEX_CLOUD_URL',
 ] as const;
+
+type GoogleApiKeyTestResult = {
+  configured: boolean;
+  valid: boolean;
+  error: string | null;
+  errorCode: string | null;
+  diagnostics: ReturnType<typeof getSecretDiagnostics>;
+};
+
+type HealthCheckEntry = {
+  status: 'ok' | 'missing' | 'empty' | 'error';
+  critical: boolean;
+  details?: Record<string, unknown>;
+};
+
+function classifyGoogleApiKeyError(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes('401') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('invalid api key') ||
+    normalized.includes('api_key_invalid')
+  ) {
+    return 'INVALID_KEY';
+  }
+
+  if (
+    normalized.includes('429') ||
+    normalized.includes('quota') ||
+    normalized.includes('rate limit')
+  ) {
+    return 'RATE_LIMIT';
+  }
+
+  if (normalized.includes('403') || normalized.includes('disabled')) {
+    return 'API_DISABLED';
+  }
+
+  if (
+    normalized.includes('timeout') ||
+    normalized.includes('etimedout') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('network')
+  ) {
+    return 'NETWORK';
+  }
+
+  return 'UNKNOWN';
+}
+
+async function runGoogleApiKeyTest(): Promise<GoogleApiKeyTestResult> {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const diagnostics = getSecretDiagnostics(apiKey);
+
+  if (!apiKey || apiKey === '') {
+    return {
+      configured: false,
+      valid: false,
+      error: 'GOOGLE_AI_API_KEY is not set in Convex environment',
+      errorCode: 'NOT_CONFIGURED',
+      diagnostics,
+    };
+  }
+
+  try {
+    const google = createGoogleGenerativeAI({ apiKey });
+    await generateText({
+      model: google('gemini-2.0-flash-exp'),
+      prompt: 'hi',
+      maxTokens: 1,
+    });
+
+    return {
+      configured: true,
+      valid: true,
+      error: null,
+      errorCode: null,
+      diagnostics,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      configured: true,
+      valid: false,
+      error: errorMessage,
+      errorCode: classifyGoogleApiKeyError(errorMessage),
+      diagnostics,
+    };
+  }
+}
 
 /**
  * Health check query that validates environment configuration
@@ -89,13 +181,7 @@ export const check = query({
 export const detailed = query({
   args: {},
   handler: async () => {
-    const checks: Record<
-      string,
-      {
-        status: 'ok' | 'missing' | 'empty';
-        critical: boolean;
-      }
-    > = {};
+    const checks: Record<string, HealthCheckEntry> = {};
 
     // Check critical variables
     const criticalVars = ['GOOGLE_AI_API_KEY', 'RESEND_API_KEY'] as const;
@@ -157,79 +243,19 @@ export const detailed = query({
  * - NETWORK: Network connectivity issues
  * - UNKNOWN: Unclassified error
  */
-export const testGoogleAiKey = query({
+export const testGoogleAiKey = action({
   args: {},
   handler: async () => {
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const result = await runGoogleApiKeyTest();
 
-    // Check if key is configured
-    if (!apiKey || apiKey === '') {
-      return {
-        configured: false,
-        valid: false,
-        error: 'GOOGLE_AI_API_KEY is not set in Convex environment',
-        errorCode: 'NOT_CONFIGURED',
-      };
-    }
-
-    // Test if the key actually works with a minimal request
-    try {
-      const google = createGoogleGenerativeAI({ apiKey });
-
-      // Make a minimal test request to verify auth works
-      // This is much cheaper than generating full content
-      await generateText({
-        model: google('gemini-2.0-flash-exp'),
-        prompt: 'hi', // Minimal prompt
-        maxTokens: 1, // Minimize cost
-      });
-
-      // If we got here without errors, the key works
-      return {
-        configured: true,
-        valid: true,
-        error: null,
-        errorCode: null,
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      // Classify the error for actionable recommendations
-      let errorCode = 'UNKNOWN';
-      if (
-        errorMessage.toLowerCase().includes('401') ||
-        errorMessage.toLowerCase().includes('unauthorized') ||
-        errorMessage.toLowerCase().includes('invalid api key') ||
-        errorMessage.toLowerCase().includes('api_key_invalid')
-      ) {
-        errorCode = 'INVALID_KEY';
-      } else if (
-        errorMessage.toLowerCase().includes('429') ||
-        errorMessage.toLowerCase().includes('quota') ||
-        errorMessage.toLowerCase().includes('rate limit')
-      ) {
-        errorCode = 'RATE_LIMIT';
-      } else if (
-        errorMessage.toLowerCase().includes('403') ||
-        errorMessage.toLowerCase().includes('disabled')
-      ) {
-        errorCode = 'API_DISABLED';
-      } else if (
-        errorMessage.toLowerCase().includes('timeout') ||
-        errorMessage.toLowerCase().includes('etimedout') ||
-        errorMessage.toLowerCase().includes('econnrefused') ||
-        errorMessage.toLowerCase().includes('network')
-      ) {
-        errorCode = 'NETWORK';
-      }
-
-      return {
-        configured: true,
-        valid: false,
-        error: errorMessage,
-        errorCode,
-      };
-    }
+    return {
+      configured: result.configured,
+      valid: result.valid,
+      error: result.error,
+      errorCode: result.errorCode,
+      diagnostics: result.diagnostics,
+      deployment: process.env.CONVEX_CLOUD_URL || 'unknown',
+    };
   },
 });
 
@@ -243,152 +269,74 @@ export const testGoogleAiKey = query({
  *
  * Note: This is a public query (not internal) so it can be called from the health check endpoint.
  */
-export const functional = query({
+export const functional = action({
   args: {},
   handler: async () => {
-    // Run detailed environment check inline
-    const checks: Record<
-      string,
-      {
-        status: 'ok' | 'missing' | 'empty';
-        critical: boolean;
-      }
-    > = {};
+    const baseChecks: Record<string, HealthCheckEntry> = {};
 
-    // Check critical variables
     const criticalVars = ['GOOGLE_AI_API_KEY', 'RESEND_API_KEY'] as const;
     for (const varName of criticalVars) {
       const value = process.env[varName];
-      checks[varName] = {
+      baseChecks[varName] = {
         status: !value ? 'missing' : value.trim() === '' ? 'empty' : 'ok',
         critical: true,
       };
     }
 
-    // Check non-critical but recommended variables
     const recommendedVars = ['EMAIL_FROM', 'NEXT_PUBLIC_APP_URL'] as const;
     for (const varName of recommendedVars) {
       const value = process.env[varName];
-      checks[varName] = {
+      baseChecks[varName] = {
         status: !value ? 'missing' : value.trim() === '' ? 'empty' : 'ok',
         critical: false,
       };
     }
 
-    // Run functional API key test inline
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    let aiKeyTest: {
-      configured: boolean;
-      valid: boolean;
-      error: string | null;
-      errorCode: string | null;
+    const aiKeyTest = await runGoogleApiKeyTest();
+    const googleAiKeyStatus = aiKeyTest.valid ? 'ok' : aiKeyTest.configured ? 'error' : 'missing';
+
+    const checks: Record<string, HealthCheckEntry> = {
+      ...baseChecks,
+      googleAiKeyFunctional: {
+        status: googleAiKeyStatus,
+        critical: true,
+        details: {
+          configured: aiKeyTest.configured,
+          valid: aiKeyTest.valid,
+          error: aiKeyTest.error,
+          errorCode: aiKeyTest.errorCode,
+        },
+      },
     };
 
-    if (!apiKey || apiKey === '') {
-      aiKeyTest = {
-        configured: false,
-        valid: false,
-        error: 'GOOGLE_AI_API_KEY is not set in Convex environment',
-        errorCode: 'NOT_CONFIGURED',
-      };
-    } else {
-      try {
-        const google = createGoogleGenerativeAI({ apiKey });
-        await generateText({
-          model: google('gemini-2.0-flash-exp'),
-          prompt: 'hi',
-          maxTokens: 1,
-        });
-        aiKeyTest = {
-          configured: true,
-          valid: true,
-          error: null,
-          errorCode: null,
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        let errorCode = 'UNKNOWN';
-        if (
-          errorMessage.toLowerCase().includes('401') ||
-          errorMessage.toLowerCase().includes('unauthorized') ||
-          errorMessage.toLowerCase().includes('invalid api key')
-        ) {
-          errorCode = 'INVALID_KEY';
-        } else if (
-          errorMessage.toLowerCase().includes('429') ||
-          errorMessage.toLowerCase().includes('quota') ||
-          errorMessage.toLowerCase().includes('rate limit')
-        ) {
-          errorCode = 'RATE_LIMIT';
-        } else if (
-          errorMessage.toLowerCase().includes('403') ||
-          errorMessage.toLowerCase().includes('disabled')
-        ) {
-          errorCode = 'API_DISABLED';
-        } else if (
-          errorMessage.toLowerCase().includes('timeout') ||
-          errorMessage.toLowerCase().includes('network')
-        ) {
-          errorCode = 'NETWORK';
-        }
-        aiKeyTest = {
-          configured: true,
-          valid: false,
-          error: errorMessage,
-          errorCode,
-        };
-      }
-    }
-
-    // Determine overall status
     const hasCriticalFailures = Object.entries(checks).some(
       ([, check]) => check.critical && check.status !== 'ok'
     );
-    const hasApiKeyFailure = !aiKeyTest.valid;
     const hasAnyFailures = Object.entries(checks).some(([, check]) => check.status !== 'ok');
 
-    const status =
-      hasCriticalFailures || hasApiKeyFailure
-        ? 'unhealthy'
-        : hasAnyFailures
-          ? 'degraded'
-          : 'healthy';
+    const status = hasCriticalFailures ? 'unhealthy' : hasAnyFailures ? 'degraded' : 'healthy';
 
     return {
       status,
       timestamp: new Date().toISOString(),
-      checks: {
-        ...checks,
-        googleAiKeyFunctional: {
-          status: aiKeyTest.valid ? 'ok' : 'error',
-          critical: true,
-          details: aiKeyTest,
-        },
-      },
+      checks,
       environment: {
         deployment: process.env.CONVEX_CLOUD_URL || 'unknown',
         nodeVersion: process.version,
       },
       recommendations: getRecommendations({ checks }, aiKeyTest),
+      diagnostics: {
+        googleApiKey: aiKeyTest.diagnostics,
+      },
     };
   },
 });
 
 function getRecommendations(
   detailedCheck: {
-    checks: Record<
-      string,
-      {
-        status: 'ok' | 'missing' | 'empty';
-        critical: boolean;
-      }
-    >;
+    checks: Record<string, HealthCheckEntry>;
   },
-  aiKeyTest: {
-    configured: boolean;
-    valid: boolean;
-    errorCode: string | null;
-  }
+  aiKeyTest: GoogleApiKeyTestResult
 ): string[] {
   const recommendations: string[] = [];
 

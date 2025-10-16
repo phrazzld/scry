@@ -133,6 +133,21 @@ describe('AI Client', () => {
       );
     });
 
+    it('should surface configuration error when API key is missing', async () => {
+      process.env.GOOGLE_AI_API_KEY = '';
+
+      await expect(generateQuizWithAI('No Key')).rejects.toThrow(
+        'GOOGLE_AI_API_KEY not configured in Next.js environment'
+      );
+
+      expect(aiLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'ai.google-client.missing-key',
+        }),
+        'GOOGLE_AI_API_KEY not configured in Next.js environment'
+      );
+    });
+
     it('should handle questions with missing optional fields', async () => {
       const mockQuestions = {
         questions: [

@@ -152,7 +152,7 @@ export async function GET() {
       try {
         const client = new ConvexHttpClient(convexUrl);
         // Call the functional health check that tests the actual API key
-        const healthResult = await client.query(api.health.functional, {});
+        const healthResult = await client.action(api.health.functional, {});
         const aiKeyCheck = healthResult.checks.googleAiKeyFunctional;
         const aiKeyDetails = aiKeyCheck.details as {
           configured: boolean;
@@ -160,15 +160,26 @@ export async function GET() {
           error: string | null;
           errorCode: string | null;
         };
+        const diagnostics = (healthResult.diagnostics?.googleApiKey ?? null) as {
+          present: boolean;
+          length: number;
+          fingerprint: string | null;
+        } | null;
 
         if (aiKeyDetails.configured && aiKeyDetails.valid) {
           checks.googleAiKey.configured = true;
           checks.googleAiKey.status = 'ok';
-          checks.googleAiKey.details = { message: 'API key is valid and functional' };
+          checks.googleAiKey.details = {
+            message: 'API key is valid and functional',
+            diagnostics,
+          };
         } else if (!aiKeyDetails.configured) {
           checks.googleAiKey.configured = false;
           checks.googleAiKey.status = 'missing';
           checks.googleAiKey.error = 'GOOGLE_AI_API_KEY not set in Convex production environment';
+          checks.googleAiKey.details = {
+            diagnostics,
+          };
         } else {
           // Key is set but not working
           checks.googleAiKey.configured = true;
@@ -177,6 +188,7 @@ export async function GET() {
           checks.googleAiKey.details = {
             errorCode: aiKeyDetails.errorCode,
             message: aiKeyDetails.error,
+            diagnostics,
           };
         }
       } catch (error) {
