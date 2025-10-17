@@ -370,8 +370,51 @@ export const getDueCount = query({
 /**
  * Get user's card statistics and next scheduled review time
  * Used for context-aware empty states
+ *
+ * Bandwidth optimization: O(1) query using cached userStats table
+ * instead of O(N) collection scan. Updated incrementally on card state changes.
  */
 export const getUserCardStats = query({
+  args: {
+    _refreshTimestamp: v.optional(v.float64()),
+  },
+
+  handler: async (ctx, _args) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+
+    // Query cached stats (O(1) vs O(N) collection scan)
+    const stats = await ctx.db
+      .query('userStats')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first();
+
+    // Return default stats if no record exists (new user case)
+    if (!stats) {
+      return {
+        totalCards: 0,
+        nextReviewTime: null,
+        learningCount: 0,
+        matureCount: 0,
+        newCount: 0,
+      };
+    }
+
+    return {
+      totalCards: stats.totalCards,
+      nextReviewTime: stats.nextReviewTime ?? null,
+      learningCount: stats.learningCount,
+      matureCount: stats.matureCount,
+      newCount: stats.newCount,
+    };
+  },
+});
+
+/**
+ * @deprecated Use getUserCardStats instead (reads from cached userStats table)
+ * This function performs O(N) collection scan and will be removed after migration
+ */
+export const getUserCardStats_DEPRECATED = query({
   args: {
     _refreshTimestamp: v.optional(v.float64()),
   },
