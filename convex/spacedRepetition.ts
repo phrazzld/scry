@@ -39,6 +39,7 @@ import { v } from 'convex/values';
 import { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { calculateStateTransitionDelta, updateStatsCounters } from './lib/userStatsHelpers';
 import { getScheduler } from './scheduling';
 
 // Export for testing
@@ -161,6 +162,7 @@ export const scheduleReview = mutation({
 
     // If this is the first interaction and question has no FSRS state, initialize it
     if (!question.state) {
+      const oldState = question.state; // undefined for new cards
       const scheduler = getScheduler();
       const initialDbFields = scheduler.initializeCard();
 
@@ -178,6 +180,13 @@ export const scheduleReview = mutation({
         ...scheduledFields,
       });
 
+      // Update userStats counters if state changed (incremental bandwidth optimization)
+      const newState = scheduledFields.state;
+      const deltas = calculateStateTransitionDelta(oldState, newState);
+      if (deltas) {
+        await updateStatsCounters(ctx, userId, deltas);
+      }
+
       return {
         success: true,
         nextReview: scheduledFields.nextReview || null,
@@ -187,6 +196,7 @@ export const scheduleReview = mutation({
     }
 
     // For subsequent reviews, use existing FSRS state
+    const oldState = question.state; // Capture state before scheduling
     const scheduler = getScheduler();
     const result = scheduler.scheduleNextReview(question, args.isCorrect, now);
     const scheduledFields = result.dbFields;
@@ -196,6 +206,13 @@ export const scheduleReview = mutation({
       ...updatedStats,
       ...scheduledFields,
     });
+
+    // Update userStats counters if state changed (incremental bandwidth optimization)
+    const newState = scheduledFields.state || question.state;
+    const deltas = calculateStateTransitionDelta(oldState, newState);
+    if (deltas) {
+      await updateStatsCounters(ctx, userId, deltas);
+    }
 
     return {
       success: true,
