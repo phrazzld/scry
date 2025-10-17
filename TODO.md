@@ -4,7 +4,7 @@
 
 **Target:** 90-95% bandwidth reduction while maintaining Pure FSRS philosophy.
 
-**Status:** Phase 1 complete (10 commits on `optimize/database-bandwidth` branch). Ready for migration + testing.
+**Status:** Phases 1-3 complete (14 commits on `optimize/database-bandwidth` branch). Ready for testing + deployment.
 
 **Reference:** See `docs/adr/0001-optimize-bandwidth-for-large-collections.md` (to be created) for full analysis.
 
@@ -90,11 +90,11 @@
   - Reference: Link to ADR-0001
   - Success criteria: Future code reviews catch bandwidth issues ✅
 
-- [ ] **Add inline comments to optimized queries** (NEXT)
-  - Already partially complete (commits added comments)
-  - Review: Ensure all `.take()` calls explain rationale
+- ✅ **Add inline comments to optimized queries** (commit 9b7d804)
+  - Enhanced comments on all `.take()` calls with rationale
   - Files: `convex/spacedRepetition.ts`, `convex/questionsLibrary.ts`, `convex/generationJobs.ts`
-  - Success criteria: Self-documenting code
+  - Documented batch sizes, overflow behavior, and bandwidth trade-offs
+  - Success criteria: Self-documenting code ✅
 
 ---
 
