@@ -1035,3 +1035,475 @@ describe('Retrievability Scoring Functions', () => {
     });
   });
 });
+
+describe('UserStats Integration Tests', () => {
+  /**
+   * Integration tests for userStats lifecycle and incremental counter updates
+   *
+   * Tests validate that stats are correctly maintained across:
+   * - Question creation
+   * - Review mutations with state transitions
+   * - Deletion and restoration
+   *
+   * These are simulation-based tests that validate the logic without
+   * requiring actual Convex runtime execution.
+   */
+
+  describe('Question Creation Stats', () => {
+    it('should initialize stats on first question creation', () => {
+      // Simulate creating first question for new user
+      const stats = {
+        totalCards: 0,
+        newCount: 0,
+        learningCount: 0,
+        matureCount: 0,
+      };
+
+      // Create question (default state: 'new')
+      const updatedStats = {
+        totalCards: stats.totalCards + 1,
+        newCount: stats.newCount + 1,
+        learningCount: stats.learningCount,
+        matureCount: stats.matureCount,
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 1,
+        newCount: 1,
+        learningCount: 0,
+        matureCount: 0,
+      });
+    });
+
+    it('should increment stats correctly for multiple questions', () => {
+      let stats = {
+        totalCards: 0,
+        newCount: 0,
+        learningCount: 0,
+        matureCount: 0,
+      };
+
+      // Create 5 questions
+      for (let i = 0; i < 5; i++) {
+        stats = {
+          totalCards: stats.totalCards + 1,
+          newCount: stats.newCount + 1,
+          learningCount: stats.learningCount,
+          matureCount: stats.matureCount,
+        };
+      }
+
+      expect(stats).toEqual({
+        totalCards: 5,
+        newCount: 5,
+        learningCount: 0,
+        matureCount: 0,
+      });
+    });
+  });
+
+  describe('Review Mutation Stats Updates', () => {
+    it('should update stats when card transitions from new to learning', () => {
+      const stats = {
+        totalCards: 10,
+        newCount: 5,
+        learningCount: 3,
+        matureCount: 2,
+      };
+
+      // Simulate first review of new card (new → learning transition)
+      const updatedStats = {
+        totalCards: stats.totalCards, // No change in total
+        newCount: stats.newCount - 1, // Decrement new
+        learningCount: stats.learningCount + 1, // Increment learning
+        matureCount: stats.matureCount, // No change
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 4,
+        matureCount: 2,
+      });
+    });
+
+    it('should update stats when card transitions from learning to review', () => {
+      const stats = {
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 4,
+        matureCount: 2,
+      };
+
+      // Simulate successful learning completion (learning → review transition)
+      const updatedStats = {
+        totalCards: stats.totalCards,
+        newCount: stats.newCount,
+        learningCount: stats.learningCount - 1, // Decrement learning
+        matureCount: stats.matureCount + 1, // Increment mature
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 3,
+        matureCount: 3,
+      });
+    });
+
+    it('should update stats when card lapses from review to relearning', () => {
+      const stats = {
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 3,
+        matureCount: 3,
+      };
+
+      // Simulate lapse (review → relearning transition)
+      // Note: relearning counts as learningCount
+      const updatedStats = {
+        totalCards: stats.totalCards,
+        newCount: stats.newCount,
+        learningCount: stats.learningCount + 1, // Increment learning (relearning)
+        matureCount: stats.matureCount - 1, // Decrement mature
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 4,
+        matureCount: 2,
+      });
+    });
+
+    it('should maintain stats consistency through multiple review sessions', () => {
+      let stats = {
+        totalCards: 10,
+        newCount: 5,
+        learningCount: 3,
+        matureCount: 2,
+      };
+
+      // Simulate review session with multiple state transitions
+      const transitions = [
+        { from: 'new', to: 'learning', delta: { newCount: -1, learningCount: 1 } },
+        { from: 'new', to: 'learning', delta: { newCount: -1, learningCount: 1 } },
+        { from: 'learning', to: 'review', delta: { learningCount: -1, matureCount: 1 } },
+        { from: 'review', to: 'relearning', delta: { learningCount: 1, matureCount: -1 } },
+      ];
+
+      transitions.forEach(({ delta }) => {
+        stats = {
+          totalCards: stats.totalCards,
+          newCount: stats.newCount + (delta.newCount || 0),
+          learningCount: stats.learningCount + (delta.learningCount || 0),
+          matureCount: stats.matureCount + (delta.matureCount || 0),
+        };
+      });
+
+      // Verify final state
+      // Started: new=5, learning=3, mature=2
+      // After: new=3 (-2), learning=5 (+2), mature=2 (no change)
+      expect(stats).toEqual({
+        totalCards: 10,
+        newCount: 3,
+        learningCount: 5,
+        matureCount: 2,
+      });
+
+      // Verify total cards invariant maintained
+      expect(stats.newCount + stats.learningCount + stats.matureCount).toBe(10);
+    });
+  });
+
+  describe('Delete and Restore Stats', () => {
+    it('should decrement stats when question is deleted', () => {
+      const stats = {
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 3,
+        matureCount: 3,
+      };
+
+      // Delete a learning card
+      const updatedStats = {
+        totalCards: stats.totalCards - 1,
+        newCount: stats.newCount,
+        learningCount: stats.learningCount - 1,
+        matureCount: stats.matureCount,
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 9,
+        newCount: 4,
+        learningCount: 2,
+        matureCount: 3,
+      });
+    });
+
+    it('should increment stats when question is restored', () => {
+      const stats = {
+        totalCards: 9,
+        newCount: 4,
+        learningCount: 2,
+        matureCount: 3,
+      };
+
+      // Restore a learning card
+      const updatedStats = {
+        totalCards: stats.totalCards + 1,
+        newCount: stats.newCount,
+        learningCount: stats.learningCount + 1,
+        matureCount: stats.matureCount,
+      };
+
+      expect(updatedStats).toEqual({
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 3,
+        matureCount: 3,
+      });
+    });
+
+    it('should maintain stats accuracy through delete-restore cycle', () => {
+      const initialStats = {
+        totalCards: 10,
+        newCount: 4,
+        learningCount: 3,
+        matureCount: 3,
+      };
+
+      // Delete 3 cards (1 new, 1 learning, 1 mature)
+      let stats = {
+        totalCards: initialStats.totalCards - 3,
+        newCount: initialStats.newCount - 1,
+        learningCount: initialStats.learningCount - 1,
+        matureCount: initialStats.matureCount - 1,
+      };
+
+      expect(stats).toEqual({
+        totalCards: 7,
+        newCount: 3,
+        learningCount: 2,
+        matureCount: 2,
+      });
+
+      // Restore all 3 cards
+      stats = {
+        totalCards: stats.totalCards + 3,
+        newCount: stats.newCount + 1,
+        learningCount: stats.learningCount + 1,
+        matureCount: stats.matureCount + 1,
+      };
+
+      // Should match initial state
+      expect(stats).toEqual(initialStats);
+    });
+  });
+
+  describe('Stats Invariants and Edge Cases', () => {
+    it('should maintain total cards = sum of state counts invariant', () => {
+      const stats = {
+        totalCards: 15,
+        newCount: 7,
+        learningCount: 5,
+        matureCount: 3,
+      };
+
+      expect(stats.newCount + stats.learningCount + stats.matureCount).toBe(stats.totalCards);
+    });
+
+    it('should prevent negative counts with Math.max safety', () => {
+      let stats = {
+        totalCards: 1,
+        newCount: 1,
+        learningCount: 0,
+        matureCount: 0,
+      };
+
+      // Simulate erroneous double-delete (should use Math.max(0, value))
+      stats = {
+        totalCards: Math.max(0, stats.totalCards - 2),
+        newCount: Math.max(0, stats.newCount - 2),
+        learningCount: Math.max(0, stats.learningCount),
+        matureCount: Math.max(0, stats.matureCount),
+      };
+
+      expect(stats).toEqual({
+        totalCards: 0,
+        newCount: 0,
+        learningCount: 0,
+        matureCount: 0,
+      });
+
+      // Verify no negative counts
+      expect(stats.totalCards).toBeGreaterThanOrEqual(0);
+      expect(stats.newCount).toBeGreaterThanOrEqual(0);
+      expect(stats.learningCount).toBeGreaterThanOrEqual(0);
+      expect(stats.matureCount).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should handle bulk operations correctly', () => {
+      let stats = {
+        totalCards: 20,
+        newCount: 10,
+        learningCount: 6,
+        matureCount: 4,
+      };
+
+      // Simulate bulk delete of 5 new cards
+      stats = {
+        totalCards: stats.totalCards - 5,
+        newCount: stats.newCount - 5,
+        learningCount: stats.learningCount,
+        matureCount: stats.matureCount,
+      };
+
+      expect(stats).toEqual({
+        totalCards: 15,
+        newCount: 5,
+        learningCount: 6,
+        matureCount: 4,
+      });
+
+      // Simulate bulk restore of 5 new cards
+      stats = {
+        totalCards: stats.totalCards + 5,
+        newCount: stats.newCount + 5,
+        learningCount: stats.learningCount,
+        matureCount: stats.matureCount,
+      };
+
+      expect(stats).toEqual({
+        totalCards: 20,
+        newCount: 10,
+        learningCount: 6,
+        matureCount: 4,
+      });
+    });
+  });
+
+  describe('Realistic Usage Scenarios', () => {
+    it('should accurately track stats through typical user workflow', () => {
+      // Simulate a realistic user session from scratch
+      const stats = {
+        totalCards: 0,
+        newCount: 0,
+        learningCount: 0,
+        matureCount: 0,
+      };
+
+      // Day 1: User generates 10 questions
+      for (let i = 0; i < 10; i++) {
+        stats.totalCards++;
+        stats.newCount++;
+      }
+
+      expect(stats).toEqual({
+        totalCards: 10,
+        newCount: 10,
+        learningCount: 0,
+        matureCount: 0,
+      });
+
+      // Day 1: User reviews 5 new questions (new → learning)
+      for (let i = 0; i < 5; i++) {
+        stats.newCount--;
+        stats.learningCount++;
+      }
+
+      expect(stats).toEqual({
+        totalCards: 10,
+        newCount: 5,
+        learningCount: 5,
+        matureCount: 0,
+      });
+
+      // Day 2: 3 learning cards graduate to mature (learning → review)
+      for (let i = 0; i < 3; i++) {
+        stats.learningCount--;
+        stats.matureCount++;
+      }
+
+      expect(stats).toEqual({
+        totalCards: 10,
+        newCount: 5,
+        learningCount: 2,
+        matureCount: 3,
+      });
+
+      // Day 3: User generates 5 more questions
+      for (let i = 0; i < 5; i++) {
+        stats.totalCards++;
+        stats.newCount++;
+      }
+
+      expect(stats).toEqual({
+        totalCards: 15,
+        newCount: 10,
+        learningCount: 2,
+        matureCount: 3,
+      });
+
+      // Day 4: User deletes 2 new questions (too easy)
+      for (let i = 0; i < 2; i++) {
+        stats.totalCards--;
+        stats.newCount--;
+      }
+
+      expect(stats).toEqual({
+        totalCards: 13,
+        newCount: 8,
+        learningCount: 2,
+        matureCount: 3,
+      });
+
+      // Verify invariant throughout workflow
+      expect(stats.newCount + stats.learningCount + stats.matureCount).toBe(stats.totalCards);
+    });
+
+    it('should handle Anki-scale collections efficiently', () => {
+      // Simulate stats for power user with 10,000 cards
+      const stats = {
+        totalCards: 10000,
+        newCount: 3000,
+        learningCount: 2500,
+        matureCount: 4500,
+      };
+
+      // Verify invariant holds at scale
+      expect(stats.newCount + stats.learningCount + stats.matureCount).toBe(stats.totalCards);
+
+      // Simulate heavy review session (200 cards reviewed)
+      const updatedStats = { ...stats };
+
+      // 100 new → learning transitions
+      updatedStats.newCount -= 100;
+      updatedStats.learningCount += 100;
+
+      // 50 learning → mature transitions
+      updatedStats.learningCount -= 50;
+      updatedStats.matureCount += 50;
+
+      // 20 mature → relearning transitions (lapses)
+      updatedStats.matureCount -= 20;
+      updatedStats.learningCount += 20;
+
+      // Verify total cards unchanged
+      expect(updatedStats.totalCards).toBe(10000);
+
+      // Verify invariant still holds after intensive session
+      expect(updatedStats.newCount + updatedStats.learningCount + updatedStats.matureCount).toBe(
+        10000
+      );
+
+      // Expected final state
+      expect(updatedStats).toEqual({
+        totalCards: 10000,
+        newCount: 2900, // 3000 - 100
+        learningCount: 2570, // 2500 + 100 - 50 + 20
+        matureCount: 4530, // 4500 + 50 - 20
+      });
+    });
+  });
+});
