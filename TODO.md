@@ -4,7 +4,7 @@
 
 **Target:** 90-95% bandwidth reduction while maintaining Pure FSRS philosophy.
 
-**Status:** Phases 1-3 complete (14 commits on `optimize/database-bandwidth` branch). Ready for testing + deployment.
+**Status:** Phases 1-4 (testing) in progress (18 commits on `optimize/database-bandwidth` branch). Unit + integration tests complete. Performance validation remaining.
 
 **Reference:** See `docs/adr/0001-optimize-bandwidth-for-large-collections.md` (to be created) for full analysis.
 
@@ -102,25 +102,28 @@
 
 ### Unit Tests
 
-- [ ] **Write unit tests for userStats helpers**
-  - File: `convex/lib/userStatsHelpers.test.ts` (new)
+- ✅ **Write unit tests for userStats helpers** (commit 205c3df)
+  - File: `convex/lib/userStatsHelpers.test.ts`
   - Tests:
-    - `updateStatsCounters()` increments/decrements correctly
-    - Handles missing stats record (new user)
-    - Prevents negative counts (Math.max safety)
-    - Applies multiple deltas correctly
-  - Success criteria: 100% coverage of helper functions
+    - `updateStatsCounters()` increments/decrements correctly ✅
+    - Handles missing stats record (new user) ✅
+    - Prevents negative counts (Math.max safety) ✅
+    - Applies multiple deltas correctly ✅
+    - State transition delta calculations ✅
+  - Success criteria: 100% coverage of helper functions ✅ (13 tests passing)
 
 ### Integration Tests
 
-- [ ] **Write integration tests for stats lifecycle**
-  - File: `convex/spacedRepetition.test.ts` (append)
+- ✅ **Write integration tests for stats lifecycle** (commit 0f21c18)
+  - File: `convex/spacedRepetition.test.ts` (appended)
   - Tests:
-    - Review mutation updates stats
-    - State transitions reflected correctly
-    - Question creation initializes stats
-    - Delete/restore maintains accuracy
-  - Success criteria: End-to-end stats validation
+    - Review mutation updates stats ✅
+    - State transitions reflected correctly ✅
+    - Question creation initializes stats ✅
+    - Delete/restore maintains accuracy ✅
+    - Stats invariants and edge cases ✅
+    - Realistic workflows + Anki-scale simulations ✅
+  - Success criteria: End-to-end stats validation ✅ (16 new tests, 49 total passing)
 
 ### Performance Validation
 
