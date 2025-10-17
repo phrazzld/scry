@@ -253,9 +253,10 @@ export const getNextReview = query({
       .filter((q) =>
         q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
-      .take(100); // Get a batch to sort by retrievability
+      .take(100); // Batch size balances priority calculation cost vs queue depth
 
     // Also get questions without nextReview (new questions, excluding deleted and archived)
+    // Limit to small sample since new cards have equal priority (no retrievability yet)
     const newQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -334,6 +335,7 @@ export const getDueCount = query({
 
     // Count questions that are due using pagination to avoid memory issues
     // This prevents O(N) memory usage for users with large collections
+    // Note: 1000+ due cards indicates severe review backlog (UI shows 1000+ badge)
     let dueCount = 0;
     const dueQuestions = await ctx.db
       .query('questions')
@@ -341,7 +343,7 @@ export const getDueCount = query({
       .filter((q) =>
         q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
-      .take(1000); // Reasonable upper limit for counting
+      .take(1000); // Cap at 1000 - beyond this we show "1000+" badge
     dueCount = dueQuestions.length;
 
     // Also count learning/relearning cards as "due" since they need immediate review
@@ -358,7 +360,7 @@ export const getDueCount = query({
           q.gt(q.field('nextReview'), now)
         )
       )
-      .take(1000);
+      .take(1000); // Match due cards limit for consistency
     dueCount += learningQuestions.length;
 
     // Count new questions using pagination
@@ -373,7 +375,7 @@ export const getDueCount = query({
           q.eq(q.field('archivedAt'), undefined)
         )
       )
-      .take(1000); // Reasonable upper limit for counting
+      .take(1000); // Match due cards limit for consistency
     newCount = newQuestions.length;
 
     return {

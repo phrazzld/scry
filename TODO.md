@@ -31,12 +31,12 @@
 
 ---
 
-## Phase 2: Data Migration & Rollout
+## ✅ Phase 2: Data Migration & Rollout (COMPLETE)
 
-### Data Migration (NEXT)
+### Data Migration ✅
 
-- [ ] **Create migration to initialize userStats for existing users**
-  - File: `convex/migrations.ts` (append to existing)
+- ✅ **Create migration to initialize userStats for existing users** (commit fb36d8c)
+  - File: `convex/migrations.ts:619-820`
   - Internal mutation: `initializeUserStats`
   - Logic:
     1. Query all users
@@ -46,9 +46,9 @@
   - Test with dev environment first
   - Success criteria: All existing users have userStats records
 
-- [ ] **Add reconciliation cron for stats drift detection**
-  - File: `convex/cron.ts`
-  - Schedule: Daily at 3am UTC
+- ✅ **Add reconciliation cron for stats drift detection** (commit 1d97615)
+  - File: `convex/userStats.ts`, `convex/cron.ts`
+  - Schedule: Daily at 3:15am UTC
   - Function: `reconcileUserStats`
   - Logic:
     1. Sample 100 random users
@@ -58,9 +58,9 @@
     5. Auto-fix drift by updating userStats
   - Success criteria: Drift monitoring + auto-correction
 
-### Deployment Validation
+### Deployment Validation ✅
 
-- [ ] **Update deployment health check**
+- ✅ **Update deployment health check** (commit fb24d07)
   - File: `scripts/check-deployment-health.sh`
   - Add: Verify userStats table exists
   - Add: Check compound indexes deployed (`by_user_active`, `by_user_state`)
@@ -71,26 +71,26 @@
 
 ## Phase 3: Documentation
 
-- [ ] **Write ADR for bandwidth optimization**
-  - File: `docs/adr/0001-optimize-bandwidth-for-large-collections.md` (new)
+- ✅ **Write ADR for bandwidth optimization** (commit e25d67f)
+  - File: `docs/adr/0001-optimize-bandwidth-for-large-collections.md`
   - Sections:
-    - Status: Accepted, Phase 1 implemented
+    - Status: Accepted, Phase 1 & 2 implemented
     - Context: Bandwidth explosion analysis (10k cards × 200 reviews/day)
     - Problem: Root cause breakdown with query examples
     - Decision: Incremental stats + interaction limits + compound indexes
     - Consequences: 90%+ bandwidth reduction, <1% eventual consistency
-    - Implementation: Phase 1 commits, migration plan
-  - Success criteria: Comprehensive technical reference
+    - Implementation: Phase 1-2 commits, migration complete
+  - Success criteria: Comprehensive technical reference ✅
 
-- [ ] **Document bandwidth optimization in CLAUDE.md**
+- ✅ **Document bandwidth optimization in CLAUDE.md** (commit 3133908)
   - File: `CLAUDE.md`
   - New section: "Database Bandwidth Optimization"
   - Anti-patterns: `.collect()` on user queries, unbounded fetches
   - Best practices: `.take(limit)`, compound indexes, incremental counters
   - Reference: Link to ADR-0001
-  - Success criteria: Future code reviews catch bandwidth issues
+  - Success criteria: Future code reviews catch bandwidth issues ✅
 
-- [ ] **Add inline comments to optimized queries**
+- [ ] **Add inline comments to optimized queries** (NEXT)
   - Already partially complete (commits added comments)
   - Review: Ensure all `.take()` calls explain rationale
   - Files: `convex/spacedRepetition.ts`, `convex/questionsLibrary.ts`, `convex/generationJobs.ts`
