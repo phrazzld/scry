@@ -23,6 +23,7 @@ import type * as health from "../health.js";
 import type * as http from "../http.js";
 import type * as lib_envDiagnostics from "../lib/envDiagnostics.js";
 import type * as lib_logger from "../lib/logger.js";
+import type * as lib_userStatsHelpers from "../lib/userStatsHelpers.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as migrations from "../migrations.js";
 import type * as questionsBulk from "../questionsBulk.js";
@@ -36,6 +37,7 @@ import type * as schemaVersion from "../schemaVersion.js";
 import type * as spacedRepetition from "../spacedRepetition.js";
 import type * as system from "../system.js";
 import type * as types from "../types.js";
+import type * as userStats from "../userStats.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -56,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/envDiagnostics": typeof lib_envDiagnostics;
   "lib/logger": typeof lib_logger;
+  "lib/userStatsHelpers": typeof lib_userStatsHelpers;
   "lib/validation": typeof lib_validation;
   migrations: typeof migrations;
   questionsBulk: typeof questionsBulk;
@@ -69,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   spacedRepetition: typeof spacedRepetition;
   system: typeof system;
   types: typeof types;
+  userStats: typeof userStats;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
