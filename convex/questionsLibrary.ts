@@ -13,6 +13,7 @@
  */
 import { v } from 'convex/values';
 
+import type { Doc } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
@@ -35,31 +36,48 @@ export const getLibrary = query({
     const limit = args.limit || 500;
 
     // Query all user questions, ordered by most recent
-    let questions = await ctx.db
-      .query('questions')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .order('desc')
-      .take(limit * 2); // Over-fetch to account for filtering
+    // Bandwidth optimization: Use compound index for DB-level filtering
+    // Fetches exactly 'limit' records instead of 'limit * 2' with client-side filtering
+    let questions: Doc<'questions'>[];
 
-    // Filter based on view
-    questions = questions.filter((q) => {
-      const isArchived = !!q.archivedAt;
-      const isDeleted = !!q.deletedAt;
+    switch (args.view) {
+      case 'active':
+        // Active: not archived AND not deleted
+        questions = await ctx.db
+          .query('questions')
+          .withIndex('by_user_active', (q) =>
+            q.eq('userId', userId).eq('deletedAt', undefined).eq('archivedAt', undefined)
+          )
+          .order('desc')
+          .take(limit);
+        break;
 
-      switch (args.view) {
-        case 'active':
-          return !isArchived && !isDeleted;
-        case 'archived':
-          return isArchived && !isDeleted;
-        case 'trash':
-          return isDeleted;
-        default:
-          return false;
-      }
-    });
+      case 'archived':
+        // Archived: has archivedAt AND not deleted
+        // Note: Use by_user index with filter since archivedAt can be any timestamp
+        questions = await ctx.db
+          .query('questions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .filter((q) =>
+            q.and(q.neq(q.field('archivedAt'), undefined), q.eq(q.field('deletedAt'), undefined))
+          )
+          .order('desc')
+          .take(limit);
+        break;
 
-    // Take only requested limit after filtering
-    questions = questions.slice(0, limit);
+      case 'trash':
+        // Trash: has deletedAt (regardless of archivedAt)
+        questions = await ctx.db
+          .query('questions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .filter((q) => q.neq(q.field('deletedAt'), undefined))
+          .order('desc')
+          .take(limit);
+        break;
+
+      default:
+        questions = [];
+    }
 
     // Add derived stats to each question
     return questions.map((q) => ({
