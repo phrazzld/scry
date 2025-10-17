@@ -84,15 +84,14 @@ export const getRecentJobs = query({
     const limit = args.limit ?? 20;
 
     // Query jobs ordered by createdAt descending (newest first)
+    // Bandwidth optimization: Use index ordering + take() instead of collect() + in-memory sort
     const jobs = await ctx.db
       .query('generationJobs')
       .withIndex('by_user_status', (q) => q.eq('userId', user._id))
-      .collect();
+      .order('desc') // Sort by createdAt (third field in index) descending
+      .take(limit);
 
-    // Sort by createdAt descending to ensure newest jobs appear first
-    const sortedJobs = jobs.sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-
-    return sortedJobs;
+    return jobs;
   },
 });
 
