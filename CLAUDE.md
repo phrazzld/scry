@@ -109,3 +109,129 @@ pnpm test:contract  # API contract validation
 **Utility scripts:**
 - `./scripts/validate-env-vars.sh` - Check env config
 - `./scripts/check-deployment-health.sh` - Verify functions deployed
+
+## Database Bandwidth Optimization
+
+**Context:** Convex Starter plan = 1 GB/month. Anki-scale collections (10k+ cards) were hitting 640 MB/day.
+
+**Root Cause:** O(N) queries, reactive re-runs, unbounded fetches. See `docs/adr/0001-optimize-bandwidth-for-large-collections.md` for full analysis.
+
+### Anti-Patterns (AVOID)
+
+❌ **Unbounded `.collect()` on user-scoped queries:**
+```typescript
+// BAD: Fetches ALL user's questions (could be 10,000+)
+const questions = await ctx.db
+  .query('questions')
+  .withIndex('by_user', q => q.eq('userId', userId))
+  .collect();
+```
+
+❌ **Client-side filtering after over-fetching:**
+```typescript
+// BAD: Fetches 2x, filters in memory
+const questions = await ctx.db
+  .query('questions')
+  .take(limit * 2)
+  .filter(q => !q.deletedAt);
+```
+
+❌ **Reactive O(N) calculations:**
+```typescript
+// BAD: 10k docs read on every review mutation
+export const getUserStats = query({
+  handler: async (ctx) => {
+    const allCards = await ctx.db.query('questions').collect();
+    return { total: allCards.length };
+  }
+});
+```
+
+### Best Practices (USE)
+
+✅ **Limit fetches with `.take(limit)`:**
+```typescript
+// GOOD: Fetches exactly what's needed
+const interactions = await ctx.db
+  .query('interactions')
+  .withIndex('by_user_question', q =>
+    q.eq('userId', userId).eq('questionId', questionId)
+  )
+  .order('desc')
+  .take(10); // FSRS only needs recent trend
+```
+
+✅ **DB-level filtering with compound indexes:**
+```typescript
+// GOOD: Uses by_user_active index [userId, deletedAt, archivedAt]
+const questions = await ctx.db
+  .query('questions')
+  .withIndex('by_user_active', q =>
+    q.eq('userId', userId)
+     .eq('deletedAt', undefined)
+     .eq('archivedAt', undefined)
+  )
+  .take(limit);
+```
+
+✅ **Incremental counters for O(1) stats:**
+```typescript
+// GOOD: Single document read instead of 10k
+const stats = await ctx.db
+  .query('userStats')
+  .withIndex('by_user', q => q.eq('userId', userId))
+  .first();
+
+// Update incrementally in mutations
+await updateStatsCounters(ctx, userId, {
+  totalCards: 1,
+  newCount: 1
+});
+```
+
+✅ **Index ordering instead of in-memory sorting:**
+```typescript
+// GOOD: Uses index ordering + take
+const jobs = await ctx.db
+  .query('generationJobs')
+  .withIndex('by_user_status', q => q.eq('userId', userId))
+  .order('desc') // Sorted by createdAt (in index)
+  .take(limit);
+```
+
+### Implementation Checklist
+
+When writing new Convex queries:
+
+1. **Scope check:** Will this query scale to 10k+ documents?
+2. **Limit check:** Does it use `.take(limit)` or have bounded size?
+3. **Index check:** Does filtering happen at DB level (index) or client (`.filter()`)?
+4. **Reactivity check:** If called from reactive query, does it re-run on every mutation?
+5. **Counter check:** Should this be an incremental counter instead of calculation?
+
+### Bandwidth Budget
+
+**Starter plan limits:**
+- 1 GB/month = 33 MB/day
+- ~10,000 documents/day (at 3 KB/doc average)
+
+**Per-review targets:**
+- Question fetch: 1 doc
+- Interaction history: 10 docs (not 50+)
+- Stats update: 1 doc (not 10,000)
+- **Total: ~12 docs/review** (within budget for 200 reviews/day)
+
+### Monitoring
+
+**Drift detection:** Daily cron (`userStats:reconcileUserStats`) samples 100 users, auto-corrects drift >5 cards
+
+**Health check:** `./scripts/check-deployment-health.sh` verifies:
+- `userStats` table exists
+- Compound indexes deployed (`by_user_active`, `by_user_state`)
+
+### Reference
+
+- **ADR:** `docs/adr/0001-optimize-bandwidth-for-large-collections.md`
+- **Migration:** `convex/migrations.ts:initializeUserStats`
+- **Reconciliation:** `convex/userStats.ts:reconcileUserStats`
+- **Helpers:** `convex/lib/userStatsHelpers.ts`
