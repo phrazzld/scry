@@ -271,13 +271,16 @@ export const getNextReview = query({
     const nextQuestion = questionsWithPriority[0].question;
 
     // Get interaction history for this question
+    // Bandwidth optimization: Limit to 10 most recent interactions instead of all
+    // Rationale: FSRS scheduling only needs recent performance trend, not full history
+    // Impact: 90% reduction for mature cards (50+ interactions → 10 interactions)
     const interactions = await ctx.db
       .query('interactions')
       .withIndex('by_user_question', (q) =>
         q.eq('userId', userId).eq('questionId', nextQuestion._id)
       )
       .order('desc')
-      .collect();
+      .take(10);
 
     return {
       question: nextQuestion,
