@@ -14,6 +14,18 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_clerk_id', ['clerkId']),
 
+  // Cached card statistics per user (O(1) reads vs O(N) collection scans)
+  // Updated incrementally on card state transitions for bandwidth optimization
+  userStats: defineTable({
+    userId: v.id('users'),
+    totalCards: v.number(), // Total non-deleted cards
+    newCount: v.number(), // Cards in 'new' state
+    learningCount: v.number(), // Cards in 'learning' state
+    matureCount: v.number(), // Cards in 'review' state
+    nextReviewTime: v.optional(v.number()), // Earliest nextReview timestamp across all cards
+    lastCalculated: v.number(), // Timestamp of last stats update
+  }).index('by_user', ['userId']),
+
   // Note: 'difficulty' field removed in v2.0 (2025-01)
   // - Never used by FSRS algorithm (uses fsrsDifficulty parameter instead)
   // - Removed to simplify schema and avoid confusion with FSRS difficulty
