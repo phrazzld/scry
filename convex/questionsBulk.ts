@@ -11,6 +11,7 @@ import { v } from 'convex/values';
 
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { updateStatsCounters } from './lib/userStatsHelpers';
 import { validateBulkOwnership } from './lib/validation';
 
 /**
@@ -91,8 +92,8 @@ export const bulkDelete = mutation({
     const userId = user._id;
     const now = Date.now();
 
-    // Atomic validation via shared helper
-    await validateBulkOwnership(ctx, userId, args.questionIds);
+    // Atomic validation via shared helper (also fetches questions for stats)
+    const questions = await validateBulkOwnership(ctx, userId, args.questionIds);
 
     // All validations passed - execute mutations in parallel
     await Promise.all(
@@ -103,6 +104,30 @@ export const bulkDelete = mutation({
         })
       )
     );
+
+    // Update userStats: Decrement counters for deleted questions (incremental bandwidth optimization)
+    let totalDecrement = 0;
+    let newDecrement = 0;
+    let learningDecrement = 0;
+    let matureDecrement = 0;
+
+    for (const question of questions) {
+      totalDecrement++;
+      if (!question.state || question.state === 'new') {
+        newDecrement++;
+      } else if (question.state === 'learning' || question.state === 'relearning') {
+        learningDecrement++;
+      } else if (question.state === 'review') {
+        matureDecrement++;
+      }
+    }
+
+    await updateStatsCounters(ctx, userId, {
+      totalCards: -totalDecrement,
+      newCount: -newDecrement,
+      learningCount: -learningDecrement,
+      matureCount: -matureDecrement,
+    });
 
     return { deleted: args.questionIds.length };
   },
@@ -124,8 +149,8 @@ export const restoreQuestions = mutation({
     const userId = user._id;
     const now = Date.now();
 
-    // Atomic validation via shared helper
-    await validateBulkOwnership(ctx, userId, args.questionIds);
+    // Atomic validation via shared helper (also fetches questions for stats)
+    const questions = await validateBulkOwnership(ctx, userId, args.questionIds);
 
     // All validations passed - execute mutations in parallel
     await Promise.all(
@@ -136,6 +161,30 @@ export const restoreQuestions = mutation({
         })
       )
     );
+
+    // Update userStats: Increment counters for restored questions (incremental bandwidth optimization)
+    let totalIncrement = 0;
+    let newIncrement = 0;
+    let learningIncrement = 0;
+    let matureIncrement = 0;
+
+    for (const question of questions) {
+      totalIncrement++;
+      if (!question.state || question.state === 'new') {
+        newIncrement++;
+      } else if (question.state === 'learning' || question.state === 'relearning') {
+        learningIncrement++;
+      } else if (question.state === 'review') {
+        matureIncrement++;
+      }
+    }
+
+    await updateStatsCounters(ctx, userId, {
+      totalCards: totalIncrement,
+      newCount: newIncrement,
+      learningCount: learningIncrement,
+      matureCount: matureIncrement,
+    });
 
     return { restored: args.questionIds.length };
   },
@@ -155,11 +204,42 @@ export const permanentlyDelete = mutation({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    // Atomic validation via shared helper
-    await validateBulkOwnership(ctx, userId, args.questionIds);
+    // Atomic validation via shared helper (also fetches questions for stats)
+    const questions = await validateBulkOwnership(ctx, userId, args.questionIds);
 
     // All validations passed - execute deletions in parallel
     await Promise.all(args.questionIds.map((id) => ctx.db.delete(id)));
+
+    // Update userStats: Decrement counters only for questions not already soft-deleted
+    // (soft-deleted questions were already decremented by bulkDelete)
+    let totalDecrement = 0;
+    let newDecrement = 0;
+    let learningDecrement = 0;
+    let matureDecrement = 0;
+
+    for (const question of questions) {
+      // Only decrement if NOT already soft-deleted
+      if (!question.deletedAt) {
+        totalDecrement++;
+        if (!question.state || question.state === 'new') {
+          newDecrement++;
+        } else if (question.state === 'learning' || question.state === 'relearning') {
+          learningDecrement++;
+        } else if (question.state === 'review') {
+          matureDecrement++;
+        }
+      }
+    }
+
+    // Only update if there are non-deleted questions to decrement
+    if (totalDecrement > 0) {
+      await updateStatsCounters(ctx, userId, {
+        totalCards: -totalDecrement,
+        newCount: -newDecrement,
+        learningCount: -learningDecrement,
+        matureCount: -matureDecrement,
+      });
+    }
 
     return { permanentlyDeleted: args.questionIds.length };
   },
