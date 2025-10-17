@@ -111,7 +111,45 @@ fi
 echo -e "${GREEN}✅ All critical functions are deployed${NC}"
 echo ""
 
-# Check 4: Verify deployment health via health check query
+# Check 4: Verify userStats table exists and compound indexes are deployed
+echo "📋 Checking database schema (userStats table and indexes)..."
+echo ""
+
+# Check if userStats table exists by trying to query it
+USERSTATS_CHECK=$(npx convex run spacedRepetition:getUserCardStats 2>&1 || echo "ERROR")
+
+if echo "$USERSTATS_CHECK" | grep -q "Table.*userStats.*does not exist\|not found"; then
+  echo -e "${RED}❌ FAILED: userStats table not found in schema${NC}"
+  echo "   This table is required for bandwidth optimization"
+  echo ""
+  echo -e "${YELLOW}💡 Fix: Ensure schema changes are deployed${NC}"
+  echo "   The userStats table should be defined in convex/schema.ts"
+  echo "   Run: npx convex deploy"
+  echo ""
+  exit 1
+fi
+
+echo -e "${GREEN}✓${NC} userStats table exists"
+
+# Verify compound indexes by checking if queries use them
+# We can't directly check index existence, but we can verify the schema defines them
+SCHEMA_CHECK=$(cat convex/schema.ts 2>/dev/null || echo "")
+
+if echo "$SCHEMA_CHECK" | grep -q "by_user_active"; then
+  echo -e "${GREEN}✓${NC} by_user_active compound index defined in schema"
+else
+  echo -e "${YELLOW}⚠${NC}  by_user_active index not found in schema (may not be deployed)"
+fi
+
+if echo "$SCHEMA_CHECK" | grep -q "by_user_state"; then
+  echo -e "${GREEN}✓${NC} by_user_state compound index defined in schema"
+else
+  echo -e "${YELLOW}⚠${NC}  by_user_state index not found in schema (may not be deployed)"
+fi
+
+echo ""
+
+# Check 5: Verify deployment health via health check query
 # This validates that env vars are present and functions are callable
 echo "🔐 Checking environment variables..."
 echo ""

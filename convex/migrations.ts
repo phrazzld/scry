@@ -74,6 +74,16 @@ type RollbackStats = {
 };
 
 /**
+ * Statistics for userStats initialization migration
+ */
+type UserStatsInitStats = {
+  totalUsers: number;
+  initialized: number;
+  alreadyExist: number;
+  errors: number;
+};
+
+/**
  * Get migration status (placeholder for future implementation)
  *
  * This is a stub function that will be implemented when migration tracking
@@ -605,3 +615,205 @@ async function removeDifficultyFromQuestionsInternal(
     };
   }
 }
+
+/**
+ * Initialize userStats for all existing users
+ *
+ * This migration creates userStats records for existing users by counting
+ * their questions by state. New users after this migration will have stats
+ * initialized automatically when they create their first question.
+ *
+ * Idempotent: Skips users who already have userStats records.
+ * Processes users in batches to avoid memory issues.
+ *
+ * Usage:
+ * ```typescript
+ * // Dry run first to see what would be done
+ * await convex.mutation(api.migrations.initializeUserStats, { dryRun: true });
+ *
+ * // Production run
+ * await convex.mutation(api.migrations.initializeUserStats, {});
+ * ```
+ */
+export const initializeUserStats = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<UserStatsInitStats>> => {
+    const batchSize = args.batchSize || 10; // Small batches to avoid memory issues
+    const dryRun = args.dryRun || false;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'initializeUserStats',
+    });
+
+    const stats = {
+      totalUsers: 0,
+      initialized: 0,
+      alreadyExist: 0,
+      errors: 0,
+    };
+
+    const failures: Array<{ recordId: string; error: string }> = [];
+
+    try {
+      // Process all users using cursor-based pagination
+      let paginationResult = await ctx.db.query('users').paginate({
+        numItems: batchSize,
+        cursor: null,
+      });
+
+      // Process first batch
+      await processBatch(paginationResult.page);
+
+      // Continue processing remaining batches
+      while (!paginationResult.isDone) {
+        paginationResult = await ctx.db.query('users').paginate({
+          numItems: batchSize,
+          cursor: paginationResult.continueCursor,
+        });
+
+        await processBatch(paginationResult.page);
+      }
+
+      // Helper function to process a batch of users
+      async function processBatch(users: typeof paginationResult.page) {
+        for (const user of users) {
+          stats.totalUsers++;
+
+          try {
+            // Check if userStats already exists
+            const existingStats = await ctx.db
+              .query('userStats')
+              .withIndex('by_user', (q) => q.eq('userId', user._id))
+              .first();
+
+            if (existingStats) {
+              stats.alreadyExist++;
+              continue;
+            }
+
+            // Count questions by state (excluding deleted)
+            const questions = await ctx.db
+              .query('questions')
+              .withIndex('by_user', (q) => q.eq('userId', user._id))
+              .filter((q) => q.eq(q.field('deletedAt'), undefined))
+              .collect();
+
+            // Calculate stats from questions
+            let newCount = 0;
+            let learningCount = 0;
+            let matureCount = 0;
+            let earliestNextReview: number | undefined = undefined;
+
+            for (const question of questions) {
+              // Count by state
+              if (!question.state || question.state === 'new') {
+                newCount++;
+              } else if (question.state === 'learning' || question.state === 'relearning') {
+                learningCount++;
+              } else if (question.state === 'review') {
+                matureCount++;
+              }
+
+              // Track earliest nextReview time
+              if (question.nextReview) {
+                if (!earliestNextReview || question.nextReview < earliestNextReview) {
+                  earliestNextReview = question.nextReview;
+                }
+              }
+            }
+
+            // Insert userStats record
+            if (!dryRun) {
+              await ctx.db.insert('userStats', {
+                userId: user._id,
+                totalCards: questions.length,
+                newCount,
+                learningCount,
+                matureCount,
+                nextReviewTime: earliestNextReview,
+                lastCalculated: Date.now(),
+              });
+            }
+
+            stats.initialized++;
+
+            if (stats.initialized % 10 === 0) {
+              migrationLogger.info(`Migration progress: ${stats.initialized} users initialized`);
+            }
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            failures.push({
+              recordId: user._id,
+              error: error.message,
+            });
+            stats.errors++;
+          }
+        }
+
+        // Log batch completion
+        migrationLogger.info('Batch completed', {
+          event: dryRun
+            ? 'migration.user-stats-init.batch.dry-run'
+            : 'migration.user-stats-init.batch',
+          batchSize: users.length,
+          totalUsers: stats.totalUsers,
+          initialized: stats.initialized,
+          alreadyExist: stats.alreadyExist,
+        });
+      }
+
+      migrationLogger.info('Migration completed', {
+        event: 'migration.user-stats-init.complete',
+        dryRun,
+        stats,
+      });
+
+      const status =
+        failures.length === 0
+          ? ('completed' as const)
+          : failures.length === stats.totalUsers
+            ? ('failed' as const)
+            : ('partial' as const);
+
+      return {
+        status,
+        dryRun,
+        stats,
+        failures: failures.length > 0 ? failures : undefined,
+        message: dryRun
+          ? `Dry run: Would initialize ${stats.initialized} users, ${stats.alreadyExist} already exist`
+          : status === 'completed'
+            ? `Successfully initialized userStats for ${stats.initialized} users`
+            : status === 'partial'
+              ? `Partially completed: ${stats.initialized} succeeded, ${stats.errors} failed`
+              : `Migration failed: All ${stats.errors} attempts failed`,
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      migrationLogger.error('Migration failed', {
+        event: 'migration.user-stats-init.error',
+        error: error.message,
+        stack: error.stack,
+        stats,
+      });
+
+      return {
+        status: 'failed' as const,
+        dryRun,
+        stats,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
+        message: `Migration failed: ${error.message}`,
+      };
+    }
+  },
+});

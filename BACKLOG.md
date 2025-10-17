@@ -40,6 +40,37 @@ const index = questionIndexMap.get(id); // O(1)!
 
 ## High-Value Improvements (Fix Soon)
 
+### [CRITICAL] Database Bandwidth Optimization
+**Context**: Bandwidth spike investigation (October 10, 2025: 704 MB)
+**Files**: Multiple (see TODO.md for implementation tasks)
+**Perspectives**: performance-pathfinder, architecture-guardian
+**Severity**: CRITICAL
+**Impact**: Users with 10k+ cards hitting Starter plan bandwidth limits, approaching monthly quota
+
+**Problem**: Three compounding bandwidth issues:
+1. `getUserCardStats` uses `.collect()` on entire card collection (10k cards × 200 reviews = 2M document reads/day = ~1.4 GB/day)
+2. `getNextReview` uses `.collect()` on interaction history with no limit (mature cards with 50+ interactions)
+3. Convex reactive queries re-run when ANY queried document changes (100 due cards × 200 reviews = 20k re-runs)
+
+**Root Cause Analysis**:
+- Power users with Anki-scale collections (10-20k cards, 100-300 reviews/day) are normal, not edge case
+- Current architecture assumes small collections (<1000 cards)
+- Reactive queries amplify bandwidth: Each review triggers re-run of queries touching 100+ documents
+
+**Solution (Phase 1 - Emergency)**:
+1. Add `userStats` table with incremental counter updates (O(1) vs O(N))
+2. Limit interaction history to 10 recent attempts (90% bandwidth reduction)
+3. Add compound indexes for archive/delete filtering (eliminates client-side filtering)
+4. Fix over-fetching patterns in library and jobs queries
+
+**Expected Impact**: 90-95% bandwidth reduction (704 MB → 50-70 MB for same activity)
+
+**Effort**: 11 hours over 2-3 days (see TODO.md for detailed breakdown)
+
+**See**: `TODO.md` for atomic implementation tasks, `docs/adr/0001-optimize-bandwidth-for-large-collections.md` (to be created) for full technical analysis
+
+---
+
 ### [Testing] Environment Validation Test Coverage
 **Context**: PR #34 review feedback
 **Files**: `convex/health.test.ts` (NEW), `tests/scripts/*.bats` (NEW)
@@ -749,6 +780,202 @@ it('deletes completed jobs older than 7 days', async () => {
 ---
 
 ## Nice to Have (Opportunistic)
+
+### [Performance] Review Queue Table Pattern (Phase 2 Bandwidth Optimization)
+**Context**: Post-Phase 1 bandwidth optimization
+**Files**: `convex/schema.ts`, `convex/spacedRepetition.ts`, `convex/cron.ts`
+**Perspectives**: performance-pathfinder, architecture-guardian
+**Severity**: LOW
+**Impact**: Additional 5-10% bandwidth reduction (diminishing returns after Phase 1)
+
+**Problem**: After Phase 1 optimizations, `getNextReview` still touches 100 due cards on each query. Any of these 100 cards changing triggers reactive re-run.
+
+**Solution**: Introduce dedicated `reviewQueue` table pattern
+```typescript
+// Schema addition:
+reviewQueue: defineTable({
+  userId: v.id('users'),
+  questionId: v.id('questions'),
+  priority: v.number(), // FSRS retrievability score
+  dueAt: v.number(),
+  addedAt: v.number(),
+})
+  .index('by_user_priority', ['userId', 'priority'])
+  .index('by_user_due', ['userId', 'dueAt'])
+
+// New getNextReview pattern:
+export const getNextReview = query({
+  handler: async (ctx) => {
+    // Query queue (touches 1 document instead of 100)
+    const queueEntry = await ctx.db.query('reviewQueue')
+      .withIndex('by_user_priority', q => q.eq('userId', userId))
+      .first();
+
+    // Fetch full question + interactions
+    const question = await ctx.db.get(queueEntry.questionId);
+    const interactions = await ctx.db.query('interactions')
+      .withIndex('by_user_question', ...)
+      .take(10);
+
+    return { question, interactions };
+  }
+});
+```
+
+**Queue Maintenance**:
+- On review: Remove from queue
+- On schedule: Add/update in queue
+- Cron (every 1 min): Add newly-due cards to queue
+
+**Benefits**:
+- Reactive surface area: 100 documents → 1 document
+- Further bandwidth reduction (marginal after Phase 1)
+- Query performance: 50ms → 10ms
+
+**Trade-offs**:
+- +1 table to maintain
+- Reviews appear within 1 minute of becoming due (vs real-time)
+- Additional complexity
+
+**Effort**: 4-6 hours | **Value**: LOW - Phase 1 already achieves 90%+ reduction
+
+**Prerequisites**: Phase 1 must be deployed and stable in production for 2+ weeks
+
+---
+
+### [Performance] Smart Polling with Activity Detection
+**Context**: Post-Phase 1 bandwidth optimization
+**Files**: `hooks/use-polling-query.ts` → `hooks/use-smart-poll.ts`
+**Perspectives**: performance-pathfinder, user-experience-advocate
+**Severity**: LOW
+**Impact**: Battery efficiency for mobile, reduced server load for idle sessions
+
+**Problem**: Current polling runs every 30-60 seconds regardless of user activity
+
+**Solution**: Adaptive polling intervals based on activity detection
+```typescript
+export function useSmartPoll(queryFn, options) {
+  const [interval, setInterval] = useState(30000);
+  const lastActivityRef = useRef(Date.now());
+
+  // Track user activity events
+  useEffect(() => {
+    const resetActivity = () => {
+      lastActivityRef.current = Date.now();
+      setInterval(30000); // Reset to active interval
+    };
+
+    ['click', 'keydown', 'mousemove'].forEach(event => {
+      document.addEventListener(event, resetActivity, { passive: true });
+    });
+
+    return () => {
+      // cleanup
+    };
+  }, []);
+
+  // Gradually increase interval when idle
+  useEffect(() => {
+    const checkIdle = setInterval(() => {
+      const idleTime = Date.now() - lastActivityRef.current;
+
+      if (idleTime > 300000) { // 5 min idle
+        setInterval(120000); // 2 min polling
+      } else if (idleTime > 120000) { // 2 min idle
+        setInterval(60000); // 1 min polling
+      } else {
+        setInterval(30000); // 30s polling (active)
+      }
+    }, 10000); // Check every 10s
+
+    return () => clearInterval(checkIdle);
+  }, []);
+
+  return useSimplePoll(queryFn, {}, interval);
+}
+```
+
+**Polling Schedule**:
+- Active (< 2 min idle): 30s (unchanged)
+- Idle 2-5 min: 60s
+- Idle 5+ min: 120s
+- Tab hidden: Paused, refresh on visibility
+
+**Benefits**:
+- Battery savings for mobile users
+- Reduced server load (60% fewer polls for idle users)
+- Better resource utilization
+
+**Trade-offs**:
+- Reviews might not appear for up to 2 minutes after returning from idle
+- Slightly more complex polling logic
+
+**Effort**: 2-3 hours | **Value**: LOW - Mobile battery efficiency, not critical bandwidth
+
+---
+
+### [Performance] Scheduled Function for Due Card Detection
+**Context**: Eliminate polling entirely (requires queue table)
+**Files**: `convex/cron.ts`, `convex/spacedRepetition.ts`
+**Perspectives**: performance-pathfinder, architecture-guardian
+**Severity**: LOW
+**Impact**: Zero client-side polling bandwidth, better scalability
+
+**Problem**: Clients poll every 30s to check if new cards became due (time-based condition)
+
+**Solution**: Push-based updates via Convex scheduled functions
+```typescript
+// convex/cron.ts
+export default {
+  populateReviewQueue: {
+    schedule: "* * * * *", // Every 1 minute
+    handler: async (ctx) => {
+      const now = Date.now();
+      const oneMinuteAgo = now - 60000;
+
+      // Find cards that JUST became due (last minute)
+      const newlyDue = await ctx.db.query('questions')
+        .withIndex('by_next_review_global', q =>
+          q.gte('nextReview', oneMinuteAgo)
+           .lte('nextReview', now)
+        )
+        .take(1000);
+
+      // Add to review queue
+      for (const card of newlyDue) {
+        await ctx.db.insert('reviewQueue', {
+          userId: card.userId,
+          questionId: card._id,
+          priority: calculatePriority(card),
+          dueAt: card.nextReview,
+          addedAt: now,
+        });
+      }
+    }
+  }
+};
+```
+
+**Client-Side Changes**:
+- Remove polling entirely
+- Subscribe to `reviewQueue` table (reactive)
+- New reviews appear automatically via Convex reactivity
+
+**Benefits**:
+- Zero polling bandwidth (clients just subscribe)
+- Server-driven scheduling (more scalable)
+- Consistent 1-minute granularity for all users
+
+**Trade-offs**:
+- Reviews appear within 1 minute of becoming due (vs 30s with polling)
+- Requires queue table implementation
+- More server-side logic
+
+**Effort**: 3-4 hours | **Value**: LOW - Requires queue table, marginal improvement over Phase 1
+
+**Prerequisites**: Review queue table pattern must be implemented first
+
+---
 
 ### [Cleanup] Remove Deprecated Mutations
 **Files**: `convex/questionsCrud.ts:213-287`

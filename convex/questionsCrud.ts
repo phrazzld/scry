@@ -12,6 +12,7 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { updateStatsCounters } from './lib/userStatsHelpers';
 import { getScheduler } from './scheduling';
 
 /**
@@ -59,6 +60,13 @@ export const saveGeneratedQuestions = mutation({
         })
       )
     );
+
+    // Update userStats with new question counts (incremental bandwidth optimization)
+    // All new questions start in 'new' state
+    await updateStatsCounters(ctx, userId, {
+      totalCards: questionIds.length,
+      newCount: questionIds.length,
+    });
 
     return { questionIds, count: questionIds.length };
   },
@@ -109,6 +117,13 @@ export const saveBatch = internalMutation({
         })
       )
     );
+
+    // Update userStats with new question counts (incremental bandwidth optimization)
+    // All new questions start in 'new' state
+    await updateStatsCounters(ctx, args.userId, {
+      totalCards: questionIds.length,
+      newCount: questionIds.length,
+    });
 
     return questionIds;
   },

@@ -25,4 +25,16 @@ crons.daily(
   internal.generationJobs.cleanup
 );
 
+// Schedule userStats reconciliation to run daily at 3 AM UTC
+// Detects and auto-corrects drift in cached statistics
+// Samples 100 random users, fixes drift >5 cards
+crons.daily(
+  'reconcileUserStats',
+  {
+    hourUTC: 3,
+    minuteUTC: 15, // 15 minutes after job cleanup
+  },
+  internal.userStats.reconcileUserStats
+);
+
 export default crons;

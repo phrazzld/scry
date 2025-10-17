@@ -14,6 +14,18 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_clerk_id', ['clerkId']),
 
+  // Cached card statistics per user (O(1) reads vs O(N) collection scans)
+  // Updated incrementally on card state transitions for bandwidth optimization
+  userStats: defineTable({
+    userId: v.id('users'),
+    totalCards: v.number(), // Total non-deleted cards
+    newCount: v.number(), // Cards in 'new' state
+    learningCount: v.number(), // Cards in 'learning' state
+    matureCount: v.number(), // Cards in 'review' state
+    nextReviewTime: v.optional(v.number()), // Earliest nextReview timestamp across all cards
+    lastCalculated: v.number(), // Timestamp of last stats update
+  }).index('by_user', ['userId']),
+
   // Note: 'difficulty' field removed in v2.0 (2025-01)
   // - Never used by FSRS algorithm (uses fsrsDifficulty parameter instead)
   // - Removed to simplify schema and avoid confusion with FSRS difficulty
@@ -53,11 +65,11 @@ export default defineSchema({
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_topic', ['userId', 'topic', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
-    .index('by_user_next_review', ['userId', 'nextReview']),
-  // Note: Archive/Delete filtering done client-side with .filter() for simplicity
-  // Single by_user index serves all views (active/archived/trash) via filtering
-  // Future: If users regularly have >1000 questions, consider compound index
-  // .index('by_user_state', ['userId', 'archivedAt', 'deletedAt'])
+    .index('by_user_next_review', ['userId', 'nextReview'])
+    // Compound indexes for efficient filtering (eliminates client-side .filter())
+    // Enables DB-level filtering for active/archived/deleted views at scale (10k+ cards)
+    .index('by_user_active', ['userId', 'deletedAt', 'archivedAt', 'generatedAt'])
+    .index('by_user_state', ['userId', 'state', 'deletedAt', 'archivedAt']),
 
   interactions: defineTable({
     userId: v.id('users'),
