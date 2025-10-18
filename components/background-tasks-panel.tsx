@@ -1,12 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from 'convex/react';
 
 import { GenerationTaskCard } from '@/components/generation-task-card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
-import { JOB_CONFIG } from '@/lib/constants/jobs';
 
 interface BackgroundTasksPanelProps {
   open: boolean;
@@ -14,9 +14,8 @@ interface BackgroundTasksPanelProps {
 }
 
 export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProps) {
-  const jobs = useQuery(api.generationJobs.getRecentJobs, {
-    limit: JOB_CONFIG.RECENT_JOBS_DISPLAY_LIMIT,
-  });
+  // Show only 5 most recent jobs in quick peek sheet
+  const jobs = useQuery(api.generationJobs.getRecentJobs, { limit: 5 });
 
   // Group jobs by status
   const activeJobs =
@@ -32,7 +31,7 @@ export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProp
         <SheetHeader className="px-5 py-3 border-b shrink-0">
           <div className="flex items-center justify-between pr-8">
             <div>
-              <SheetTitle className="text-base">Background Tasks</SheetTitle>
+              <SheetTitle className="text-base">Recent Tasks</SheetTitle>
               {jobs && jobs.length > 0 && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {activeJobs.length > 0 && `${activeJobs.length} active`}
@@ -54,10 +53,8 @@ export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProp
             <div className="text-center py-12 space-y-3">
               <div className="text-5xl">📋</div>
               <div className="space-y-1">
-                <p className="text-sm font-medium">No background tasks yet</p>
-                <p className="text-xs text-muted-foreground">
-                  Generate questions to see progress here
-                </p>
+                <p className="text-sm font-medium">No recent tasks</p>
+                <p className="text-xs text-muted-foreground">Generate questions to see them here</p>
               </div>
             </div>
           )}
@@ -96,6 +93,17 @@ export function BackgroundTasksPanel({ open, onClose }: BackgroundTasksPanelProp
                 <GenerationTaskCard key={job._id} job={job} />
               ))}
             </div>
+          )}
+
+          {/* View All Tasks Link */}
+          {jobs && jobs.length > 0 && (
+            <Link
+              href="/tasks"
+              className="block text-sm text-primary hover:underline text-center py-3 border-t"
+              onClick={onClose}
+            >
+              View All Tasks →
+            </Link>
           )}
         </div>
       </SheetContent>

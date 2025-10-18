@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
 
@@ -13,6 +13,7 @@ import { useUndoableAction } from '@/hooks/use-undoable-action';
 
 import { BulkActionsBar } from './bulk-actions-bar';
 import { LibraryCards } from './library-cards';
+import { LibraryPagination } from './library-pagination';
 import { LibraryTable } from './library-table';
 
 type LibraryView = 'active' | 'archived' | 'trash';
@@ -21,8 +22,22 @@ export function LibraryClient() {
   const [currentTab, setCurrentTab] = useState<LibraryView>('active');
   const [selectedIds, setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
 
-  // Query questions for current view
-  const questions = useQuery(api.questionsLibrary.getLibrary, { view: currentTab });
+  // Pagination state
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useState<number>(50);
+
+  // Query questions for current view with pagination
+  const paginationData = useQuery(api.questionsLibrary.getLibrary, {
+    view: currentTab,
+    cursor: cursor ?? undefined,
+    pageSize,
+  });
+
+  // Extract pagination results
+  const questions = paginationData?.results;
+  const continueCursor = paginationData?.continueCursor ?? null;
+  const isDone = paginationData?.isDone ?? true;
 
   // Mutations for bulk operations
   const archiveQuestions = useMutation(api.questionsBulk.archiveQuestions);
@@ -44,12 +59,57 @@ export function LibraryClient() {
   const handleTabChange = (value: string) => {
     setCurrentTab(value as LibraryView);
     setSelectedIds(new Set());
+    // Reset pagination when switching tabs
+    setCursor(null);
+    setCursorStack([]);
   };
 
   // Clear selection handler
   const handleClearSelection = () => {
     setSelectedIds(new Set());
   };
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (!continueCursor || isDone) return;
+
+    // Push current cursor to stack for backward navigation
+    if (cursor !== null) {
+      setCursorStack([...cursorStack, cursor]);
+    } else {
+      // First page -> second page, push null to stack
+      setCursorStack([...cursorStack, '']);
+    }
+
+    setCursor(continueCursor);
+    setSelectedIds(new Set()); // Clear selection when changing pages
+  };
+
+  const handlePrevPage = () => {
+    if (cursorStack.length === 0) return;
+
+    // Pop last cursor from stack
+    const newStack = [...cursorStack];
+    const previousCursor = newStack.pop();
+    setCursorStack(newStack);
+
+    // Empty string represents null (first page)
+    setCursor(previousCursor === '' ? null : (previousCursor ?? null));
+    setSelectedIds(new Set()); // Clear selection when changing pages
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCursor(null);
+    setCursorStack([]);
+    setSelectedIds(new Set()); // Clear selection when changing page size
+  };
+
+  // Reset pagination when pageSize changes (via useEffect for safety)
+  useEffect(() => {
+    setCursor(null);
+    setCursorStack([]);
+  }, [pageSize]);
 
   // Bulk operation handlers with undo pattern for reversible actions
   const handleArchive = async (ids: Id<'questions'>[]) => {
@@ -214,6 +274,16 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>
@@ -244,6 +314,16 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>
@@ -274,6 +354,16 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>

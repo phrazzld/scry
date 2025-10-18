@@ -75,13 +75,13 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0">
-        <DialogHeader className="px-6 pt-4 pb-2">
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader className="pb-4">
           <DialogTitle className="text-lg">Generate New Questions</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Textarea */}
           <div className="space-y-2">
             <textarea
