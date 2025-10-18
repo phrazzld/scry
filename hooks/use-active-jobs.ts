@@ -10,7 +10,10 @@ import type { Doc } from '@/convex/_generated/dataModel';
  * Updates reactively as job statuses change.
  */
 export function useActiveJobs() {
-  const jobs = useQuery(api.generationJobs.getRecentJobs, { limit: 50 });
+  const paginationData = useQuery(api.generationJobs.getRecentJobs, { pageSize: 50 });
+
+  // Extract results from pagination response
+  const jobs = paginationData?.results;
 
   if (!jobs) {
     return {

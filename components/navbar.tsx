@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Library, Plus } from 'lucide-react';
+import { Library, ListChecks, Plus } from 'lucide-react';
 
-import { BackgroundTasksBadge } from '@/components/background-tasks-badge';
 import { GenerationModal } from '@/components/generation-modal';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
+import { useActiveJobs } from '@/hooks/use-active-jobs';
 import { useClerkAppearance } from '@/hooks/use-clerk-appearance';
 import { getNavbarClassName } from '@/lib/layout-mode';
 
@@ -18,6 +18,7 @@ export function Navbar() {
   const clerkAppearance = useClerkAppearance();
   const pathname = usePathname();
   const [generateOpen, setGenerateOpen] = useState(false);
+  const { activeCount } = useActiveJobs();
 
   // Listen for keyboard shortcut to open generation modal
   useEffect(() => {
@@ -70,7 +71,23 @@ export function Navbar() {
                 >
                   <Library className="h-4 w-4" />
                 </Link>
-                <BackgroundTasksBadge />
+                <Link
+                  href="/tasks"
+                  className={`relative size-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 ${
+                    pathname === '/tasks'
+                      ? 'bg-accent text-foreground'
+                      : 'bg-accent/50 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                  }`}
+                  aria-label="Background Tasks"
+                  title="Background Tasks"
+                >
+                  <ListChecks className="h-4 w-4" />
+                  {activeCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {activeCount}
+                    </span>
+                  )}
+                </Link>
                 <ThemeToggle />
                 <div
                   data-testid="user-menu"

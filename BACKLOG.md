@@ -1,6 +1,6 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-16
+**Last Groomed**: 2025-10-17
 **Analysis Method**: 7-perspective specialized audit (complexity-archaeologist, architecture-guardian, security-sentinel, performance-pathfinder, maintainability-maven, user-experience-advocate, product-visionary)
 **Overall Grade**: A- (Excellent technical foundation, critical product-market gaps)
 
@@ -411,6 +411,97 @@ this.fsrs = new FSRS(
 
 ## Soon (Exploring, 3-6 months)
 
+### [UX] Library Search & Advanced Filtering
+**File**: `app/library/_components/library-client.tsx`
+**Perspectives**: user-experience-advocate, performance-pathfinder
+**Severity**: MEDIUM
+**Impact**: Essential for 1000+ question libraries, hard to find specific items
+
+**Problem**: No search/filter within library view. Users must manually scan paginated results.
+
+**Features**:
+1. Text search on question/topic fields with debouncing (300ms)
+2. Filter by difficulty, date range, topic
+3. Sort by creation date, success rate, last reviewed
+
+**Implementation**:
+```typescript
+// New Convex query with text search
+export const searchLibrary = query({
+  args: { view, query: v.string(), filters: v.object({...}) },
+  handler: async (ctx, args) => {
+    // Use compound indexes for efficient filtering
+    // Add text search on question/topic fields
+  }
+});
+
+// New indexes needed:
+// .index('by_user_topic_active', ['userId', 'topic', 'deletedAt', 'archivedAt'])
+// .index('by_user_difficulty_active', ['userId', 'difficulty', 'deletedAt', 'archivedAt'])
+```
+
+**Trade-offs**:
+- ⚠️ Client-side = filters only current page (confusing UX)
+- ✅ Backend = proper filtering but requires new indexes (bandwidth consideration per CLAUDE.md)
+
+**Effort**: 4-5h | **Value**: HIGH - Unlocks large library usability
+**Acceptance**: Search for "React hooks" in 1000-question library, results in <500ms
+
+---
+
+### [UX] Background Task Retry & Management
+**File**: `convex/generationJobs.ts`
+**Perspectives**: user-experience-advocate
+**Severity**: MEDIUM
+**Impact**: Users frustrated by transient failures (network, rate limits) with no recovery
+
+**Features**:
+1. **Retry Failed Jobs** (2h)
+   - Add `retryCount` field to schema (default 0, max 3)
+   - Create `retryJob` mutation: duplicate failed job with incremented count
+   - Show retry button only when `retryCount < 3`
+   - Display attempt count: "Attempt 2 of 3"
+
+2. **Bulk Job Actions** (2h)
+   - Checkbox selection in tasks table
+   - Bulk cancel/delete with confirmation
+   - Similar to library bulk actions pattern
+
+3. **Job Export** (1h)
+   - Export job results (prompt + generated questions) as JSON/CSV
+   - Use browser download API: `URL.createObjectURL(new Blob([json]))`
+
+**Effort**: 5h | **Value**: MEDIUM - Improves task management, reduces friction
+**Acceptance**: Retry failed job, succeeds on second attempt; bulk delete 10 completed jobs
+
+---
+
+### [UX] Library View Alternatives
+**File**: `app/library/_components/library-client.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Power users want different navigation patterns for large libraries
+
+**Options Considered**:
+
+1. **Infinite Scroll** (3-4h)
+   - Use IntersectionObserver for scroll-triggered loading
+   - Append results instead of replacing pages
+   - Add "Load More" fallback for accessibility
+   - Trade-off: Hard to find specific items, memory growth with 1000+ items
+
+2. **Jump to Page by Number** (2-3h)
+   - Direct navigation: 1, 2, 3... with ellipsis (1...5 6 7...20)
+   - Requires offset-based pagination (slower than cursor, can skip/duplicate items)
+   - Trade-off: Doesn't align with Convex cursor API
+
+**Decision**: Keep cursor pagination as default, add these as opt-in experiments if user demand warrants
+
+**Effort**: 5-7h for both | **Value**: LOW-MEDIUM - Nice-to-have for power users
+**Status**: Deferred until user feedback indicates need
+
+---
+
 ### [PRODUCT] Collections & Organization
 **Perspectives**: product-visionary
 **Impact**: Unlocks power users (10x LTV), reduces churn at 500+ questions
@@ -494,6 +585,78 @@ tags: defineTable({
 
 ## Later (Someday/Maybe, 6+ months)
 
+### [UX] Generation Modal Enhancements
+**File**: `components/generation-modal.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Onboarding friction, users unsure what to generate
+
+**Features**:
+1. **Template/Quick Start Prompts** (1-2h)
+   - Dropdown with examples: "NATO alphabet", "React Hooks", "Periodic Table"
+   - Render as pills/chips, click to insert into textarea
+   - Use Combobox component for searchable template list
+   - Store user's recent prompts (last 5) in localStorage
+
+2. **Recent Prompts History** (30m)
+   - Show last 5 successfully generated prompts
+   - Click to reuse/edit
+
+**Trade-offs**:
+- ✅ Easier onboarding, shows what's possible
+- ⚠️ May encourage low-quality generic prompts
+- ⚠️ Takes vertical space in modal
+
+**Effort**: 2-3h | **Value**: LOW - Onboarding improvement
+**Acceptance**: New user clicks "React Hooks" template, modal fills with example
+
+---
+
+### [UX] Review Flow Alternative Layouts
+**File**: `components/review-flow.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Some users may prefer different action button placement
+
+**Alternatives Considered** (each 1-3h):
+
+1. **Sticky Button Bar**
+   - Fix buttons to bottom of viewport instead of inline
+   - `sticky bottom-0 bg-background/95 backdrop-blur`
+   - Trade-off: Always visible but takes screen space, may obscure content
+   - Decision: Deferred - moving buttons above feedback is simpler
+
+2. **Sidebar Action Panel** (Desktop Only)
+   - Two-column grid: question (2/3) + actions (1/3)
+   - Mobile: Stack vertically
+   - Trade-off: Sophisticated but complex responsive logic
+   - Decision: Deferred - too complex for current benefit
+
+**Status**: Not implementing unless user feedback indicates strong preference
+
+**Effort**: 4-5h for both | **Value**: LOW - Alternative UX patterns
+**Reasoning**: Current solution (buttons above feedback) solves core problem with minimal complexity
+
+---
+
+### [UX] Real-time Generation Progress Enhancements
+**File**: `components/generation-task-card.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Better feedback during long generations
+
+**Current State**: ✅ Basic progress already works via Convex `updateProgress` mutation
+
+**Enhancements**:
+1. **Visual Progress Bar** (30m) - Show `questionsGenerated / estimatedTotal` as progress bar
+2. **ETA Calculation** (1h) - Estimate time remaining based on generation rate
+3. **Phase Transitions** (30m) - Show visual transitions: "Parsing" → "Generating" → "Saving"
+
+**Effort**: 2h | **Value**: LOW - Nice-to-have, core functionality already exists
+**Acceptance**: See progress bar fill from 0% to 100%, ETA shows "~30 seconds remaining"
+
+---
+
 ### [PRODUCT] Question Marketplace
 **Impact**: New revenue stream (70/30 revenue share with creators)
 
@@ -544,6 +707,110 @@ Chrome/Firefox extension: Sidebar reviews, web clipper (highlight → question),
 ---
 
 ## Technical Debt (Schedule)
+
+### [REFACTOR] Consolidate Pagination Logic
+**File**: `app/library/_components/library-client.tsx`, `app/tasks/_components/tasks-client.tsx`
+**Perspectives**: maintainability-maven, architecture-guardian
+**Severity**: LOW
+**Impact**: Pagination logic duplicated across library and tasks pages
+
+**Problem**: Cursor pagination state management copy-pasted between components. Future pagination features (keyboard shortcuts, URL state) require editing multiple files.
+
+**Solution**: Extract to reusable hook
+```typescript
+// hooks/use-cursor-pagination.ts
+export function useCursorPagination({ initialPageSize = 50 }) {
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+
+  const handleNext = (continueCursor: string) => {
+    setCursorStack(prev => [...prev, cursor!]);
+    setCursor(continueCursor);
+  };
+
+  const handlePrevious = () => {
+    const prev = cursorStack[cursorStack.length - 1];
+    setCursorStack(stack => stack.slice(0, -1));
+    setCursor(prev);
+  };
+
+  const reset = () => {
+    setCursor(null);
+    setCursorStack([]);
+  };
+
+  return { cursor, pageSize, handleNext, handlePrevious, reset, setPageSize, hasPrevious: cursorStack.length > 0 };
+}
+```
+
+**Benefit**: DRY, consistent behavior, easier to add features (keyboard shortcuts, URL state sync)
+
+**Effort**: 1-2h | **Value**: MEDIUM - Future-proofs pagination pattern
+**Acceptance**: Library and Tasks pages use same hook, add keyboard shortcut to both in one place
+
+---
+
+### [REFACTOR] Extract Unified TaskCard Component
+**File**: `components/generation-task-card.tsx`, `app/tasks/_components/tasks-table.tsx`
+**Perspectives**: maintainability-maven
+**Severity**: LOW
+**Impact**: Task display logic duplicated in sheet (GenerationTaskCard) and table (TaskRow)
+
+**Problem**: Changes to job display require editing two components. Inconsistent styling, status badges, action buttons.
+
+**Solution**: Single TaskCard component with view mode prop
+```typescript
+// components/task-card.tsx
+export function TaskCard({
+  job,
+  view: 'compact' | 'detailed',
+  showActions = true
+}) {
+  // Unified rendering logic
+  // compact = for sheet, detailed = for table row
+}
+```
+
+**Effort**: 2h | **Value**: LOW - Consistency, less duplication
+**Acceptance**: Update status badge color, changes reflect in both sheet and tasks page
+
+---
+
+### [UX] Pagination UI Polish
+**Files**: `app/library/_components/library-pagination.tsx`, `app/tasks/_components/*`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Small UX improvements to pagination experience
+
+**Enhancements**:
+1. **Skeleton Loaders** (30m) - Show shimmer during page transitions instead of blank state
+2. **Keyboard Shortcuts** (15m) - `[` and `]` for Previous/Next navigation
+3. **Optimistic Loading** (20m) - Disable buttons during fetch, show loading spinner
+
+**Effort**: 1h total | **Value**: LOW - Perceived performance, power user efficiency
+**Acceptance**: Press `]` to go to next page, see skeleton loader during transition
+
+---
+
+### [UX] Empty State Illustrations
+**Files**: `app/library/_components/library-empty-states.tsx`, `app/tasks/_components/tasks-client.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Generic empty states lack personality, first-time user experience
+
+**Current**: Text-only empty states with emoji
+**Enhancement**: Custom SVG illustrations matching brand (hexagon crystal theme)
+
+**Illustrations Needed**:
+- Empty library: Crystal with question marks floating around
+- No tasks: Crystal ball with "nothing to see" theme
+- No search results: Magnifying glass over crystal
+
+**Effort**: 1-2h (design + implementation) | **Value**: LOW - Brand delight, onboarding
+**Acceptance**: Empty library shows custom illustration instead of generic emoji
+
+---
 
 ### [SECURITY] Webhook Fails Open Without Secret
 **File**: `convex/http.ts:56-62`
@@ -692,5 +959,9 @@ Daily cron has no tests. Wrong threshold = data loss or DB bloat. Add contract t
 
 ---
 
-**Last Updated**: 2025-10-16
+**Last Updated**: 2025-10-17
 **Next Grooming**: Q1 2026 (or when 3+ critical issues emerge)
+
+**Recent Additions** (2025-10-17):
+- UI/UX enhancements migrated from planning doc (library search, task retry, pagination polish, empty states)
+- Items categorized: Soon (search/filtering), Technical Debt (refactoring), Later (modal templates, review alternatives)

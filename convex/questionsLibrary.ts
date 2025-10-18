@@ -13,78 +13,91 @@
  */
 import { v } from 'convex/values';
 
-import type { Doc } from './_generated/dataModel';
 import { query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 /**
  * Get questions for library view with filtering by state
  *
- * Returns questions filtered by view (active/archived/trash) with derived stats.
+ * Returns paginated questions filtered by view (active/archived/trash) with derived stats.
  * Active: not archived and not deleted
  * Archived: archived but not deleted
  * Trash: deleted (regardless of archive state)
+ *
+ * Uses cursor-based pagination for efficient large collection navigation.
  */
 export const getLibrary = query({
   args: {
     view: v.union(v.literal('active'), v.literal('archived'), v.literal('trash')),
-    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
-    const limit = args.limit || 500;
 
-    // Query all user questions, ordered by most recent
-    // Bandwidth optimization: Use compound index for DB-level filtering
-    // Fetches exactly 'limit' records instead of 'limit * 2' with client-side filtering
-    let questions: Doc<'questions'>[];
+    // Validate and clamp pageSize to prevent excessive bandwidth usage (10-100 items)
+    const pageSize = Math.min(Math.max(args.pageSize ?? 50, 10), 100);
+
+    // Query user questions with pagination
+    // Bandwidth optimization: Use compound index for DB-level filtering + cursor pagination
+    let paginationResult;
 
     switch (args.view) {
       case 'active':
         // Active: not archived AND not deleted
-        questions = await ctx.db
+        paginationResult = await ctx.db
           .query('questions')
           .withIndex('by_user_active', (q) =>
             q.eq('userId', userId).eq('deletedAt', undefined).eq('archivedAt', undefined)
           )
           .order('desc')
-          .take(limit);
+          .paginate({ numItems: pageSize, cursor: args.cursor ?? null });
         break;
 
       case 'archived':
         // Archived: has archivedAt AND not deleted
         // Note: Use by_user index with filter since archivedAt can be any timestamp
-        questions = await ctx.db
+        paginationResult = await ctx.db
           .query('questions')
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .filter((q) =>
             q.and(q.neq(q.field('archivedAt'), undefined), q.eq(q.field('deletedAt'), undefined))
           )
           .order('desc')
-          .take(limit);
+          .paginate({ numItems: pageSize, cursor: args.cursor ?? null });
         break;
 
       case 'trash':
         // Trash: has deletedAt (regardless of archivedAt)
-        questions = await ctx.db
+        paginationResult = await ctx.db
           .query('questions')
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .filter((q) => q.neq(q.field('deletedAt'), undefined))
           .order('desc')
-          .take(limit);
+          .paginate({ numItems: pageSize, cursor: args.cursor ?? null });
         break;
 
       default:
-        questions = [];
+        paginationResult = {
+          page: [],
+          continueCursor: null,
+          isDone: true,
+        };
     }
 
     // Add derived stats to each question
-    return questions.map((q) => ({
+    const questionsWithStats = paginationResult.page.map((q) => ({
       ...q,
       failedCount: q.attemptCount - q.correctCount,
       successRate: q.attemptCount > 0 ? Math.round((q.correctCount / q.attemptCount) * 100) : null,
     }));
+
+    return {
+      results: questionsWithStats,
+      continueCursor: paginationResult.continueCursor,
+      isDone: paginationResult.isDone,
+    };
   },
 });
 
