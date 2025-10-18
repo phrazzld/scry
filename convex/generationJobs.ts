@@ -73,25 +73,32 @@ export const createJob = mutation({
 });
 
 /**
- * Get recent jobs for the authenticated user
+ * Get recent jobs for the authenticated user with cursor-based pagination
  */
 export const getRecentJobs = query({
   args: {
-    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+    pageSize: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireUserFromClerk(ctx);
-    const limit = args.limit ?? 20;
+
+    // Validate and clamp pageSize to prevent excessive bandwidth usage (10-100 items)
+    const pageSize = Math.min(Math.max(args.pageSize ?? 25, 10), 100);
 
     // Query jobs ordered by createdAt descending (newest first)
-    // Bandwidth optimization: Use index ordering + take() instead of collect() + in-memory sort
-    const jobs = await ctx.db
+    // Bandwidth optimization: Use cursor pagination instead of fetching all jobs
+    const paginationResult = await ctx.db
       .query('generationJobs')
       .withIndex('by_user_status', (q) => q.eq('userId', user._id))
       .order('desc') // Sort by createdAt (third field in index) descending
-      .take(limit);
+      .paginate({ numItems: pageSize, cursor: args.cursor ?? null });
 
-    return jobs;
+    return {
+      results: paginationResult.page,
+      continueCursor: paginationResult.continueCursor,
+      isDone: paginationResult.isDone,
+    };
   },
 });
 

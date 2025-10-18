@@ -75,13 +75,13 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-lg">Generate New Questions</DialogTitle>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader className="pb-6">
+          <DialogTitle className="text-xl">Generate New Questions</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Textarea */}
           <div className="space-y-2">
             <textarea
@@ -89,23 +89,29 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="What would you like to learn about? (e.g., 'NATO alphabet', 'React hooks', 'Periodic table')"
+              placeholder="Describe what you want to learn... (be specific for better questions)"
               className={cn(
                 'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
                 'text-sm ring-offset-background placeholder:text-muted-foreground',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                'transition-all duration-200 focus:border-primary/50',
                 'disabled:cursor-not-allowed disabled:opacity-50',
-                'h-24'
+                'h-32'
               )}
               disabled={isGenerating}
             />
-            <p className="text-xs text-muted-foreground">
-              Press{' '}
-              {typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-                ? '⌘'
-                : 'Ctrl'}
-              +Enter to generate
-            </p>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <p>
+                Press{' '}
+                {typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
+                  ? '⌘'
+                  : 'Ctrl'}
+                +Enter to generate
+              </p>
+              <p className="tabular-nums">
+                {prompt.length} {prompt.length === 1 ? 'character' : 'characters'}
+              </p>
+            </div>
           </div>
 
           {/* Submit button */}
@@ -113,13 +119,13 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
             <Button
               type="submit"
               disabled={!prompt.trim() || isGenerating}
-              className="min-w-[120px]"
+              className="min-w-[120px] transition-all duration-200 hover:scale-105 active:scale-95"
               data-testid="generate-quiz-button"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Starting...
+                  <span className="animate-pulse">Starting...</span>
                 </>
               ) : (
                 'Generate'

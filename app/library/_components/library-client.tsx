@@ -25,7 +25,7 @@ export function LibraryClient() {
   // Pagination state
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorStack, setCursorStack] = useState<string[]>([]);
-  const [pageSize, setPageSize] = useState<number>(50);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Query questions for current view with pagination
   const paginationData = useQuery(api.questionsLibrary.getLibrary, {
