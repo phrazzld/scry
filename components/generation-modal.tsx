@@ -6,11 +6,19 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/convex/_generated/api';
 import { AUTO_FOCUS_DELAY, TOAST_DURATION } from '@/lib/constants/ui';
 import { handleJobCreationError } from '@/lib/error-handlers';
-import { cn } from '@/lib/utils';
 
 interface GenerationModalProps {
   open: boolean;
@@ -18,23 +26,47 @@ interface GenerationModalProps {
   onGenerationSuccess?: (count: number) => void;
 }
 
+const DRAFT_STORAGE_KEY = 'scry-generation-draft';
+const AUTO_SAVE_DEBOUNCE = 2000; // 2 seconds
+
 export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: GenerationModalProps) {
   const [prompt, setPrompt] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const createJob = useMutation(api.generationJobs.createJob);
 
-  // Auto-focus textarea when modal opens
+  // Auto-focus textarea and restore draft when modal opens
   React.useEffect(() => {
     if (open) {
+      // Restore draft from localStorage
+      const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (draft && !prompt) {
+        setPrompt(draft);
+        toast.info('Draft restored', {
+          duration: 2000,
+        });
+      }
+
+      // Auto-focus after a short delay
       setTimeout(() => {
         textareaRef.current?.focus();
       }, AUTO_FOCUS_DELAY);
     } else {
-      // Clear prompt when closing
+      // Clear prompt when closing (don't clear localStorage - keep draft)
       setPrompt('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Auto-save draft to localStorage (debounced)
+  React.useEffect(() => {
+    if (prompt) {
+      const timer = setTimeout(() => {
+        localStorage.setItem(DRAFT_STORAGE_KEY, prompt);
+      }, AUTO_SAVE_DEBOUNCE);
+      return () => clearTimeout(timer);
+    }
+  }, [prompt]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,6 +83,9 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
     try {
       await createJob({ prompt: submittedPrompt });
+
+      // Clear draft on successful submission
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       toast.success('Generation started', {
         description: 'Check Background Tasks to monitor progress',
@@ -76,62 +111,51 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
-        <DialogHeader className="pb-6">
-          <DialogTitle className="text-xl">Generate New Questions</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
+        <DialogHeader>
+          <DialogTitle className="text-xl sm:text-2xl">Generate New Questions</DialogTitle>
+          <DialogDescription>Create questions about any topic using AI</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Textarea */}
-          <div className="space-y-2">
-            <textarea
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-3">
+            <Label htmlFor="prompt">What do you want to learn?</Label>
+            <Textarea
+              id="prompt"
               ref={textareaRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Describe what you want to learn... (be specific for better questions)"
-              className={cn(
-                'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
-                'text-sm ring-offset-background placeholder:text-muted-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                'transition-all duration-200 focus:border-primary/50',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'h-32'
-              )}
+              placeholder="Be specific for better questions..."
+              className="h-36 resize-none"
               disabled={isGenerating}
             />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <p>
-                Press{' '}
-                {typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-                  ? '⌘'
-                  : 'Ctrl'}
-                +Enter to generate
-              </p>
-              <p className="tabular-nums">
-                {prompt.length} {prompt.length === 1 ? 'character' : 'characters'}
-              </p>
-            </div>
           </div>
 
-          {/* Submit button */}
-          <div className="flex justify-end">
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
               disabled={!prompt.trim() || isGenerating}
-              className="min-w-[120px] transition-all duration-200 hover:scale-105 active:scale-95"
+              className="min-w-[120px]"
               data-testid="generate-quiz-button"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  <span className="animate-pulse">Starting...</span>
+                  Starting...
                 </>
               ) : (
                 'Generate'
               )}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
