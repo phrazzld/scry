@@ -9,12 +9,10 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/convex/_generated/api';
 import { AUTO_FOCUS_DELAY, TOAST_DURATION } from '@/lib/constants/ui';
@@ -110,26 +108,24 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="text-xl sm:text-2xl">Generate New Questions</DialogTitle>
-          <DialogDescription>Create questions about any topic using AI</DialogDescription>
+      <DialogContent className="sm:max-w-3xl p-8 sm:p-10" showCloseButton={false}>
+        <DialogHeader className="mb-10">
+          <DialogTitle className="text-3xl font-semibold tracking-tight">
+            Generate New Questions
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid gap-4">
-          <div className="grid gap-3">
-            <Label htmlFor="prompt">What do you want to learn?</Label>
-            <Textarea
-              id="prompt"
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Be specific for better questions..."
-              className="h-36 resize-none"
-              disabled={isGenerating}
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="grid gap-12">
+          <Textarea
+            id="prompt"
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Master quantum mechanics, learn Greek mythology, understand neural networks..."
+            className="h-32 resize-none border-border/50 focus-visible:ring-2 focus-visible:ring-primary/20"
+            disabled={isGenerating}
+          />
 
           <DialogFooter>
             <Button
@@ -143,7 +139,7 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
             <Button
               type="submit"
               disabled={!prompt.trim() || isGenerating}
-              className="min-w-[120px]"
+              className="min-w-[140px]"
               data-testid="generate-quiz-button"
             >
               {isGenerating ? (
