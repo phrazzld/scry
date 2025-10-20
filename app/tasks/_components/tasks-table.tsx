@@ -96,7 +96,9 @@ function TaskRow({ job }: { job: GenerationJob }) {
     try {
       await cancelJob({ jobId: job._id });
     } catch (error) {
-      console.error('Failed to cancel job:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to cancel job:', error);
+      }
     }
   };
 

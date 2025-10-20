@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Github } from 'lucide-react';
 
 import { KeyboardIndicator } from '@/components/keyboard-indicator';
@@ -8,6 +9,7 @@ import { KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts-help';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 
 export function Footer() {
+  const { isSignedIn } = useUser();
   const [showHelp, setShowHelp] = useState(false);
   const { shortcuts } = useKeyboardShortcuts([], true);
 
@@ -25,12 +27,14 @@ export function Footer() {
               <Github size={20} />
             </a>
 
-            <KeyboardIndicator onClick={() => setShowHelp(true)} />
+            {isSignedIn && <KeyboardIndicator onClick={() => setShowHelp(true)} />}
           </div>
         </div>
       </footer>
 
-      <KeyboardShortcutsHelp open={showHelp} onOpenChange={setShowHelp} shortcuts={shortcuts} />
+      {isSignedIn && (
+        <KeyboardShortcutsHelp open={showHelp} onOpenChange={setShowHelp} shortcuts={shortcuts} />
+      )}
     </>
   );
 }
