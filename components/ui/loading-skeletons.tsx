@@ -1,7 +1,16 @@
 'use client';
 
+import { PageContainer } from '@/components/page-container';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 // Question Generation Flow Skeletons
 export function QuizGenerationSkeleton() {
@@ -187,7 +196,7 @@ export function TechnicalDiagramSkeleton() {
 export function QuizFlowSkeleton() {
   return (
     <div className="min-h-screen bg-paper" aria-hidden="true" aria-busy="true">
-      <div className="container mx-auto px-4 py-8">
+      <PageContainer className="py-8">
         <div className="flex items-center gap-4 mb-8">
           <Skeleton className="h-10 w-24" />
           <div>
@@ -198,7 +207,70 @@ export function QuizFlowSkeleton() {
         <div className="max-w-2xl mx-auto">
           <QuizGenerationSkeleton />
         </div>
-      </div>
+      </PageContainer>
+    </div>
+  );
+}
+
+// Table Skeleton - for loading states on Library and Tasks pages
+// Uses proper Table components to match actual table structure and width
+export function TableSkeleton({ rows = 10 }: { rows?: number }) {
+  return (
+    <div className="rounded-md border" aria-hidden="true" aria-busy="true">
+      <Table className="table-fixed">
+        <TableHeader>
+          <TableRow>
+            <TableHead style={{ width: '40px' }}>
+              <Skeleton className="h-5 w-5" />
+            </TableHead>
+            <TableHead style={{ width: '40%' }}>
+              <Skeleton className="h-5 w-32" />
+            </TableHead>
+            <TableHead style={{ width: '15%' }}>
+              <Skeleton className="h-5 w-20" />
+            </TableHead>
+            <TableHead style={{ width: '15%' }}>
+              <Skeleton className="h-5 w-24" />
+            </TableHead>
+            <TableHead style={{ width: '12%' }}>
+              <Skeleton className="h-5 w-20" />
+            </TableHead>
+            <TableHead style={{ width: '12%' }}>
+              <Skeleton className="h-5 w-16" />
+            </TableHead>
+            <TableHead style={{ width: '60px' }}>
+              <Skeleton className="h-5 w-12" />
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[...Array(rows)].map((_, i) => (
+            <TableRow key={i}>
+              <TableCell>
+                <Skeleton className="h-5 w-5" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-full" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-20" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-24" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-20" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-16" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-8" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -213,11 +285,11 @@ export const shimmerStyles = `
       transform: translateX(100%);
     }
   }
-  
+
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
-  
+
   @media (prefers-reduced-motion: reduce) {
     .animate-shimmer {
       animation: none;

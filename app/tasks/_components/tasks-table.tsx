@@ -224,7 +224,7 @@ function TaskRow({ job }: { job: GenerationJob }) {
 
 export function TasksTable({ jobs }: TasksTableProps) {
   return (
-    <div className="border rounded-lg">
+    <div className="w-full border rounded-lg">
       <Table>
         <TableHeader>
           <TableRow>

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 
 import { LibraryPagination } from '@/app/library/_components/library-pagination';
+import { PageContainer } from '@/components/page-container';
+import { TableSkeleton } from '@/components/ui/loading-skeletons';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/convex/_generated/api';
 import type { JobStatus } from '@/types/generation-jobs';
@@ -100,11 +102,9 @@ export function TasksClient() {
   }, [pageSize]);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Background Tasks</h1>
-        <p className="text-muted-foreground mt-1">Manage AI question generation jobs</p>
-      </div>
+    <PageContainer className="py-8">
+      <h1 className="text-3xl font-bold mb-6">Background Tasks</h1>
+      <p className="text-muted-foreground mb-6">Manage AI question generation jobs</p>
 
       <Tabs value={statusFilter} onValueChange={handleFilterChange}>
         <TabsList>
@@ -153,7 +153,7 @@ export function TasksClient() {
 
         <div className="mt-6">
           {filteredJobs === undefined ? (
-            <div className="text-center py-12 text-muted-foreground">Loading tasks...</div>
+            <TableSkeleton rows={10} />
           ) : filteredJobs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               {statusFilter === 'all'
@@ -177,6 +177,6 @@ export function TasksClient() {
           )}
         </div>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

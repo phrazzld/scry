@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/page-container';
+import { TableSkeleton } from '@/components/ui/loading-skeletons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/convex/_generated/api';
@@ -227,7 +229,7 @@ export function LibraryClient() {
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <PageContainer className="py-8">
         <h1 className="text-3xl font-bold mb-6">Question Library</h1>
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
@@ -250,7 +252,7 @@ export function LibraryClient() {
 
           <TabsContent value="active" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -290,7 +292,7 @@ export function LibraryClient() {
 
           <TabsContent value="archived" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -330,7 +332,7 @@ export function LibraryClient() {
 
           <TabsContent value="trash" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -368,7 +370,7 @@ export function LibraryClient() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
     </TooltipProvider>
   );
 }

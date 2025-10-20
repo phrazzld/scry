@@ -14,7 +14,7 @@ export function Footer() {
   return (
     <>
       <footer className="mt-auto bg-background border-t border-border">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
+        <div className="w-full px-4 md:px-8 py-4">
           <div className="flex items-center justify-between">
             <a
               href="https://github.com/phrazzld/scry"

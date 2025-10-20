@@ -5,6 +5,7 @@ import { ArrowRight, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
+import { PageContainer } from '@/components/page-container';
 import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
@@ -199,11 +200,7 @@ export function ReviewFlow() {
 
   // Render based on phase
   if (phase === 'loading') {
-    return (
-      <div className="min-h-[400px] flex items-start justify-center">
-        <QuizFlowSkeleton />
-      </div>
-    );
+    return <QuizFlowSkeleton />;
   }
 
   if (phase === 'empty') {
@@ -212,8 +209,8 @@ export function ReviewFlow() {
 
   if (phase === 'reviewing' && question) {
     return (
-      <div className="min-h-[400px] flex items-start justify-center">
-        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+      <PageContainer className="py-6">
+        <div className="max-w-4xl">
           <article className="space-y-6">
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
@@ -318,34 +315,34 @@ export function ReviewFlow() {
                 </div>
               )}
           </article>
-        </div>
 
-        {/* Edit Question Modal */}
-        {question && questionId && (
-          <EditQuestionModal
-            open={editModalOpen}
-            onOpenChange={setEditModalOpen}
-            question={
-              {
-                _id: questionId,
-                _creationTime: Date.now(),
-                userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
-                question: question.question,
-                topic: '', // SimpleQuestion doesn't have topic
-                difficulty: 'medium', // Default since not in SimpleQuestion
-                type: question.type || 'multiple-choice',
-                options: question.options,
-                correctAnswer: question.correctAnswer,
-                explanation: question.explanation,
-                generatedAt: Date.now(),
-                attemptCount: 0, // Not available in SimpleQuestion
-                correctCount: 0, // Not available in SimpleQuestion
-              } as Doc<'questions'>
-            }
-            onSave={handleSaveEdit}
-          />
-        )}
-      </div>
+          {/* Edit Question Modal */}
+          {question && questionId && (
+            <EditQuestionModal
+              open={editModalOpen}
+              onOpenChange={setEditModalOpen}
+              question={
+                {
+                  _id: questionId,
+                  _creationTime: Date.now(),
+                  userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
+                  question: question.question,
+                  topic: '', // SimpleQuestion doesn't have topic
+                  difficulty: 'medium', // Default since not in SimpleQuestion
+                  type: question.type || 'multiple-choice',
+                  options: question.options,
+                  correctAnswer: question.correctAnswer,
+                  explanation: question.explanation,
+                  generatedAt: Date.now(),
+                  attemptCount: 0, // Not available in SimpleQuestion
+                  correctCount: 0, // Not available in SimpleQuestion
+                } as Doc<'questions'>
+              }
+              onSave={handleSaveEdit}
+            />
+          )}
+        </div>
+      </PageContainer>
     );
   }
 
