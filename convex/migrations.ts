@@ -642,7 +642,7 @@ async function removeTopicFromQuestionsInternal(
     dryRun?: boolean;
   }
 ): Promise<MigrationResult<TopicRemovalStats>> {
-  const batchSize = args.batchSize || DEFAULT_TOPIC_REMOVAL_BATCH_SIZE;
+  const _batchSize = args.batchSize || DEFAULT_TOPIC_REMOVAL_BATCH_SIZE; // Not used with .collect() approach
   const dryRun = args.dryRun || false;
 
   const migrationLogger = createLogger({
@@ -658,59 +658,38 @@ async function removeTopicFromQuestionsInternal(
   };
 
   try {
-    // Process all questions using cursor-based pagination
-    let paginationResult = await ctx.db.query('questions').paginate({
-      numItems: batchSize,
-      cursor: null,
+    // Fetch all questions (Convex only allows one paginated query per function)
+    // Since we have ~500 questions, this is safe to collect all at once
+    const allQuestions = await ctx.db.query('questions').collect();
+
+    migrationLogger.info('Processing questions', {
+      event: 'migration.topic-removal.start',
+      totalQuestions: allQuestions.length,
     });
 
-    // Process first batch
-    await processBatch(paginationResult.page);
+    // Process all questions
+    for (const question of allQuestions) {
+      stats.totalProcessed++;
 
-    // Continue processing remaining batches
-    while (!paginationResult.isDone) {
-      paginationResult = await ctx.db.query('questions').paginate({
-        numItems: batchSize,
-        cursor: paginationResult.continueCursor,
-      });
+      // Check if question has topic field
+      if ('topic' in question && question.topic !== undefined) {
+        if (!dryRun) {
+          // Use replace to remove the field entirely
+          // Convex doesn't have a built-in way to delete fields, so we reconstruct
+          // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
+          // Convex's db.replace() rejects objects that include system fields
+          const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = question;
 
-      await processBatch(paginationResult.page);
-    }
-
-    // Helper function to process a batch of questions
-    async function processBatch(questions: typeof paginationResult.page) {
-      for (const question of questions) {
-        stats.totalProcessed++;
-
-        // Check if question has topic field
-        if ('topic' in question && question.topic !== undefined) {
-          if (!dryRun) {
-            // Use replace to remove the field entirely
-            // Convex doesn't have a built-in way to delete fields, so we reconstruct
-            // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
-            // Convex's db.replace() rejects objects that include system fields
-            const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = question;
-
-            await ctx.db.replace(question._id, questionWithoutTopic);
-          }
-          stats.updated++;
-
-          if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
-            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
-          }
-        } else {
-          stats.alreadyMigrated++;
+          await ctx.db.replace(question._id, questionWithoutTopic);
         }
-      }
+        stats.updated++;
 
-      // Log batch completion
-      migrationLogger.info('Batch completed', {
-        event: 'migration.topic-removal.batch-complete',
-        batchSize: questions.length,
-        totalProcessed: stats.totalProcessed,
-        updated: stats.updated,
-        alreadyMigrated: stats.alreadyMigrated,
-      });
+        if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
+          migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+        }
+      } else {
+        stats.alreadyMigrated++;
+      }
     }
 
     migrationLogger.info('Migration completed', {
@@ -771,15 +750,12 @@ async function removeTopicFromQuestionsInternal(
  * await convex.mutation(api.migrations.removeTopicFromQuestions, {});
  * ```
  */
-export const removeTopicFromQuestions = mutation({
+export const removeTopicFromQuestions = internalMutation({
   args: {
     batchSize: v.optional(v.number()),
     dryRun: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<MigrationResult<TopicRemovalStats>> => {
-    // Verify the user is authenticated
-    await requireUserFromClerk(ctx);
-
     return await removeTopicFromQuestionsInternal(ctx, args);
   },
 });
