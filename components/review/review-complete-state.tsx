@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
+import { PageContainer } from '@/components/page-container';
 import { Button } from '@/components/ui/button';
 
 interface ReviewCompleteStateProps {
@@ -13,8 +14,8 @@ export function ReviewCompleteState({ remainingReviews, onNextReview }: ReviewCo
   const router = useRouter();
 
   return (
-    <article className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6 animate-fadeIn">
-      <div className="space-y-6">
+    <PageContainer className="py-6">
+      <div className="max-w-4xl animate-fadeIn space-y-6">
         <div className="space-y-2 pb-6 border-b">
           <h2 className="text-xl font-semibold">No More Reviews</h2>
           <p className="text-muted-foreground">
@@ -43,6 +44,6 @@ export function ReviewCompleteState({ remainingReviews, onNextReview }: ReviewCo
           </div>
         </div>
       </div>
-    </article>
+    </PageContainer>
   );
 }

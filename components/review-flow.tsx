@@ -5,6 +5,7 @@ import { ArrowRight, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
+import { PageContainer } from '@/components/page-container';
 import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
@@ -199,11 +200,7 @@ export function ReviewFlow() {
 
   // Render based on phase
   if (phase === 'loading') {
-    return (
-      <div className="min-h-[400px] flex items-start justify-center">
-        <QuizFlowSkeleton />
-      </div>
-    );
+    return <QuizFlowSkeleton />;
   }
 
   if (phase === 'empty') {
@@ -212,8 +209,8 @@ export function ReviewFlow() {
 
   if (phase === 'reviewing' && question) {
     return (
-      <div className="min-h-[400px] flex items-start justify-center">
-        <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
+      <PageContainer className="py-6">
+        <div className="max-w-[760px]">
           <article className="space-y-6">
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
@@ -234,119 +231,118 @@ export function ReviewFlow() {
               />
             </ReviewErrorBoundary>
 
-            <div className="space-y-3">
-              {feedbackState.showFeedback &&
-                (question.explanation ||
-                  interactions.length > 0 ||
-                  feedbackState.nextReviewInfo?.nextReview) && (
-                  <div className="mt-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
-                    {/* Explanation */}
-                    {question.explanation && (
-                      <p className="text-sm text-foreground/90">{question.explanation}</p>
-                    )}
-
-                    {/* Divider between explanation and other content */}
-                    {question.explanation &&
-                      (interactions.length > 0 || feedbackState.nextReviewInfo?.nextReview) && (
-                        <hr className="border-border/30" />
-                      )}
-
-                    {/* Question History */}
-                    {interactions.length > 0 && (
-                      <QuestionHistory interactions={interactions} loading={false} />
-                    )}
-
-                    {/* Next Review - inline and subtle */}
-                    {feedbackState.nextReviewInfo && feedbackState.nextReviewInfo.nextReview && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>
-                          Next review:{' '}
-                          {feedbackState.nextReviewInfo.scheduledDays === 0
-                            ? 'Today'
-                            : feedbackState.nextReviewInfo.scheduledDays === 1
-                              ? 'Tomorrow'
-                              : `In ${feedbackState.nextReviewInfo.scheduledDays} days`}
-                          {' at '}
-                          {new Date(feedbackState.nextReviewInfo.nextReview).toLocaleTimeString(
-                            'en-US',
-                            {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            }
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              {/* Action buttons for edit/delete */}
-              <div className="flex items-center justify-between mt-6">
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleEdit}
-                    className="text-muted-foreground hover:text-foreground"
-                    title="Edit question (E)"
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDelete}
-                    className="text-muted-foreground hover:text-error"
-                    title="Delete question (D)"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                </div>
-
-                {!feedbackState.showFeedback ? (
-                  <Button onClick={handleSubmit} disabled={!selectedAnswer} size="lg">
-                    Submit
-                  </Button>
-                ) : (
-                  <Button onClick={handleNext} size="lg">
-                    Next
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                )}
+            {/* Action buttons - positioned above feedback for layout stability */}
+            <div className="flex items-center justify-between mt-6 mb-4">
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleEdit}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Edit question (E)"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="text-muted-foreground hover:text-error"
+                  title="Delete question (D)"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
               </div>
-            </div>
-          </article>
-        </div>
 
-        {/* Edit Question Modal */}
-        {question && questionId && (
-          <EditQuestionModal
-            open={editModalOpen}
-            onOpenChange={setEditModalOpen}
-            question={
-              {
-                _id: questionId,
-                _creationTime: Date.now(),
-                userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
-                question: question.question,
-                topic: '', // SimpleQuestion doesn't have topic
-                difficulty: 'medium', // Default since not in SimpleQuestion
-                type: question.type || 'multiple-choice',
-                options: question.options,
-                correctAnswer: question.correctAnswer,
-                explanation: question.explanation,
-                generatedAt: Date.now(),
-                attemptCount: 0, // Not available in SimpleQuestion
-                correctCount: 0, // Not available in SimpleQuestion
-              } as Doc<'questions'>
-            }
-            onSave={handleSaveEdit}
-          />
-        )}
-      </div>
+              {!feedbackState.showFeedback ? (
+                <Button onClick={handleSubmit} disabled={!selectedAnswer} size="lg">
+                  Submit
+                </Button>
+              ) : (
+                <Button onClick={handleNext} size="lg">
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Feedback section */}
+            {feedbackState.showFeedback &&
+              (question.explanation ||
+                interactions.length > 0 ||
+                feedbackState.nextReviewInfo?.nextReview) && (
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 animate-fadeIn">
+                  {/* Explanation */}
+                  {question.explanation && (
+                    <p className="text-sm text-foreground/90">{question.explanation}</p>
+                  )}
+
+                  {/* Divider between explanation and other content */}
+                  {question.explanation &&
+                    (interactions.length > 0 || feedbackState.nextReviewInfo?.nextReview) && (
+                      <hr className="border-border/30" />
+                    )}
+
+                  {/* Question History */}
+                  {interactions.length > 0 && (
+                    <QuestionHistory interactions={interactions} loading={false} />
+                  )}
+
+                  {/* Next Review - inline and subtle */}
+                  {feedbackState.nextReviewInfo && feedbackState.nextReviewInfo.nextReview && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>
+                        Next review:{' '}
+                        {feedbackState.nextReviewInfo.scheduledDays === 0
+                          ? 'Today'
+                          : feedbackState.nextReviewInfo.scheduledDays === 1
+                            ? 'Tomorrow'
+                            : `In ${feedbackState.nextReviewInfo.scheduledDays} days`}
+                        {' at '}
+                        {new Date(feedbackState.nextReviewInfo.nextReview).toLocaleTimeString(
+                          'en-US',
+                          {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          }
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+          </article>
+
+          {/* Edit Question Modal */}
+          {question && questionId && (
+            <EditQuestionModal
+              open={editModalOpen}
+              onOpenChange={setEditModalOpen}
+              question={
+                {
+                  _id: questionId,
+                  _creationTime: Date.now(),
+                  userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
+                  question: question.question,
+                  topic: '', // SimpleQuestion doesn't have topic
+                  difficulty: 'medium', // Default since not in SimpleQuestion
+                  type: question.type || 'multiple-choice',
+                  options: question.options,
+                  correctAnswer: question.correctAnswer,
+                  explanation: question.explanation,
+                  generatedAt: Date.now(),
+                  attemptCount: 0, // Not available in SimpleQuestion
+                  correctCount: 0, // Not available in SimpleQuestion
+                } as Doc<'questions'>
+              }
+              onSave={handleSaveEdit}
+            />
+          )}
+        </div>
+      </PageContainer>
     );
   }
 

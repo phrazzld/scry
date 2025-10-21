@@ -327,7 +327,7 @@ export function LibraryTable({
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="w-full rounded-md border">
       <Table className="table-fixed">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (

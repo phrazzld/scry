@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
 
+import { PageContainer } from '@/components/page-container';
+import { TableSkeleton } from '@/components/ui/loading-skeletons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/convex/_generated/api';
@@ -13,16 +16,32 @@ import { useUndoableAction } from '@/hooks/use-undoable-action';
 
 import { BulkActionsBar } from './bulk-actions-bar';
 import { LibraryCards } from './library-cards';
+import { LibraryPagination } from './library-pagination';
 import { LibraryTable } from './library-table';
 
 type LibraryView = 'active' | 'archived' | 'trash';
 
 export function LibraryClient() {
+  const { isSignedIn } = useUser();
   const [currentTab, setCurrentTab] = useState<LibraryView>('active');
   const [selectedIds, setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
 
-  // Query questions for current view
-  const questions = useQuery(api.questionsLibrary.getLibrary, { view: currentTab });
+  // Pagination state
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  // Query questions for current view with pagination
+  // Skip query when not authenticated to prevent race condition during Clerk auth loading
+  const paginationData = useQuery(
+    api.questionsLibrary.getLibrary,
+    isSignedIn ? { view: currentTab, cursor: cursor ?? undefined, pageSize } : 'skip'
+  );
+
+  // Extract pagination results
+  const questions = paginationData?.results;
+  const continueCursor = paginationData?.continueCursor ?? null;
+  const isDone = paginationData?.isDone ?? true;
 
   // Mutations for bulk operations
   const archiveQuestions = useMutation(api.questionsBulk.archiveQuestions);
@@ -44,12 +63,57 @@ export function LibraryClient() {
   const handleTabChange = (value: string) => {
     setCurrentTab(value as LibraryView);
     setSelectedIds(new Set());
+    // Reset pagination when switching tabs
+    setCursor(null);
+    setCursorStack([]);
   };
 
   // Clear selection handler
   const handleClearSelection = () => {
     setSelectedIds(new Set());
   };
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (!continueCursor || isDone) return;
+
+    // Push current cursor to stack for backward navigation
+    if (cursor !== null) {
+      setCursorStack([...cursorStack, cursor]);
+    } else {
+      // First page -> second page, push null to stack
+      setCursorStack([...cursorStack, '']);
+    }
+
+    setCursor(continueCursor);
+    setSelectedIds(new Set()); // Clear selection when changing pages
+  };
+
+  const handlePrevPage = () => {
+    if (cursorStack.length === 0) return;
+
+    // Pop last cursor from stack
+    const newStack = [...cursorStack];
+    const previousCursor = newStack.pop();
+    setCursorStack(newStack);
+
+    // Empty string represents null (first page)
+    setCursor(previousCursor === '' ? null : (previousCursor ?? null));
+    setSelectedIds(new Set()); // Clear selection when changing pages
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCursor(null);
+    setCursorStack([]);
+    setSelectedIds(new Set()); // Clear selection when changing page size
+  };
+
+  // Reset pagination when pageSize changes (via useEffect for safety)
+  useEffect(() => {
+    setCursor(null);
+    setCursorStack([]);
+  }, [pageSize]);
 
   // Bulk operation handlers with undo pattern for reversible actions
   const handleArchive = async (ids: Id<'questions'>[]) => {
@@ -167,7 +231,7 @@ export function LibraryClient() {
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <PageContainer className="py-8">
         <h1 className="text-3xl font-bold mb-6">Question Library</h1>
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
@@ -190,7 +254,7 @@ export function LibraryClient() {
 
           <TabsContent value="active" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -214,13 +278,23 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>
 
           <TabsContent value="archived" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -244,13 +318,23 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>
 
           <TabsContent value="trash" className="mt-6">
             {questions === undefined ? (
-              <div className="text-center py-12 text-muted-foreground">Loading...</div>
+              <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
@@ -274,11 +358,21 @@ export function LibraryClient() {
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
+
+                <LibraryPagination
+                  isDone={isDone}
+                  onNextPage={handleNextPage}
+                  onPrevPage={handlePrevPage}
+                  hasPrevious={cursorStack.length > 0}
+                  pageSize={pageSize}
+                  onPageSizeChange={handlePageSizeChange}
+                  totalShown={questions.length}
+                />
               </>
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
     </TooltipProvider>
   );
 }

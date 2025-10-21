@@ -6,11 +6,17 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/convex/_generated/api';
 import { AUTO_FOCUS_DELAY, TOAST_DURATION } from '@/lib/constants/ui';
 import { handleJobCreationError } from '@/lib/error-handlers';
-import { cn } from '@/lib/utils';
 
 interface GenerationModalProps {
   open: boolean;
@@ -18,23 +24,47 @@ interface GenerationModalProps {
   onGenerationSuccess?: (count: number) => void;
 }
 
+const DRAFT_STORAGE_KEY = 'scry-generation-draft';
+const AUTO_SAVE_DEBOUNCE = 2000; // 2 seconds
+
 export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: GenerationModalProps) {
   const [prompt, setPrompt] = React.useState('');
   const [isGenerating, setIsGenerating] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const createJob = useMutation(api.generationJobs.createJob);
 
-  // Auto-focus textarea when modal opens
+  // Auto-focus textarea and restore draft when modal opens
   React.useEffect(() => {
     if (open) {
+      // Restore draft from localStorage
+      const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (draft && !prompt) {
+        setPrompt(draft);
+        toast.info('Draft restored', {
+          duration: 2000,
+        });
+      }
+
+      // Auto-focus after a short delay
       setTimeout(() => {
         textareaRef.current?.focus();
       }, AUTO_FOCUS_DELAY);
     } else {
-      // Clear prompt when closing
+      // Clear prompt when closing (don't clear localStorage - keep draft)
       setPrompt('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Auto-save draft to localStorage (debounced)
+  React.useEffect(() => {
+    if (prompt) {
+      const timer = setTimeout(() => {
+        localStorage.setItem(DRAFT_STORAGE_KEY, prompt);
+      }, AUTO_SAVE_DEBOUNCE);
+      return () => clearTimeout(timer);
+    }
+  }, [prompt]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,6 +81,9 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
     try {
       await createJob({ prompt: submittedPrompt });
+
+      // Clear draft on successful submission
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       toast.success('Generation started', {
         description: 'Check Background Tasks to monitor progress',
@@ -75,45 +108,38 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0">
-        <DialogHeader className="px-6 pt-4 pb-2">
-          <DialogTitle className="text-lg">Generate New Questions</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">Create questions about any topic</p>
+      <DialogContent className="sm:max-w-3xl p-8 sm:p-10" showCloseButton={false}>
+        <DialogHeader className="mb-10">
+          <DialogTitle className="text-3xl font-semibold tracking-tight">
+            Generate New Questions
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
-          {/* Textarea */}
-          <div className="space-y-2">
-            <textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="What would you like to learn about? (e.g., 'NATO alphabet', 'React hooks', 'Periodic table')"
-              className={cn(
-                'w-full resize-none rounded-lg border border-input bg-background px-3 py-2',
-                'text-sm ring-offset-background placeholder:text-muted-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'h-24'
-              )}
-              disabled={isGenerating}
-            />
-            <p className="text-xs text-muted-foreground">
-              Press{' '}
-              {typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
-                ? '⌘'
-                : 'Ctrl'}
-              +Enter to generate
-            </p>
-          </div>
+        <form onSubmit={handleSubmit} className="grid gap-12">
+          <Textarea
+            id="prompt"
+            ref={textareaRef}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Master quantum mechanics, learn Greek mythology, understand neural networks..."
+            className="h-32 resize-none border-border/50 focus-visible:ring-2 focus-visible:ring-primary/20"
+            disabled={isGenerating}
+          />
 
-          {/* Submit button */}
-          <div className="flex justify-end">
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
               disabled={!prompt.trim() || isGenerating}
-              className="min-w-[120px]"
+              className="min-w-[140px]"
               data-testid="generate-quiz-button"
             >
               {isGenerating ? (
@@ -125,7 +151,7 @@ export function GenerationModal({ open, onOpenChange, onGenerationSuccess }: Gen
                 'Generate'
               )}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
