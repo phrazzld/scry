@@ -285,8 +285,21 @@ export const getNextReview = query({
     // Sort by retrievability (lower = higher priority)
     questionsWithPriority.sort((a, b) => a.retrievability - b.retrievability);
 
-    // Return the highest priority question - Pure FSRS, no tricks
-    const nextQuestion = questionsWithPriority[0].question;
+    // Top-10 shuffle for temporal dispersion
+    // Rationale: Items with similar retrievability (top 10) are equally urgent.
+    // Shuffling prevents temporal clustering (same _creationTime → same priority)
+    // while respecting FSRS priority (only shuffles "urgent tier" items).
+    // Learning science: Interleaving improves retention vs. blocked practice.
+    const N = 10;
+    const topCandidates = questionsWithPriority.slice(0, Math.min(N, questionsWithPriority.length));
+
+    // Fisher-Yates shuffle: O(N) unbiased random permutation
+    for (let i = topCandidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [topCandidates[i], topCandidates[j]] = [topCandidates[j], topCandidates[i]];
+    }
+
+    const nextQuestion = topCandidates[0].question;
 
     // Get interaction history for this question
     // Bandwidth optimization: Limit to 10 most recent interactions instead of all
