@@ -32,7 +32,6 @@ export default defineSchema({
   // - Existing records migrated via migrations.ts:removeDifficultyFromQuestions
   questions: defineTable({
     userId: v.id('users'),
-    topic: v.string(),
     question: v.string(),
     type: v.union(v.literal('multiple-choice'), v.literal('true-false')),
     options: v.array(v.string()),
@@ -63,7 +62,6 @@ export default defineSchema({
     generationJobId: v.optional(v.id('generationJobs')), // Link to source generation job
   })
     .index('by_user', ['userId', 'generatedAt'])
-    .index('by_user_topic', ['userId', 'topic', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
     .index('by_user_next_review', ['userId', 'nextReview'])
     // Compound indexes for efficient filtering (eliminates client-side .filter())

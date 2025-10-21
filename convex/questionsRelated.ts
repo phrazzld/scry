@@ -51,7 +51,6 @@ export const prepareRelatedGeneration = mutation({
       success: true,
       baseQuestion: {
         id: baseQuestion._id,
-        topic: baseQuestion.topic,
         question: baseQuestion.question,
         type: baseQuestion.type,
         correctAnswer: baseQuestion.correctAnswer,
@@ -106,7 +105,6 @@ export const saveRelatedQuestions = mutation({
       args.relatedQuestions.map((q) =>
         ctx.db.insert('questions', {
           userId,
-          topic: baseQuestion.topic,
           question: q.question,
           type: q.type || 'multiple-choice',
           options: q.options,

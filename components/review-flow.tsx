@@ -167,7 +167,6 @@ export function ReviewFlow() {
       const result = await optimisticEdit({
         questionId,
         question: updates.question,
-        topic: '', // We don't have topic in SimpleQuestion, using empty string
         explanation: updates.explanation,
         options: updates.options,
         correctAnswer: updates.correctAnswer,

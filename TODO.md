@@ -21,7 +21,7 @@
   Time: 30min
   ```
 
-- [~] Add shuffle tests to spacedRepetition.test.ts
+- [x] Add shuffle tests to spacedRepetition.test.ts
   ```
   Files: convex/spacedRepetition.test.ts:~line 400 (new describe block)
   Approach: Follow pattern from existing "Review Queue Prioritization" tests (lines 7-39)
@@ -39,7 +39,13 @@
 
 ### Backend: Schema & Migration
 
-- [ ] Remove topic field and index from questions schema
+- [~] Remove topic field and index from questions schema
+  ```
+  Work Log:
+  - Schema updated (topic field + by_user_topic index removed)
+  - Pre-commit hook blocked due to TypeScript errors (expected)
+  - Strategy: Fix all downstream code, then commit atomically
+  ```
   ```
   Files: convex/schema.ts:35 (remove topic field), :66 (remove by_user_topic index)
   Approach: Delete lines, keep generationJobs.topic (scoped to jobs table)

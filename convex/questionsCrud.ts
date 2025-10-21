@@ -23,7 +23,6 @@ import { getScheduler } from './scheduling';
  */
 export const saveGeneratedQuestions = mutation({
   args: {
-    topic: v.string(),
     questions: v.array(
       v.object({
         question: v.string(),
@@ -46,7 +45,6 @@ export const saveGeneratedQuestions = mutation({
       args.questions.map((q) =>
         ctx.db.insert('questions', {
           userId,
-          topic: args.topic,
           question: q.question,
           type: q.type || 'multiple-choice',
           options: q.options,
@@ -82,7 +80,6 @@ export const saveGeneratedQuestions = mutation({
 export const saveBatch = internalMutation({
   args: {
     userId: v.id('users'),
-    topic: v.string(),
     questions: v.array(
       v.object({
         question: v.string(),
@@ -103,7 +100,6 @@ export const saveBatch = internalMutation({
       args.questions.map((q) =>
         ctx.db.insert('questions', {
           userId: args.userId,
-          topic: args.topic,
           question: q.question,
           type: q.type || 'multiple-choice',
           options: q.options,
@@ -139,7 +135,6 @@ export const updateQuestion = mutation({
   args: {
     questionId: v.id('questions'),
     question: v.optional(v.string()),
-    topic: v.optional(v.string()),
     explanation: v.optional(v.string()),
     options: v.optional(v.array(v.string())),
     correctAnswer: v.optional(v.string()),
@@ -163,10 +158,6 @@ export const updateQuestion = mutation({
     // 4. Input validation
     if (args.question !== undefined && args.question.trim().length === 0) {
       throw new Error('Question cannot be empty');
-    }
-
-    if (args.topic !== undefined && args.topic.trim().length === 0) {
-      throw new Error('Topic cannot be empty');
     }
 
     if (args.options !== undefined) {
@@ -202,7 +193,6 @@ export const updateQuestion = mutation({
     // 5. Build update fields
     const updateFields: Partial<typeof question> = {};
     if (args.question !== undefined) updateFields.question = args.question;
-    if (args.topic !== undefined) updateFields.topic = args.topic;
     if (args.explanation !== undefined) updateFields.explanation = args.explanation;
     if (args.options !== undefined) updateFields.options = args.options;
     if (args.correctAnswer !== undefined) updateFields.correctAnswer = args.correctAnswer;

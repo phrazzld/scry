@@ -161,7 +161,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
               .withIndex('by_user', (q) => q.eq('userId', quizResult.userId))
               .filter((q) =>
                 q.and(
-                  q.eq(q.field('topic'), quizResult.topic),
                   q.eq(q.field('question'), answer.question),
                   q.eq(q.field('correctAnswer'), answer.correctAnswer)
                 )
@@ -188,7 +187,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
               if (!dryRun) {
                 questionId = await ctx.db.insert('questions', {
                   userId: quizResult.userId,
-                  topic: quizResult.topic,
                   question: answer.question,
                   type: answer.type || 'multiple-choice',
                   options: answer.options,
