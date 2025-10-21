@@ -10,7 +10,7 @@
 
 ### Backend: Review Queue Shuffle
 
-- [~] Implement top-10 shuffle in getNextReview query
+- [x] Implement top-10 shuffle in getNextReview query
   ```
   Files: convex/spacedRepetition.ts:286-290
   Approach: After existing sort, slice top 10, Fisher-Yates shuffle, return first
@@ -21,7 +21,7 @@
   Time: 30min
   ```
 
-- [ ] Add shuffle tests to spacedRepetition.test.ts
+- [~] Add shuffle tests to spacedRepetition.test.ts
   ```
   Files: convex/spacedRepetition.test.ts:~line 400 (new describe block)
   Approach: Follow pattern from existing "Review Queue Prioritization" tests (lines 7-39)

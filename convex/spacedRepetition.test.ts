@@ -1507,3 +1507,244 @@ describe('UserStats Integration Tests', () => {
     });
   });
 });
+
+describe('Top-10 Shuffle for Temporal Dispersion', () => {
+  const mockUserId = 'user123' as Id<'users'>;
+  const now = new Date('2025-01-16T12:00:00Z');
+
+  function createMockQuestion(overrides: Partial<Doc<'questions'>> = {}): Doc<'questions'> {
+    return {
+      _id: Math.random().toString() as Id<'questions'>,
+      _creationTime: Date.now(),
+      question: 'Test question?',
+      correctAnswer: 'Test answer',
+      type: 'multiple-choice' as const,
+      options: [],
+      generatedAt: Date.now(),
+      topic: 'testing',
+      attemptCount: 0,
+      correctCount: 0,
+      userId: mockUserId,
+      ...overrides,
+    };
+  }
+
+  // Simulate the shuffle logic from getNextReview
+  function simulateShuffleSelection(
+    questions: Doc<'questions'>[],
+    currentTime: Date = now,
+    iterations = 1
+  ) {
+    const results: string[] = [];
+
+    for (let iter = 0; iter < iterations; iter++) {
+      const questionsWithPriority = questions.map((q) => ({
+        question: q,
+        retrievability: calculateRetrievabilityScore(q, currentTime),
+      }));
+
+      // Sort by retrievability (lower = higher priority)
+      questionsWithPriority.sort((a, b) => a.retrievability - b.retrievability);
+
+      // Top-10 shuffle (matching implementation)
+      const N = 10;
+      const topCandidates = questionsWithPriority.slice(
+        0,
+        Math.min(N, questionsWithPriority.length)
+      );
+
+      // Fisher-Yates shuffle
+      for (let i = topCandidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [topCandidates[i], topCandidates[j]] = [topCandidates[j], topCandidates[i]];
+      }
+
+      results.push(topCandidates[0].question._id);
+    }
+
+    return results;
+  }
+
+  it('should shuffle within top 10 candidates, showing variance over multiple calls', () => {
+    // Create 15 questions with identical retrievability (same _creationTime)
+    const identicalTimestamp = now.getTime() - 3600000; // 1 hour ago
+    const questions = Array.from({ length: 15 }, (_, i) =>
+      createMockQuestion({
+        _id: `question-${i}` as Id<'questions'>,
+        _creationTime: identicalTimestamp, // Same creation time = same priority
+        nextReview: undefined,
+        state: 'new',
+      })
+    );
+
+    // Run selection 50 times to verify shuffle behavior
+    const selections = simulateShuffleSelection(questions, now, 50);
+
+    // Collect unique question IDs that appeared
+    const uniqueSelections = new Set(selections);
+
+    // Should see multiple different questions (not always the same one)
+    // With 50 iterations and 10 items shuffled, we expect to see 5+ different items
+    expect(uniqueSelections.size).toBeGreaterThanOrEqual(5);
+
+    // Verify selections are distributed (no single question dominates)
+    const selectionCounts = new Map<string, number>();
+    selections.forEach((id) => {
+      selectionCounts.set(id, (selectionCounts.get(id) || 0) + 1);
+    });
+
+    // No question should appear more than 20 times out of 50 (40% threshold)
+    // This validates shuffle is working, not just picking first item
+    const maxCount = Math.max(...Array.from(selectionCounts.values()));
+    expect(maxCount).toBeLessThan(20);
+  });
+
+  it('should never select items outside top 10 when more candidates exist', () => {
+    // Create 15 questions with different priorities
+    const questions: Doc<'questions'>[] = [];
+
+    // Top 10: New questions (priority -2 to -1)
+    for (let i = 0; i < 10; i++) {
+      questions.push(
+        createMockQuestion({
+          _id: `top-${i}` as Id<'questions'>,
+          _creationTime: now.getTime() - i * 3600000, // Varying freshness
+          nextReview: undefined,
+          state: 'new',
+        })
+      );
+    }
+
+    // Bottom 5: Overdue review questions (priority 0-1, lower urgency than new)
+    for (let i = 0; i < 5; i++) {
+      questions.push(
+        createMockQuestion({
+          _id: `bottom-${i}` as Id<'questions'>,
+          nextReview: now.getTime() - 86400000 * (i + 1), // 1-5 days overdue
+          state: 'review',
+          stability: 10,
+          lastReview: now.getTime() - 86400000 * (i + 10),
+        })
+      );
+    }
+
+    // Run selection 100 times
+    const selections = simulateShuffleSelection(questions, now, 100);
+
+    // Verify NO selections from bottom 5
+    const bottomIds = new Set(['bottom-0', 'bottom-1', 'bottom-2', 'bottom-3', 'bottom-4']);
+    const selectedBottomItems = selections.filter((id) => bottomIds.has(id));
+
+    expect(selectedBottomItems).toHaveLength(0);
+
+    // Verify ALL selections are from top 10
+    const topIds = new Set(Array.from({ length: 10 }, (_, i) => `top-${i}`));
+    selections.forEach((id) => {
+      expect(topIds.has(id)).toBe(true);
+    });
+  });
+
+  it('should respect FSRS priority order - shuffle only within top tier', () => {
+    // Create scenario: 5 ultra-urgent, 5 moderately urgent, 5 low urgent
+    const questions: Doc<'questions'>[] = [];
+
+    // Ultra-urgent: Very overdue (retrievability ~0.2)
+    for (let i = 0; i < 5; i++) {
+      questions.push(
+        createMockQuestion({
+          _id: `ultra-urgent-${i}` as Id<'questions'>,
+          nextReview: now.getTime() - 86400000 * 10, // 10 days overdue
+          state: 'review',
+          stability: 5,
+          lastReview: now.getTime() - 86400000 * 20,
+        })
+      );
+    }
+
+    // Moderately urgent: Somewhat overdue (retrievability ~0.5)
+    for (let i = 0; i < 5; i++) {
+      questions.push(
+        createMockQuestion({
+          _id: `moderate-${i}` as Id<'questions'>,
+          nextReview: now.getTime() - 86400000 * 3, // 3 days overdue
+          state: 'review',
+          stability: 7,
+          lastReview: now.getTime() - 86400000 * 10,
+        })
+      );
+    }
+
+    // Low urgent: Barely due (retrievability ~0.85)
+    for (let i = 0; i < 5; i++) {
+      questions.push(
+        createMockQuestion({
+          _id: `low-urgent-${i}` as Id<'questions'>,
+          nextReview: now.getTime() - 3600000, // 1 hour overdue
+          state: 'review',
+          stability: 12,
+          lastReview: now.getTime() - 86400000 * 5,
+        })
+      );
+    }
+
+    // Run selection 100 times
+    const selections = simulateShuffleSelection(questions, now, 100);
+
+    // Count selections by urgency tier
+    const ultraCount = selections.filter((id) => id.startsWith('ultra-urgent')).length;
+    const moderateCount = selections.filter((id) => id.startsWith('moderate')).length;
+    const lowCount = selections.filter((id) => id.startsWith('low-urgent')).length;
+
+    // Validate FSRS priority is respected in shuffle
+    // Ultra-urgent + moderate should dominate (they're in top 10)
+    const highPriorityCount = ultraCount + moderateCount;
+    expect(highPriorityCount).toBeGreaterThan(lowCount * 2);
+
+    // Low-urgent should rarely appear (outside top-10 after priority sort)
+    expect(lowCount).toBeLessThan(30); // <30% of selections
+  });
+
+  it('should handle edge case of fewer than 10 candidates', () => {
+    // Create only 3 questions
+    const questions = Array.from({ length: 3 }, (_, i) =>
+      createMockQuestion({
+        _id: `question-${i}` as Id<'questions'>,
+        _creationTime: now.getTime(),
+        nextReview: undefined,
+        state: 'new',
+      })
+    );
+
+    // Should not crash, should shuffle all 3
+    const selections = simulateShuffleSelection(questions, now, 30);
+
+    // Verify no errors occurred (selections exist)
+    expect(selections).toHaveLength(30);
+
+    // Verify we see variance among all 3 questions
+    const uniqueSelections = new Set(selections);
+    expect(uniqueSelections.size).toBe(3);
+
+    // All selections should be from our 3 questions
+    selections.forEach((id) => {
+      expect(['question-0', 'question-1', 'question-2']).toContain(id);
+    });
+  });
+
+  it('should handle edge case of exactly 1 candidate', () => {
+    const singleQuestion = createMockQuestion({
+      _id: 'only-question' as Id<'questions'>,
+      nextReview: undefined,
+      state: 'new',
+    });
+
+    // Should not crash with single item
+    const selections = simulateShuffleSelection([singleQuestion], now, 10);
+
+    // Should always return the same question
+    expect(selections).toHaveLength(10);
+    selections.forEach((id) => {
+      expect(id).toBe('only-question');
+    });
+  });
+});
