@@ -10,8 +10,10 @@ import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
 import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
+import { ReviewProgressIndicator } from '@/components/review/review-progress-indicator';
 import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
+import { api } from '@/convex/_generated/api';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
 import type { Doc } from '@/convex/_generated/dataModel';
 import { useConfirmation } from '@/hooks/use-confirmation';
@@ -19,6 +21,7 @@ import { useReviewShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useQuestionMutations } from '@/hooks/use-question-mutations';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
 import { useReviewFlow } from '@/hooks/use-review-flow';
+import { useQuery } from 'convex/react';
 
 /**
  * Unified ReviewFlow component that combines ReviewMode + ReviewSession
@@ -50,6 +53,12 @@ export function ReviewFlow() {
   const { trackAnswer } = useQuizInteractions();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+
+  // Session progress tracking
+  const [sessionReviewCount, setSessionReviewCount] = useState(0);
+
+  // Query for remaining reviews
+  const dueCountData = useQuery(api.spacedRepetition.getDueCount, {});
 
   // Edit/Delete functionality
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -118,6 +127,9 @@ export function ReviewFlow() {
   }, [selectedAnswer, question, questionId, questionStartTime, trackAnswer, sessionId]);
 
   const handleNext = useCallback(() => {
+    // Increment session review count
+    setSessionReviewCount((prev) => prev + 1);
+
     // Tell the review flow we're done with this question
     handlers.onReviewComplete();
 
@@ -212,6 +224,14 @@ export function ReviewFlow() {
       <PageContainer className="py-6">
         <div className="max-w-[760px]">
           <article className="space-y-6">
+            {/* Progress indicator */}
+            {dueCountData && (
+              <ReviewProgressIndicator
+                reviewedCount={sessionReviewCount}
+                remainingCount={dueCountData.totalReviewable}
+              />
+            )}
+
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
               fallbackMessage="Unable to display this question. Try refreshing or moving to the next question."
