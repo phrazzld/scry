@@ -210,7 +210,7 @@ export function ReviewFlow() {
   if (phase === 'reviewing' && question) {
     return (
       <PageContainer className="py-6">
-        <div className="max-w-4xl">
+        <div className="max-w-[760px]">
           <article className="space-y-6">
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
