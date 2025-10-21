@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useQuery } from 'convex/react';
 
 import { LibraryPagination } from '@/app/library/_components/library-pagination';
@@ -15,6 +16,7 @@ import { TasksTable } from './tasks-table';
 type StatusFilter = 'all' | 'active' | 'completed' | 'failed';
 
 export function TasksClient() {
+  const { isSignedIn } = useUser();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   // Pagination state
@@ -23,10 +25,11 @@ export function TasksClient() {
   const [pageSize, setPageSize] = useState<number>(25);
 
   // Query jobs with cursor pagination
-  const paginationData = useQuery(api.generationJobs.getRecentJobs, {
-    cursor: cursor ?? undefined,
-    pageSize,
-  });
+  // Skip query when not authenticated to prevent race condition during Clerk auth loading
+  const paginationData = useQuery(
+    api.generationJobs.getRecentJobs,
+    isSignedIn ? { cursor: cursor ?? undefined, pageSize } : 'skip'
+  );
 
   // Extract pagination results
   const allJobs = paginationData?.results;

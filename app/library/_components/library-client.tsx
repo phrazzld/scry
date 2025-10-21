@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
 
@@ -21,6 +22,7 @@ import { LibraryTable } from './library-table';
 type LibraryView = 'active' | 'archived' | 'trash';
 
 export function LibraryClient() {
+  const { isSignedIn } = useUser();
   const [currentTab, setCurrentTab] = useState<LibraryView>('active');
   const [selectedIds, setSelectedIds] = useState<Set<Id<'questions'>>>(new Set());
 
@@ -30,11 +32,11 @@ export function LibraryClient() {
   const [pageSize, setPageSize] = useState<number>(25);
 
   // Query questions for current view with pagination
-  const paginationData = useQuery(api.questionsLibrary.getLibrary, {
-    view: currentTab,
-    cursor: cursor ?? undefined,
-    pageSize,
-  });
+  // Skip query when not authenticated to prevent race condition during Clerk auth loading
+  const paginationData = useQuery(
+    api.questionsLibrary.getLibrary,
+    isSignedIn ? { view: currentTab, cursor: cursor ?? undefined, pageSize } : 'skip'
+  );
 
   // Extract pagination results
   const questions = paginationData?.results;
