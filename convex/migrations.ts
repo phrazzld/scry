@@ -671,14 +671,16 @@ async function removeTopicFromQuestionsInternal(
     for (const question of allQuestions) {
       stats.totalProcessed++;
 
-      // Check if question has topic field
-      if ('topic' in question && question.topic !== undefined) {
+      // Check if question has topic field (use runtime check, not TypeScript)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const questionData = question as any;
+      if (questionData.topic !== undefined) {
         if (!dryRun) {
           // Use replace to remove the field entirely
           // Convex doesn't have a built-in way to delete fields, so we reconstruct
           // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
           // Convex's db.replace() rejects objects that include system fields
-          const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = question;
+          const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = questionData;
 
           await ctx.db.replace(question._id, questionWithoutTopic);
         }
