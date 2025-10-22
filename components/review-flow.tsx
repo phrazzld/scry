@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Calendar, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
@@ -27,7 +27,7 @@ import { useReviewFlow } from '@/hooks/use-review-flow';
  */
 export function ReviewFlow() {
   // Get review state and handlers from custom hook
-  const { phase, question, questionId, interactions, handlers } = useReviewFlow();
+  const { phase, question, questionId, interactions, isTransitioning, handlers } = useReviewFlow();
 
   // Use context for current question
   const { setCurrentQuestion } = useCurrentQuestion();
@@ -191,7 +191,7 @@ export function ReviewFlow() {
         }
       : undefined,
     onSubmit: !feedbackState.showFeedback && selectedAnswer ? handleSubmit : undefined,
-    onNext: feedbackState.showFeedback ? handleNext : undefined,
+    onNext: feedbackState.showFeedback && !isTransitioning ? handleNext : undefined,
     onEdit: handleEdit,
     onDelete: handleDelete,
     showingFeedback: feedbackState.showFeedback,
@@ -261,9 +261,18 @@ export function ReviewFlow() {
                   Submit
                 </Button>
               ) : (
-                <Button onClick={handleNext} size="lg">
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button onClick={handleNext} disabled={isTransitioning} size="lg">
+                  {isTransitioning ? (
+                    <>
+                      Loading
+                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               )}
             </div>

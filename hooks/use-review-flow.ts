@@ -16,6 +16,7 @@ interface ReviewModeState {
   questionId: Id<'questions'> | null;
   interactions: Doc<'interactions'>[];
   lockId: string | null; // Prevents polling from switching questions mid-review
+  isTransitioning: boolean; // Indicates we're waiting for next question (optimistic UI)
   errorMessage?: string; // Error message for timeout or other issues
 }
 
@@ -43,13 +44,14 @@ const initialState: ReviewModeState = {
   questionId: null,
   interactions: [],
   lockId: null,
+  isTransitioning: false,
 };
 
 // Reducer function to manage state transitions
 export function reviewReducer(state: ReviewModeState, action: ReviewAction): ReviewModeState {
   switch (action.type) {
     case 'LOAD_START':
-      return { ...state, phase: 'loading' };
+      return { ...state, phase: 'loading', isTransitioning: false };
 
     case 'LOAD_EMPTY':
       return {
@@ -59,6 +61,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         questionId: null,
         interactions: [],
         lockId: null,
+        isTransitioning: false,
         errorMessage: undefined,
       };
 
@@ -77,19 +80,19 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         questionId: action.payload.questionId,
         interactions: action.payload.interactions,
         lockId: action.payload.lockId,
+        isTransitioning: false, // Clear transitioning state
         errorMessage: undefined,
       };
 
     case 'REVIEW_COMPLETE':
-      // Reset full state to ensure clean transition even when same question returns
-      // This is critical for FSRS immediate re-review scenarios (incorrect answers)
+      // Optimistic UI: Keep current question visible during transition
+      // This prevents flicker by maintaining layout stability while next question loads
+      // Only release lock to allow new question to load
       return {
         ...state,
-        phase: 'loading',
-        question: null,
-        questionId: null,
-        interactions: [],
-        lockId: null,
+        phase: 'reviewing', // Stay in reviewing phase
+        lockId: null, // Release lock so new question can load
+        isTransitioning: true, // Mark as transitioning for UI feedback
       };
 
     case 'IGNORE_UPDATE':
@@ -234,6 +237,7 @@ export function useReviewFlow() {
     question: state.question,
     questionId: state.questionId,
     interactions: state.interactions,
+    isTransitioning: state.isTransitioning,
     errorMessage: state.errorMessage,
     handlers: {
       onReviewComplete: handleReviewComplete,
