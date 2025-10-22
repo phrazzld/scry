@@ -674,7 +674,18 @@ async function removeTopicFromQuestionsInternal(
       // Check if question has topic field (use runtime check, not TypeScript)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const questionData = question as any;
-      if (questionData.topic !== undefined) {
+
+      // Debug logging for first question
+      if (stats.totalProcessed === 1) {
+        migrationLogger.info('First question check', {
+          hasTopicField: 'topic' in questionData,
+          topicValue: questionData.topic,
+          allKeys: Object.keys(questionData),
+        });
+      }
+
+      // Check if the topic property exists (not just if it's undefined)
+      if ('topic' in questionData) {
         if (!dryRun) {
           // Use replace to remove the field entirely
           // Convex doesn't have a built-in way to delete fields, so we reconstruct
@@ -759,6 +770,26 @@ export const removeTopicFromQuestions = internalMutation({
   },
   handler: async (ctx, args): Promise<MigrationResult<TopicRemovalStats>> => {
     return await removeTopicFromQuestionsInternal(ctx, args);
+  },
+});
+
+/**
+ * Diagnostic query to check if topic field exists in questions
+ */
+export const checkQuestionTopicFields = query({
+  args: {},
+  handler: async (ctx) => {
+    const questions = await ctx.db.query('questions').take(5);
+    return questions.map((q) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const qData = q as any;
+      return {
+        id: q._id,
+        hasTopicProperty: 'topic' in qData,
+        topicValue: qData.topic,
+        allKeys: Object.keys(qData),
+      };
+    });
   },
 });
 
