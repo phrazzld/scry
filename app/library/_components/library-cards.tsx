@@ -85,13 +85,9 @@ export function LibraryCards({
                   <div className="mt-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge variant="secondary" className="text-xs cursor-default">
-                          {question.topic}
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs cursor-default"></Badge>
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{question.topic}</p>
-                      </TooltipContent>
+                      <TooltipContent></TooltipContent>
                     </Tooltip>
                   </div>
                 </div>

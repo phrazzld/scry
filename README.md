@@ -408,6 +408,18 @@ npx convex logs
 - **Fix**: Check Convex dashboard for deployment errors
 - **Retry**: `npx convex deploy` to redeploy functions
 
+**Migration reports success but data unchanged:**
+- **Cause**: Deployed to wrong environment (DEV instead of PROD)
+- **Diagnosis**: Check deployment URL in migration logs - should show production deployment
+- **Fix**: Export `CONVEX_DEPLOY_KEY` explicitly (see CLAUDE.md), re-run migration
+- **Prevention**: Use `./scripts/run-migration.sh` (validates deployment target)
+
+**Migration doesn't detect fields that exist:**
+- **Cause**: TypeScript type erasure removes runtime property checks for deleted schema fields
+- **Diagnosis**: Migration code uses `doc.field !== undefined` (compile-time check gets optimized away)
+- **Fix**: Use `'field' in (doc as any)` for runtime property existence check
+- **Prevention**: Follow migration development guide (`docs/guides/writing-migrations.md`)
+
 ### Deployment Best Practices
 
 1. **Always Use Atomic Deployment**: Prefer automated Vercel deployment or manual script

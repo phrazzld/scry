@@ -4,7 +4,6 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tan
 import { formatDistanceToNow } from 'date-fns';
 import { Archive, MoreHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -107,27 +106,6 @@ export function LibraryTable({
     size: 300,
     minSize: 200,
     maxSize: 400,
-  };
-
-  const topicColumn: ColumnDef<LibraryQuestion> = {
-    accessorKey: 'topic',
-    header: 'Topic',
-    cell: ({ row }) => {
-      const topic = row.original.topic;
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant="secondary" className="truncate max-w-full block cursor-default">
-              {topic}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{topic}</p>
-          </TooltipContent>
-        </Tooltip>
-      );
-    },
-    size: 120,
   };
 
   const performanceColumn: ColumnDef<LibraryQuestion> = {
@@ -269,7 +247,6 @@ export function LibraryTable({
   const columns: ColumnDef<LibraryQuestion>[] = [
     selectColumn,
     questionColumn,
-    topicColumn,
     ...(currentTab === 'active' ? [performanceColumn] : []),
     dateColumn,
     ...(currentTab === 'active' ? [nextReviewColumn] : []),

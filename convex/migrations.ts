@@ -18,6 +18,12 @@ const DEFAULT_QUIZ_MIGRATION_BATCH_SIZE = 100;
 const DEFAULT_DIFFICULTY_REMOVAL_BATCH_SIZE = 500;
 
 /**
+ * Default batch size for topic field removal migration
+ * Larger batch is safe since it's a simple field deletion operation
+ */
+const DEFAULT_TOPIC_REMOVAL_BATCH_SIZE = 500;
+
+/**
  * Log progress every N records during migration
  * Provides feedback without overwhelming logs
  */
@@ -47,6 +53,16 @@ type MigrationResult<TStats = Record<string, number>> = {
  * Statistics for difficulty field removal migration
  */
 type DifficultyRemovalStats = {
+  totalProcessed: number;
+  updated: number;
+  alreadyMigrated: number;
+  errors: number;
+};
+
+/**
+ * Statistics for topic field removal migration
+ */
+type TopicRemovalStats = {
   totalProcessed: number;
   updated: number;
   alreadyMigrated: number;
@@ -161,7 +177,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
               .withIndex('by_user', (q) => q.eq('userId', quizResult.userId))
               .filter((q) =>
                 q.and(
-                  q.eq(q.field('topic'), quizResult.topic),
                   q.eq(q.field('question'), answer.question),
                   q.eq(q.field('correctAnswer'), answer.correctAnswer)
                 )
@@ -188,7 +203,6 @@ export const migrateQuizResultsToQuestions = internalMutation({
               if (!dryRun) {
                 questionId = await ctx.db.insert('questions', {
                   userId: quizResult.userId,
-                  topic: quizResult.topic,
                   question: answer.question,
                   type: answer.type || 'multiple-choice',
                   options: answer.options,
@@ -615,6 +629,177 @@ async function removeDifficultyFromQuestionsInternal(
     };
   }
 }
+
+/**
+ * Internal helper for topic removal migration
+ * This migration removes the vestigial topic field that was removed
+ * from the schema but still exists in older documents.
+ */
+async function removeTopicFromQuestionsInternal(
+  ctx: MutationCtx,
+  args: {
+    batchSize?: number;
+    dryRun?: boolean;
+  }
+): Promise<MigrationResult<TopicRemovalStats>> {
+  const batchSize = args.batchSize || DEFAULT_TOPIC_REMOVAL_BATCH_SIZE;
+  const dryRun = args.dryRun || false;
+
+  const migrationLogger = createLogger({
+    module: 'migrations',
+    function: 'removeTopicFromQuestions',
+  });
+
+  const stats = {
+    totalProcessed: 0,
+    updated: 0,
+    alreadyMigrated: 0,
+    errors: 0,
+  };
+
+  try {
+    migrationLogger.info('Starting migration with cursor-based pagination', {
+      event: 'migration.topic-removal.start',
+      batchSize,
+      dryRun,
+    });
+
+    // Process all questions using cursor-based pagination
+    // This scales safely to 10K+ questions without hitting Convex query limits
+    let paginationResult = await ctx.db.query('questions').paginate({
+      numItems: batchSize,
+      cursor: null,
+    });
+
+    // Process first batch
+    await processBatch(paginationResult.page);
+
+    // Continue processing remaining batches
+    while (!paginationResult.isDone) {
+      paginationResult = await ctx.db.query('questions').paginate({
+        numItems: batchSize,
+        cursor: paginationResult.continueCursor,
+      });
+
+      await processBatch(paginationResult.page);
+    }
+
+    // Helper function to process a batch of questions
+    async function processBatch(questions: typeof paginationResult.page) {
+      for (const question of questions) {
+        stats.totalProcessed++;
+
+        // Check if question has topic field (use runtime check, not TypeScript)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const questionData = question as any;
+
+        // Debug logging for first question
+        if (stats.totalProcessed === 1) {
+          migrationLogger.info('First question check', {
+            hasTopicField: 'topic' in questionData,
+            topicValue: questionData.topic,
+            allKeys: Object.keys(questionData),
+          });
+        }
+
+        // Check if the topic property exists (not just if it's undefined)
+        if ('topic' in questionData) {
+          if (!dryRun) {
+            // Use replace to remove the field entirely
+            // Convex doesn't have a built-in way to delete fields, so we reconstruct
+            // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
+            // Convex's db.replace() rejects objects that include system fields
+            const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = questionData;
+
+            await ctx.db.replace(question._id, questionWithoutTopic);
+          }
+          stats.updated++;
+
+          if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
+            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+          }
+        } else {
+          stats.alreadyMigrated++;
+        }
+      }
+
+      // Log batch completion
+      migrationLogger.info('Batch completed', {
+        event: dryRun ? 'migration.dry-run.batch' : 'migration.batch',
+        batchSize: questions.length,
+        totalProcessed: stats.totalProcessed,
+        updated: stats.updated,
+        alreadyMigrated: stats.alreadyMigrated,
+      });
+    }
+
+    migrationLogger.info('Migration completed', {
+      event: 'migration.topic-removal.complete',
+      dryRun,
+      stats,
+    });
+
+    return {
+      status: 'completed' as const,
+      dryRun,
+      stats,
+      message: dryRun
+        ? `Dry run: Would update ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`
+        : `Successfully updated ${stats.updated} questions, ${stats.alreadyMigrated} already migrated`,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+
+    migrationLogger.error('Migration failed', {
+      event: 'migration.topic-removal.error',
+      error: error.message,
+      stack: error.stack,
+      stats,
+    });
+
+    return {
+      status: 'failed' as const,
+      dryRun,
+      stats,
+      failures: [
+        {
+          recordId: 'N/A',
+          error: error.message,
+        },
+      ],
+      message: `Migration failed: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Remove topic field from all existing questions
+ *
+ * This migration removes the topic field from the questions table schema.
+ * The topic field was removed in favor of prompt-based generation without
+ * rigid topic categorization.
+ *
+ * Idempotent: Skips questions that don't have the topic field.
+ * Safe: Field removal doesn't affect any other functionality.
+ *
+ * Usage:
+ * ```typescript
+ * // Dry run first to see what would be done
+ * await convex.mutation(api.migrations.removeTopicFromQuestions, { dryRun: true });
+ *
+ * // Production run
+ * await convex.mutation(api.migrations.removeTopicFromQuestions, {});
+ * ```
+ */
+export const removeTopicFromQuestions = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<TopicRemovalStats>> => {
+    return await removeTopicFromQuestionsInternal(ctx, args);
+  },
+});
 
 /**
  * Initialize userStats for all existing users
