@@ -183,6 +183,8 @@ export default defineSchema({
     estimatedTotal: v.optional(v.number()), // AI's estimate
 
     // Results (flat fields)
+    // Note: topic field kept here for generation metadata/grouping
+    // Removed from questions table (PR #44) but still used here for job classification
     topic: v.optional(v.string()), // Extracted topic
     questionIds: v.array(v.id('questions')), // All saved questions
     durationMs: v.optional(v.number()), // Total generation time

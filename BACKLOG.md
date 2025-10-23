@@ -1009,6 +1009,42 @@ export const postponeWithRelated = mutation({
 
 ---
 
+### [ENHANCEMENT] Dynamic Urgency Threshold for Shuffle
+**File**: `convex/spacedRepetition.ts:293`
+**Source**: PR #44 review feedback
+**Perspectives**: performance-pathfinder, user-experience-advocate
+**Severity**: LOW
+**Impact**: Hard-coded N=10 shuffle tier may mix items with different urgency levels
+
+**The Problem**: Current implementation shuffles top 10 items regardless of retrievability spread. If items 1-5 have retrievability 0.05-0.10 (urgent) but items 6-10 have 0.30-0.40 (less urgent), they get mixed.
+
+**Solution**: Adaptive threshold based on retrievability delta
+```typescript
+// Instead of hard-coded N=10, use dynamic threshold
+const URGENCY_DELTA = 0.05; // Only shuffle items within 5% retrievability
+const urgentTier = [];
+const baseRetrievability = questionsWithPriority[0].retrievability;
+
+for (const item of questionsWithPriority) {
+  if (item.retrievability - baseRetrievability <= URGENCY_DELTA) {
+    urgentTier.push(item);
+  } else {
+    break; // Stop when urgency gap too large
+  }
+}
+
+// Shuffle urgentTier (variable size)
+```
+
+**Tradeoff**: More complexity vs better FSRS fidelity
+
+**Effort**: 2-3h (research optimal delta, implementation, testing) | **Impact**: LOW-MEDIUM
+**Acceptance**: Top 3 items have retrievability 0.05-0.08, only those 3 shuffled (not full 10)
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r2
+
+---
+
 ### [PRODUCT] Freemium Monetization Strategy
 **Perspectives**: product-visionary
 **Severity**: CRITICAL
@@ -1164,6 +1200,51 @@ describe('useReviewFlow state machine', () => {
 
 ---
 
+### [TESTING] Retrievability Spread Validation Test
+**File**: `convex/spacedRepetition.test.ts`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven
+**Severity**: LOW
+**Impact**: Shuffle assumes top-10 items have similar retrievability - untested assumption
+
+**The Gap**: Current shuffle tests validate variance and FSRS priority respect, but don't verify the core assumption that top-10 items are actually similar urgency.
+
+**Test Implementation**:
+```typescript
+describe('Shuffle tier urgency assumption', () => {
+  it('should validate top-10 items have similar retrievability (<0.10 spread)', async () => {
+    // Create 20 questions with known retrievability pattern
+    const questions = [
+      { retrievability: 0.05 }, // Urgent
+      { retrievability: 0.06 },
+      { retrievability: 0.08 },
+      { retrievability: 0.09 },
+      { retrievability: 0.10 }, // Still urgent
+      { retrievability: 0.35 }, // Less urgent - should NOT be in top-10 shuffle
+      // ...
+    ];
+
+    const topTier = questions.slice(0, 10);
+    const spread = Math.max(...topTier.map(q => q.retrievability)) -
+                   Math.min(...topTier.map(q => q.retrievability));
+
+    expect(spread).toBeLessThan(0.10); // Validate assumption
+  });
+
+  it('should identify when assumption breaks (mixed urgency in top-10)', async () => {
+    // Edge case: top-10 contains both urgent (0.05) and less urgent (0.40)
+    // This would indicate dynamic threshold needed (see BACKLOG enhancement)
+  });
+});
+```
+
+**Effort**: 1h | **Impact**: LOW - Validates design assumption, informs future dynamic threshold work
+**Acceptance**: Test passes for realistic datasets, fails if urgency gap >0.10 in top-10
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r3
+
+---
+
 ### [MAINTAINABILITY] Document FSRS Magic Numbers
 **File**: `convex/scheduling.ts:88-92`
 **Perspectives**: maintainability-maven, complexity-archaeologist
@@ -1201,6 +1282,53 @@ this.fsrs = new FSRS(
 
 **Effort**: 15m | **Benefit**: Informed future tuning, algorithm transparency
 **Acceptance**: New developer can tune parameters based on documented rationale
+
+---
+
+### [OPERATIONS] Migration Rollback Documentation
+**File**: `docs/runbooks/production-deployment.md`, `docs/guides/writing-migrations.md`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven, architecture-guardian
+**Severity**: MEDIUM
+**Impact**: No documented rollback pattern for breaking schema migrations
+
+**The Gap**: Current migration guide documents forward path (3-phase removal) but not recovery strategy if migration fails mid-execution or introduces data corruption.
+
+**Required Documentation**:
+
+1. **Rollback Strategy Patterns**:
+   - Field removal migrations: Re-add field as optional, backfill from backup
+   - Data transformation: Inverse transformation mutation
+   - Structural changes: Maintain shadow tables during transition period
+
+2. **Recovery Procedures**:
+   ```typescript
+   // Emergency rollback mutation template
+   export const rollbackMigration = internalMutation({
+     args: { migrationName: v.string() },
+     handler: async (ctx, args) => {
+       // Document rollback steps here
+       // 1. Identify affected records
+       // 2. Restore previous state from backup/shadow table
+       // 3. Log rollback for audit trail
+     }
+   });
+   ```
+
+3. **Backup Verification**:
+   - Pre-migration snapshots: `npx convex export` before running migration
+   - Shadow table pattern: Keep old data in separate table during transition
+   - Verification queries: Diagnostic queries that validate data integrity
+
+4. **Risk Assessment Matrix**:
+   - Irreversible migrations (like PR #44 topic removal): Require extra verification
+   - Reversible migrations: Can restore via rollback mutation
+   - Safe migrations (additive only): No rollback needed
+
+**Effort**: 2-3h (runbook update, rollback templates) | **Impact**: MEDIUM
+**Acceptance**: Migration guide includes "Rollback Procedures" section with templates
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r4 (migration safety concern)
 
 ---
 
@@ -1709,6 +1837,30 @@ Chrome/Firefox extension: Sidebar reviews, web clipper (highlight → question),
 ---
 
 ## Technical Debt (Schedule)
+
+### [REFACTOR] Named Constant for Shuffle Tier Size
+**File**: `convex/spacedRepetition.ts:293`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven
+**Severity**: LOW
+**Impact**: Magic number N=10 lacks semantic meaning
+
+**Current**:
+```typescript
+const N = 10; // What does 10 represent?
+const topCandidates = questionsWithPriority.slice(0, Math.min(N, questionsWithPriority.length));
+```
+
+**Better**:
+```typescript
+const SHUFFLE_TIER_SIZE = 10; // Number of top-priority items to interleave
+const topCandidates = questionsWithPriority.slice(0, Math.min(SHUFFLE_TIER_SIZE, questionsWithPriority.length));
+```
+
+**Effort**: 5m | **Impact**: LOW - Clarity improvement
+**Acceptance**: Variable name self-documents purpose
+
+---
 
 ### [REFACTOR] Consolidate Pagination Logic
 **File**: `app/library/_components/library-client.tsx`, `app/tasks/_components/tasks-client.tsx`

@@ -294,6 +294,11 @@ export const getNextReview = query({
     const topCandidates = questionsWithPriority.slice(0, Math.min(N, questionsWithPriority.length));
 
     // Fisher-Yates shuffle: O(N) unbiased random permutation
+    // Loop stops at i > 0 (not i >= 0) because position 0 doesn't need selection:
+    // it participates in swaps via j selection from remaining positions
+    // Uses Math.random() for non-deterministic shuffle (different order each session)
+    // vs shuffleWithSeed (deterministic, reproducible for testing)
+    // Tradeoff: sacrifices reproducibility for variety, acceptable for UX diversity
     for (let i = topCandidates.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [topCandidates[i], topCandidates[j]] = [topCandidates[j], topCandidates[i]];
