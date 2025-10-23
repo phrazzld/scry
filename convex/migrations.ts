@@ -642,7 +642,7 @@ async function removeTopicFromQuestionsInternal(
     dryRun?: boolean;
   }
 ): Promise<MigrationResult<TopicRemovalStats>> {
-  const _batchSize = args.batchSize || DEFAULT_TOPIC_REMOVAL_BATCH_SIZE; // Not used with .collect() approach
+  const batchSize = args.batchSize || DEFAULT_TOPIC_REMOVAL_BATCH_SIZE;
   const dryRun = args.dryRun || false;
 
   const migrationLogger = createLogger({
@@ -658,51 +658,79 @@ async function removeTopicFromQuestionsInternal(
   };
 
   try {
-    // Fetch all questions (Convex only allows one paginated query per function)
-    // Since we have ~500 questions, this is safe to collect all at once
-    const allQuestions = await ctx.db.query('questions').collect();
-
-    migrationLogger.info('Processing questions', {
+    migrationLogger.info('Starting migration with cursor-based pagination', {
       event: 'migration.topic-removal.start',
-      totalQuestions: allQuestions.length,
+      batchSize,
+      dryRun,
     });
 
-    // Process all questions
-    for (const question of allQuestions) {
-      stats.totalProcessed++;
+    // Process all questions using cursor-based pagination
+    // This scales safely to 10K+ questions without hitting Convex query limits
+    let paginationResult = await ctx.db.query('questions').paginate({
+      numItems: batchSize,
+      cursor: null,
+    });
 
-      // Check if question has topic field (use runtime check, not TypeScript)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const questionData = question as any;
+    // Process first batch
+    await processBatch(paginationResult.page);
 
-      // Debug logging for first question
-      if (stats.totalProcessed === 1) {
-        migrationLogger.info('First question check', {
-          hasTopicField: 'topic' in questionData,
-          topicValue: questionData.topic,
-          allKeys: Object.keys(questionData),
-        });
+    // Continue processing remaining batches
+    while (!paginationResult.isDone) {
+      paginationResult = await ctx.db.query('questions').paginate({
+        numItems: batchSize,
+        cursor: paginationResult.continueCursor,
+      });
+
+      await processBatch(paginationResult.page);
+    }
+
+    // Helper function to process a batch of questions
+    async function processBatch(questions: typeof paginationResult.page) {
+      for (const question of questions) {
+        stats.totalProcessed++;
+
+        // Check if question has topic field (use runtime check, not TypeScript)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const questionData = question as any;
+
+        // Debug logging for first question
+        if (stats.totalProcessed === 1) {
+          migrationLogger.info('First question check', {
+            hasTopicField: 'topic' in questionData,
+            topicValue: questionData.topic,
+            allKeys: Object.keys(questionData),
+          });
+        }
+
+        // Check if the topic property exists (not just if it's undefined)
+        if ('topic' in questionData) {
+          if (!dryRun) {
+            // Use replace to remove the field entirely
+            // Convex doesn't have a built-in way to delete fields, so we reconstruct
+            // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
+            // Convex's db.replace() rejects objects that include system fields
+            const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = questionData;
+
+            await ctx.db.replace(question._id, questionWithoutTopic);
+          }
+          stats.updated++;
+
+          if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
+            migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
+          }
+        } else {
+          stats.alreadyMigrated++;
+        }
       }
 
-      // Check if the topic property exists (not just if it's undefined)
-      if ('topic' in questionData) {
-        if (!dryRun) {
-          // Use replace to remove the field entirely
-          // Convex doesn't have a built-in way to delete fields, so we reconstruct
-          // IMPORTANT: Strip system fields (_id, _creationTime) before calling replace()
-          // Convex's db.replace() rejects objects that include system fields
-          const { topic: _topic, _id, _creationTime, ...questionWithoutTopic } = questionData;
-
-          await ctx.db.replace(question._id, questionWithoutTopic);
-        }
-        stats.updated++;
-
-        if (stats.updated % PROGRESS_LOG_INTERVAL === 0) {
-          migrationLogger.info(`Migration progress: ${stats.updated} questions updated`);
-        }
-      } else {
-        stats.alreadyMigrated++;
-      }
+      // Log batch completion
+      migrationLogger.info('Batch completed', {
+        event: dryRun ? 'migration.dry-run.batch' : 'migration.batch',
+        batchSize: questions.length,
+        totalProcessed: stats.totalProcessed,
+        updated: stats.updated,
+        alreadyMigrated: stats.alreadyMigrated,
+      });
     }
 
     migrationLogger.info('Migration completed', {

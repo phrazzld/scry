@@ -285,13 +285,32 @@ export const getNextReview = query({
     // Sort by retrievability (lower = higher priority)
     questionsWithPriority.sort((a, b) => a.retrievability - b.retrievability);
 
-    // Top-10 shuffle for temporal dispersion
-    // Rationale: Items with similar retrievability (top 10) are equally urgent.
-    // Shuffling prevents temporal clustering (same _creationTime → same priority)
-    // while respecting FSRS priority (only shuffles "urgent tier" items).
+    // Dynamic urgency tier shuffle for temporal dispersion
+    // Rationale: Only shuffle items with similar retrievability (within threshold).
+    // Prevents temporal clustering (same _creationTime → same priority)
+    // while strictly respecting FSRS priority (never shuffles across urgency gaps).
     // Learning science: Interleaving improves retention vs. blocked practice.
-    const N = 10;
-    const topCandidates = questionsWithPriority.slice(0, Math.min(N, questionsWithPriority.length));
+    //
+    // Dynamic threshold (vs hard-coded N=10) ensures FSRS compliance:
+    // - If top 3 items have retrievability 0.05-0.08 (similar), shuffle all 3
+    // - If item 1 is 0.05 but item 10 is 0.90 (very different), only shuffle similar items
+    // - Prevents most urgent cards being shown only 10% of time due to wide spread
+    const URGENCY_DELTA = 0.05; // Only shuffle within 5% retrievability spread
+    const urgentTier = [];
+    const baseRetrievability = questionsWithPriority[0].retrievability;
+
+    // Build urgentTier: all items within URGENCY_DELTA of most urgent item
+    // Note: retrievability is sorted ascending (lower = higher priority)
+    // For negative scores (new questions), baseRetrievability is most negative (e.g., -2.0)
+    // We want items where abs(retrievability - baseRetrievability) <= URGENCY_DELTA
+    for (const item of questionsWithPriority) {
+      const spread = Math.abs(item.retrievability - baseRetrievability);
+      if (spread <= URGENCY_DELTA) {
+        urgentTier.push(item);
+      } else {
+        break; // Stop when urgency gap too large (list is sorted)
+      }
+    }
 
     // Fisher-Yates shuffle: O(N) unbiased random permutation
     // Loop stops at i > 0 (not i >= 0) because position 0 doesn't need selection:
@@ -299,12 +318,12 @@ export const getNextReview = query({
     // Uses Math.random() for non-deterministic shuffle (different order each session)
     // vs shuffleWithSeed (deterministic, reproducible for testing)
     // Tradeoff: sacrifices reproducibility for variety, acceptable for UX diversity
-    for (let i = topCandidates.length - 1; i > 0; i--) {
+    for (let i = urgentTier.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [topCandidates[i], topCandidates[j]] = [topCandidates[j], topCandidates[i]];
+      [urgentTier[i], urgentTier[j]] = [urgentTier[j], urgentTier[i]];
     }
 
-    const nextQuestion = topCandidates[0].question;
+    const nextQuestion = urgentTier[0].question;
 
     // Get interaction history for this question
     // Bandwidth optimization: Limit to 10 most recent interactions instead of all
