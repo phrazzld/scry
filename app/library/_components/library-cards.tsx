@@ -51,29 +51,35 @@ export function LibraryCards({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 gap-3">
       {questions.map((question) => {
         const isSelected = selectedIds.has(question._id);
         const truncated =
-          question.question.length > 100
-            ? `${question.question.slice(0, 100)}...`
+          question.question.length > 150
+            ? `${question.question.slice(0, 150)}...`
             : question.question;
 
         return (
-          <Card key={question._id} className={isSelected ? 'ring-2 ring-primary' : ''}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => handleToggleSelection(question._id)}
-                  aria-label="Select question"
-                />
-                <div className="flex-1">
+          <Card
+            key={question._id}
+            className={`transition-all ${isSelected ? 'ring-2 ring-primary shadow-md' : ''}`}
+          >
+            <CardHeader className="pb-4 pt-5 px-5">
+              <div className="flex items-start gap-4">
+                <div className="pt-1">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => handleToggleSelection(question._id)}
+                    aria-label="Select question"
+                    className="h-5 w-5"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         onClick={() => onPreviewClick?.(question)}
-                        className="text-left hover:underline text-sm font-medium"
+                        className="text-left hover:underline text-base font-medium leading-relaxed w-full"
                       >
                         {truncated}
                       </button>
@@ -82,10 +88,10 @@ export function LibraryCards({
                       <p className="whitespace-pre-wrap break-words">{question.question}</p>
                     </TooltipContent>
                   </Tooltip>
-                  <div className="mt-2">
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge variant="secondary" className="text-xs cursor-default">
+                        <Badge variant="secondary" className="text-xs cursor-default font-normal">
                           {question.topic}
                         </Badge>
                       </TooltipTrigger>
@@ -93,53 +99,59 @@ export function LibraryCards({
                         <p>{question.topic}</p>
                       </TooltipContent>
                     </Tooltip>
+                    <span className="text-xs text-muted-foreground">
+                      {question.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
+                    </span>
                   </div>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-3 pb-5 px-5">
               {/* Performance stats - only for active tab */}
               {currentTab === 'active' && (
-                <div>
+                <div className="pt-2 border-t">
                   {question.attemptCount === 0 ? (
-                    <span className="text-muted-foreground">Not attempted</span>
+                    <span className="text-sm text-muted-foreground">Not attempted yet</span>
                   ) : (
-                    <div>
-                      <div className="font-medium">{question.successRate}% success</div>
-                      <div className="text-muted-foreground">{question.attemptCount} attempts</div>
+                    <div className="flex items-baseline gap-3">
+                      <div>
+                        <span className="text-lg font-semibold">{question.successRate}%</span>
+                        <span className="text-sm text-muted-foreground ml-1">success</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {question.attemptCount} {question.attemptCount === 1 ? 'attempt' : 'attempts'}
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Contextual date */}
-              <div className="text-muted-foreground">
-                {currentTab === 'archived' && question.archivedAt ? (
-                  <>Archived {formatDistanceToNow(question.archivedAt, { addSuffix: true })}</>
-                ) : currentTab === 'trash' && question.deletedAt ? (
-                  <>Deleted {formatDistanceToNow(question.deletedAt, { addSuffix: true })}</>
-                ) : (
-                  <>Created {formatDistanceToNow(question.generatedAt, { addSuffix: true })}</>
-                )}
-              </div>
-
               {/* Next review - only for active tab */}
               {currentTab === 'active' && question.nextReview && (
-                <div>
+                <div className="text-sm">
                   {question.nextReview < Date.now() ? (
-                    <span className="text-warning font-medium">Due now</span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-warning" />
+                      <span className="text-warning font-medium">Due now</span>
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">
-                      Next review {formatDistanceToNow(question.nextReview, { addSuffix: true })}
+                      Review {formatDistanceToNow(question.nextReview, { addSuffix: true })}
                     </span>
                   )}
                 </div>
               )}
 
-              {/* Type */}
-              <div className="text-xs text-muted-foreground">
-                {question.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
+              {/* Contextual date */}
+              <div className="text-sm text-muted-foreground">
+                {currentTab === 'archived' && question.archivedAt ? (
+                  <>Archived {formatDistanceToNow(question.archivedAt, { addSuffix: true })}</>
+                ) : currentTab === 'trash' && question.deletedAt ? (
+                  <>Deleted {formatDistanceToNow(question.deletedAt, { addSuffix: true })}</>
+                ) : (
+                  <>Added {formatDistanceToNow(question.generatedAt, { addSuffix: true })}</>
+                )}
               </div>
             </CardContent>
           </Card>
