@@ -1,12 +1,50 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-17
-**Analysis Method**: 7-perspective specialized audit (complexity-archaeologist, architecture-guardian, security-sentinel, performance-pathfinder, maintainability-maven, user-experience-advocate, product-visionary)
-**Overall Grade**: A- (Excellent technical foundation, critical product-market gaps)
+**Last Groomed**: 2025-10-20
+**Analysis Method**: Strategic roadmap synthesis + 7-perspective specialized audit
+**Overall Grade**: A- (Excellent technical foundation, strategic intelligence layer needed)
 
 ---
 
 ## Now (Sprint-Ready, <2 weeks)
+
+### [UX] Review Progress Indicators
+**File**: `components/review-flow.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: HIGH
+**Impact**: "Reviews feel endless" - no visibility into session depth
+
+**The Problem**: No feedback on remaining items during review session
+
+**Research**: Progress visibility increases task completion by 35%, reduces anxiety
+
+**Solution Options**:
+1. **Session Counter** (Recommended): "Reviewed 12 • ~38 remaining"
+2. **Time Estimate**: "~15 minutes remaining at your pace"
+3. **Progress Bar**: Visual 30% → 100% fill
+
+**Implementation**:
+```typescript
+// Add to review flow state
+const [sessionStats, setSessionStats] = useState({
+  reviewed: 0,
+  estimatedRemaining: dueCount,
+  sessionStartTime: Date.now()
+});
+
+// Update after each review
+setSessionStats(prev => ({
+  reviewed: prev.reviewed + 1,
+  estimatedRemaining: Math.max(0, prev.estimatedRemaining - 1),
+  sessionStartTime: prev.sessionStartTime
+}));
+```
+
+**UX**: Subtle counter in header, updates every 5 reviews to avoid distraction
+**Effort**: 2-3h | **Impact**: CRITICAL - Reduces "endless review" anxiety
+**Acceptance**: See "Reviewed 15 of ~42 due" during session, count updates after each answer
+
+---
 
 ### [SECURITY] Update Vulnerable Dependencies
 **File**: `package.json`
@@ -188,6 +226,763 @@ if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError')) {
 
 ## Next (This Quarter, <3 months)
 
+### [PRODUCT] Vector Embeddings Infrastructure (P0 - FOUNDATIONAL)
+**File**: `convex/schema.ts`
+**Perspectives**: product-visionary, architecture-guardian
+**Severity**: CRITICAL
+**Impact**: Unlocks semantic search, deduplication, content-aware features
+
+**The Opportunity**: Convex supports vector search natively!
+
+**Why This is P0**:
+- Enables deduplication (find similar questions)
+- Powers semantic search ("find photosynthesis questions" not just keyword)
+- Supports "postpone related items" feature
+- Foundation for content-aware FSRS
+- Enables knowledge gap detection
+
+**Schema Changes**:
+```typescript
+questions: defineTable({
+  // ... existing fields ...
+  embedding: v.optional(v.array(v.float64())),
+}).vectorIndex("by_embedding", {
+  vectorField: "embedding",
+  dimensions: 768, // Google Vertex AI text-embedding-004
+  filterFields: ["userId", "deletedAt"]
+})
+```
+
+**Generation Pipeline**:
+```typescript
+// On question creation
+export const saveGeneratedQuestions = mutation({
+  handler: async (ctx, args) => {
+    // ... existing logic ...
+
+    // Generate embedding for semantic search
+    const embedding = await generateEmbedding(
+      question.question + " " + question.explanation
+    );
+
+    await ctx.db.insert('questions', {
+      ...fields,
+      embedding
+    });
+  }
+});
+
+// Action for embedding generation
+export const generateEmbedding = internalAction({
+  handler: async (ctx, { text }) => {
+    const google = createGoogleGenerativeAI({
+      apiKey: process.env.GOOGLE_AI_API_KEY
+    });
+
+    const result = await embed({
+      model: google.textEmbeddingModel('text-embedding-004'),
+      value: text
+    });
+
+    return result.embedding; // 768-dimensional vector
+  }
+});
+```
+
+**Backfill Migration**:
+```typescript
+// Migration: Process existing questions in batches
+export const backfillEmbeddings = internalMutation({
+  handler: async (ctx) => {
+    const questions = await ctx.db
+      .query('questions')
+      .filter(q => q.eq(q.field('embedding'), undefined))
+      .take(100); // Process 100/day to avoid rate limits
+
+    for (const question of questions) {
+      const embedding = await ctx.scheduler.runAfter(
+        0,
+        internal.embeddings.generateEmbedding,
+        { text: question.question + " " + question.explanation }
+      );
+      await ctx.db.patch(question._id, { embedding });
+    }
+  }
+});
+```
+
+**Cost Analysis**:
+- Storage: 768 floats × 4 bytes = 3KB per question (30MB for 10K questions - negligible)
+- API: Google Vertex AI text-embedding-004 - FREE for first 20M tokens/month
+- Compute: Convex vector search optimized, no additional cost
+
+**Use Cases Enabled**:
+1. Semantic search: `findSimilarQuestions(questionId, limit)`
+2. Deduplication: Find pairs with >0.90 cosine similarity
+3. Related items: "Postpone this + all related questions"
+4. Knowledge gaps: Identify sparse topic coverage
+
+**Effort**: 4-5d (schema, generation, backfill, queries) | **Impact**: FOUNDATIONAL
+**Acceptance**: Generate embedding for new question, search by semantic similarity, find 10 related questions
+
+---
+
+### [PRODUCT] Free Response Questions with AI Grading
+**File**: `convex/schema.ts`, `convex/aiGrading.ts`
+**Perspectives**: product-visionary, user-experience-advocate
+**Severity**: HIGH
+**Impact**: Major differentiation - deeper learning beyond multiple choice
+
+**The Opportunity**: Move beyond recognition (multiple choice) to recall (free response)
+
+**Research Findings**:
+- LLM-as-judge pattern proven effective for grading
+- Structured output with reasoning + score
+- Compare student answer vs ground truth with rubric
+
+**Schema Changes**:
+```typescript
+questions: defineTable({
+  // ... existing fields ...
+  type: v.union(
+    v.literal('multiple-choice'),
+    v.literal('true-false'),
+    v.literal('free-response') // NEW
+  ),
+  // For free-response questions
+  expectedAnswer: v.optional(v.string()), // Sample correct answer
+  gradingRubric: v.optional(v.string()), // Criteria for correctness
+})
+
+interactions: defineTable({
+  // ... existing fields ...
+  aiGrading: v.optional(v.object({
+    score: v.number(), // 0.0 to 1.0
+    reasoning: v.string(), // Why correct/incorrect
+    feedback: v.optional(v.string()), // Improvement suggestions
+    gradedAt: v.number(),
+  }))
+})
+```
+
+**AI Grading Implementation**:
+```typescript
+// Based on LLM-as-judge pattern
+const GRADING_PROMPT = `You are an expert teacher grading a student's answer.
+
+QUESTION: {question}
+
+EXPECTED ANSWER (reference): {expectedAnswer}
+
+GRADING RUBRIC:
+{rubric}
+
+STUDENT ANSWER: {userAnswer}
+
+Grade the student's response:
+1. Factual accuracy relative to expected answer
+2. Completeness (captures key points)
+3. No conflicting statements
+4. Allow extra information if accurate
+
+Provide:
+- Score: 0.0 (completely wrong) to 1.0 (perfect)
+- Reasoning: Step-by-step explanation
+- Feedback: How to improve (if not perfect)`;
+
+export const gradeResponse = internalAction({
+  args: {
+    questionId: v.id('questions'),
+    userAnswer: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const question = await ctx.runQuery(/* get question */);
+
+    const google = createGoogleGenerativeAI({
+      apiKey: process.env.GOOGLE_AI_API_KEY
+    });
+
+    const { object } = await generateObject({
+      model: google('gemini-2.5-flash'),
+      schema: z.object({
+        score: z.number().min(0).max(1),
+        reasoning: z.string(),
+        feedback: z.string().optional(),
+      }),
+      prompt: GRADING_PROMPT
+        .replace('{question}', question.question)
+        .replace('{expectedAnswer}', question.expectedAnswer || '')
+        .replace('{rubric}', question.gradingRubric || 'Standard accuracy')
+        .replace('{userAnswer}', args.userAnswer)
+    });
+
+    return object;
+  }
+});
+```
+
+**Review UX**:
+```typescript
+// Free response input
+<Textarea
+  placeholder="Type your answer..."
+  value={userAnswer}
+  onChange={(e) => setUserAnswer(e.target.value)}
+/>
+<Button onClick={handleSubmitFreeResponse}>Submit Answer</Button>
+
+// After AI grading
+<Card>
+  <CardHeader>
+    <Badge variant={score >= 0.7 ? 'success' : 'destructive'}>
+      Score: {Math.round(score * 100)}%
+    </Badge>
+  </CardHeader>
+  <CardContent>
+    <p className="text-sm text-muted-foreground">{reasoning}</p>
+    {feedback && (
+      <Alert>
+        <Lightbulb className="h-4 w-4" />
+        <AlertDescription>{feedback}</AlertDescription>
+      </Alert>
+    )}
+  </CardContent>
+</Card>
+```
+
+**FSRS Integration**:
+```typescript
+// Convert AI score to isCorrect for FSRS
+const isCorrect = aiGrading.score >= 0.7; // 70% threshold
+
+await scheduleReview({
+  questionId,
+  userAnswer,
+  isCorrect,
+  // Store grading details in interaction
+  aiGrading: {
+    score: aiGrading.score,
+    reasoning: aiGrading.reasoning,
+    feedback: aiGrading.feedback,
+    gradedAt: Date.now()
+  }
+});
+```
+
+**Generation Enhancement**:
+```typescript
+// Update prompt to generate free-response questions
+const QUESTION_TYPES = `
+- multiple-choice: 4 options with 1 correct
+- true-false: Binary claim
+- free-response: Open-ended, requires written answer (NEW)
+`;
+
+// In generation schema
+questions: [{
+  type: "free-response",
+  question: "Explain the difference between let and const in JavaScript",
+  expectedAnswer: "let allows reassignment, const does not. Both are block-scoped.",
+  gradingRubric: "Must mention: reassignment difference, block scoping",
+  explanation: "..."
+}]
+```
+
+**Cost Considerations**:
+- Grading API call: ~$0.0001 per question (Gemini Flash)
+- User reviewing 100 questions: ~$0.01
+- Acceptable for premium tier, may need rate limiting for free tier
+
+**Monetization**:
+- Free: 10 free-response reviews/month
+- Premium: Unlimited free-response
+
+**Effort**: 5-6d (schema, grading action, UX, FSRS integration, generation) | **Impact**: HIGH - Major differentiator
+**Acceptance**: Generate free-response question, type answer, receive AI score + feedback, FSRS schedules next review
+
+---
+
+### [PRODUCT] Deduplication & Consolidation System
+**File**: `convex/deduplication.ts`
+**Perspectives**: product-visionary, maintainability-maven
+**Severity**: HIGH
+**Impact**: AI generates similar questions, creates clutter and review overhead
+
+**The Problem**:
+- Generating from related prompts creates semantic duplicates
+- "What is useState?" vs "Explain the useState hook" are functionally identical
+- Manual deletion tedious, users don't notice until library is cluttered
+
+**Research Findings**:
+- AnkiFuzzy uses fuzzy text matching (token sort, partial ratio)
+- Semantic similarity via embeddings superior for concept matching
+- Assisted deduplication (user confirms) preferred over automatic
+
+**Architecture - 3 Phases**:
+
+**Phase 1: Detection (Automated Cron)**
+```typescript
+// Daily cron: Find potential duplicates
+export const detectDuplicates = internalMutation({
+  handler: async (ctx) => {
+    // Get questions created in last 7 days (most likely to have duplicates)
+    const recentQuestions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter(/* created in last 7 days */)
+      .take(500);
+
+    const duplicatePairs = [];
+
+    // Pairwise similarity check
+    for (let i = 0; i < recentQuestions.length; i++) {
+      for (let j = i + 1; j < recentQuestions.length; j++) {
+        const similarity = cosineSimilarity(
+          recentQuestions[i].embedding,
+          recentQuestions[j].embedding
+        );
+
+        if (similarity > 0.90) { // 90% similarity threshold
+          duplicatePairs.push({
+            userId: recentQuestions[i].userId,
+            question1Id: recentQuestions[i]._id,
+            question2Id: recentQuestions[j]._id,
+            similarity,
+            status: 'pending', // pending, dismissed, merged
+          });
+        }
+      }
+    }
+
+    // Store for user review
+    await Promise.all(
+      duplicatePairs.map(pair =>
+        ctx.db.insert('duplicateCandidates', pair)
+      )
+    );
+  }
+});
+```
+
+**Phase 2: Review UI (Human-in-Loop)**
+```typescript
+// Library page component
+<DuplicatesAlert
+  count={duplicateCandidates.length}
+  onClick={() => setShowDuplicatesModal(true)}
+/>
+
+// Modal with side-by-side comparison
+<DuplicateReviewModal>
+  {duplicatePairs.map(pair => (
+    <ComparisonCard>
+      <QuestionPreview question={pair.question1} />
+      <div className="text-center">
+        <Badge>{Math.round(pair.similarity * 100)}% similar</Badge>
+      </div>
+      <QuestionPreview question={pair.question2} />
+
+      <div className="flex gap-2">
+        <Button onClick={() => mergeDuplicates(pair.question1Id, pair.question2Id)}>
+          Merge →
+        </Button>
+        <Button variant="outline" onClick={() => keepBoth(pair.id)}>
+          Keep Both
+        </Button>
+        <Button variant="ghost" onClick={() => dismissPair(pair.id)}>
+          Dismiss
+        </Button>
+      </div>
+    </ComparisonCard>
+  ))}
+</DuplicateReviewModal>
+```
+
+**Phase 3: Smart Merge (Preserve FSRS)**
+```typescript
+export const mergeDuplicates = mutation({
+  args: {
+    keepId: v.id('questions'),
+    deleteId: v.id('questions'),
+  },
+  handler: async (ctx, args) => {
+    const keep = await ctx.db.get(args.keepId);
+    const remove = await ctx.db.get(args.deleteId);
+
+    // Merge interaction histories
+    const removeInteractions = await ctx.db
+      .query('interactions')
+      .withIndex('by_question', q => q.eq('questionId', args.deleteId))
+      .collect();
+
+    // Update all interactions to point to kept question
+    await Promise.all(
+      removeInteractions.map(i =>
+        ctx.db.patch(i._id, { questionId: args.keepId })
+      )
+    );
+
+    // Merge denormalized stats
+    await ctx.db.patch(args.keepId, {
+      attemptCount: keep.attemptCount + remove.attemptCount,
+      correctCount: keep.correctCount + remove.correctCount,
+    });
+
+    // Preserve better FSRS state (more mature card)
+    if (remove.reps > keep.reps) {
+      await ctx.db.patch(args.keepId, {
+        stability: remove.stability,
+        fsrsDifficulty: remove.fsrsDifficulty,
+        state: remove.state,
+        reps: remove.reps,
+        lapses: remove.lapses,
+      });
+    }
+
+    // Soft delete duplicate
+    await ctx.db.patch(args.deleteId, {
+      deletedAt: Date.now(),
+      deletedReason: 'merged_duplicate'
+    });
+
+    return { success: true };
+  }
+});
+```
+
+**Effort**: 6-7d (detection cron, UI, merge logic, testing) | **Impact**: HIGH - Reduces clutter
+**Requires**: Vector embeddings (Phase 1 dependency)
+**Acceptance**: System detects 5 duplicate pairs, review in modal, merge 3 pairs, FSRS state preserved
+
+---
+
+### [PRODUCT] Adaptive Question Generation
+**File**: `convex/adaptiveGeneration.ts`
+**Perspectives**: product-visionary
+**Severity**: HIGH
+**Impact**: System doesn't learn from user struggles - major differentiation opportunity
+
+**The Opportunity**: Close the feedback loop - generate easier/harder questions based on performance
+
+**Research Findings**:
+- Adaptive learning systems show 3x better retention
+- VoiceScholar: "struggling? Get simpler cards" + "mastered? Get challenges"
+- Competitive moat - most SRS systems don't adapt
+
+**Difficulty Analysis**:
+```typescript
+// Categorize questions by performance
+export const analyzeQuestionDifficulty = query({
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+
+    // Get all user questions with performance stats
+    const questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter(q => q.eq('deletedAt', undefined))
+      .collect();
+
+    const analysis = {
+      tooEasy: [], // >90% success, low lapses
+      appropriate: [], // 60-85% success
+      tooHard: [], // <50% success, high lapses
+    };
+
+    for (const q of questions) {
+      if (q.attemptCount < 3) continue; // Need minimum data
+
+      const successRate = q.correctCount / q.attemptCount;
+
+      if (successRate > 0.9 && q.lapses < 2) {
+        analysis.tooEasy.push(q);
+      } else if (successRate < 0.5 || q.lapses > 3) {
+        analysis.tooHard.push(q);
+      } else {
+        analysis.appropriate.push(q);
+      }
+    }
+
+    return analysis;
+  }
+});
+```
+
+**Automated Generation Triggers**:
+```typescript
+// Daily cron: Generate adaptive questions
+export const generateAdaptiveQuestions = internalAction({
+  handler: async (ctx) => {
+    // Find struggling questions
+    const strugglingQuestions = await ctx.runQuery(
+      internal.adaptiveGeneration.getStrugglingQuestions
+    );
+
+    // Generate EASIER related questions
+    for (const question of strugglingQuestions.slice(0, 10)) { // Limit batch
+      const easierPrompt = buildAdaptivePrompt(question, 'easier');
+
+      const { object } = await generateObject({
+        model: google('gemini-2.5-flash'),
+        schema: questionsSchema,
+        prompt: easierPrompt
+      });
+
+      // Save with link to original
+      await ctx.runMutation(internal.questionsCrud.saveBatch, {
+        userId: question.userId,
+        topic: `${question.topic} (Easier)`,
+        questions: object.questions,
+        relatedToQuestionId: question._id,
+      });
+    }
+
+    // Similarly for mastered questions → harder variants
+  }
+});
+
+function buildAdaptivePrompt(question: Question, direction: 'easier' | 'harder') {
+  const stats = {
+    successRate: question.correctCount / question.attemptCount,
+    lapses: question.lapses,
+    fsrsDifficulty: question.fsrsDifficulty
+  };
+
+  return `
+Original Question: "${question.question}"
+Performance: ${Math.round(stats.successRate * 100)}% correct, ${stats.lapses} lapses
+FSRS Difficulty: ${stats.fsrsDifficulty}
+
+Generate a ${direction} related question testing the same concept.
+
+${direction === 'easier'
+  ? `Make it EASIER by:
+     - Using clearer, simpler language
+     - Providing more context in the question
+     - Breaking complex concepts into steps
+     - Using concrete examples instead of abstract
+     - Reducing the number of conditions to consider`
+  : `Make it HARDER by:
+     - Requiring deeper reasoning
+     - Combining multiple related concepts
+     - Adding edge cases or exceptions
+     - Using more technical/precise terminology
+     - Testing application in novel scenarios`
+}
+
+Generate 2-3 questions that maintain the core concept but adjust difficulty.
+`;
+}
+```
+
+**User Control**:
+```typescript
+// Settings toggle
+<Switch
+  checked={settings.autoGenerateAdaptive}
+  onCheckedChange={(enabled) => updateSettings({ autoGenerateAdaptive: enabled })}
+/>
+<Label>
+  Auto-generate easier questions for struggling topics
+</Label>
+
+// Manual trigger in library
+<DropdownMenuItem onClick={() => generateRelated(questionId, 'easier')}>
+  <Sparkles className="mr-2 h-4 w-4" />
+  Generate Easier Variant
+</DropdownMenuItem>
+```
+
+**Approval Workflow**:
+```typescript
+// Generated questions go to "Review & Approve" queue
+<Card>
+  <CardHeader>
+    <Badge>AI-Generated</Badge>
+    <CardTitle>3 easier questions generated for "useState hook"</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {generatedQuestions.map(q => (
+      <QuestionPreview
+        question={q}
+        actions={
+          <>
+            <Button onClick={() => approveQuestion(q.id)}>Add to Library</Button>
+            <Button variant="outline" onClick={() => editQuestion(q.id)}>Edit</Button>
+            <Button variant="ghost" onClick={() => dismissQuestion(q.id)}>Dismiss</Button>
+          </>
+        }
+      />
+    ))}
+  </CardContent>
+</Card>
+```
+
+**Effort**: 7-8d (analysis, generation, approval UI, settings) | **Impact**: VERY HIGH - Major differentiator
+**Acceptance**: System detects struggling questions, auto-generates 3 easier variants, user approves 2, added to library
+
+---
+
+### [UX] Postpone Action with Related Items
+**File**: `convex/questionsCrud.ts`
+**Perspectives**: user-experience-advocate
+**Severity**: MEDIUM
+**Impact**: No middle ground between delete/archive and review now
+
+**Use Cases**:
+- "Need to review prerequisite material first"
+- "Context-dependent on another topic I'm learning"
+- "Not in the mood for calculus, but don't want to delete"
+
+**Schema**:
+```typescript
+questions: defineTable({
+  // ... existing fields ...
+  postponedUntil: v.optional(v.number()), // Timestamp when to resume
+})
+```
+
+**Simple Implementation**:
+```typescript
+export const postponeQuestion = mutation({
+  args: {
+    questionId: v.id('questions'),
+    duration: v.union(
+      v.literal(300000), // 5 minutes
+      v.literal(3600000), // 1 hour
+      v.literal(86400000), // 1 day
+      v.literal(604800000), // 1 week
+      v.literal(2592000000), // 1 month
+    ),
+  },
+  handler: async (ctx, args) => {
+    const postponeUntil = Date.now() + args.duration;
+    await ctx.db.patch(args.questionId, { postponedUntil });
+    return { success: true, postponeUntil };
+  }
+});
+
+// Update getNextReview to exclude postponed
+.filter(q =>
+  q.and(
+    q.eq(q.field('deletedAt'), undefined),
+    q.eq(q.field('archivedAt'), undefined),
+    q.or(
+      q.eq(q.field('postponedUntil'), undefined),
+      q.lt(q.field('postponedUntil'), now)
+    )
+  )
+)
+```
+
+**Advanced: Postpone Related Items** (requires embeddings):
+```typescript
+export const postponeWithRelated = mutation({
+  args: {
+    questionId: v.id('questions'),
+    duration: v.number(),
+    includeRelated: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const postponeUntil = Date.now() + args.duration;
+
+    // Always postpone the main question
+    await ctx.db.patch(args.questionId, { postponedUntil });
+
+    if (args.includeRelated) {
+      const question = await ctx.db.get(args.questionId);
+
+      // Use vector similarity to find related questions
+      const similar = await ctx.db
+        .query('questions')
+        .withIndex('by_embedding')
+        .search(question.embedding, {
+          limit: 20,
+          filter: q => q.eq('userId', question.userId)
+        });
+
+      // Filter by similarity threshold (>0.85)
+      const related = similar.filter(s => s.score > 0.85);
+
+      // Postpone all related questions
+      await Promise.all(
+        related.map(q =>
+          ctx.db.patch(q._id, { postponedUntil })
+        )
+      );
+
+      return {
+        success: true,
+        postponedCount: 1 + related.length
+      };
+    }
+
+    return { success: true, postponedCount: 1 };
+  }
+});
+```
+
+**Review UX**:
+```typescript
+// During review session
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="ghost" size="sm">
+      <Clock className="mr-2 h-4 w-4" />
+      Postpone
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent>
+    <DropdownMenuItem onClick={() => postpone(5 * 60 * 1000)}>
+      5 minutes
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => postpone(60 * 60 * 1000)}>
+      1 hour
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => postpone(24 * 60 * 60 * 1000)}>
+      1 day
+    </DropdownMenuItem>
+    <DropdownMenuItem onClick={() => postpone(7 * 24 * 60 * 60 * 1000)}>
+      1 week
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem
+      onClick={() => setShowRelatedPrompt(true)}
+      disabled={!hasEmbedding}
+    >
+      <Network className="mr-2 h-4 w-4" />
+      Include related items
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+
+{showRelatedPrompt && (
+  <AlertDialog>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Postpone related questions?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This will also postpone ~{relatedCount} questions with similar content.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>No, just this one</AlertDialogCancel>
+        <AlertDialogAction onClick={() => postponeWithRelated()}>
+          Yes, postpone all
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+)}
+```
+
+**Effort**: 3-4h (basic) / 6-7h (with related items) | **Impact**: MEDIUM
+**Requires**: Vector embeddings for "related items" feature
+**Acceptance**: Click postpone during review, select "1 day + related", 8 questions postponed
+
+---
+
 ### [ARCHITECTURE] Split spacedRepetition.ts God Object
 **File**: `convex/spacedRepetition.ts:1-740`
 **Perspectives**: complexity-archaeologist, architecture-guardian, maintainability-maven
@@ -211,6 +1006,42 @@ if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError')) {
 
 **Effort**: 6-8h | **Impact**: 740 LOC → 4 focused modules, clearer boundaries
 **Approach**: Extract analytics first (least coupled), then queue, then scheduling
+
+---
+
+### [ENHANCEMENT] Dynamic Urgency Threshold for Shuffle
+**File**: `convex/spacedRepetition.ts:293`
+**Source**: PR #44 review feedback
+**Perspectives**: performance-pathfinder, user-experience-advocate
+**Severity**: LOW
+**Impact**: Hard-coded N=10 shuffle tier may mix items with different urgency levels
+
+**The Problem**: Current implementation shuffles top 10 items regardless of retrievability spread. If items 1-5 have retrievability 0.05-0.10 (urgent) but items 6-10 have 0.30-0.40 (less urgent), they get mixed.
+
+**Solution**: Adaptive threshold based on retrievability delta
+```typescript
+// Instead of hard-coded N=10, use dynamic threshold
+const URGENCY_DELTA = 0.05; // Only shuffle items within 5% retrievability
+const urgentTier = [];
+const baseRetrievability = questionsWithPriority[0].retrievability;
+
+for (const item of questionsWithPriority) {
+  if (item.retrievability - baseRetrievability <= URGENCY_DELTA) {
+    urgentTier.push(item);
+  } else {
+    break; // Stop when urgency gap too large
+  }
+}
+
+// Shuffle urgentTier (variable size)
+```
+
+**Tradeoff**: More complexity vs better FSRS fidelity
+
+**Effort**: 2-3h (research optimal delta, implementation, testing) | **Impact**: LOW-MEDIUM
+**Acceptance**: Top 3 items have retrievability 0.05-0.08, only those 3 shuffled (not full 10)
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r2
 
 ---
 
@@ -369,6 +1200,51 @@ describe('useReviewFlow state machine', () => {
 
 ---
 
+### [TESTING] Retrievability Spread Validation Test
+**File**: `convex/spacedRepetition.test.ts`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven
+**Severity**: LOW
+**Impact**: Shuffle assumes top-10 items have similar retrievability - untested assumption
+
+**The Gap**: Current shuffle tests validate variance and FSRS priority respect, but don't verify the core assumption that top-10 items are actually similar urgency.
+
+**Test Implementation**:
+```typescript
+describe('Shuffle tier urgency assumption', () => {
+  it('should validate top-10 items have similar retrievability (<0.10 spread)', async () => {
+    // Create 20 questions with known retrievability pattern
+    const questions = [
+      { retrievability: 0.05 }, // Urgent
+      { retrievability: 0.06 },
+      { retrievability: 0.08 },
+      { retrievability: 0.09 },
+      { retrievability: 0.10 }, // Still urgent
+      { retrievability: 0.35 }, // Less urgent - should NOT be in top-10 shuffle
+      // ...
+    ];
+
+    const topTier = questions.slice(0, 10);
+    const spread = Math.max(...topTier.map(q => q.retrievability)) -
+                   Math.min(...topTier.map(q => q.retrievability));
+
+    expect(spread).toBeLessThan(0.10); // Validate assumption
+  });
+
+  it('should identify when assumption breaks (mixed urgency in top-10)', async () => {
+    // Edge case: top-10 contains both urgent (0.05) and less urgent (0.40)
+    // This would indicate dynamic threshold needed (see BACKLOG enhancement)
+  });
+});
+```
+
+**Effort**: 1h | **Impact**: LOW - Validates design assumption, informs future dynamic threshold work
+**Acceptance**: Test passes for realistic datasets, fails if urgency gap >0.10 in top-10
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r3
+
+---
+
 ### [MAINTAINABILITY] Document FSRS Magic Numbers
 **File**: `convex/scheduling.ts:88-92`
 **Perspectives**: maintainability-maven, complexity-archaeologist
@@ -409,7 +1285,240 @@ this.fsrs = new FSRS(
 
 ---
 
+### [OPERATIONS] Migration Rollback Documentation
+**File**: `docs/runbooks/production-deployment.md`, `docs/guides/writing-migrations.md`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven, architecture-guardian
+**Severity**: MEDIUM
+**Impact**: No documented rollback pattern for breaking schema migrations
+
+**The Gap**: Current migration guide documents forward path (3-phase removal) but not recovery strategy if migration fails mid-execution or introduces data corruption.
+
+**Required Documentation**:
+
+1. **Rollback Strategy Patterns**:
+   - Field removal migrations: Re-add field as optional, backfill from backup
+   - Data transformation: Inverse transformation mutation
+   - Structural changes: Maintain shadow tables during transition period
+
+2. **Recovery Procedures**:
+   ```typescript
+   // Emergency rollback mutation template
+   export const rollbackMigration = internalMutation({
+     args: { migrationName: v.string() },
+     handler: async (ctx, args) => {
+       // Document rollback steps here
+       // 1. Identify affected records
+       // 2. Restore previous state from backup/shadow table
+       // 3. Log rollback for audit trail
+     }
+   });
+   ```
+
+3. **Backup Verification**:
+   - Pre-migration snapshots: `npx convex export` before running migration
+   - Shadow table pattern: Keep old data in separate table during transition
+   - Verification queries: Diagnostic queries that validate data integrity
+
+4. **Risk Assessment Matrix**:
+   - Irreversible migrations (like PR #44 topic removal): Require extra verification
+   - Reversible migrations: Can restore via rollback mutation
+   - Safe migrations (additive only): No rollback needed
+
+**Effort**: 2-3h (runbook update, rollback templates) | **Impact**: MEDIUM
+**Acceptance**: Migration guide includes "Rollback Procedures" section with templates
+
+**Reference**: https://github.com/phrazzld/scry/pull/44#discussion_r4 (migration safety concern)
+
+---
+
 ## Soon (Exploring, 3-6 months)
+
+### [PRODUCT] Content-Aware FSRS (Research Breakthrough)
+**Perspectives**: product-visionary, complexity-archaeologist
+**Severity**: HIGH (Strategic)
+**Impact**: First content-aware FSRS implementation - massive competitive moat
+
+**The Opportunity**:
+- Current FSRS is **content-agnostic**: Treats "What is 2+2?" same as "Explain quantum entanglement"
+- Current FSRS is **deck-agnostic**: Each card in isolation, no prerequisite awareness
+
+**Research**: Hacker News discussion on "Content-Aware Spaced Repetition" reveals this is the next frontier
+
+**Implementation Strategy**:
+```typescript
+// Use embeddings to detect question types
+export const categorizeQuestionType = async (question: Question) => {
+  // Cluster questions by semantic type using embeddings
+  const questionTypes = {
+    factual: [], // Definition, date, formula, vocabulary
+    conceptual: [], // Explain, why, how, compare
+    application: [], // Solve, apply, analyze, evaluate
+  };
+
+  // Use embedding patterns to classify
+  // Factual questions cluster near "define", "what is", "when"
+  // Conceptual cluster near "why", "how", "explain"
+  // Application cluster near "solve", "apply", "use"
+};
+
+// Adjust FSRS parameters by content type
+const fsrsParams = {
+  factual: {
+    // Factual: Longer intervals (faster forgetting acceptable)
+    // Definitions stabilize quickly, can be reviewed less frequently
+    request_retention: 0.85,
+    maximum_interval: 365,
+  },
+  conceptual: {
+    // Conceptual: Shorter intervals (deeper encoding needed)
+    // Understanding requires more repetition
+    request_retention: 0.90,
+    maximum_interval: 180,
+  },
+  application: {
+    // Application: Moderate intervals, high retention target
+    // Skills need practice but stabilize with use
+    request_retention: 0.88,
+    maximum_interval: 270,
+  }
+};
+```
+
+**Competitive Moat**: This would be the FIRST content-aware FSRS implementation in production
+
+**Effort**: 10-12d (research, classification, parameter tuning, A/B testing) | **Impact**: Revolutionary
+**Requires**: Vector embeddings, significant testing/validation
+**Status**: Research phase - needs experimentation
+
+---
+
+### [PRODUCT] Prompt Engineering Improvements
+**File**: `convex/aiGeneration.ts`
+**Perspectives**: product-visionary, maintainability-maven
+**Severity**: MEDIUM
+**Impact**: Better question quality from AI generation
+
+**Current State**: Prompts work but can be improved
+
+**Enhancements**:
+
+**1. Few-Shot Examples**:
+```typescript
+const EXAMPLES = `
+GOOD EXAMPLE:
+Q: What is the primary function of mitochondria?
+Type: multiple-choice
+Options: [A) Protein synthesis, B) Energy production, C) DNA storage, D) Waste removal]
+Correct: B
+Explanation: Mitochondria are the "powerhouses" - they produce ATP through cellular respiration.
+
+BAD EXAMPLE (too vague):
+Q: What do mitochondria do?
+Options: [A) Stuff, B) Things, C) Work, D) Functions]
+Correct: A
+Explanation: They do stuff.
+
+DO NOT generate questions like the bad example.
+`;
+```
+
+**2. Better Distractor Engineering**:
+```typescript
+const DISTRACTOR_GUIDANCE = `
+For each WRONG option, use a COMMON MISCONCEPTION or near-miss answer that
+reveals a specific gap in understanding. Avoid obviously wrong answers.
+
+Examples of good distractors:
+- "Mitochondria perform protein synthesis" (confuses with ribosomes)
+- "Mitochondria store genetic information" (confuses with nucleus)
+
+Examples of bad distractors:
+- "Mitochondria make pizza" (absurd, tests nothing)
+- "Mitochondria are blue" (random, tests nothing)
+`;
+```
+
+**3. Difficulty Calibration**:
+```typescript
+// Explicit difficulty tagging
+const questionSchema = z.object({
+  question: z.string(),
+  type: z.enum(['multiple-choice', 'true-false', 'free-response']),
+  options: z.array(z.string()),
+  correctAnswer: z.string(),
+  explanation: z.string(),
+  // NEW fields
+  estimatedDifficulty: z.enum(['beginner', 'intermediate', 'advanced']),
+  bloomLevel: z.enum(['remember', 'understand', 'apply', 'analyze', 'evaluate']),
+  tags: z.array(z.string()).optional(),
+});
+```
+
+**Effort**: 3-4d | **Impact**: MEDIUM - Better quality questions
+**Acceptance**: Generate questions with fewer obvious distractors, appropriate difficulty levels
+
+---
+
+### [PRODUCT] Knowledge Graph Visualization
+**Perspectives**: product-visionary, user-experience-advocate
+**Severity**: MEDIUM
+**Impact**: Engagement and motivation through visual progress
+
+**The Vision**: Show learners their knowledge as a network, not a list
+
+**Features**:
+- **Nodes**: Topics (sized by question count)
+- **Edges**: Semantic relationships (via embeddings)
+- **Colors**: Mastery level (red=struggling, yellow=learning, green=mastered)
+- **Interactions**: Click node to drill into questions, zoom/pan
+- **Smart Layout**: Force-directed graph or hierarchical
+
+**Implementation**:
+```typescript
+// Build knowledge graph from embeddings
+export const buildKnowledgeGraph = query({
+  handler: async (ctx) => {
+    const questions = await getAllActiveQuestions(ctx);
+
+    // Cluster questions by topic similarity
+    const clusters = clusterByEmbedding(questions);
+
+    // Build graph structure
+    const nodes = clusters.map(cluster => ({
+      id: cluster.topic,
+      label: cluster.topic,
+      size: cluster.questions.length,
+      color: getMasteryColor(cluster.averageSuccessRate),
+    }));
+
+    const edges = findTopicRelationships(clusters);
+
+    return { nodes, edges };
+  }
+});
+
+// Visualize with react-force-graph or vis-network
+<ForceGraph2D
+  graphData={knowledgeGraph}
+  nodeLabel="label"
+  nodeColor="color"
+  linkColor={() => '#999'}
+  onNodeClick={handleNodeClick}
+/>
+```
+
+**Engagement Value**:
+- Visual progress tracking (gamification)
+- Identify weak connections in knowledge
+- Motivational - see network growing
+- Shareable (social proof)
+
+**Effort**: 5-6d (graph building, visualization, UX) | **Impact**: MEDIUM-HIGH - Engagement
+**Requires**: Vector embeddings
+**Acceptance**: View knowledge graph, see 10 topic clusters, click to drill into questions
+
+---
 
 ### [UX] Library Search & Advanced Filtering
 **File**: `app/library/_components/library-client.tsx`
@@ -437,7 +1546,6 @@ export const searchLibrary = query({
 
 // New indexes needed:
 // .index('by_user_topic_active', ['userId', 'topic', 'deletedAt', 'archivedAt'])
-// .index('by_user_difficulty_active', ['userId', 'difficulty', 'deletedAt', 'archivedAt'])
 ```
 
 **Trade-offs**:
@@ -473,32 +1581,6 @@ export const searchLibrary = query({
 
 **Effort**: 5h | **Value**: MEDIUM - Improves task management, reduces friction
 **Acceptance**: Retry failed job, succeeds on second attempt; bulk delete 10 completed jobs
-
----
-
-### [UX] Library View Alternatives
-**File**: `app/library/_components/library-client.tsx`
-**Perspectives**: user-experience-advocate
-**Severity**: LOW
-**Impact**: Power users want different navigation patterns for large libraries
-
-**Options Considered**:
-
-1. **Infinite Scroll** (3-4h)
-   - Use IntersectionObserver for scroll-triggered loading
-   - Append results instead of replacing pages
-   - Add "Load More" fallback for accessibility
-   - Trade-off: Hard to find specific items, memory growth with 1000+ items
-
-2. **Jump to Page by Number** (2-3h)
-   - Direct navigation: 1, 2, 3... with ellipsis (1...5 6 7...20)
-   - Requires offset-based pagination (slower than cursor, can skip/duplicate items)
-   - Trade-off: Doesn't align with Convex cursor API
-
-**Decision**: Keep cursor pagination as default, add these as opt-in experiments if user demand warrants
-
-**Effort**: 5-7h for both | **Value**: LOW-MEDIUM - Nice-to-have for power users
-**Status**: Deferred until user feedback indicates need
 
 ---
 
@@ -585,6 +1667,28 @@ tags: defineTable({
 
 ## Later (Someday/Maybe, 6+ months)
 
+### [PRODUCT] Quality Feedback Loop
+**Perspectives**: product-visionary
+**Severity**: LOW
+**Impact**: Improve AI generation quality over time
+
+**Track which AI-generated questions are good/bad**:
+```typescript
+questions: defineTable({
+  userEdited: v.optional(v.boolean()), // User edited content
+  reportedAmbiguous: v.optional(v.boolean()), // Flagged as unclear
+  userRating: v.optional(v.number()), // Explicit 1-5 rating
+})
+
+// Feed back into generation
+// "Here are examples of high-quality vs low-quality questions you generated..."
+```
+
+**Effort**: 4-5d | **Impact**: MEDIUM - Continuous improvement
+**Status**: Future enhancement after core features
+
+---
+
 ### [UX] Generation Modal Enhancements
 **File**: `components/generation-modal.tsx`
 **Perspectives**: user-experience-advocate
@@ -657,6 +1761,32 @@ tags: defineTable({
 
 ---
 
+### [UX] Library View Alternatives
+**File**: `app/library/_components/library-client.tsx`
+**Perspectives**: user-experience-advocate
+**Severity**: LOW
+**Impact**: Power users want different navigation patterns for large libraries
+
+**Options Considered**:
+
+1. **Infinite Scroll** (3-4h)
+   - Use IntersectionObserver for scroll-triggered loading
+   - Append results instead of replacing pages
+   - Add "Load More" fallback for accessibility
+   - Trade-off: Hard to find specific items, memory growth with 1000+ items
+
+2. **Jump to Page by Number** (2-3h)
+   - Direct navigation: 1, 2, 3... with ellipsis (1...5 6 7...20)
+   - Requires offset-based pagination (slower than cursor, can skip/duplicate items)
+   - Trade-off: Doesn't align with Convex cursor API
+
+**Decision**: Keep cursor pagination as default, add these as opt-in experiments if user demand warrants
+
+**Effort**: 5-7h for both | **Value**: LOW-MEDIUM - Nice-to-have for power users
+**Status**: Deferred until user feedback indicates need
+
+---
+
 ### [PRODUCT] Question Marketplace
 **Impact**: New revenue stream (70/30 revenue share with creators)
 
@@ -707,6 +1837,30 @@ Chrome/Firefox extension: Sidebar reviews, web clipper (highlight → question),
 ---
 
 ## Technical Debt (Schedule)
+
+### [REFACTOR] Named Constant for Shuffle Tier Size
+**File**: `convex/spacedRepetition.ts:293`
+**Source**: PR #44 review feedback
+**Perspectives**: maintainability-maven
+**Severity**: LOW
+**Impact**: Magic number N=10 lacks semantic meaning
+
+**Current**:
+```typescript
+const N = 10; // What does 10 represent?
+const topCandidates = questionsWithPriority.slice(0, Math.min(N, questionsWithPriority.length));
+```
+
+**Better**:
+```typescript
+const SHUFFLE_TIER_SIZE = 10; // Number of top-priority items to interleave
+const topCandidates = questionsWithPriority.slice(0, Math.min(SHUFFLE_TIER_SIZE, questionsWithPriority.length));
+```
+
+**Effort**: 5m | **Impact**: LOW - Clarity improvement
+**Acceptance**: Variable name self-documents purpose
+
+---
 
 ### [REFACTOR] Consolidate Pagination Logic
 **File**: `app/library/_components/library-client.tsx`, `app/tasks/_components/tasks-client.tsx`
@@ -895,7 +2049,26 @@ Daily cron has no tests. Wrong threshold = data loss or DB bloat. Add contract t
 
 ## Learnings
 
-**From this grooming session (2025-10-16)**:
+**From Strategic Roadmap Session (2025-10-20)**:
+
+**Intelligence Layer is the Moat**: The technical foundation is excellent. The next competitive advantage comes from making the system content-aware:
+- Vector embeddings enable semantic understanding (not just text matching)
+- Deduplication prevents AI-generated clutter
+- Adaptive generation creates personalized learning paths
+- Content-aware FSRS optimizes scheduling based on question types
+
+**Pure FSRS + Smart Interleaving**: The tension between "no artificial interleaving" and "fix batching artifacts" is resolved by priority bands. Shuffling within equal-urgency windows respects memory science while improving UX.
+
+**Free Response = Depth**: Moving beyond multiple-choice to free response with AI grading enables deeper learning. LLM-as-judge pattern proven effective, cost acceptable ($0.0001/question).
+
+**Embeddings Unlock Everything**: Vector search is foundational for:
+- Deduplication (find similar questions)
+- Semantic search (find related content)
+- Postpone related items (content grouping)
+- Knowledge graphs (visualize connections)
+- Content-aware FSRS (question type classification)
+
+**From Previous Grooming (2025-10-17)**:
 
 **Complexity Management**: Post-PR#32 refactor demonstrates excellent architectural discipline. `IScheduler` abstraction, modular backend, atomic validation pattern are gold standards. Primary remaining issue: `spacedRepetition.ts` god object (740 LOC, 5 responsibilities).
 
@@ -914,9 +2087,14 @@ Daily cron has no tests. Wrong threshold = data loss or DB bloat. Add contract t
 ## Metrics Summary
 
 **Code Quality**: A-
-- Technical debt: 12 items, ~15h effort
+- Technical debt: 15 items, ~20h effort
 - Well-architected post-refactor
 - Strong foundations (modularity, type safety, test coverage)
+
+**Strategic Opportunities**: Intelligence Layer
+- P0 Foundation: Vector embeddings (4-5d)
+- High Impact: Deduplication (6-7d), Free response (5-6d), Adaptive generation (7-8d)
+- Differentiation: Content-aware FSRS (10-12d research)
 
 **Product Opportunities**: $500K ARR potential
 - Critical gaps: 5 items, 28 days effort
@@ -936,32 +2114,48 @@ Daily cron has no tests. Wrong threshold = data loss or DB bloat. Add contract t
 **Cross-Perspective Consensus** (flagged by 3+ agents):
 1. **spacedRepetition.ts complexity** → Split into 4 modules (6-8h)
 2. **Unbounded stats queries** → Add indexes + limits (2h)
-3. **Secret management** → Rotate + vault (6h)
+3. **Vector embeddings** → Foundation for intelligence layer (4-5d)
 4. **No monetization** → Freemium tier (8d)
 5. **No export** → JSON/CSV/APKG/PDF (4.5d)
 
 **Recommended Action Plan**:
 
-**Week 1 (Critical Security + Performance)**:
-- Rotate production secrets (2h)
+**Week 1-2 (Quick Wins + Security)**:
+- Smart interleaving (2-3h)
+- Progress indicators (2-3h)
 - Fix O(n²) selection algorithm (30m)
 - Fix unbounded stats queries (2h)
 - Update vulnerable dependencies (30m)
 
-**Week 2-5 (Product-Market Fit)**:
-- Implement freemium monetization (8d)
-- Build data export (4.5d)
-- Build data import (7d)
-- Enable question sharing (3d)
-- Launch PWA mobile (5d)
+**Week 3-6 (Intelligence Foundation)**:
+- Vector embeddings infrastructure (4-5d)
+- Free response with AI grading (5-6d)
+- Deduplication system (6-7d)
 
-**Result**: Removes adoption blockers, enables revenue, creates viral growth loop
+**Week 7-10 (Adaptive Features)**:
+- Adaptive question generation (7-8d)
+- Postpone with related items (6-7h)
+- Smart interleaving refinements (2-3d)
+
+**Week 11-14 (Product-Market Fit)**:
+- Freemium monetization (8d)
+- Data export (4.5d)
+- Data import (7d)
+- Question sharing (3d)
+
+**Result**: Transforms Scry from "Anki clone with AI" to "First content-aware SRS platform"
 
 ---
 
-**Last Updated**: 2025-10-17
+**Last Updated**: 2025-10-20
 **Next Grooming**: Q1 2026 (or when 3+ critical issues emerge)
 
-**Recent Additions** (2025-10-17):
-- UI/UX enhancements migrated from planning doc (library search, task retry, pagination polish, empty states)
-- Items categorized: Soon (search/filtering), Technical Debt (refactoring), Later (modal templates, review alternatives)
+**Recent Additions** (2025-10-20):
+- Strategic roadmap synthesis: Vector embeddings, deduplication, adaptive generation, content-aware FSRS
+- Free response questions with AI grading (LLM-as-judge pattern)
+- Smart review interleaving (topic dispersion within priority bands)
+- Progress indicators for review sessions
+- Postpone action with related items support
+- Knowledge graph visualization
+- Prompt engineering improvements
+- Quality feedback loop system

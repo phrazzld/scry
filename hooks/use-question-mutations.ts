@@ -15,7 +15,6 @@ const optimisticStore = {
     string,
     {
       question: string;
-      topic: string;
       explanation?: string;
       options?: string[];
       correctAnswer?: string;
@@ -27,7 +26,6 @@ const optimisticStore = {
 interface OptimisticEditParams {
   questionId: Id<'questions'>;
   question: string;
-  topic: string;
   explanation?: string;
   options?: string[];
   correctAnswer?: string;
@@ -58,11 +56,11 @@ export function useQuestionMutations() {
         return { success: false };
       }
 
-      const { questionId, question, topic, explanation, options, correctAnswer } = params;
+      const { questionId, question, explanation, options, correctAnswer } = params;
       const questionIdStr = questionId as string;
 
       // Store the optimistic update
-      const optimisticData = { question, topic, explanation, options, correctAnswer };
+      const optimisticData = { question, explanation, options, correctAnswer };
       optimisticStore.edits.set(questionIdStr, optimisticData);
       setOptimisticEdits(new Map(optimisticStore.edits));
 
@@ -74,7 +72,6 @@ export function useQuestionMutations() {
         const result = await updateQuestion({
           questionId,
           question,
-          topic,
           explanation,
           options,
           correctAnswer,

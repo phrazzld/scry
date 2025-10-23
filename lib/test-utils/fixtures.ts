@@ -33,8 +33,6 @@ export const mockQuestion: Question = {
   _id: createMockId('questions', '1'),
   _creationTime: Date.now() - 86400000, // 1 day ago
   userId: createMockId('users', 'test-user'),
-  topic: 'Geography',
-  difficulty: 'easy',
   question: 'What is the capital of France?',
   type: 'multiple-choice',
   options: ['Paris', 'London', 'Berlin', 'Madrid'],
@@ -94,8 +92,6 @@ export function createMockInteraction(overrides?: Partial<Interaction>): Interac
  */
 export const mockQuizSession = {
   id: 'session-123',
-  topic: 'Geography',
-  difficulty: 'medium',
   startedAt: Date.now() - 600000, // 10 minutes ago
   questions: [
     createMockQuestion({ question: 'What is the capital of France?' }),
@@ -112,14 +108,9 @@ export const mockQuizSession = {
  * Create a batch of mock questions for testing lists
  */
 export function createMockQuestions(count: number = 5): Question[] {
-  const topics = ['Geography', 'Science', 'History', 'Math', 'Literature'];
-  const difficulties = ['easy', 'medium', 'hard'];
-
   return Array.from({ length: count }, (_, i) =>
     createMockQuestion({
       _id: createMockId('questions', `q${i}`),
-      topic: topics[i % topics.length],
-      difficulty: difficulties[i % difficulties.length],
       question: `Sample question ${i + 1}?`,
       attemptCount: Math.floor(Math.random() * 10),
       correctCount: Math.floor(Math.random() * 5),
