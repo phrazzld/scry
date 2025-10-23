@@ -774,26 +774,6 @@ export const removeTopicFromQuestions = internalMutation({
 });
 
 /**
- * Diagnostic query to check if topic field exists in questions
- */
-export const checkQuestionTopicFields = query({
-  args: {},
-  handler: async (ctx) => {
-    const questions = await ctx.db.query('questions').take(5);
-    return questions.map((q) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const qData = q as any;
-      return {
-        id: q._id,
-        hasTopicProperty: 'topic' in qData,
-        topicValue: qData.topic,
-        allKeys: Object.keys(qData),
-      };
-    });
-  },
-});
-
-/**
  * Initialize userStats for all existing users
  *
  * This migration creates userStats records for existing users by counting

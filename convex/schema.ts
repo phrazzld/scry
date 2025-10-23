@@ -37,7 +37,6 @@ export default defineSchema({
     options: v.array(v.string()),
     correctAnswer: v.string(),
     explanation: v.optional(v.string()),
-    topic: v.optional(v.string()), // TEMPORARY for migration
     generatedAt: v.number(),
     // Denormalized fields for query performance
     attemptCount: v.number(), // Default: 0
