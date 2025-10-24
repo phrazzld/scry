@@ -18,9 +18,13 @@
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { embed } from 'ai';
+import { v } from 'convex/values';
 import pino from 'pino';
 
-import { internalAction } from './_generated/server';
+import { internal } from './_generated/api';
+import { Id } from './_generated/dataModel';
+import { action, internalAction, internalQuery } from './_generated/server';
+import { requireUserFromClerk } from './clerk';
 
 // Logger for this module
 const logger = pino({ name: 'embeddings' });
@@ -154,5 +158,110 @@ export const generateEmbedding = internalAction({
       enhancedError.errorType = errorType;
       throw enhancedError;
     }
+  },
+});
+
+/**
+ * Internal helper to get authenticated user ID
+ */
+export const getAuthenticatedUserId = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<Id<'users'>> => {
+    const user = await requireUserFromClerk(ctx);
+    return user._id;
+  },
+});
+
+/**
+ * Search questions by semantic similarity
+ *
+ * Public action that performs vector search on questions using embeddings.
+ * Enforces userId filtering for security and respects view state (active/archived/trash).
+ *
+ * @param query - User search query (will be embedded for similarity matching)
+ * @param limit - Maximum results to return (default 20, max 50)
+ * @param view - Filter by question state: active, archived, or trash
+ * @returns Array of questions sorted by similarity score (highest first)
+ */
+export const searchQuestions = action({
+  args: {
+    query: v.string(),
+    limit: v.optional(v.number()),
+    view: v.optional(v.union(v.literal('active'), v.literal('archived'), v.literal('trash'))),
+  },
+  handler: async (ctx, args) => {
+    const startTime = Date.now();
+
+    // Authenticate user via internal query
+    const userId = await ctx.runQuery(internal.embeddings.getAuthenticatedUserId);
+
+    // Validate and clamp limit (between 1 and 50)
+    const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
+    const view = args.view ?? 'active';
+
+    logger.info(
+      {
+        event: 'embeddings.search.start',
+        query: args.query,
+        limit,
+        view,
+        userId,
+      },
+      'Starting vector search'
+    );
+
+    // Generate embedding for search query
+    const queryEmbedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
+      text: args.query,
+    });
+
+    // Build filter expression based on view
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buildFilter = (q: any) => {
+      const filters = [q.eq('userId', userId)];
+
+      switch (view) {
+        case 'active':
+          // Active: not deleted AND not archived
+          filters.push(q.eq('deletedAt', undefined));
+          filters.push(q.eq('archivedAt', undefined));
+          break;
+        case 'archived':
+          // Archived: has archivedAt AND not deleted
+          filters.push(q.neq('archivedAt', undefined));
+          filters.push(q.eq('deletedAt', undefined));
+          break;
+        case 'trash':
+          // Trash: has deletedAt (regardless of archived state)
+          filters.push(q.neq('deletedAt', undefined));
+          break;
+      }
+
+      return q.and(...filters);
+    };
+
+    // Perform vector search with filters
+    const vectorResults = await ctx.vectorSearch('questions', 'by_embedding', {
+      vector: queryEmbedding,
+      limit,
+      filter: buildFilter,
+    });
+
+    const duration = Date.now() - startTime;
+
+    logger.info(
+      {
+        event: 'embeddings.search.success',
+        query: args.query,
+        resultCount: vectorResults.length,
+        duration,
+        view,
+        userId,
+      },
+      'Vector search completed successfully'
+    );
+
+    // Return results with scores (already sorted by similarity, highest first)
+    return vectorResults;
   },
 });
