@@ -243,9 +243,20 @@ export const searchQuestions = action({
     // Perform vector search with filters
     const vectorResults = await ctx.vectorSearch('questions', 'by_embedding', {
       vector: queryEmbedding,
-      limit,
+      limit: limit * 2, // Get extra results for merging
       filter: buildFilter,
     });
+
+    // Perform text search for keyword matching
+    const textResults = await ctx.runQuery(internal.questionsLibrary.textSearchQuestions, {
+      query: args.query,
+      limit,
+      userId,
+      view,
+    });
+
+    // Merge results: Deduplicate by _id, prioritize vector results, sort by score
+    const mergedResults = mergeSearchResults(vectorResults, textResults, limit);
 
     const duration = Date.now() - startTime;
 
@@ -253,15 +264,67 @@ export const searchQuestions = action({
       {
         event: 'embeddings.search.success',
         query: args.query,
-        resultCount: vectorResults.length,
+        vectorCount: vectorResults.length,
+        textCount: textResults.length,
+        mergedCount: mergedResults.length,
         duration,
         view,
         userId,
       },
-      'Vector search completed successfully'
+      'Hybrid search completed successfully'
     );
 
-    // Return results with scores (already sorted by similarity, highest first)
-    return vectorResults;
+    // Return merged results sorted by score (highest first)
+    return mergedResults;
   },
 });
+
+/**
+ * Merge vector search and text search results
+ *
+ * Deduplicates by question ID, prioritizes vector results (semantic similarity),
+ * and returns top N results sorted by score.
+ *
+ * Vector results have similarity scores (0.0-1.0), text results get default score 0.5
+ * to rank them between low and high vector matches.
+ */
+type SearchResult = {
+  _id: Id<'questions'>;
+  _score: number;
+  [key: string]: unknown;
+};
+
+function mergeSearchResults(
+  vectorResults: SearchResult[],
+  textResults: unknown[],
+  limit: number
+): SearchResult[] {
+  const seen = new Set<string>();
+  const merged: SearchResult[] = [];
+
+  // Add vector results first (semantic similarity - usually more relevant)
+  for (const result of vectorResults) {
+    const id = result._id.toString();
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push(result);
+    }
+  }
+
+  // Add text results that aren't duplicates
+  // Assign default score of 0.5 to text-only matches (between low/high vector scores)
+  for (const result of textResults) {
+    const typedResult = result as { _id: Id<'questions'>; [key: string]: unknown };
+    const id = typedResult._id.toString();
+    if (!seen.has(id)) {
+      seen.add(id);
+      merged.push({
+        ...typedResult,
+        _score: 0.5, // Default score for keyword matches
+      } as SearchResult);
+    }
+  }
+
+  // Sort by score descending and take top N
+  return merged.sort((a, b) => b._score - a._score).slice(0, limit);
+}
