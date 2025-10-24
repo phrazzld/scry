@@ -87,6 +87,9 @@ export const saveBatch = internalMutation({
         options: v.array(v.string()),
         correctAnswer: v.string(),
         explanation: v.optional(v.string()),
+        // Optional embedding fields for semantic search
+        embedding: v.optional(v.array(v.float64())),
+        embeddingGeneratedAt: v.optional(v.number()),
       })
     ),
   },
@@ -110,6 +113,9 @@ export const saveBatch = internalMutation({
           correctCount: 0,
           // Initialize FSRS fields with proper defaults
           ...fsrsFields,
+          // Include embedding fields if provided (graceful degradation)
+          ...(q.embedding && { embedding: q.embedding }),
+          ...(q.embeddingGeneratedAt && { embeddingGeneratedAt: q.embeddingGeneratedAt }),
         })
       )
     );
