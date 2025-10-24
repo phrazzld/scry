@@ -53,8 +53,13 @@ export function ReviewFlow() {
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
-  // Query for current due count
-  const dueCountData = useQuery(api.spacedRepetition.getDueCount, {});
+  // Periodic refresh key for due count (updates every 60s to catch time-based card scheduling)
+  const [refreshKey, setRefreshKey] = useState(Date.now());
+
+  // Query for current due count with periodic refresh
+  const dueCountData = useQuery(api.spacedRepetition.getDueCount, {
+    _refreshTimestamp: refreshKey,
+  });
 
   // Edit/Delete functionality
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -86,6 +91,15 @@ export function ReviewFlow() {
       setQuestionStartTime(Date.now());
     }
   }, [questionId]);
+
+  // Refresh due count every 60s to catch cards becoming due from time passing
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey(Date.now());
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
