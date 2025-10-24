@@ -23,7 +23,7 @@ import pino from 'pino';
 
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
-import { action, internalAction, internalQuery } from './_generated/server';
+import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 // Logger for this module
@@ -328,3 +328,111 @@ function mergeSearchResults(
   // Sort by score descending and take top N
   return merged.sort((a, b) => b._score - a._score).slice(0, limit);
 }
+
+/**
+ * Get questions without embeddings for backfill sync
+ *
+ * Internal query used by daily sync cron to identify questions that need embeddings.
+ * Limits results to prevent overwhelming the sync process.
+ *
+ * @param limit - Maximum questions to return (default 100 for daily sync)
+ * @returns Array of questions without embeddings
+ */
+export const getQuestionsWithoutEmbeddings = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 100;
+
+    // Query questions where embedding is undefined
+    // Only active questions (not deleted or archived) to avoid wasting API calls
+    const questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('embedding'), undefined),
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined)
+        )
+      )
+      .take(limit);
+
+    return questions;
+  },
+});
+
+/**
+ * Count questions without embeddings
+ *
+ * Used for monitoring and progress tracking of backfill sync.
+ *
+ * @returns Count of questions missing embeddings
+ */
+export const countQuestionsWithoutEmbeddings = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Use take with a reasonable limit for counting (avoid unbounded queries)
+    // If count exceeds limit, return "limit+" to indicate "at least this many"
+    const SAMPLE_LIMIT = 1000;
+
+    const questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('embedding'), undefined),
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined)
+        )
+      )
+      .take(SAMPLE_LIMIT);
+
+    return {
+      count: questions.length,
+      isApproximate: questions.length === SAMPLE_LIMIT,
+    };
+  },
+});
+
+/**
+ * Get a single question for embedding generation
+ *
+ * Internal query used by sync to fetch full question data.
+ *
+ * @param questionId - ID of question to fetch
+ * @returns Question document or null if not found
+ */
+export const getQuestionForEmbedding = internalQuery({
+  args: {
+    questionId: v.id('questions'),
+  },
+  handler: async (ctx, args) => {
+    const question = await ctx.db.get(args.questionId);
+    return question;
+  },
+});
+
+/**
+ * Save embedding to a question
+ *
+ * Internal mutation used by sync to update questions with generated embeddings.
+ *
+ * @param questionId - ID of question to update
+ * @param embedding - 768-dimensional embedding vector
+ * @param timestamp - When embedding was generated
+ */
+export const saveEmbedding = internalMutation({
+  args: {
+    questionId: v.id('questions'),
+    embedding: v.array(v.float64()),
+    embeddingGeneratedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.questionId, {
+      embedding: args.embedding,
+      embeddingGeneratedAt: args.embeddingGeneratedAt,
+    });
+  },
+});
