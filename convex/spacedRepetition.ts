@@ -383,23 +383,6 @@ export const getDueCount = query({
       .take(1000); // Cap at 1000 - beyond this we show "1000+" badge
     dueCount = dueQuestions.length;
 
-    // Also count learning/relearning cards as "due" since they need immediate review
-    // This ensures "0 due" is never shown when learning cards exist
-    const learningQuestions = await ctx.db
-      .query('questions')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .filter((q) =>
-        q.and(
-          q.or(q.eq(q.field('state'), 'learning'), q.eq(q.field('state'), 'relearning')),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined),
-          // Don't double-count cards already in dueQuestions
-          q.gt(q.field('nextReview'), now)
-        )
-      )
-      .take(1000); // Match due cards limit for consistency
-    dueCount += learningQuestions.length;
-
     // Count new questions using pagination
     let newCount = 0;
     const newQuestions = await ctx.db

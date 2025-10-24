@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { ArrowRight, Calendar, Clock, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
@@ -10,18 +11,16 @@ import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
 import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
-import { ReviewProgressIndicator } from '@/components/review/review-progress-indicator';
 import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
-import { api } from '@/convex/_generated/api';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
+import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
 import { useConfirmation } from '@/hooks/use-confirmation';
 import { useReviewShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { useQuestionMutations } from '@/hooks/use-question-mutations';
 import { useQuizInteractions } from '@/hooks/use-quiz-interactions';
 import { useReviewFlow } from '@/hooks/use-review-flow';
-import { useQuery } from 'convex/react';
 
 /**
  * Unified ReviewFlow component that combines ReviewMode + ReviewSession
@@ -54,10 +53,7 @@ export function ReviewFlow() {
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
-  // Session progress tracking
-  const [sessionReviewCount, setSessionReviewCount] = useState(0);
-
-  // Query for remaining reviews
+  // Query for current due count
   const dueCountData = useQuery(api.spacedRepetition.getDueCount, {});
 
   // Edit/Delete functionality
@@ -127,9 +123,6 @@ export function ReviewFlow() {
   }, [selectedAnswer, question, questionId, questionStartTime, trackAnswer, sessionId]);
 
   const handleNext = useCallback(() => {
-    // Increment session review count
-    setSessionReviewCount((prev) => prev + 1);
-
     // Tell the review flow we're done with this question
     handlers.onReviewComplete();
 
@@ -223,12 +216,15 @@ export function ReviewFlow() {
       <PageContainer className="py-6">
         <div className="max-w-[760px]">
           <article className="space-y-6">
-            {/* Progress indicator */}
+            {/* Due count indicator - refined pill design */}
             {dueCountData && (
-              <ReviewProgressIndicator
-                reviewedCount={sessionReviewCount}
-                remainingCount={dueCountData.totalReviewable}
-              />
+              <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 shadow-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium tabular-nums">
+                  <span className="text-foreground">{dueCountData.totalReviewable}</span>
+                  <span className="text-muted-foreground ml-1">cards due</span>
+                </span>
+              </div>
             )}
 
             {/* Use memoized component for question display with error boundary */}
