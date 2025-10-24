@@ -73,8 +73,7 @@ export function LibraryClient() {
           view: currentTab,
         });
         setSearchResults(results);
-      } catch (error) {
-        console.error('Search failed:', error);
+      } catch {
         toast.error('Search failed. Please try again.');
         setSearchResults([]);
       } finally {
