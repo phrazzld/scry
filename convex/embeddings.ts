@@ -436,3 +436,130 @@ export const saveEmbedding = internalMutation({
     });
   },
 });
+
+/**
+ * Sync missing embeddings (daily cron)
+ *
+ * Backfills embeddings for questions that don't have them.
+ * Processes up to 100 questions/day in batches of 10 to respect rate limits.
+ *
+ * Scheduled to run daily at 3:30 AM UTC via cron.ts
+ */
+export const syncMissingEmbeddings = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const startTime = Date.now();
+
+    // Fetch questions without embeddings
+    const questions = await ctx.runQuery(internal.embeddings.getQuestionsWithoutEmbeddings, {
+      limit: 100,
+    });
+
+    // Type the questions array (from the internal query return type)
+    type Question = (typeof questions)[number];
+
+    if (questions.length === 0) {
+      logger.info(
+        {
+          event: 'embeddings.sync.complete',
+          count: 0,
+          duration: Date.now() - startTime,
+        },
+        'No questions need embeddings'
+      );
+      return;
+    }
+
+    logger.info(
+      {
+        event: 'embeddings.sync.start',
+        count: questions.length,
+      },
+      `Starting embedding sync for ${questions.length} questions`
+    );
+
+    // Process in batches of 10 for rate limit protection
+    const BATCH_SIZE = 10;
+    const batches = chunkArray(questions, BATCH_SIZE);
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (let i = 0; i < batches.length; i += 1) {
+      const batch = batches[i];
+
+      // Process batch in parallel using Promise.allSettled
+      const results = await Promise.allSettled(
+        batch.map(async (question: Question) => {
+          // Combine question + explanation for embedding
+          const text = `${question.question} ${question.explanation || ''}`;
+
+          // Generate embedding
+          const embedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
+            text,
+          });
+
+          // Save to database
+          await ctx.runMutation(internal.embeddings.saveEmbedding, {
+            questionId: question._id,
+            embedding,
+            embeddingGeneratedAt: Date.now(),
+          });
+
+          return question._id;
+        })
+      );
+
+      // Count successes and failures
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          successCount += 1;
+        } else {
+          failureCount += 1;
+          logger.error(
+            {
+              event: 'embeddings.sync.batch-failure',
+              error: result.reason,
+              batch: i + 1,
+            },
+            'Failed to generate embedding in batch'
+          );
+        }
+      }
+
+      // Rate limit protection: Sleep 1 second between batches (except last)
+      if (i < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    const duration = Date.now() - startTime;
+
+    // Get remaining count for logging
+    const remaining = await ctx.runQuery(internal.embeddings.countQuestionsWithoutEmbeddings);
+
+    logger.info(
+      {
+        event: 'embeddings.sync.complete',
+        successCount,
+        failureCount,
+        totalProcessed: successCount + failureCount,
+        duration,
+        remainingCount: remaining.count,
+        remainingIsApproximate: remaining.isApproximate,
+      },
+      `Embedding sync complete: ${successCount} success, ${failureCount} failed, ${remaining.count} remaining`
+    );
+  },
+});
+
+/**
+ * Helper to chunk array into batches
+ */
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
