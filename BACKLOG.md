@@ -6,45 +6,17 @@
 
 ---
 
-## Now (Sprint-Ready, <2 weeks)
+### [AI] Migrate provider to OpenRouter or Vercel AI SDK
+- support arbitrary set of model compositions for question generation and other ai / llm / generative features
+- sometimes we want gemini-2.5-flash, sometimes we want gpt-5-mini, sometimes we want something else etc
 
-### [UX] Review Progress Indicators
-**File**: `components/review-flow.tsx`
-**Perspectives**: user-experience-advocate
-**Severity**: HIGH
-**Impact**: "Reviews feel endless" - no visibility into session depth
+### [BUSINESS] Paywall the Service
+- brainstorm and determine the best pricing model for scry
+- freemium? straight up total paywall? 7-30 day free trial? tokens?
+- how do we balance the usage-based costs we have -- particularly the generative ai costs -- with a good user experience?
 
-**The Problem**: No feedback on remaining items during review session
-
-**Research**: Progress visibility increases task completion by 35%, reduces anxiety
-
-**Solution Options**:
-1. **Session Counter** (Recommended): "Reviewed 12 • ~38 remaining"
-2. **Time Estimate**: "~15 minutes remaining at your pace"
-3. **Progress Bar**: Visual 30% → 100% fill
-
-**Implementation**:
-```typescript
-// Add to review flow state
-const [sessionStats, setSessionStats] = useState({
-  reviewed: 0,
-  estimatedRemaining: dueCount,
-  sessionStartTime: Date.now()
-});
-
-// Update after each review
-setSessionStats(prev => ({
-  reviewed: prev.reviewed + 1,
-  estimatedRemaining: Math.max(0, prev.estimatedRemaining - 1),
-  sessionStartTime: prev.sessionStartTime
-}));
-```
-
-**UX**: Subtle counter in header, updates every 5 reviews to avoid distraction
-**Effort**: 2-3h | **Impact**: CRITICAL - Reduces "endless review" anxiety
-**Acceptance**: See "Reviewed 15 of ~42 due" during session, count updates after each answer
-
----
+### [DX] Build Genesis Laboratory
+- developers of this project need an easy way to modify prompts, models, parameters, etc and run question generation to evaluate outputs
 
 ### [SECURITY] Update Vulnerable Dependencies
 **File**: `package.json`
@@ -225,107 +197,6 @@ if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError')) {
 ---
 
 ## Next (This Quarter, <3 months)
-
-### [PRODUCT] Vector Embeddings Infrastructure (P0 - FOUNDATIONAL)
-**File**: `convex/schema.ts`
-**Perspectives**: product-visionary, architecture-guardian
-**Severity**: CRITICAL
-**Impact**: Unlocks semantic search, deduplication, content-aware features
-
-**The Opportunity**: Convex supports vector search natively!
-
-**Why This is P0**:
-- Enables deduplication (find similar questions)
-- Powers semantic search ("find photosynthesis questions" not just keyword)
-- Supports "postpone related items" feature
-- Foundation for content-aware FSRS
-- Enables knowledge gap detection
-
-**Schema Changes**:
-```typescript
-questions: defineTable({
-  // ... existing fields ...
-  embedding: v.optional(v.array(v.float64())),
-}).vectorIndex("by_embedding", {
-  vectorField: "embedding",
-  dimensions: 768, // Google Vertex AI text-embedding-004
-  filterFields: ["userId", "deletedAt"]
-})
-```
-
-**Generation Pipeline**:
-```typescript
-// On question creation
-export const saveGeneratedQuestions = mutation({
-  handler: async (ctx, args) => {
-    // ... existing logic ...
-
-    // Generate embedding for semantic search
-    const embedding = await generateEmbedding(
-      question.question + " " + question.explanation
-    );
-
-    await ctx.db.insert('questions', {
-      ...fields,
-      embedding
-    });
-  }
-});
-
-// Action for embedding generation
-export const generateEmbedding = internalAction({
-  handler: async (ctx, { text }) => {
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_AI_API_KEY
-    });
-
-    const result = await embed({
-      model: google.textEmbeddingModel('text-embedding-004'),
-      value: text
-    });
-
-    return result.embedding; // 768-dimensional vector
-  }
-});
-```
-
-**Backfill Migration**:
-```typescript
-// Migration: Process existing questions in batches
-export const backfillEmbeddings = internalMutation({
-  handler: async (ctx) => {
-    const questions = await ctx.db
-      .query('questions')
-      .filter(q => q.eq(q.field('embedding'), undefined))
-      .take(100); // Process 100/day to avoid rate limits
-
-    for (const question of questions) {
-      const embedding = await ctx.scheduler.runAfter(
-        0,
-        internal.embeddings.generateEmbedding,
-        { text: question.question + " " + question.explanation }
-      );
-      await ctx.db.patch(question._id, { embedding });
-    }
-  }
-});
-```
-
-**Cost Analysis**:
-- Storage: 768 floats × 4 bytes = 3KB per question (30MB for 10K questions - negligible)
-- API: Google Vertex AI text-embedding-004 - FREE for first 20M tokens/month
-- Compute: Convex vector search optimized, no additional cost
-
-**Use Cases Enabled**:
-1. Semantic search: `findSimilarQuestions(questionId, limit)`
-2. Deduplication: Find pairs with >0.90 cosine similarity
-3. Related items: "Postpone this + all related questions"
-4. Knowledge gaps: Identify sparse topic coverage
-
-**Effort**: 4-5d (schema, generation, backfill, queries) | **Impact**: FOUNDATIONAL
-**Acceptance**: Generate embedding for new question, search by semantic similarity, find 10 related questions
-
----
 
 ### [PRODUCT] Free Response Questions with AI Grading
 **File**: `convex/schema.ts`, `convex/aiGrading.ts`
