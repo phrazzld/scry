@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
+import { Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/page-container';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { TableSkeleton } from '@/components/ui/loading-skeletons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -31,6 +34,11 @@ export function LibraryClient() {
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [pageSize, setPageSize] = useState<number>(25);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<unknown[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+
   // Query questions for current view with pagination
   // Skip query when not authenticated to prevent race condition during Clerk auth loading
   const paginationData = useQuery(
@@ -42,6 +50,40 @@ export function LibraryClient() {
   const questions = paginationData?.results;
   const continueCursor = paginationData?.continueCursor ?? null;
   const isDone = paginationData?.isDone ?? true;
+
+  // Search action
+  const searchAction = useAction(api.embeddings.searchQuestions);
+
+  // Debounced search effect (300ms delay)
+  useEffect(() => {
+    // Skip if query is empty or user not signed in
+    if (!searchQuery.trim() || !isSignedIn) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchAction({
+          query: searchQuery,
+          limit: 20,
+          view: currentTab,
+        });
+        setSearchResults(results);
+      } catch (error) {
+        console.error('Search failed:', error);
+        toast.error('Search failed. Please try again.');
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, currentTab, searchAction, isSignedIn]);
 
   // Mutations for bulk operations
   const archiveQuestions = useMutation(api.questionsBulk.archiveQuestions);
@@ -66,6 +108,9 @@ export function LibraryClient() {
     // Reset pagination when switching tabs
     setCursor(null);
     setCursorStack([]);
+    // Clear search when switching tabs
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   // Clear selection handler
@@ -229,10 +274,57 @@ export function LibraryClient() {
     }
   };
 
+  // Determine which data to display (search results or paginated questions)
+  const displayQuestions = searchQuery.trim() ? searchResults : questions;
+  const isShowingSearchResults = searchQuery.trim() && searchResults.length > 0;
+
   return (
     <TooltipProvider>
       <PageContainer className="py-8">
         <h1 className="text-3xl font-bold mb-6">Question Library</h1>
+
+        {/* Search Input */}
+        <div className="mb-6 relative">
+          <Input
+            type="text"
+            placeholder="Search questions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-20"
+          />
+          {isSearching && (
+            <div className="absolute right-10 top-1/2 -translate-y-1/2">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear search</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Search Results Count */}
+        {isShowingSearchResults && (
+          <div className="mb-4 text-sm text-muted-foreground">
+            {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'} for &quot;
+            {searchQuery}&quot;
+          </div>
+        )}
+
+        {/* Empty Search State */}
+        {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-lg font-medium">No results for &quot;{searchQuery}&quot;</p>
+            <p className="text-sm mt-2">Try different keywords or check your spelling</p>
+          </div>
+        )}
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
           <TabsList>
@@ -253,13 +345,13 @@ export function LibraryClient() {
           />
 
           <TabsContent value="active" className="mt-6">
-            {questions === undefined ? (
+            {displayQuestions === undefined ? (
               <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
                   <LibraryTable
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
@@ -272,34 +364,37 @@ export function LibraryClient() {
                 </div>
                 <div className="md:hidden">
                   <LibraryCards
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
 
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
+                {/* Show pagination only when not searching */}
+                {!isShowingSearchResults && questions && (
+                  <LibraryPagination
+                    isDone={isDone}
+                    onNextPage={handleNextPage}
+                    onPrevPage={handlePrevPage}
+                    hasPrevious={cursorStack.length > 0}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    totalShown={questions.length}
+                  />
+                )}
               </>
             )}
           </TabsContent>
 
           <TabsContent value="archived" className="mt-6">
-            {questions === undefined ? (
+            {displayQuestions === undefined ? (
               <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
                   <LibraryTable
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
@@ -312,34 +407,37 @@ export function LibraryClient() {
                 </div>
                 <div className="md:hidden">
                   <LibraryCards
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
 
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
+                {/* Show pagination only when not searching */}
+                {!isShowingSearchResults && questions && (
+                  <LibraryPagination
+                    isDone={isDone}
+                    onNextPage={handleNextPage}
+                    onPrevPage={handlePrevPage}
+                    hasPrevious={cursorStack.length > 0}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    totalShown={questions.length}
+                  />
+                )}
               </>
             )}
           </TabsContent>
 
           <TabsContent value="trash" className="mt-6">
-            {questions === undefined ? (
+            {displayQuestions === undefined ? (
               <TableSkeleton rows={10} />
             ) : (
               <>
                 <div className="hidden md:block">
                   <LibraryTable
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
@@ -352,22 +450,25 @@ export function LibraryClient() {
                 </div>
                 <div className="md:hidden">
                   <LibraryCards
-                    questions={questions}
+                    questions={displayQuestions as typeof questions}
                     currentTab={currentTab}
                     selectedIds={selectedIds}
                     onSelectionChange={handleSelectionChange}
                   />
                 </div>
 
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
+                {/* Show pagination only when not searching */}
+                {!isShowingSearchResults && questions && (
+                  <LibraryPagination
+                    isDone={isDone}
+                    onNextPage={handleNextPage}
+                    onPrevPage={handlePrevPage}
+                    hasPrevious={cursorStack.length > 0}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                    totalShown={questions.length}
+                  />
+                )}
               </>
             )}
           </TabsContent>
