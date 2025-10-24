@@ -13,7 +13,7 @@
  */
 import { v } from 'convex/values';
 
-import { query } from './_generated/server';
+import { internalQuery, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 /**
@@ -180,5 +180,60 @@ export const getQuizInteractionStats = query({
       uniqueQuestions,
       accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
     };
+  },
+});
+
+/**
+ * Text search questions by keyword matching
+ *
+ * Internal query for hybrid search (complements vector search).
+ * Performs case-insensitive substring matching on question text.
+ *
+ * Simple keyword matching without semantic understanding - use alongside
+ * vector search for best results (catches exact phrase matches).
+ *
+ * @internal Used by embeddings.searchQuestions for hybrid search
+ */
+export const textSearchQuestions = internalQuery({
+  args: {
+    query: v.string(),
+    limit: v.number(),
+    userId: v.id('users'),
+    view: v.optional(v.union(v.literal('active'), v.literal('archived'), v.literal('trash'))),
+  },
+  handler: async (ctx, args) => {
+    const { query, limit, userId, view = 'active' } = args;
+    const searchLower = query.toLowerCase();
+
+    // Query user's questions with view filtering
+    const dbQuery = ctx.db.query('questions').withIndex('by_user', (q) => q.eq('userId', userId));
+
+    // Apply view filters at DB level where possible
+    const questions = await dbQuery.order('desc').take(limit * 3); // Fetch extra for filtering
+
+    // Filter by view state and keyword match
+    const matches = questions.filter((q) => {
+      // View filtering (client-side since we can't use compound index for all cases)
+      switch (view) {
+        case 'active':
+          if (q.deletedAt !== undefined || q.archivedAt !== undefined) return false;
+          break;
+        case 'archived':
+          if (q.deletedAt !== undefined || q.archivedAt === undefined) return false;
+          break;
+        case 'trash':
+          if (q.deletedAt === undefined) return false;
+          break;
+      }
+
+      // Keyword matching - case insensitive substring search
+      const questionLower = q.question.toLowerCase();
+      const explanationLower = q.explanation?.toLowerCase() ?? '';
+
+      return questionLower.includes(searchLower) || explanationLower.includes(searchLower);
+    });
+
+    // Return up to limit results
+    return matches.slice(0, limit);
   },
 });
