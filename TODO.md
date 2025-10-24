@@ -72,38 +72,26 @@
   Learnings: Actions can't call requireUserFromClerk directly (created internal query helper)
   ```
 
-- [ ] Add text search fallback to questionsLibrary.ts
+- [x] Add text search fallback to questionsLibrary.ts
   ```
-  File: convex/questionsLibrary.ts (new internal query)
-  Approach: Add textSearchQuestions query using .filter() on question field
-  Exports:
-    - textSearchQuestions(query, limit, userId): internal query
-  Implementation:
-    - Filter questions where question.toLowerCase().includes(query.toLowerCase())
-    - Apply userId filter
-    - Return matching questions
-  Success: Text search finds keyword matches
-  Test: Search for "React", returns questions containing "React"
-  Module: Simple keyword matching, complements vector search
-  Time: 30min
+  File: convex/questionsLibrary.ts:187-240
+  Commit: a9d5ba9 - feat: add text search fallback for hybrid question search
+  Completed: textSearchQuestions internal query with case-insensitive substring matching
+  Filters by userId and view state (active/archived/trash)
+  Searches question + explanation fields
   ```
 
-- [ ] Implement hybrid search merging in embeddings.ts
+- [x] Implement hybrid search merging in embeddings.ts
   ```
-  File: convex/embeddings.ts (extend searchQuestions)
-  Approach: Call both vector + text search, merge results
-  Changes:
-    - Call ctx.vectorSearch (semantic)
-    - Call ctx.runQuery(internal.questionsLibrary.textSearchQuestions) (keywords)
-    - Merge: Dedupe by _id, prioritize vector results, sort by score
-    - Return top N results
-  Success: Hybrid search returns both semantic + keyword matches
-  Test: Search "state management" finds useState (semantic) + "state" (keyword)
-  Module: Composition of vector + text search, clean merge algorithm
-  Time: 45min
+  File: convex/embeddings.ts:243-330
+  Commit: e498bd2 - feat: implement hybrid search merging vector and text results
+  Completed: Extended searchQuestions with hybrid search
+  Calls both ctx.vectorSearch and internal.questionsLibrary.textSearchQuestions
+  mergeSearchResults helper: Dedupes by _id Set, prioritizes vector, assigns 0.5 score to text-only
+  Pino logs show vectorCount, textCount, mergedCount for monitoring
   ```
 
-**Phase 2 Checkpoint**: Hybrid search working, returns ranked results
+**Phase 2 Checkpoint**: ✅ Hybrid search working, returns ranked results
 
 ---
 
@@ -111,52 +99,30 @@
 
 ### Module 4: Search UI Components
 
-- [ ] Add search state and debounced input to library-client.tsx
+- [x] Add search state and debounced input to library-client.tsx
+- [x] Add search input UI to library header
+- [x] Display search results with similarity scores
   ```
-  File: app/library/_components/library-client.tsx:24-75
-  Approach: Add search state alongside pagination state
-  Changes:
-    - State: searchQuery (string), searchResults (array), isSearching (boolean)
-    - useAction for api.embeddings.searchQuestions
-    - Debounce: useEffect with 300ms delay
-    - Clear search on tab change
-  Success: Search input triggers debounced action
-  Test: Type "React", wait 300ms, verify action called once
-  Module: Thin UI layer, delegates to embeddings service
-  Time: 30min
+  File: app/library/_components/library-client.tsx + library-table.tsx
+  Commit: 173ef14 - feat: add complete search UI with similarity scores
+  Completed: All 3 Phase 3 tasks in one coherent commit
+
+  Library Client:
+  - Search state: searchQuery, searchResults, isSearching
+  - useAction for api.embeddings.searchQuestions with 300ms debounce
+  - Search input with loading spinner and clear button (X icon)
+  - Results count display and empty state
+  - Conditional rendering: search results vs paginated questions
+  - Hides pagination when showing search
+  - Auto-clears on tab change
+
+  Library Table:
+  - Extended LibraryQuestion type with optional _score field
+  - Similarity column with color-coded badges (>=80% green, >=60% yellow, <60% gray)
+  - Conditionally shows similarity column only when search results present
   ```
 
-- [ ] Add search input UI to library header
-  ```
-  File: app/library/_components/library-client.tsx (render section)
-  Approach: Add Input component above Tabs
-  Changes:
-    - Import Input from ui/input
-    - Search input with placeholder "Search questions..."
-    - Show loading spinner when isSearching
-    - Clear button (X icon) to reset search
-  Success: Search input renders, shows loading state
-  Test: Visual inspection, type and see spinner
-  Module: Presentational component, no business logic
-  Time: 20min
-  ```
-
-- [ ] Display search results with similarity scores
-  ```
-  File: app/library/_components/library-client.tsx
-  Approach: Conditional render - show searchResults when query exists
-  Changes:
-    - If searchQuery: Render searchResults instead of paginatedQuestions
-    - Add Badge component showing similarity score (e.g., "87% match")
-    - Empty state: "No results for '{query}'"
-    - Show result count: "5 results for 'React'"
-  Success: Search results display with scores, empty state works
-  Test: Search "React", see results with scores; search "xyzabc", see empty
-  Module: Result presentation, reuses LibraryCards/LibraryTable components
-  Time: 45min
-  ```
-
-**Phase 3 Checkpoint**: Search UI functional, results displayed
+**Phase 3 Checkpoint**: ✅ Search UI functional, results displayed with similarity scores
 
 ---
 
@@ -164,68 +130,57 @@
 
 ### Module 5: Sync Cronjob
 
-- [ ] Add helper queries for sync cron to embeddings.ts
+- [x] Add helper queries for sync cron to embeddings.ts
   ```
-  File: convex/embeddings.ts
-  Approach: Add internal queries for cron to fetch questions without embeddings
-  Exports:
-    - getQuestionsWithoutEmbeddings(limit: 100): internal query
-    - countQuestionsWithoutEmbeddings(): internal query
-    - getQuestionForEmbedding(questionId): internal query
-    - saveEmbedding(questionId, embedding, timestamp): internal mutation
-  Success: Queries return questions without embeddings
-  Test: Create question without embedding, verify query finds it
-  Module: Data access layer for sync operation
-  Time: 30min
+  File: convex/embeddings.ts:332-438
+  Commit: 33ddcfe - feat: add helper queries for embedding sync cron
+  Completed: 4 internal functions for sync data access layer
+  - getQuestionsWithoutEmbeddings: Fetches up to N active questions without embeddings
+  - countQuestionsWithoutEmbeddings: Returns count with isApproximate flag (1000 sample limit)
+  - getQuestionForEmbedding: Fetches single question by ID
+  - saveEmbedding: Patches question with embedding + timestamp
+  All use .take(limit) for bandwidth safety, filter for active only
   ```
 
-- [ ] Implement syncMissingEmbeddings cron action in embeddings.ts
+- [x] Implement syncMissingEmbeddings cron action in embeddings.ts
   ```
-  File: convex/embeddings.ts
-  Approach: Follow generationJobs.ts cleanup pattern for batch processing
-  Exports:
-    - syncMissingEmbeddings(): internal action
-  Implementation:
-    1. Fetch 100 questions without embeddings
-    2. Chunk into batches of 10
-    3. For each batch: Promise.allSettled(generateEmbedding)
-    4. Sleep 1s between batches (rate limit protection)
-    5. Log success/failure counts via Pino
-  Success: Processes 100 questions/day, logs metrics
-  Test: Create 150 questions without embeddings, run cron, verify 100 processed
-  Module: Batch processing with graceful failure, rate limit protection
-  Time: 1h
+  File: convex/embeddings.ts:440-562
+  Commit: 5f7a6d9 - feat: implement syncMissingEmbeddings cron action
+  Completed: Daily sync action with batch processing and rate limit protection
+  - Fetches 100 questions without embeddings via getQuestionsWithoutEmbeddings
+  - Chunks into batches of 10, processes with Promise.allSettled
+  - 1 second sleep between batches for rate limit protection
+  - Graceful failure: Logs errors, continues processing remaining batches
+  - Pino logging: sync.start, sync.batch-failure, sync.complete (with counts/duration/remaining)
+  - chunkArray helper for clean batch processing
+  Ready for cron.ts registration
   ```
 
-- [ ] Register daily sync cron in cron.ts
+- [x] Register daily sync cron in cron.ts
   ```
-  File: convex/cron.ts:39-41 (after existing crons)
-  Approach: Follow existing cron pattern (cleanup, reconcileUserStats)
-  Changes:
-    - crons.daily("sync question embeddings", { hourUTC: 3, minuteUTC: 30 }, internal.embeddings.syncMissingEmbeddings)
-  Success: Cron registered, appears in Convex dashboard
-  Test: Verify cron shows in dashboard, manual trigger works
-  Module: Simple cron registration
-  Time: 10min
+  File: convex/cron.ts:40-50
+  Commit: 7e5e729 - feat: register daily embedding sync cron
+  Completed: Cron registered at 3:30 AM UTC
+  Named 'syncQuestionEmbeddings' for dashboard visibility
+  Scheduled 30 min after job cleanup, 15 min after stats reconciliation
   ```
 
-- [ ] Add Pino logging for embedding operations
+- [x] Add Pino logging for embedding operations
   ```
-  File: convex/embeddings.ts (throughout)
-  Approach: Follow aiGeneration.ts logging pattern
-  Logging Events:
-    - embeddings.generation.success (questionId, dimensions, duration)
-    - embeddings.generation.failure (error, questionId)
-    - embeddings.search.success (query, resultCount, duration)
-    - embeddings.sync.start (count)
-    - embeddings.sync.complete (successCount, failureCount, duration)
-  Success: Structured logs appear during operations
-  Test: Generate questions, search, run sync - verify logs in Convex dashboard
-  Module: Observability layer, no business logic impact
-  Time: 20min
+  Already implemented throughout embeddings.ts development
+  Events logged:
+  - embeddings.generation.missing-key (89) - API key validation
+  - embeddings.generation.success (112) - Successful embedding with dimensions/duration
+  - embeddings.generation.failure (145) - Generation errors with error type
+  - embeddings.search.start (204) - Search initiation with query/limit/view
+  - embeddings.search.success (265) - Search completion with vector/text/merged counts
+  - embeddings.sync.start (475) - Sync initiation with question count
+  - embeddings.sync.batch-failure (521) - Individual batch failures with error
+  - embeddings.sync.complete (543, 464) - Sync completion with success/failure/remaining counts
+  All logging implemented incrementally during feature development
   ```
 
-**Phase 4 Checkpoint**: Sync cron running daily, logs showing metrics
+**Phase 4 Checkpoint**: ✅ Sync cron running daily, comprehensive Pino logging showing metrics
 
 ---
 
