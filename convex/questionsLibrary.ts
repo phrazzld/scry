@@ -205,35 +205,51 @@ export const textSearchQuestions = internalQuery({
     const { query, limit, userId, view = 'active' } = args;
     const searchLower = query.toLowerCase();
 
-    // Query user's questions with view filtering
-    const dbQuery = ctx.db.query('questions').withIndex('by_user', (q) => q.eq('userId', userId));
+    // Build query with DB-level view filtering to minimize bandwidth
+    let dbQuery;
 
-    // Apply view filters at DB level where possible
-    const questions = await dbQuery.order('desc').take(limit * 3); // Fetch extra for filtering
+    switch (view) {
+      case 'active':
+        // Use compound index for active questions (most common case)
+        dbQuery = ctx.db
+          .query('questions')
+          .withIndex('by_user_active', (q) =>
+            q.eq('userId', userId).eq('deletedAt', undefined).eq('archivedAt', undefined)
+          );
+        break;
 
-    // Filter by view state and keyword match
+      case 'archived':
+        // Archived: has archivedAt AND not deleted
+        dbQuery = ctx.db
+          .query('questions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .filter((q) =>
+            q.and(q.neq(q.field('archivedAt'), undefined), q.eq(q.field('deletedAt'), undefined))
+          );
+        break;
+
+      case 'trash':
+        // Trash: has deletedAt
+        dbQuery = ctx.db
+          .query('questions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .filter((q) => q.neq(q.field('deletedAt'), undefined));
+        break;
+
+      default:
+        dbQuery = ctx.db.query('questions').withIndex('by_user', (q) => q.eq('userId', userId));
+    }
+
+    // Fetch exact limit after DB-level view filtering (no over-fetching)
+    const questions = await dbQuery.order('desc').take(limit);
+
+    // Keyword matching (acceptable on scoped results)
     const matches = questions.filter((q) => {
-      // View filtering (client-side since we can't use compound index for all cases)
-      switch (view) {
-        case 'active':
-          if (q.deletedAt !== undefined || q.archivedAt !== undefined) return false;
-          break;
-        case 'archived':
-          if (q.deletedAt !== undefined || q.archivedAt === undefined) return false;
-          break;
-        case 'trash':
-          if (q.deletedAt === undefined) return false;
-          break;
-      }
-
-      // Keyword matching - case insensitive substring search
       const questionLower = q.question.toLowerCase();
       const explanationLower = q.explanation?.toLowerCase() ?? '';
-
       return questionLower.includes(searchLower) || explanationLower.includes(searchLower);
     });
 
-    // Return up to limit results
-    return matches.slice(0, limit);
+    return matches;
   },
 });
