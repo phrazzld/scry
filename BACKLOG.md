@@ -198,6 +198,68 @@ if (errorMsg.includes('fetch') || errorMsg.includes('NetworkError')) {
 
 ## Next (This Quarter, <3 months)
 
+### [ENHANCEMENT] Vector Search Robustness Improvements
+**Files**: `convex/embeddings.ts`, `app/library/_components/library-client.tsx`
+**Source**: PR #47 review feedback (Claude comprehensive reviews)
+**Severity**: LOW
+**Impact**: Edge case handling and UX polish for semantic search
+
+**Context**: MVP vector search functional, these enhancements improve robustness and user experience but aren't blocking for launch.
+
+**Items**:
+
+1. **Embedding generation timeout protection** (1h)
+   - Add Promise.race pattern with 10-second timeout
+   - Prevents hung jobs if Google API hangs
+   - Location: `convex/embeddings.ts:generateEmbedding`
+   - Pattern: `Promise.race([embedCall, timeoutPromise])`
+
+2. **Client-side similarity threshold filter** (30m)
+   - Hide search results with similarity score <0.4
+   - Improves relevance of displayed results
+   - Location: `library-client.tsx` search results rendering
+   - Need production data to determine optimal threshold
+
+3. **Fuzzy text search for typos/accents** (4h)
+   - Handle Unicode normalization ("café" vs "cafe")
+   - Levenshtein distance for close matches
+   - Consider Convex native search index when available
+   - Location: `questionsLibrary.ts:textSearchQuestions`
+   - Alternative: Document as known limitation for MVP
+
+4. **E2E test coverage for search flow** (2h)
+   - Playwright test: Generate questions → Search → Verify results
+   - Test semantic similarity (different phrasing finds same content)
+   - Test view filtering (active/archived/trash)
+   - Test empty states and error handling
+
+5. **Embedding coverage monitoring dashboard** (4h)
+   - UI showing percentage of questions with embeddings
+   - Coverage by topic/collection
+   - Failed generation queue with retry button
+   - Currently relies on Pino logs grep (acceptable for MVP)
+
+6. **Code cleanup: Duplicate fingerprint function** (15m)
+   - Import `getSecretDiagnostics` from `lib/envDiagnostics.ts`
+   - Remove duplicate from `embeddings.ts:32-62`
+   - Low impact (diagnostic code only)
+
+7. **Text concatenation cleanup** (5m)
+   - Use `.join(' ')` instead of direct concatenation
+   - Location: `aiGeneration.ts:380` and `embeddings.ts`
+   - Marginal quality improvement for embeddings
+
+8. **Search debounce cleanup** (15m)
+   - Add isMounted flag to prevent state updates on unmounted component
+   - Location: `library-client.tsx:51-89`
+   - Cosmetic (prevents console warnings)
+
+**Total Effort**: ~11h | **Impact**: LOW - Nice-to-have polish
+**Acceptance**: Timeout protection prevents hung jobs, low-score results hidden, E2E tests pass, monitoring dashboard shows coverage
+**Priority**: Defer until after MVP launch, reassess based on production usage patterns
+
+---
+
 ### [PRODUCT] Free Response Questions with AI Grading
 **File**: `convex/schema.ts`, `convex/aiGrading.ts`
 **Perspectives**: product-visionary, user-experience-advocate
