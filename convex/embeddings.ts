@@ -74,8 +74,8 @@ function getSecretDiagnostics(value: string | undefined): SecretDiagnostics {
  * @throws Error if API key missing or embedding generation fails
  */
 export const generateEmbedding = internalAction({
-  args: {},
-  handler: async (ctx, args: { text: string }): Promise<number[]> => {
+  args: { text: v.string() },
+  handler: async (ctx, args): Promise<number[]> => {
     const startTime = Date.now();
 
     // Validate API key
