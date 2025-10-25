@@ -404,7 +404,7 @@ export const processJob = internalAction({
         );
 
         // Collect results (with or without embeddings)
-        embeddingResults.forEach((result) => {
+        embeddingResults.forEach((result, index) => {
           if (result.status === 'fulfilled') {
             const question = result.value;
             questionsWithEmbeddings.push(question);
@@ -414,6 +414,19 @@ export const processJob = internalAction({
               embeddingFailureCount++;
             }
           } else {
+            // Log rejected promises with question details for debugging
+            const question = batch[index];
+            logger.warn(
+              {
+                event: 'embeddings.generation.batch-failure',
+                jobId: args.jobId,
+                questionPreview: question.question.slice(0, 50),
+                questionType: question.type,
+                error:
+                  result.reason instanceof Error ? result.reason.message : String(result.reason),
+              },
+              'Promise rejected during embedding generation'
+            );
             embeddingFailureCount++;
           }
         });
