@@ -173,6 +173,19 @@ export const getAuthenticatedUserId = internalQuery({
 });
 
 /**
+ * Internal helper to fetch questions by IDs
+ */
+export const getQuestionsByIds = internalQuery({
+  args: {
+    questionIds: v.array(v.id('questions')),
+  },
+  handler: async (ctx, args) => {
+    const questions = await Promise.all(args.questionIds.map((id) => ctx.db.get(id)));
+    return questions.filter((q): q is NonNullable<typeof q> => q !== null);
+  },
+});
+
+/**
  * Search questions by semantic similarity
  *
  * Public action that performs vector search on questions using embeddings.
@@ -228,6 +241,7 @@ export const searchQuestions = action({
     }
 
     // Build filter expression based on view
+    // Note: Vector search filterFields only support 'eq' checks on optional fields
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buildFilter = (q: any) => {
       const filters = [q.eq('userId', userId)];
@@ -239,13 +253,13 @@ export const searchQuestions = action({
           filters.push(q.eq('archivedAt', undefined));
           break;
         case 'archived':
-          // Archived: has archivedAt AND not deleted
-          filters.push(q.neq('archivedAt', undefined));
+          // Archived: Filter for not-deleted only (archivedAt filtering happens post-fetch)
+          // Can't use neq in vector search, so we post-filter archivedAt below
           filters.push(q.eq('deletedAt', undefined));
           break;
         case 'trash':
-          // Trash: has deletedAt (regardless of archived state)
-          filters.push(q.neq('deletedAt', undefined));
+          // Trash: Can't use neq in vector search, so we skip vector search for trash view
+          // (will rely on text search only)
           break;
       }
 
@@ -253,13 +267,43 @@ export const searchQuestions = action({
     };
 
     // Perform vector search with filters (only if embedding generation succeeded)
-    const vectorResults = queryEmbedding
-      ? await ctx.vectorSearch('questions', 'by_embedding', {
-          vector: queryEmbedding,
-          limit: limit * 2, // Get extra results for merging
-          filter: buildFilter,
-        })
-      : [];
+    // Skip vector search for trash view (can't filter with neq)
+    const rawVectorResults =
+      queryEmbedding && view !== 'trash'
+        ? await ctx.vectorSearch('questions', 'by_embedding', {
+            vector: queryEmbedding,
+            limit: limit * 2, // Get extra results for merging
+            filter: buildFilter,
+          })
+        : [];
+
+    // Post-filter vector results for archived view (fetch full docs to check archivedAt)
+    let vectorResults: SearchResult[];
+    if (view === 'archived' && rawVectorResults.length > 0) {
+      // Fetch full documents to check archivedAt field
+      const questionIds = rawVectorResults.map((r) => r._id);
+      const fullDocs: Array<{
+        _id: Id<'questions'>;
+        archivedAt?: number;
+        [key: string]: unknown;
+      }> = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
+
+      // Create score map for quick lookup
+      const scoreMap = new Map(rawVectorResults.map((r) => [r._id.toString(), r._score]));
+
+      // Filter for archived questions only and add scores
+      vectorResults = fullDocs
+        .filter((doc) => doc.archivedAt !== undefined)
+        .map(
+          (doc) =>
+            ({
+              ...doc,
+              _score: scoreMap.get(doc._id.toString()) ?? 0.5,
+            }) as SearchResult
+        );
+    } else {
+      vectorResults = rawVectorResults;
+    }
 
     // Perform text search for keyword matching
     const textResults = await ctx.runQuery(internal.questionsLibrary.textSearchQuestions, {
