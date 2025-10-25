@@ -208,6 +208,14 @@ export const searchQuestions = action({
     // Authenticate user via internal query
     const userId = await ctx.runQuery(internal.embeddings.getAuthenticatedUserId);
 
+    // Validate query length to prevent excessive API costs
+    const MAX_QUERY_LENGTH = 500;
+    if (args.query.length > MAX_QUERY_LENGTH) {
+      throw new Error(
+        `Search query too long: ${args.query.length} characters (max ${MAX_QUERY_LENGTH})`
+      );
+    }
+
     // Validate and clamp limit (between 1 and 50)
     const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
     const view = args.view ?? 'active';
