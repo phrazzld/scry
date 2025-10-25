@@ -210,10 +210,22 @@ export const searchQuestions = action({
       'Starting vector search'
     );
 
-    // Generate embedding for search query
-    const queryEmbedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
-      text: args.query,
-    });
+    // Generate embedding for search query (with graceful degradation)
+    let queryEmbedding: number[] | null = null;
+    try {
+      queryEmbedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
+        text: args.query,
+      });
+    } catch (error) {
+      logger.warn(
+        {
+          event: 'embeddings.search.embedding-failed',
+          query: args.query,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to generate query embedding, falling back to text-only search'
+      );
+    }
 
     // Build filter expression based on view
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,12 +252,14 @@ export const searchQuestions = action({
       return q.and(...filters);
     };
 
-    // Perform vector search with filters
-    const vectorResults = await ctx.vectorSearch('questions', 'by_embedding', {
-      vector: queryEmbedding,
-      limit: limit * 2, // Get extra results for merging
-      filter: buildFilter,
-    });
+    // Perform vector search with filters (only if embedding generation succeeded)
+    const vectorResults = queryEmbedding
+      ? await ctx.vectorSearch('questions', 'by_embedding', {
+          vector: queryEmbedding,
+          limit: limit * 2, // Get extra results for merging
+          filter: buildFilter,
+        })
+      : [];
 
     // Perform text search for keyword matching
     const textResults = await ctx.runQuery(internal.questionsLibrary.textSearchQuestions, {
