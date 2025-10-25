@@ -60,6 +60,9 @@ export default defineSchema({
     // Archive and generation tracking
     archivedAt: v.optional(v.number()), // For pausing questions without deleting
     generationJobId: v.optional(v.id('generationJobs')), // Link to source generation job
+    // Vector embeddings for semantic search
+    embedding: v.optional(v.array(v.float64())), // 768-dimensional vector from text-embedding-004
+    embeddingGeneratedAt: v.optional(v.number()), // Timestamp when embedding was generated
   })
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
@@ -67,7 +70,13 @@ export default defineSchema({
     // Compound indexes for efficient filtering (eliminates client-side .filter())
     // Enables DB-level filtering for active/archived/deleted views at scale (10k+ cards)
     .index('by_user_active', ['userId', 'deletedAt', 'archivedAt', 'generatedAt'])
-    .index('by_user_state', ['userId', 'state', 'deletedAt', 'archivedAt']),
+    .index('by_user_state', ['userId', 'state', 'deletedAt', 'archivedAt'])
+    // Vector index for semantic search
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
+      dimensions: 768, // Google text-embedding-004
+      filterFields: ['userId', 'deletedAt', 'archivedAt'],
+    }),
 
   interactions: defineTable({
     userId: v.id('users'),

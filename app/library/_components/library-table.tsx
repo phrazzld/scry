@@ -4,6 +4,7 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tan
 import { formatDistanceToNow } from 'date-fns';
 import { Archive, MoreHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -31,6 +32,7 @@ type LibraryView = 'active' | 'archived' | 'trash';
 type LibraryQuestion = Doc<'questions'> & {
   failedCount: number;
   successRate: number | null;
+  _score?: number; // Optional similarity score from vector search (0.0-1.0)
 };
 
 interface LibraryTableProps {
@@ -183,6 +185,26 @@ export function LibraryTable({
     size: 60,
   };
 
+  const similarityColumn: ColumnDef<LibraryQuestion> = {
+    id: 'similarity',
+    header: 'Match',
+    cell: ({ row }) => {
+      const score = row.original._score;
+      if (score === undefined) return null;
+
+      const percentage = Math.round(score * 100);
+      // Color code: >80% green, >60% yellow, else gray
+      const variant = percentage >= 80 ? 'default' : percentage >= 60 ? 'secondary' : 'outline';
+
+      return (
+        <Badge variant={variant} className="font-mono text-xs">
+          {percentage}%
+        </Badge>
+      );
+    },
+    size: 80,
+  };
+
   const actionsColumn: ColumnDef<LibraryQuestion> = {
     id: 'actions',
     header: 'Actions',
@@ -243,6 +265,9 @@ export function LibraryTable({
     size: 60,
   };
 
+  // Check if any question has a similarity score (search results)
+  const hasScores = questions.some((q) => q._score !== undefined);
+
   // Conditionally build columns array based on currentTab
   const columns: ColumnDef<LibraryQuestion>[] = [
     selectColumn,
@@ -251,6 +276,7 @@ export function LibraryTable({
     dateColumn,
     ...(currentTab === 'active' ? [nextReviewColumn] : []),
     typeColumn,
+    ...(hasScores ? [similarityColumn] : []), // Show similarity only for search results
     actionsColumn,
   ];
 
