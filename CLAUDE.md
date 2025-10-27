@@ -44,7 +44,7 @@ Operational guidance for Claude Code working in this repository.
 - No env isolation until Convex Pro ($25/mo)
 
 **Variable Distribution:**
-- Convex backend: `GOOGLE_AI_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_APP_URL`
+- Convex backend: `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`
 - Vercel frontend: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`, `CLERK_*`
 
 ### Environment Variable Loading (CRITICAL)

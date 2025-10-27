@@ -17,6 +17,7 @@ import type * as aiGeneration from "../aiGeneration.js";
 import type * as clerk from "../clerk.js";
 import type * as cron from "../cron.js";
 import type * as deployments from "../deployments.js";
+import type * as embeddings from "../embeddings.js";
 import type * as fsrs from "../fsrs.js";
 import type * as generationJobs from "../generationJobs.js";
 import type * as health from "../health.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   clerk: typeof clerk;
   cron: typeof cron;
   deployments: typeof deployments;
+  embeddings: typeof embeddings;
   fsrs: typeof fsrs;
   generationJobs: typeof generationJobs;
   health: typeof health;

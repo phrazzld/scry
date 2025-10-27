@@ -38,8 +38,6 @@ echo ""
 # Variables needed in CONVEX (backend functions)
 CONVEX_REQUIRED_VARS=(
   "GOOGLE_AI_API_KEY"
-  "RESEND_API_KEY"
-  "EMAIL_FROM"
   "NEXT_PUBLIC_APP_URL"
 )
 

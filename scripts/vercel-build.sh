@@ -15,8 +15,6 @@ validate_convex_env() {
   local missing_vars=()
   local required_vars=(
     "GOOGLE_AI_API_KEY"
-    "RESEND_API_KEY"
-    "EMAIL_FROM"
     "NEXT_PUBLIC_APP_URL"
   )
 
