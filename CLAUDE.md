@@ -38,14 +38,20 @@ Operational guidance for Claude Code working in this repository.
 
 **Vercel ≠ Convex:** Separate systems, must configure BOTH
 
-**Preview Limitation (Free Tier):**
-- Preview deployments share PROD Convex backend
-- Missing `GOOGLE_AI_API_KEY` in Convex prod breaks ALL environments
-- No env isolation until Convex Pro ($25/mo)
+**Convex Pro Architecture:**
+- **Production**: Uses `prod:` deploy key → uncommon-axolotl-639 backend
+- **Preview**: Uses `preview:` deploy key → branch-named isolated backends (e.g., `phaedrus:scry:feature-vector-embeddings-foundation`)
+- Each preview deployment gets its own isolated Convex backend with fresh data
+- Deploy key TYPE determines backend routing automatically
+- `NEXT_PUBLIC_CONVEX_URL` is auto-set by `npx convex deploy` (do not manually configure)
 
 **Variable Distribution:**
-- Convex backend: `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`
-- Vercel frontend: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`, `CLERK_*`
+- **Convex backend env vars**: `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`
+  - Set in Convex dashboard → Settings → Environment Variables
+  - Must be configured separately for production and preview backends
+- **Vercel env vars**: `CONVEX_DEPLOY_KEY` (prod/preview), `CLERK_*`
+  - Production: `prod:` key for production backend
+  - Preview: `preview:` key for isolated preview backends
 
 ### Environment Variable Loading (CRITICAL)
 
@@ -78,8 +84,14 @@ npx convex run migrations:xyz
 
 **Automated (Recommended):**
 ```bash
-vercel --prod  # Runs: npx convex deploy --cmd 'pnpm build'
+vercel --prod           # Production: Deploys to uncommon-axolotl-639
+vercel                  # Preview: Creates branch-named isolated backend
 ```
+
+Both run: `npx convex deploy --cmd 'pnpm build'`
+- Deploy key TYPE (`prod:` vs `preview:`) determines target backend
+- `NEXT_PUBLIC_CONVEX_URL` is auto-injected by Convex
+- No manual backend URL configuration needed
 
 **Manual/Hotfix:**
 ```bash
@@ -91,6 +103,12 @@ vercel --prod  # Runs: npx convex deploy --cmd 'pnpm build'
 - Keep `convex/schemaVersion.ts` ↔ `lib/deployment-check.ts` synced
 - Deploy backend first, then frontend
 - Emergency bypass: `NEXT_PUBLIC_DISABLE_VERSION_CHECK=true`
+
+**Preview Deployment Lifecycle:**
+- Each Git branch gets isolated Convex backend (e.g., `phaedrus:scry:feature-branch-name`)
+- Fresh database with no production data
+- Automatically cleaned up when branch/deployment is deleted
+- Requires Convex Pro ($25/mo)
 
 ### Deployment Safeguards
 
