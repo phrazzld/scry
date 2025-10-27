@@ -16,8 +16,9 @@ import { formatNextReviewTime } from '@/lib/format-review-time';
  * - Single clear action (generate questions)
  * - No redundant "Go Home" button (this IS home)
  *
- * Two states:
- * - Empty library (totalCards === 0): "Nothing yet"
+ * Three states:
+ * - Generating (totalCards === 0 && activeJobs): "Hang tight..."
+ * - Empty library (totalCards === 0 && !activeJobs): "Nothing yet"
  * - All reviews done (totalCards > 0): "All done"
  */
 export function ReviewEmptyState() {
@@ -28,8 +29,16 @@ export function ReviewEmptyState() {
   const nextReviewTime = stats?.nextReviewTime ?? null;
   const totalCards = stats?.totalCards ?? 0;
 
+  // Check for active generation jobs (only fetch 1 to minimize bandwidth)
+  const recentJobs = useQuery(api.generationJobs.getRecentJobs, { pageSize: 1 });
+  const hasActiveJobs =
+    recentJobs?.results?.some(
+      (job: { status: string }) => job.status === 'processing' || job.status === 'pending'
+    ) ?? false;
+
   // Determine which state to show
   const isEmptyLibrary = totalCards === 0;
+  const isGenerating = isEmptyLibrary && hasActiveJobs;
 
   return (
     <div className="h-[90vh] flex items-center px-6">
@@ -37,7 +46,12 @@ export function ReviewEmptyState() {
         {/* Hero section - tight grouping for related message */}
         <div className="space-y-4">
           <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
-            {isEmptyLibrary ? (
+            {isGenerating ? (
+              <>
+                Hang tight
+                <span className="opacity-70 inline-block animate-ellipsis"></span>
+              </>
+            ) : isEmptyLibrary ? (
               <>
                 Nothing yet<span className="opacity-70">.</span>
               </>
@@ -49,7 +63,11 @@ export function ReviewEmptyState() {
           </h1>
 
           <p className="text-2xl md:text-3xl text-muted-foreground">
-            {isEmptyLibrary ? 'Get started.' : "You're on top of your learning."}
+            {isGenerating
+              ? 'Just a moment.'
+              : isEmptyLibrary
+                ? 'Get started.'
+                : "You're on top of your learning."}
           </p>
         </div>
 
@@ -66,25 +84,27 @@ export function ReviewEmptyState() {
         )}
 
         {/* Action section - matches editorial label pattern */}
-        <div className="mt-8">
-          {!isEmptyLibrary && (
-            <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
-              Ready for More?
-            </div>
-          )}
-          <button
-            onClick={() => {
-              router.push('/');
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('open-generation-modal'));
-              }, 100);
-            }}
-            className="group mt-1 text-base text-foreground hover:text-foreground/80 transition-colors flex items-center gap-2"
-          >
-            <span>Generate Questions</span>
-            <span className="transition-transform group-hover:translate-x-1">→</span>
-          </button>
-        </div>
+        {!isGenerating && (
+          <div className="mt-8">
+            {!isEmptyLibrary && (
+              <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
+                Ready for More?
+              </div>
+            )}
+            <button
+              onClick={() => {
+                router.push('/');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('open-generation-modal'));
+                }, 100);
+              }}
+              className="group mt-1 text-base text-foreground hover:text-foreground/80 transition-colors flex items-center gap-2"
+            >
+              <span>Generate Questions</span>
+              <span className="transition-transform group-hover:translate-x-1">→</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
