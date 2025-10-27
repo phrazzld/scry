@@ -15,13 +15,21 @@ import { formatNextReviewTime } from '@/lib/format-review-time';
  * - Shows next review time (respects Pure FSRS timing)
  * - Single clear action (generate questions)
  * - No redundant "Go Home" button (this IS home)
+ *
+ * Two states:
+ * - Empty library (totalCards === 0): "No questions yet"
+ * - All reviews done (totalCards > 0): "All done"
  */
 export function ReviewEmptyState() {
   const router = useRouter();
 
-  // Get next review time from user stats
+  // Get next review time and total cards from user stats
   const stats = useQuery(api.spacedRepetition.getUserCardStats);
   const nextReviewTime = stats?.nextReviewTime ?? null;
+  const totalCards = stats?.totalCards ?? 0;
+
+  // Determine which state to show
+  const isEmptyLibrary = totalCards === 0;
 
   return (
     <div className="h-[90vh] flex items-center px-6">
@@ -29,11 +37,19 @@ export function ReviewEmptyState() {
         {/* Hero section - tight grouping for related message */}
         <div className="space-y-4">
           <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
-            All done<span className="opacity-70">.</span>
+            {isEmptyLibrary ? (
+              <>
+                No questions yet<span className="opacity-70">.</span>
+              </>
+            ) : (
+              <>
+                All done<span className="opacity-70">.</span>
+              </>
+            )}
           </h1>
 
           <p className="text-2xl md:text-3xl text-muted-foreground">
-            You&apos;re on top of your learning.
+            {isEmptyLibrary ? 'Start building your library.' : "You're on top of your learning."}
           </p>
         </div>
 
