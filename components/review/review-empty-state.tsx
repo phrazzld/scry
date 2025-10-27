@@ -17,7 +17,7 @@ import { formatNextReviewTime } from '@/lib/format-review-time';
  * - No redundant "Go Home" button (this IS home)
  *
  * Two states:
- * - Empty library (totalCards === 0): "No questions yet"
+ * - Empty library (totalCards === 0): "Nothing yet"
  * - All reviews done (totalCards > 0): "All done"
  */
 export function ReviewEmptyState() {
@@ -39,7 +39,7 @@ export function ReviewEmptyState() {
           <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
             {isEmptyLibrary ? (
               <>
-                No questions yet<span className="opacity-70">.</span>
+                Nothing yet<span className="opacity-70">.</span>
               </>
             ) : (
               <>
@@ -49,7 +49,7 @@ export function ReviewEmptyState() {
           </h1>
 
           <p className="text-2xl md:text-3xl text-muted-foreground">
-            {isEmptyLibrary ? 'Start building your library.' : "You're on top of your learning."}
+            {isEmptyLibrary ? 'Get started.' : "You're on top of your learning."}
           </p>
         </div>
 
@@ -67,9 +67,11 @@ export function ReviewEmptyState() {
 
         {/* Action section - matches editorial label pattern */}
         <div className="mt-8">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
-            Ready for More?
-          </div>
+          {!isEmptyLibrary && (
+            <div className="text-xs uppercase tracking-wider text-muted-foreground/60">
+              Ready for More?
+            </div>
+          )}
           <button
             onClick={() => {
               router.push('/');
