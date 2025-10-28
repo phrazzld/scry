@@ -13,7 +13,7 @@
  */
 import { v } from 'convex/values';
 
-import { query } from './_generated/server';
+import { internalQuery, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 /**
@@ -180,5 +180,76 @@ export const getQuizInteractionStats = query({
       uniqueQuestions,
       accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
     };
+  },
+});
+
+/**
+ * Text search questions by keyword matching
+ *
+ * Internal query for hybrid search (complements vector search).
+ * Uses Convex full-text search index to scan entire collection efficiently.
+ *
+ * Searches question text across ALL user's questions in the specified view,
+ * not just the first N results. This ensures comprehensive search results
+ * regardless of question creation date or collection size.
+ *
+ * Note: Currently searches 'question' field only (not 'explanation').
+ * This covers the majority of use cases while maintaining simple implementation.
+ *
+ * @internal Used by embeddings.searchQuestions for hybrid search
+ */
+export const textSearchQuestions = internalQuery({
+  args: {
+    query: v.string(),
+    limit: v.number(),
+    userId: v.id('users'),
+    view: v.optional(v.union(v.literal('active'), v.literal('archived'), v.literal('trash'))),
+  },
+  handler: async (ctx, args) => {
+    const { query, limit, userId, view = 'active' } = args;
+
+    // Start with search index query (scans entire collection efficiently)
+    let searchQuery = ctx.db
+      .query('questions')
+      .withSearchIndex('search_questions', (q) => q.search('question', query));
+
+    // Apply view-specific filters (DB-level filtering for efficiency)
+    switch (view) {
+      case 'active':
+        // Active: not archived AND not deleted
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.eq(q.field('deletedAt'), undefined),
+            q.eq(q.field('archivedAt'), undefined)
+          )
+        );
+        break;
+
+      case 'archived':
+        // Archived: has archivedAt AND not deleted
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.neq(q.field('archivedAt'), undefined),
+            q.eq(q.field('deletedAt'), undefined)
+          )
+        );
+        break;
+
+      case 'trash':
+        // Trash: has deletedAt (regardless of archivedAt)
+        searchQuery = searchQuery.filter((q) =>
+          q.and(q.eq(q.field('userId'), userId), q.neq(q.field('deletedAt'), undefined))
+        );
+        break;
+
+      default:
+        // Fallback: filter by userId only
+        searchQuery = searchQuery.filter((q) => q.eq(q.field('userId'), userId));
+    }
+
+    // Return top N matches (search index already found all matches)
+    return await searchQuery.take(limit);
   },
 });

@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
+import { Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageContainer } from '@/components/page-container';
-import { TableSkeleton } from '@/components/ui/loading-skeletons';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/convex/_generated/api';
@@ -15,9 +17,8 @@ import { useConfirmation } from '@/hooks/use-confirmation';
 import { useUndoableAction } from '@/hooks/use-undoable-action';
 
 import { BulkActionsBar } from './bulk-actions-bar';
-import { LibraryCards } from './library-cards';
-import { LibraryPagination } from './library-pagination';
-import { LibraryTable } from './library-table';
+import { LibraryTabContent } from './library-tab-content';
+import { useLibraryDisplayMode } from './use-library-display-mode';
 
 type LibraryView = 'active' | 'archived' | 'trash';
 
@@ -31,6 +32,17 @@ export function LibraryClient() {
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [pageSize, setPageSize] = useState<number>(25);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<unknown[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchLimit, setSearchLimit] = useState<number>(20);
+
+  // Race condition protection: Track request IDs to ignore stale responses.
+  // Pattern: Increment counter on each search, only apply results if ID matches current.
+  // Prevents fast typing from causing older requests to overwrite newer results.
+  const searchRequestIdRef = useRef(0);
+
   // Query questions for current view with pagination
   // Skip query when not authenticated to prevent race condition during Clerk auth loading
   const paginationData = useQuery(
@@ -42,6 +54,52 @@ export function LibraryClient() {
   const questions = paginationData?.results;
   const continueCursor = paginationData?.continueCursor ?? null;
   const isDone = paginationData?.isDone ?? true;
+
+  // Search action
+  const searchAction = useAction(api.embeddings.searchQuestions);
+
+  // Debounced search effect (300ms delay)
+  useEffect(() => {
+    // Skip if query is empty or user not signed in
+    if (!searchQuery.trim() || !isSignedIn) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    // Capture request ID for this search to detect stale responses
+    const requestId = ++searchRequestIdRef.current;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchAction({
+          query: searchQuery,
+          limit: searchLimit,
+          view: currentTab,
+        });
+
+        // Only update if this is still the latest request (prevent race condition)
+        if (requestId === searchRequestIdRef.current) {
+          setSearchResults(results);
+        }
+      } catch {
+        // Only show error for latest request
+        if (requestId === searchRequestIdRef.current) {
+          toast.error('Search failed. Please try again.');
+          setSearchResults([]);
+        }
+      } finally {
+        // Only clear loading state for latest request
+        if (requestId === searchRequestIdRef.current) {
+          setIsSearching(false);
+        }
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, currentTab, searchAction, isSignedIn, searchLimit]);
 
   // Mutations for bulk operations
   const archiveQuestions = useMutation(api.questionsBulk.archiveQuestions);
@@ -66,6 +124,10 @@ export function LibraryClient() {
     // Reset pagination when switching tabs
     setCursor(null);
     setCursorStack([]);
+    // Clear search when switching tabs
+    setSearchQuery('');
+    setSearchResults([]);
+    setSearchLimit(20); // Reset search limit
   };
 
   // Clear selection handler
@@ -229,10 +291,78 @@ export function LibraryClient() {
     }
   };
 
+  // Compute display mode (single source of truth for all UI state)
+  const displayMode = useLibraryDisplayMode({
+    questions,
+    searchQuery,
+    searchResults,
+    isSearching,
+    searchLimit,
+  });
+
   return (
     <TooltipProvider>
       <PageContainer className="py-8">
         <h1 className="text-3xl font-bold mb-6">Question Library</h1>
+
+        {/* Search Input */}
+        <div className="mb-6 relative">
+          <Input
+            type="text"
+            placeholder="Search questions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-20"
+          />
+          {isSearching && (
+            <div
+              className="absolute right-10 top-1/2 -translate-y-1/2"
+              data-testid="search-loading"
+            >
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery('');
+                setSearchLimit(20); // Reset limit when clearing search
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Clear search</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Search Results Count - Only shown for search-results mode */}
+        {displayMode.type === 'search-results' && (
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {displayMode.canLoadMore ? (
+                <>Showing top 20 matches for &quot;{displayMode.query}&quot;</>
+              ) : displayMode.results.length < displayMode.limit ? (
+                <>
+                  {displayMode.results.length}{' '}
+                  {displayMode.results.length === 1 ? 'result' : 'results'} for &quot;
+                  {displayMode.query}&quot;
+                </>
+              ) : (
+                <>
+                  All {displayMode.results.length} results for &quot;{displayMode.query}&quot;
+                </>
+              )}
+            </div>
+            {displayMode.canLoadMore && (
+              <Button variant="outline" size="sm" onClick={() => setSearchLimit(50)}>
+                Load More Results
+              </Button>
+            )}
+          </div>
+        )}
 
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
           <TabsList>
@@ -253,123 +383,66 @@ export function LibraryClient() {
           />
 
           <TabsContent value="active" className="mt-6">
-            {questions === undefined ? (
-              <TableSkeleton rows={10} />
-            ) : (
-              <>
-                <div className="hidden md:block">
-                  <LibraryTable
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                    onArchive={handleArchive}
-                    onUnarchive={handleUnarchive}
-                    onDelete={handleDelete}
-                    onRestore={handleRestore}
-                    onPermanentDelete={handlePermanentDelete}
-                  />
-                </div>
-                <div className="md:hidden">
-                  <LibraryCards
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                  />
-                </div>
-
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
-              </>
-            )}
+            <LibraryTabContent
+              mode={displayMode}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onPermanentDelete={handlePermanentDelete}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              hasPrevious={cursorStack.length > 0}
+              onPageSizeChange={handlePageSizeChange}
+              pageSize={pageSize}
+              isDone={isDone}
+              onLoadMoreResults={() => setSearchLimit(50)}
+            />
           </TabsContent>
 
           <TabsContent value="archived" className="mt-6">
-            {questions === undefined ? (
-              <TableSkeleton rows={10} />
-            ) : (
-              <>
-                <div className="hidden md:block">
-                  <LibraryTable
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                    onArchive={handleArchive}
-                    onUnarchive={handleUnarchive}
-                    onDelete={handleDelete}
-                    onRestore={handleRestore}
-                    onPermanentDelete={handlePermanentDelete}
-                  />
-                </div>
-                <div className="md:hidden">
-                  <LibraryCards
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                  />
-                </div>
-
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
-              </>
-            )}
+            <LibraryTabContent
+              mode={displayMode}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onPermanentDelete={handlePermanentDelete}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              hasPrevious={cursorStack.length > 0}
+              onPageSizeChange={handlePageSizeChange}
+              pageSize={pageSize}
+              isDone={isDone}
+              onLoadMoreResults={() => setSearchLimit(50)}
+            />
           </TabsContent>
 
           <TabsContent value="trash" className="mt-6">
-            {questions === undefined ? (
-              <TableSkeleton rows={10} />
-            ) : (
-              <>
-                <div className="hidden md:block">
-                  <LibraryTable
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                    onArchive={handleArchive}
-                    onUnarchive={handleUnarchive}
-                    onDelete={handleDelete}
-                    onRestore={handleRestore}
-                    onPermanentDelete={handlePermanentDelete}
-                  />
-                </div>
-                <div className="md:hidden">
-                  <LibraryCards
-                    questions={questions}
-                    currentTab={currentTab}
-                    selectedIds={selectedIds}
-                    onSelectionChange={handleSelectionChange}
-                  />
-                </div>
-
-                <LibraryPagination
-                  isDone={isDone}
-                  onNextPage={handleNextPage}
-                  onPrevPage={handlePrevPage}
-                  hasPrevious={cursorStack.length > 0}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                  totalShown={questions.length}
-                />
-              </>
-            )}
+            <LibraryTabContent
+              mode={displayMode}
+              currentTab={currentTab}
+              selectedIds={selectedIds}
+              onSelectionChange={handleSelectionChange}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onPermanentDelete={handlePermanentDelete}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              hasPrevious={cursorStack.length > 0}
+              onPageSizeChange={handlePageSizeChange}
+              pageSize={pageSize}
+              isDone={isDone}
+              onLoadMoreResults={() => setSearchLimit(50)}
+            />
           </TabsContent>
         </Tabs>
       </PageContainer>

@@ -37,4 +37,16 @@ crons.daily(
   internal.userStats.reconcileUserStats
 );
 
+// Schedule embedding sync to run daily at 3:30 AM UTC
+// Backfills embeddings for questions that don't have them
+// Processes up to 100 questions/day in batches of 10
+crons.daily(
+  'syncQuestionEmbeddings',
+  {
+    hourUTC: 3,
+    minuteUTC: 30, // 30 minutes after job cleanup, 15 minutes after stats reconciliation
+  },
+  internal.embeddings.syncMissingEmbeddings
+);
+
 export default crons;

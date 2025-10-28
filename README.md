@@ -113,11 +113,9 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation | `AIzaSy...` |
+| `GOOGLE_AI_API_KEY` | Google AI API key for quiz generation and embeddings | `AIzaSy...` |
 | `NEXT_PUBLIC_CONVEX_URL` | Convex deployment URL | `https://...convex.cloud` |
 | `CONVEX_DEPLOY_KEY` | Convex deploy key (for Vercel deployments) | `prod:...` |
-| `RESEND_API_KEY` | Resend API key for magic link emails | `re_...` |
-| `EMAIL_FROM` | From address for auth emails | `Scry <noreply@yourdomain.com>` |
 
 ### Optional Variables
 
@@ -261,8 +259,6 @@ The project uses automated atomic deployment via Vercel's build command:
    - `GOOGLE_AI_API_KEY` - Google AI API key
    - `NEXT_PUBLIC_CONVEX_URL` - Production Convex URL
    - `CONVEX_DEPLOY_KEY` - Production deploy key (from step 2) - **Production only**
-   - `RESEND_API_KEY` - Resend API key for emails
-   - `EMAIL_FROM` - Email sender address
 
    **Important:**
    - Set all variables for **both Production and Preview** environments
@@ -678,8 +674,8 @@ The debug panel provides real-time performance monitoring during development:
 - Check Node.js version compatibility
 
 **Authentication issues**:
-- Verify `RESEND_API_KEY` and `EMAIL_FROM` are configured correctly
-- Check magic link email delivery in your email provider
+- Verify Clerk configuration in dashboard and environment variables
+- Check `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are set
 - Ensure `NEXT_PUBLIC_APP_URL` is set correctly in production
 - Verify Convex auth mutations are deployed
 

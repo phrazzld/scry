@@ -15,19 +15,11 @@ import { getSecretDiagnostics } from './lib/envDiagnostics';
  * Required environment variables for Convex functions to work properly
  *
  * These are read via process.env in Convex actions/mutations:
- * - GOOGLE_AI_API_KEY: Used in aiGeneration.ts for quiz generation
- * - RESEND_API_KEY: Used for sending magic link emails
- * - EMAIL_FROM: From address for emails
- * - NEXT_PUBLIC_APP_URL: Application URL for magic links
+ * - GOOGLE_AI_API_KEY: Used in aiGeneration.ts for quiz generation and embeddings
+ * - NEXT_PUBLIC_APP_URL: Application URL for links and redirects
  * - CONVEX_CLOUD_URL: Deployment URL (automatically set by Convex)
  */
-const REQUIRED_ENV_VARS = [
-  'GOOGLE_AI_API_KEY',
-  'RESEND_API_KEY',
-  'EMAIL_FROM',
-  'NEXT_PUBLIC_APP_URL',
-  'CONVEX_CLOUD_URL',
-] as const;
+const REQUIRED_ENV_VARS = ['GOOGLE_AI_API_KEY', 'NEXT_PUBLIC_APP_URL', 'CONVEX_CLOUD_URL'] as const;
 
 type GoogleApiKeyTestResult = {
   configured: boolean;
@@ -184,7 +176,7 @@ export const detailed = query({
     const checks: Record<string, HealthCheckEntry> = {};
 
     // Check critical variables
-    const criticalVars = ['GOOGLE_AI_API_KEY', 'RESEND_API_KEY'] as const;
+    const criticalVars = ['GOOGLE_AI_API_KEY'] as const;
     for (const varName of criticalVars) {
       const value = process.env[varName];
       checks[varName] = {
@@ -194,7 +186,7 @@ export const detailed = query({
     }
 
     // Check non-critical but recommended variables
-    const recommendedVars = ['EMAIL_FROM', 'NEXT_PUBLIC_APP_URL'] as const;
+    const recommendedVars = ['NEXT_PUBLIC_APP_URL'] as const;
     for (const varName of recommendedVars) {
       const value = process.env[varName];
       checks[varName] = {
@@ -219,6 +211,59 @@ export const detailed = query({
         deployment: process.env.CONVEX_CLOUD_URL || 'unknown',
         nodeVersion: process.version,
       },
+    };
+  },
+});
+
+/**
+ * Embedding coverage health check
+ *
+ * Checks what percentage of active questions have vector embeddings.
+ * Samples first 1000 questions for performance. Returns:
+ * - status: "healthy" (≥95%), "degraded" (80-95%), "failing" (<80%)
+ * - coverage: percentage of questions with embeddings (0.0-1.0)
+ * - totalQuestions: number of questions sampled
+ * - withEmbeddings: count with embeddings
+ * - withoutEmbeddings: count without embeddings
+ *
+ * This helps detect silent embedding generation failures and monitor
+ * the semantic search feature's operational health.
+ */
+export const checkEmbeddingHealth = query({
+  args: {},
+  handler: async (
+    ctx
+  ): Promise<{
+    status: 'healthy' | 'degraded' | 'failing';
+    coverage: number;
+    totalQuestions: number;
+    withEmbeddings: number;
+    withoutEmbeddings: number;
+  }> => {
+    // Sample first 1000 active questions for performance
+    // Active = not deleted and not archived
+    const questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter((q) =>
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+      )
+      .take(1000);
+
+    const withEmbeddings = questions.filter((q) => q.embedding).length;
+    const coverage = questions.length > 0 ? withEmbeddings / questions.length : 1.0;
+
+    let status: 'healthy' | 'degraded' | 'failing';
+    if (coverage >= 0.95) status = 'healthy';
+    else if (coverage >= 0.8) status = 'degraded';
+    else status = 'failing';
+
+    return {
+      status,
+      coverage,
+      totalQuestions: questions.length,
+      withEmbeddings,
+      withoutEmbeddings: questions.length - withEmbeddings,
     };
   },
 });
@@ -274,7 +319,7 @@ export const functional = action({
   handler: async () => {
     const baseChecks: Record<string, HealthCheckEntry> = {};
 
-    const criticalVars = ['GOOGLE_AI_API_KEY', 'RESEND_API_KEY'] as const;
+    const criticalVars = ['GOOGLE_AI_API_KEY'] as const;
     for (const varName of criticalVars) {
       const value = process.env[varName];
       baseChecks[varName] = {
@@ -283,7 +328,7 @@ export const functional = action({
       };
     }
 
-    const recommendedVars = ['EMAIL_FROM', 'NEXT_PUBLIC_APP_URL'] as const;
+    const recommendedVars = ['NEXT_PUBLIC_APP_URL'] as const;
     for (const varName of recommendedVars) {
       const value = process.env[varName];
       baseChecks[varName] = {

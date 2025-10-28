@@ -20,6 +20,7 @@ interface HealthChecks {
   convexSchema: HealthCheck;
   googleAiKey: HealthCheck;
   sessionCreation: HealthCheck;
+  embeddings: HealthCheck;
 }
 
 export async function GET() {
@@ -53,6 +54,11 @@ export async function GET() {
       status: 'unknown',
       canCreateSession: false,
       error: null as string | null,
+    },
+    embeddings: {
+      status: 'unknown',
+      error: null as string | null,
+      details: {} as Record<string, unknown>,
     },
   };
 
@@ -204,6 +210,37 @@ export async function GET() {
     checks.sessionCreation.canCreateSession = true;
     checks.sessionCreation.status = 'ok';
 
+    // Check embedding coverage
+    if (checks.convexConnection.status === 'ok' && convexUrl) {
+      try {
+        const client = new ConvexHttpClient(convexUrl);
+        const embeddingHealth = await client.query(api.health.checkEmbeddingHealth, {});
+
+        checks.embeddings.status =
+          embeddingHealth.status === 'healthy'
+            ? 'ok'
+            : embeddingHealth.status === 'degraded'
+              ? 'warning'
+              : 'error';
+        checks.embeddings.details = {
+          coverage: `${(embeddingHealth.coverage * 100).toFixed(1)}%`,
+          totalQuestions: embeddingHealth.totalQuestions,
+          withEmbeddings: embeddingHealth.withEmbeddings,
+          withoutEmbeddings: embeddingHealth.withoutEmbeddings,
+        };
+
+        if (embeddingHealth.status !== 'healthy') {
+          checks.embeddings.error = `Semantic search degraded: ${(embeddingHealth.coverage * 100).toFixed(1)}% coverage (${embeddingHealth.withoutEmbeddings} questions missing embeddings)`;
+        }
+      } catch (error) {
+        checks.embeddings.status = 'error';
+        checks.embeddings.error = `Failed to check embeddings: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      }
+    } else {
+      checks.embeddings.status = 'skipped';
+      checks.embeddings.error = 'Cannot check embeddings without Convex connection';
+    }
+
     // Calculate overall health
     const allChecks = Object.values(checks);
     const hasErrors = allChecks.some((check) => check.status === 'error');
@@ -280,6 +317,27 @@ function getRecommendations(checks: HealthChecks): string[] {
   } else if (checks.convexSchema.status === 'warning') {
     recommendations.push(
       'Convex backend is missing some features. Some functionality may be limited.'
+    );
+  }
+
+  if (checks.embeddings.status === 'error') {
+    const details = checks.embeddings.details as
+      | { withoutEmbeddings?: number; totalQuestions?: number }
+      | undefined;
+    recommendations.push(
+      `CRITICAL: Semantic search is severely degraded. ${details?.withoutEmbeddings ?? 'Many'} of ${details?.totalQuestions ?? 'your'} questions are missing vector embeddings.`
+    );
+    recommendations.push(
+      'Check Google AI API key status and Convex logs for embedding generation failures.'
+    );
+    recommendations.push('Run manual backfill: npx convex run embeddings:syncMissingEmbeddings');
+  } else if (checks.embeddings.status === 'warning') {
+    const details = checks.embeddings.details as { coverage?: string; withoutEmbeddings?: number };
+    recommendations.push(
+      `WARNING: Semantic search quality degraded (${details?.coverage ?? 'unknown'} coverage). ${details?.withoutEmbeddings ?? 'Some'} questions lack embeddings.`
+    );
+    recommendations.push(
+      'Daily cron will backfill automatically, or run: npx convex run embeddings:syncMissingEmbeddings'
     );
   }
 

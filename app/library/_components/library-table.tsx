@@ -4,6 +4,7 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tan
 import { formatDistanceToNow } from 'date-fns';
 import { Archive, MoreHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -31,6 +32,7 @@ type LibraryView = 'active' | 'archived' | 'trash';
 type LibraryQuestion = Doc<'questions'> & {
   failedCount: number;
   successRate: number | null;
+  _score?: number; // Optional similarity score from vector search (0.0-1.0)
 };
 
 interface LibraryTableProps {
@@ -116,10 +118,14 @@ export function LibraryTable({
       if (attemptCount === 0) {
         return <span className="text-sm text-muted-foreground truncate block">Not attempted</span>;
       }
+      const displayRate = successRate ?? 0; // Handle null/undefined successRate
+      const attemptText = attemptCount === 1 ? 'attempt' : 'attempts';
       return (
         <div className="text-sm overflow-hidden">
-          <div className="font-medium truncate">{successRate}% success</div>
-          <div className="text-muted-foreground truncate">{attemptCount} attempts</div>
+          <div className="font-medium truncate">{displayRate}% success</div>
+          <div className="text-muted-foreground truncate">
+            {attemptCount} {attemptText}
+          </div>
         </div>
       );
     },
@@ -174,13 +180,63 @@ export function LibraryTable({
     header: 'Type',
     cell: ({ row }) => {
       const type = row.original.type;
+      const hasEmbedding = !!row.original.embedding;
+      const typeLabel = type === 'multiple-choice' ? 'MC' : 'T/F';
+
       return (
-        <span className="text-xs text-muted-foreground">
-          {type === 'multiple-choice' ? 'MC' : 'T/F'}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1.5 cursor-help">
+              <span className="text-xs text-muted-foreground">{typeLabel}</span>
+              <span
+                className={`text-sm ${hasEmbedding ? 'text-success' : 'text-muted-foreground'}`}
+                role="img"
+                aria-label={hasEmbedding ? 'Has semantic search' : 'Keyword search only'}
+              >
+                ●
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <div className="space-y-1">
+              <p className="font-medium">
+                {type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hasEmbedding
+                  ? 'Full semantic search enabled'
+                  : 'Keyword search only - embedding pending'}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
       );
     },
-    size: 60,
+    size: 70,
+  };
+
+  const similarityColumn: ColumnDef<LibraryQuestion> = {
+    id: 'similarity',
+    header: 'Match',
+    cell: ({ row }) => {
+      const score = row.original._score;
+      if (score === undefined) return null;
+
+      const percentage = Math.round(score * 100);
+
+      // Subtle color coding - lighter and more refined
+      let badgeClasses = 'font-mono text-xs px-2 py-0.5';
+      if (percentage >= 80) {
+        badgeClasses += ' bg-success/5 text-success';
+      } else if (percentage >= 60) {
+        badgeClasses += ' bg-warning/5 text-warning';
+      } else {
+        badgeClasses += ' bg-muted/50 text-muted-foreground';
+      }
+
+      return <Badge className={badgeClasses}>{percentage}%</Badge>;
+    },
+    size: 80,
   };
 
   const actionsColumn: ColumnDef<LibraryQuestion> = {
@@ -243,14 +299,20 @@ export function LibraryTable({
     size: 60,
   };
 
+  // Check if any question has a similarity score (search results)
+  const hasScores = questions.some((q) => q._score !== undefined);
+
   // Conditionally build columns array based on currentTab
+  // Order: Question → Match (search) → Performance → Next Review → Type → Created → Actions
+  // Actionable columns first, then metadata (type+embedding), timestamps last
   const columns: ColumnDef<LibraryQuestion>[] = [
     selectColumn,
     questionColumn,
-    ...(currentTab === 'active' ? [performanceColumn] : []),
-    dateColumn,
-    ...(currentTab === 'active' ? [nextReviewColumn] : []),
-    typeColumn,
+    ...(hasScores ? [similarityColumn] : []), // Show Match for search results
+    ...(currentTab === 'active' ? [performanceColumn] : []), // Active metrics
+    ...(currentTab === 'active' ? [nextReviewColumn] : []), // Actionable: when to review
+    typeColumn, // Metadata: type + embedding status combined
+    dateColumn, // Lower priority timestamp
     actionsColumn,
   ];
 
