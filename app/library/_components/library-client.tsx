@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { Loader2, X } from 'lucide-react';
@@ -38,6 +38,11 @@ export function LibraryClient() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchLimit, setSearchLimit] = useState<number>(20);
 
+  // Race condition protection: Track request IDs to ignore stale responses.
+  // Pattern: Increment counter on each search, only apply results if ID matches current.
+  // Prevents fast typing from causing older requests to overwrite newer results.
+  const searchRequestIdRef = useRef(0);
+
   // Query questions for current view with pagination
   // Skip query when not authenticated to prevent race condition during Clerk auth loading
   const paginationData = useQuery(
@@ -64,6 +69,9 @@ export function LibraryClient() {
 
     setIsSearching(true);
 
+    // Capture request ID for this search to detect stale responses
+    const requestId = ++searchRequestIdRef.current;
+
     const timeoutId = setTimeout(async () => {
       try {
         const results = await searchAction({
@@ -71,12 +79,22 @@ export function LibraryClient() {
           limit: searchLimit,
           view: currentTab,
         });
-        setSearchResults(results);
+
+        // Only update if this is still the latest request (prevent race condition)
+        if (requestId === searchRequestIdRef.current) {
+          setSearchResults(results);
+        }
       } catch {
-        toast.error('Search failed. Please try again.');
-        setSearchResults([]);
+        // Only show error for latest request
+        if (requestId === searchRequestIdRef.current) {
+          toast.error('Search failed. Please try again.');
+          setSearchResults([]);
+        }
       } finally {
-        setIsSearching(false);
+        // Only clear loading state for latest request
+        if (requestId === searchRequestIdRef.current) {
+          setIsSearching(false);
+        }
       }
     }, 300); // 300ms debounce
 
@@ -297,7 +315,10 @@ export function LibraryClient() {
             className="pr-20"
           />
           {isSearching && (
-            <div className="absolute right-10 top-1/2 -translate-y-1/2">
+            <div
+              className="absolute right-10 top-1/2 -translate-y-1/2"
+              data-testid="search-loading"
+            >
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
