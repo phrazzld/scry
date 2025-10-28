@@ -203,6 +203,23 @@ export const updateQuestion = mutation({
     if (args.options !== undefined) updateFields.options = args.options;
     if (args.correctAnswer !== undefined) updateFields.correctAnswer = args.correctAnswer;
 
+    // 5.1. Clear embedding if question/explanation text changed
+    // CRITICAL: Embeddings are generated from question + explanation text (see embeddings.ts:579)
+    // If text changes, the stored embedding becomes stale and will NEVER be updated because
+    // the daily backfill cron (syncMissingEmbeddings) only processes embedding === undefined.
+    //
+    // Solution: Clear embedding when text changes so the daily cron regenerates it within 24hrs.
+    // This is better than permanent staleness. During the delay, the question will be missing from
+    // vector search but still appears in text search (keyword matching).
+    //
+    // Note: We don't clear embedding for options/correctAnswer changes because embeddings only
+    // use question + explanation text, not answer options.
+    const textChanged = args.question !== undefined || args.explanation !== undefined;
+    if (textChanged) {
+      updateFields.embedding = undefined;
+      updateFields.embeddingGeneratedAt = undefined;
+    }
+
     // 6. Update with timestamp
     await ctx.db.patch(args.questionId, {
       ...updateFields,
