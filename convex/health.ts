@@ -216,6 +216,59 @@ export const detailed = query({
 });
 
 /**
+ * Embedding coverage health check
+ *
+ * Checks what percentage of active questions have vector embeddings.
+ * Samples first 1000 questions for performance. Returns:
+ * - status: "healthy" (≥95%), "degraded" (80-95%), "failing" (<80%)
+ * - coverage: percentage of questions with embeddings (0.0-1.0)
+ * - totalQuestions: number of questions sampled
+ * - withEmbeddings: count with embeddings
+ * - withoutEmbeddings: count without embeddings
+ *
+ * This helps detect silent embedding generation failures and monitor
+ * the semantic search feature's operational health.
+ */
+export const checkEmbeddingHealth = query({
+  args: {},
+  handler: async (
+    ctx
+  ): Promise<{
+    status: 'healthy' | 'degraded' | 'failing';
+    coverage: number;
+    totalQuestions: number;
+    withEmbeddings: number;
+    withoutEmbeddings: number;
+  }> => {
+    // Sample first 1000 active questions for performance
+    // Active = not deleted and not archived
+    const questions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active')
+      .filter((q) =>
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+      )
+      .take(1000);
+
+    const withEmbeddings = questions.filter((q) => q.embedding).length;
+    const coverage = questions.length > 0 ? withEmbeddings / questions.length : 1.0;
+
+    let status: 'healthy' | 'degraded' | 'failing';
+    if (coverage >= 0.95) status = 'healthy';
+    else if (coverage >= 0.8) status = 'degraded';
+    else status = 'failing';
+
+    return {
+      status,
+      coverage,
+      totalQuestions: questions.length,
+      withEmbeddings,
+      withoutEmbeddings: questions.length - withEmbeddings,
+    };
+  },
+});
+
+/**
  * Functional test for Google AI API key
  *
  * Actually tests if the API key works by making a minimal test request.

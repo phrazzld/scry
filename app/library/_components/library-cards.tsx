@@ -82,14 +82,36 @@ export function LibraryCards({
                       <p className="whitespace-pre-wrap break-words">{question.question}</p>
                     </TooltipContent>
                   </Tooltip>
-                  <div className="mt-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="secondary" className="text-xs cursor-default"></Badge>
-                      </TooltipTrigger>
-                      <TooltipContent></TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="mt-2 flex items-center gap-2 cursor-help">
+                        <Badge variant="secondary" className="text-xs">
+                          {question.type === 'multiple-choice' ? 'MC' : 'T/F'}
+                        </Badge>
+                        <span
+                          className={`text-sm ${question.embedding ? 'text-success' : 'text-muted-foreground'}`}
+                          role="img"
+                          aria-label={
+                            question.embedding ? 'Has semantic search' : 'Keyword search only'
+                          }
+                        >
+                          ●
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {question.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {question.embedding
+                            ? 'Full semantic search enabled'
+                            : 'Keyword search only - embedding pending'}
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             </CardHeader>
@@ -132,11 +154,6 @@ export function LibraryCards({
                   )}
                 </div>
               )}
-
-              {/* Type */}
-              <div className="text-xs text-muted-foreground">
-                {question.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
-              </div>
             </CardContent>
           </Card>
         );
