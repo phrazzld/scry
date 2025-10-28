@@ -48,8 +48,7 @@ export function ReviewEmptyState() {
           <h1 className="text-7xl md:text-8xl font-bold tracking-tight text-foreground">
             {isGenerating ? (
               <>
-                Hang tight
-                <span className="opacity-70 inline-block animate-ellipsis"></span>
+                Hang tight<span className="opacity-70">.</span>
               </>
             ) : isEmptyLibrary ? (
               <>

@@ -556,27 +556,6 @@
     }
   }
 
-  /* Ellipsis animation for loading states */
-  @keyframes ellipsis {
-    0% {
-      content: '.';
-    }
-    33% {
-      content: '..';
-    }
-    66% {
-      content: '...';
-    }
-    100% {
-      content: '.';
-    }
-  }
-
-  .animate-ellipsis::before {
-    content: '.';
-    animation: ellipsis 1.5s ease-in-out infinite;
-  }
-
   /* Utility classes for button animations */
   .animate-icon-switch {
     animation: iconSwitch 200ms var(--ease-elegant);
