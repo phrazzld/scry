@@ -76,6 +76,12 @@ export default defineSchema({
       vectorField: 'embedding',
       dimensions: 768, // Google text-embedding-004
       filterFields: ['userId', 'deletedAt', 'archivedAt'],
+    })
+    // Full-text search index for comprehensive text search
+    // Enables searching entire collection efficiently (not just first N results)
+    .searchIndex('search_questions', {
+      searchField: 'question',
+      filterFields: ['userId', 'deletedAt', 'archivedAt'],
     }),
 
   interactions: defineTable({

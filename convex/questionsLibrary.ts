@@ -187,10 +187,14 @@ export const getQuizInteractionStats = query({
  * Text search questions by keyword matching
  *
  * Internal query for hybrid search (complements vector search).
- * Performs case-insensitive substring matching on question text.
+ * Uses Convex full-text search index to scan entire collection efficiently.
  *
- * Simple keyword matching without semantic understanding - use alongside
- * vector search for best results (catches exact phrase matches).
+ * Searches question text across ALL user's questions in the specified view,
+ * not just the first N results. This ensures comprehensive search results
+ * regardless of question creation date or collection size.
+ *
+ * Note: Currently searches 'question' field only (not 'explanation').
+ * This covers the majority of use cases while maintaining simple implementation.
  *
  * @internal Used by embeddings.searchQuestions for hybrid search
  */
@@ -203,53 +207,49 @@ export const textSearchQuestions = internalQuery({
   },
   handler: async (ctx, args) => {
     const { query, limit, userId, view = 'active' } = args;
-    const searchLower = query.toLowerCase();
 
-    // Build query with DB-level view filtering to minimize bandwidth
-    let dbQuery;
+    // Start with search index query (scans entire collection efficiently)
+    let searchQuery = ctx.db
+      .query('questions')
+      .withSearchIndex('search_questions', (q) => q.search('question', query));
 
+    // Apply view-specific filters (DB-level filtering for efficiency)
     switch (view) {
       case 'active':
-        // Use compound index for active questions (most common case)
-        dbQuery = ctx.db
-          .query('questions')
-          .withIndex('by_user_active', (q) =>
-            q.eq('userId', userId).eq('deletedAt', undefined).eq('archivedAt', undefined)
-          );
+        // Active: not archived AND not deleted
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.eq(q.field('deletedAt'), undefined),
+            q.eq(q.field('archivedAt'), undefined)
+          )
+        );
         break;
 
       case 'archived':
         // Archived: has archivedAt AND not deleted
-        dbQuery = ctx.db
-          .query('questions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .filter((q) =>
-            q.and(q.neq(q.field('archivedAt'), undefined), q.eq(q.field('deletedAt'), undefined))
-          );
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.neq(q.field('archivedAt'), undefined),
+            q.eq(q.field('deletedAt'), undefined)
+          )
+        );
         break;
 
       case 'trash':
-        // Trash: has deletedAt
-        dbQuery = ctx.db
-          .query('questions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .filter((q) => q.neq(q.field('deletedAt'), undefined));
+        // Trash: has deletedAt (regardless of archivedAt)
+        searchQuery = searchQuery.filter((q) =>
+          q.and(q.eq(q.field('userId'), userId), q.neq(q.field('deletedAt'), undefined))
+        );
         break;
 
       default:
-        dbQuery = ctx.db.query('questions').withIndex('by_user', (q) => q.eq('userId', userId));
+        // Fallback: filter by userId only
+        searchQuery = searchQuery.filter((q) => q.eq(q.field('userId'), userId));
     }
 
-    // Fetch exact limit after DB-level view filtering (no over-fetching)
-    const questions = await dbQuery.order('desc').take(limit);
-
-    // Keyword matching (acceptable on scoped results)
-    const matches = questions.filter((q) => {
-      const questionLower = q.question.toLowerCase();
-      const explanationLower = q.explanation?.toLowerCase() ?? '';
-      return questionLower.includes(searchLower) || explanationLower.includes(searchLower);
-    });
-
-    return matches;
+    // Return top N matches (search index already found all matches)
+    return await searchQuery.take(limit);
   },
 });
