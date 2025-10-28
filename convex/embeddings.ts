@@ -248,69 +248,54 @@ export const searchQuestions = action({
       );
     }
 
-    // Build filter expression based on view
-    // Note: Vector search filterFields only support 'eq' checks on optional fields
+    // Build filter expression for vector search
+    // IMPORTANT: Convex vector search filters only support q.eq() and q.or() - NO q.and()
+    // For AND conditions (userId + deletedAt + archivedAt), we must post-filter in action code
+    // See: https://docs.convex.dev/search/vector-search (filter API limitations)
+    //
+    // Strategy: Filter by userId only at DB level, then post-filter by view state
+    // This maintains security (userId prevents cross-user leaks) while enabling complex filtering
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const buildFilter = (q: any) => {
-      const filters = [q.eq('userId', userId)];
-
-      switch (view) {
-        case 'active':
-          // Active: not deleted AND not archived
-          filters.push(q.eq('deletedAt', undefined));
-          filters.push(q.eq('archivedAt', undefined));
-          break;
-        case 'archived':
-          // Archived: Filter for not-deleted only (archivedAt filtering happens post-fetch)
-          // Can't use neq in vector search, so we post-filter archivedAt below
-          filters.push(q.eq('deletedAt', undefined));
-          break;
-        case 'trash':
-          // Trash: Can't use neq in vector search, so we skip vector search for trash view
-          // (will rely on text search only)
-          break;
-      }
-
-      return q.and(...filters);
+      // Only filter by userId in vector search (prevents cross-user data leaks)
+      // View state filtering (active/archived/trash) happens post-fetch
+      return q.eq('userId', userId);
     };
 
-    // Perform vector search with filters (only if embedding generation succeeded)
-    // Skip vector search for trash view (can't filter with neq)
-    const rawVectorResults =
-      queryEmbedding && view !== 'trash'
-        ? await ctx.vectorSearch('questions', 'by_embedding', {
-            vector: queryEmbedding,
-            limit: limit * 2, // Get extra results for merging
-            filter: buildFilter,
-          })
-        : [];
+    // Perform vector search with userId-only filter (view filtering happens post-fetch)
+    // Note: Vector search filters don't support AND conditions, so we filter by view state below
+    const rawVectorResults = queryEmbedding
+      ? await ctx.vectorSearch('questions', 'by_embedding', {
+          vector: queryEmbedding,
+          limit: limit * 2, // Get extra results for merging with text search
+          filter: buildFilter,
+        })
+      : [];
 
-    // Post-filter vector results for archived view (fetch full docs to check archivedAt)
+    // Post-filter vector results by view state
+    // Vector search returns partial documents, so we need full docs to check deletedAt/archivedAt
     let vectorResults: SearchResult[];
-    if (view === 'archived' && rawVectorResults.length > 0) {
-      // Fetch full documents to check archivedAt field
+    if (rawVectorResults.length > 0) {
+      // Fetch full documents to access deletedAt and archivedAt fields
       const questionIds = rawVectorResults.map((r) => r._id);
-      const fullDocs: Array<{
-        _id: Id<'questions'>;
-        archivedAt?: number;
-        [key: string]: unknown;
-      }> = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
+      const fullDocs = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
 
-      // Create score map for quick lookup
+      // Create score map for quick lookup (preserve vector similarity scores)
       const scoreMap = new Map(rawVectorResults.map((r) => [r._id.toString(), r._score]));
 
-      // Filter for archived questions only and add scores
-      vectorResults = fullDocs
-        .filter((doc) => doc.archivedAt !== undefined)
-        .map(
-          (doc) =>
-            ({
-              ...doc,
-              _score: scoreMap.get(doc._id.toString()) ?? 0.5,
-            }) as SearchResult
-        );
+      // Apply view state filtering (active/archived/trash)
+      const filteredDocs = filterResultsByView(fullDocs as SearchResult[], view);
+
+      // Re-attach similarity scores from vector search
+      vectorResults = filteredDocs.map(
+        (doc) =>
+          ({
+            ...doc,
+            _score: scoreMap.get(doc._id.toString()) ?? 0.5,
+          }) as SearchResult
+      );
     } else {
-      vectorResults = rawVectorResults;
+      vectorResults = [];
     }
 
     // Perform text search for keyword matching
@@ -346,10 +331,7 @@ export const searchQuestions = action({
 });
 
 /**
- * Merge vector search and text search results
- *
- * Deduplicates by question ID, prioritizes vector results (semantic similarity),
- * and returns top N results sorted by score.
+ * Type definition for search results with similarity scores
  *
  * Vector results have similarity scores (0.0-1.0), text results get default score 0.5
  * to rank them between low and high vector matches.
@@ -357,8 +339,44 @@ export const searchQuestions = action({
 type SearchResult = {
   _id: Id<'questions'>;
   _score: number;
+  deletedAt?: number;
+  archivedAt?: number;
   [key: string]: unknown;
 };
+
+/**
+ * Filter search results by view state
+ *
+ * Applies post-filtering logic for view states that can't be expressed
+ * in vector search filters (which only support q.eq and q.or, not q.and).
+ *
+ * @param results - Search results to filter
+ * @param view - View state to filter by
+ * @returns Filtered results matching the view criteria
+ */
+function filterResultsByView(
+  results: SearchResult[],
+  view: 'active' | 'archived' | 'trash'
+): SearchResult[] {
+  switch (view) {
+    case 'active':
+      // Active: not deleted AND not archived
+      return results.filter((r) => !r.deletedAt && !r.archivedAt);
+    case 'archived':
+      // Archived: not deleted AND archived
+      return results.filter((r) => !r.deletedAt && r.archivedAt);
+    case 'trash':
+      // Trash: deleted (regardless of archived state)
+      return results.filter((r) => r.deletedAt);
+  }
+}
+
+/**
+ * Merge vector search and text search results
+ *
+ * Deduplicates by question ID, prioritizes vector results (semantic similarity),
+ * and returns top N results sorted by score.
+ */
 
 function mergeSearchResults(
   vectorResults: SearchResult[],
