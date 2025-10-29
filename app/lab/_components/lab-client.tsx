@@ -14,7 +14,13 @@ import { toast } from 'sonner';
 import { ConfigManager } from '@/components/lab/config-manager';
 import { InputSetManager } from '@/components/lab/input-set-manager';
 import { ResultsGrid } from '@/components/lab/results-grid';
+import { PageContainer } from '@/components/page-container';
 import { api } from '@/convex/_generated/api';
+import {
+  buildIntentClarificationPrompt,
+  buildQuestionPromptFromIntent,
+  PROD_CONFIG_METADATA,
+} from '@/convex/lib/promptTemplates';
 import {
   clearResults,
   isApproachingQuota,
@@ -27,6 +33,41 @@ import {
 } from '@/lib/lab-storage';
 import type { ExecutionResult, InfraConfig, InputSet } from '@/types/lab';
 
+/**
+ * Create PROD baseline config using shared production prompts
+ *
+ * This references the exact same prompt templates used in production,
+ * ensuring the lab always shows the current production infrastructure.
+ */
+function createProdConfig(): InfraConfig {
+  const now = Date.now();
+  return {
+    id: 'prod-baseline',
+    name: 'PRODUCTION (Current)',
+    description: 'Live production infrastructure - reflects actual prompts used in app',
+    provider: PROD_CONFIG_METADATA.provider,
+    model: PROD_CONFIG_METADATA.model,
+    temperature: PROD_CONFIG_METADATA.temperature,
+    maxTokens: PROD_CONFIG_METADATA.maxTokens,
+    topP: PROD_CONFIG_METADATA.topP,
+    phases: [
+      {
+        name: 'Intent Clarification',
+        template: buildIntentClarificationPrompt('{{userInput}}'),
+        outputTo: 'clarifiedIntent',
+      },
+      {
+        name: 'Question Generation',
+        template: buildQuestionPromptFromIntent('{{clarifiedIntent}}'),
+        // Final phase - no outputTo
+      },
+    ],
+    isProd: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export function LabClient() {
   // State
   const [inputSets, setInputSets] = useState<InputSet[]>([]);
@@ -38,8 +79,20 @@ export function LabClient() {
   // Load state from localStorage on mount
   useEffect(() => {
     const loadedSets = loadInputSets();
-    const loadedConfigs = loadConfigs();
+    let loadedConfigs = loadConfigs();
     const loadedResults = loadResults();
+
+    // Ensure PROD baseline config always exists (using shared production prompts)
+    const prodConfig = createProdConfig();
+    const hasProdConfig = loadedConfigs.some((c) => c.isProd);
+
+    if (!hasProdConfig) {
+      // No PROD config - add it as first config
+      loadedConfigs = [prodConfig, ...loadedConfigs];
+    } else {
+      // PROD config exists - update it to match current production (single source of truth)
+      loadedConfigs = loadedConfigs.map((c) => (c.isProd ? prodConfig : c));
+    }
 
     setInputSets(loadedSets);
     setConfigs(loadedConfigs);
@@ -301,7 +354,7 @@ export function LabClient() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b">
-        <div className="container mx-auto px-4 py-4">
+        <PageContainer className="py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">🧪 Genesis Laboratory</h1>
@@ -328,11 +381,11 @@ export function LabClient() {
               </button>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </div>
 
       {/* 3-Panel Layout */}
-      <div className="container mx-auto px-4 py-6">
+      <PageContainer className="py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
           {/* Left Panel: Input Sets (25%) */}
           <div className="lg:col-span-3 border rounded-lg p-4 overflow-y-auto">
@@ -374,7 +427,7 @@ export function LabClient() {
             />
           </div>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

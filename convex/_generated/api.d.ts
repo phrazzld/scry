@@ -22,6 +22,7 @@ import type * as fsrs from "../fsrs.js";
 import type * as generationJobs from "../generationJobs.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
+import type * as lab from "../lab.js";
 import type * as lib_envDiagnostics from "../lib/envDiagnostics.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_userStatsHelpers from "../lib/userStatsHelpers.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   generationJobs: typeof generationJobs;
   health: typeof health;
   http: typeof http;
+  lab: typeof lab;
   "lib/envDiagnostics": typeof lib_envDiagnostics;
   "lib/logger": typeof lib_logger;
   "lib/userStatsHelpers": typeof lib_userStatsHelpers;
