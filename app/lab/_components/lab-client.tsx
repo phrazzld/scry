@@ -8,11 +8,13 @@
  * Orchestrates parallel execution and persistence.
  */
 import { useEffect, useState } from 'react';
+import { useAction } from 'convex/react';
 import { toast } from 'sonner';
 
 import { ConfigManager } from '@/components/lab/config-manager';
 import { InputSetManager } from '@/components/lab/input-set-manager';
 import { ResultsGrid } from '@/components/lab/results-grid';
+import { api } from '@/convex/_generated/api';
 import {
   clearResults,
   isApproachingQuota,
@@ -123,6 +125,8 @@ export function LabClient() {
 
   // Execution handlers
   const [isRunning, setIsRunning] = useState(false);
+  const [executionProgress, setExecutionProgress] = useState({ total: 0, completed: 0, failed: 0 });
+  const executeConfig = useAction(api.lab.executeConfig);
 
   const handleRunAll = async () => {
     const selectedSet = inputSets.find((s) => s.id === selectedInputSetId);
@@ -137,18 +141,85 @@ export function LabClient() {
       return;
     }
 
+    const totalTests = selectedSet.inputs.length * enabledConfigs.length;
     setIsRunning(true);
+    setExecutionProgress({ total: totalTests, completed: 0, failed: 0 });
+
     toast.info('Starting execution...', {
       description: `Running ${selectedSet.inputs.length} × ${enabledConfigs.length} tests`,
     });
 
-    // Note: This would call convex actions in production
-    // For now, just simulate execution
-    toast.warning('Execution not yet wired to Convex actions', {
-      description: 'Backend integration pending',
-    });
+    // Create promises for all config × input combinations
+    const executionPromises: Promise<ExecutionResult>[] = [];
 
-    setIsRunning(false);
+    for (const input of selectedSet.inputs) {
+      for (const config of enabledConfigs) {
+        const promise = executeConfig({
+          configId: config.id,
+          configName: config.name,
+          provider: config.provider,
+          model: config.model,
+          temperature: config.temperature,
+          maxTokens: config.maxTokens,
+          topP: config.topP,
+          phases: config.phases,
+          testInput: input,
+        })
+          .then((result) => {
+            // Update progress on success
+            setExecutionProgress((prev) => ({
+              ...prev,
+              completed: prev.completed + 1,
+            }));
+            return result as ExecutionResult;
+          })
+          .catch((error) => {
+            // Handle individual execution failure
+            setExecutionProgress((prev) => ({
+              ...prev,
+              completed: prev.completed + 1,
+              failed: prev.failed + 1,
+            }));
+            // Return a failed result
+            return {
+              configId: config.id,
+              configName: config.name,
+              input,
+              questions: [],
+              rawOutput: null,
+              latency: 0,
+              tokenCount: 0,
+              valid: false,
+              errors: [error instanceof Error ? error.message : String(error)],
+              executedAt: Date.now(),
+            } as ExecutionResult;
+          });
+
+        executionPromises.push(promise);
+      }
+    }
+
+    try {
+      // Execute all in parallel
+      const newResults = await Promise.all(executionPromises);
+
+      // Update results state
+      setResults([...results, ...newResults]);
+
+      const successCount = newResults.filter((r) => r.valid).length;
+      const failCount = newResults.filter((r) => !r.valid).length;
+
+      toast.success('Execution complete', {
+        description: `${successCount} passed, ${failCount} failed`,
+      });
+    } catch (error) {
+      toast.error('Execution failed', {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsRunning(false);
+      setExecutionProgress({ total: 0, completed: 0, failed: 0 });
+    }
   };
 
   return (
@@ -214,6 +285,7 @@ export function LabClient() {
               results={results}
               onRunAll={handleRunAll}
               isRunning={isRunning}
+              executionProgress={executionProgress}
             />
           </div>
         </div>

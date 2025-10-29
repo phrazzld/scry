@@ -23,6 +23,7 @@ interface ResultsGridProps {
   results: ExecutionResult[];
   onRunAll: () => void;
   isRunning: boolean;
+  executionProgress?: { total: number; completed: number; failed: number };
 }
 
 export function ResultsGrid({
@@ -32,6 +33,7 @@ export function ResultsGrid({
   results,
   onRunAll,
   isRunning,
+  executionProgress,
 }: ResultsGridProps) {
   const [selectedResult, setSelectedResult] = useState<ExecutionResult | null>(null);
 
@@ -83,6 +85,31 @@ export function ResultsGrid({
           {isRunning ? 'Running...' : 'Run All Tests'}
         </button>
       </div>
+
+      {/* Progress Indicator */}
+      {isRunning && executionProgress && executionProgress.total > 0 && (
+        <div className="space-y-2 px-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              Progress: {executionProgress.completed} / {executionProgress.total}
+            </span>
+            {executionProgress.failed > 0 && (
+              <span className="text-red-600">{executionProgress.failed} failed</span>
+            )}
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn(
+                'h-full transition-all duration-300',
+                executionProgress.failed > 0 ? 'bg-red-500' : 'bg-primary'
+              )}
+              style={{
+                width: `${(executionProgress.completed / executionProgress.total) * 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Results Matrix */}
       <div className="space-y-3">
