@@ -153,7 +153,13 @@ export function InputSetManager({
     <div className="space-y-3">
       {/* List of sets */}
       {sets.map((set) => (
-        <Card key={set.id} className={cn('p-3', selectedId === set.id && 'border-primary')}>
+        <Card
+          key={set.id}
+          className={cn(
+            'p-3 transition-all hover:shadow-md hover:border-primary/50',
+            selectedId === set.id && 'border-primary'
+          )}
+        >
           <div className="space-y-2">
             {/* Header */}
             <div className="flex items-center justify-between">

@@ -25,6 +25,7 @@ import type * as http from "../http.js";
 import type * as lab from "../lab.js";
 import type * as lib_envDiagnostics from "../lib/envDiagnostics.js";
 import type * as lib_logger from "../lib/logger.js";
+import type * as lib_promptTemplates from "../lib/promptTemplates.js";
 import type * as lib_userStatsHelpers from "../lib/userStatsHelpers.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as migrations from "../migrations.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   lab: typeof lab;
   "lib/envDiagnostics": typeof lib_envDiagnostics;
   "lib/logger": typeof lib_logger;
+  "lib/promptTemplates": typeof lib_promptTemplates;
   "lib/userStatsHelpers": typeof lib_userStatsHelpers;
   "lib/validation": typeof lib_validation;
   migrations: typeof migrations;

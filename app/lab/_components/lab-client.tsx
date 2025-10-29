@@ -389,7 +389,12 @@ export function LabClient() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
           {/* Left Panel: Input Sets (25%) */}
           <div className="lg:col-span-3 border rounded-lg p-4 overflow-y-auto">
-            <h2 className="font-semibold mb-4">Test Inputs</h2>
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm">
+                1
+              </span>
+              Test Inputs
+            </h2>
             <InputSetManager
               sets={inputSets}
               selectedId={selectedInputSetId}
@@ -402,7 +407,12 @@ export function LabClient() {
 
           {/* Center Panel: Configs (35%) */}
           <div className="lg:col-span-4 border rounded-lg p-4 overflow-y-auto">
-            <h2 className="font-semibold mb-4">Infrastructure Configs</h2>
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm">
+                2
+              </span>
+              Infrastructure Configs
+            </h2>
             <ConfigManager
               configs={configs}
               enabledIds={enabledConfigIds}
@@ -415,7 +425,12 @@ export function LabClient() {
 
           {/* Right Panel: Results (40%) */}
           <div className="lg:col-span-5 border rounded-lg p-4 overflow-y-auto">
-            <h2 className="font-semibold mb-4">Results</h2>
+            <h2 className="font-semibold mb-4 flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm">
+                3
+              </span>
+              Results
+            </h2>
             <ResultsGrid
               inputSet={inputSets.find((s) => s.id === selectedInputSetId) || null}
               configs={configs}

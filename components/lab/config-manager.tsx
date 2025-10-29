@@ -103,10 +103,10 @@ export function ConfigManager({
           <Card
             key={config.id}
             className={cn(
-              'transition-colors',
+              'transition-all hover:shadow-md hover:border-primary/50',
               isEnabled && 'border-green-500 dark:border-green-600',
               config.isProd &&
-                'bg-blue-50/30 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900'
+                'border-l-4 border-l-yellow-500 bg-yellow-50/30 dark:bg-yellow-950/10 border-yellow-200 dark:border-yellow-900'
             )}
           >
             <div className="p-3 space-y-2">
@@ -128,8 +128,8 @@ export function ConfigManager({
                         {config.name}
                       </h3>
                       {config.isProd && (
-                        <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">
-                          PROD
+                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          ⭐ BASELINE
                         </span>
                       )}
                       {isEnabled && (
