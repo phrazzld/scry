@@ -215,6 +215,34 @@
   File format: Versioned JSON (v1.0) with timestamp
   ```
 
+- [x] **Extract shared prompt templates (PROD baseline)**
+  ```
+  Files: convex/lib/promptTemplates.ts ✅ (NEW), convex/aiGeneration.ts ✅, app/lab/_components/lab-client.tsx ✅
+  Status: Single source of truth for production prompts
+  Approach:
+    - Created convex/lib/promptTemplates.ts with buildIntentClarificationPrompt, buildQuestionPromptFromIntent
+    - Exported PROD_CONFIG_METADATA (provider, model, temperature, maxTokens)
+    - Updated aiGeneration.ts to import from shared module (removed duplicate functions)
+    - Lab auto-loads PROD config on mount using shared prompts
+    - Updates PROD config each load to match current production (prevents drift)
+  Features:
+    - PROD config always visible in lab (id: 'prod-baseline', isProd: true)
+    - Read-only protection via ConfigManager (can't edit/delete PROD)
+    - Changes to prompts in one place update both production and lab
+  Integration: Solves "missing PROD baseline" feedback - lab now shows actual production infrastructure
+  ```
+
+- [x] **Fix layout width to match app-wide pattern**
+  ```
+  Files: app/lab/_components/lab-client.tsx ✅
+  Status: Full-width layout matching library and other pages
+  Changes:
+    - Replaced `<div className="container mx-auto px-4">` with PageContainer
+    - Header and main content use PageContainer (w-full px-4 md:px-8)
+    - Vertical alignment now matches navbar/footer
+  Integration: Solves "too narrow / too much margin" feedback
+  ```
+
 ## Design Iteration
 
 **After Phase 3**: Review execution layer
