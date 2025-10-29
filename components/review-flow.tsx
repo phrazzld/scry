@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowRight, Calendar, Clock, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
@@ -29,7 +29,7 @@ import { useReviewFlow } from '@/hooks/use-review-flow';
  */
 export function ReviewFlow() {
   // Get review state and handlers from custom hook
-  const { phase, question, questionId, interactions, handlers } = useReviewFlow();
+  const { phase, question, questionId, interactions, isTransitioning, handlers } = useReviewFlow();
 
   // Use context for current question
   const { setCurrentQuestion } = useCurrentQuestion();
@@ -80,9 +80,10 @@ export function ReviewFlow() {
     }
   }, [question, questionId, setCurrentQuestion]);
 
-  // Reset state when question changes
+  // Reset state when question changes OR when transition completes
+  // This handles both normal question changes AND FSRS immediate re-review (same questionId)
   useEffect(() => {
-    if (questionId) {
+    if (questionId && !isTransitioning) {
       setSelectedAnswer('');
       setFeedbackState({
         showFeedback: false,
@@ -90,7 +91,7 @@ export function ReviewFlow() {
       });
       setQuestionStartTime(Date.now());
     }
-  }, [questionId]);
+  }, [questionId, isTransitioning]);
 
   // Refresh due count every 60s to catch cards becoming due from time passing
   useEffect(() => {
@@ -209,7 +210,7 @@ export function ReviewFlow() {
         }
       : undefined,
     onSubmit: !feedbackState.showFeedback && selectedAnswer ? handleSubmit : undefined,
-    onNext: feedbackState.showFeedback ? handleNext : undefined,
+    onNext: feedbackState.showFeedback && !isTransitioning ? handleNext : undefined,
     onEdit: handleEdit,
     onDelete: handleDelete,
     showingFeedback: feedbackState.showFeedback,
@@ -290,9 +291,23 @@ export function ReviewFlow() {
                   Submit
                 </Button>
               ) : (
-                <Button onClick={handleNext} size="lg">
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button
+                  onClick={handleNext}
+                  disabled={isTransitioning}
+                  size="lg"
+                  aria-busy={isTransitioning}
+                >
+                  {isTransitioning ? (
+                    <>
+                      Loading
+                      <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    </>
+                  ) : (
+                    <>
+                      Next
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               )}
             </div>
