@@ -7,14 +7,103 @@
  * Includes ResultCell with tabbed views (JSON | Cards | Metrics).
  */
 import { useState } from 'react';
-import { AlertCircleIcon, CheckCircle2Icon, ClockIcon, XCircleIcon } from 'lucide-react';
+import {
+  AlertCircleIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ClockIcon,
+  CopyIcon,
+  XCircleIcon,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { type ExecutionResult, type InfraConfig, type InputSet } from '@/types/lab';
+
+/**
+ * Error category types for better error handling
+ */
+type ErrorCategory =
+  | 'api_key'
+  | 'rate_limit'
+  | 'schema_validation'
+  | 'network'
+  | 'configuration'
+  | 'unknown';
+
+/**
+ * Categorize error message into actionable types
+ */
+function categorizeError(errorMessage: string): ErrorCategory {
+  const msg = errorMessage.toLowerCase();
+
+  if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
+    return 'api_key';
+  }
+  if (msg.includes('rate limit') || msg.includes('429') || msg.includes('quota')) {
+    return 'rate_limit';
+  }
+  if (msg.includes('schema') || msg.includes('validation') || msg.includes('does not match')) {
+    return 'schema_validation';
+  }
+  if (msg.includes('network') || msg.includes('timeout') || msg.includes('econnrefused')) {
+    return 'network';
+  }
+  if (
+    msg.includes('provider') ||
+    msg.includes('not yet supported') ||
+    msg.includes('missing template')
+  ) {
+    return 'configuration';
+  }
+  return 'unknown';
+}
+
+/**
+ * Get actionable hint based on error category
+ */
+function getErrorHint(category: ErrorCategory): string {
+  switch (category) {
+    case 'api_key':
+      return 'Check your GOOGLE_AI_API_KEY in Convex environment variables.';
+    case 'rate_limit':
+      return 'Wait a moment and try again. Consider reducing test count.';
+    case 'schema_validation':
+      return 'AI generated invalid format. Check prompt templates. Retry may succeed.';
+    case 'network':
+      return 'Check your internet connection and try again.';
+    case 'configuration':
+      return 'Review your config settings (provider, model, prompt templates).';
+    case 'unknown':
+      return 'Check Convex logs for details or retry the operation.';
+  }
+}
+
+/**
+ * Get category display info (icon, color, label)
+ */
+function getCategoryDisplay(category: ErrorCategory): { label: string; className: string } {
+  switch (category) {
+    case 'api_key':
+      return { label: 'API Configuration', className: 'text-red-600' };
+    case 'rate_limit':
+      return { label: 'Rate Limit', className: 'text-orange-600' };
+    case 'schema_validation':
+      return { label: 'Schema Validation', className: 'text-yellow-600' };
+    case 'network':
+      return { label: 'Network Error', className: 'text-purple-600' };
+    case 'configuration':
+      return { label: 'Configuration Error', className: 'text-blue-600' };
+    case 'unknown':
+      return { label: 'Unknown Error', className: 'text-gray-600' };
+  }
+}
 
 interface ResultsGridProps {
   inputSet: InputSet | null;
@@ -225,20 +314,7 @@ function ResultCell({ result, onClose }: ResultCellProps) {
       </div>
 
       {/* Validation Errors */}
-      {result.errors.length > 0 && (
-        <Alert variant="destructive">
-          <AlertCircleIcon className="h-4 w-4" />
-          <AlertDescription>
-            <div className="space-y-1">
-              {result.errors.map((error, index) => (
-                <div key={index} className="text-xs">
-                  · {error}
-                </div>
-              ))}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
+      {result.errors.length > 0 && <ErrorDisplay errors={result.errors} />}
 
       {/* Tabbed Content */}
       <Tabs defaultValue="cards">
@@ -282,6 +358,84 @@ function ResultCell({ result, onClose }: ResultCellProps) {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+/**
+ * ErrorDisplay Component
+ *
+ * Improved error display with categorization, actionable hints, and collapsible details.
+ */
+interface ErrorDisplayProps {
+  errors: string[];
+}
+
+function ErrorDisplay({ errors }: ErrorDisplayProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  if (errors.length === 0) return null;
+
+  // Categorize first error (most important)
+  const primaryError = errors[0];
+  const category = categorizeError(primaryError);
+  const { label, className } = getCategoryDisplay(category);
+  const hint = getErrorHint(category);
+
+  // Extract summary (first line or first 100 chars)
+  const summary = primaryError.split('\n')[0].substring(0, 150);
+
+  const handleCopyError = () => {
+    navigator.clipboard.writeText(errors.join('\n\n'));
+    toast.success('Error details copied to clipboard');
+  };
+
+  return (
+    <Alert variant="destructive">
+      <AlertCircleIcon className="h-4 w-4" />
+      <div className="space-y-2">
+        <AlertTitle className="flex items-center justify-between">
+          <span className={className}>{label}</span>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleCopyError}>
+              <CopyIcon className="h-3 w-3" />
+            </Button>
+            {errors.length > 1 ||
+              (primaryError.length > 150 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => setShowDetails(!showDetails)}
+                >
+                  {showDetails ? (
+                    <ChevronUpIcon className="h-3 w-3" />
+                  ) : (
+                    <ChevronDownIcon className="h-3 w-3" />
+                  )}
+                </Button>
+              ))}
+          </div>
+        </AlertTitle>
+        <AlertDescription className="space-y-2">
+          {/* Summary */}
+          <p className="text-sm font-medium">{summary}</p>
+
+          {/* Actionable Hint */}
+          <p className="text-xs text-muted-foreground">💡 {hint}</p>
+
+          {/* Detailed Errors (Collapsible) */}
+          {showDetails && (
+            <div className="mt-3 space-y-2 border-t pt-2">
+              {errors.map((error, index) => (
+                <div key={index} className="text-xs font-mono bg-muted/50 p-2 rounded">
+                  {error}
+                </div>
+              ))}
+            </div>
+          )}
+        </AlertDescription>
+      </div>
+    </Alert>
   );
 }
 
