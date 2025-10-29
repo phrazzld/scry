@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { ConfigManager } from '@/components/lab/config-manager';
 import { InputSetManager } from '@/components/lab/input-set-manager';
+import { ResultsGrid } from '@/components/lab/results-grid';
 import {
   clearResults,
   isApproachingQuota,
@@ -120,6 +121,36 @@ export function LabClient() {
     setEnabledConfigIds(newEnabledIds);
   };
 
+  // Execution handlers
+  const [isRunning, setIsRunning] = useState(false);
+
+  const handleRunAll = async () => {
+    const selectedSet = inputSets.find((s) => s.id === selectedInputSetId);
+    if (!selectedSet || selectedSet.inputs.length === 0) {
+      toast.error('No input set selected');
+      return;
+    }
+
+    const enabledConfigs = configs.filter((c) => enabledConfigIds.has(c.id));
+    if (enabledConfigs.length === 0) {
+      toast.error('No configs enabled');
+      return;
+    }
+
+    setIsRunning(true);
+    toast.info('Starting execution...', {
+      description: `Running ${selectedSet.inputs.length} × ${enabledConfigs.length} tests`,
+    });
+
+    // Note: This would call convex actions in production
+    // For now, just simulate execution
+    toast.warning('Execution not yet wired to Convex actions', {
+      description: 'Backend integration pending',
+    });
+
+    setIsRunning(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -176,9 +207,14 @@ export function LabClient() {
           {/* Right Panel: Results (40%) */}
           <div className="lg:col-span-5 border rounded-lg p-4 overflow-y-auto">
             <h2 className="font-semibold mb-4">Results</h2>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Results: {results.length}</p>
-            </div>
+            <ResultsGrid
+              inputSet={inputSets.find((s) => s.id === selectedInputSetId) || null}
+              configs={configs}
+              enabledConfigIds={enabledConfigIds}
+              results={results}
+              onRunAll={handleRunAll}
+              isRunning={isRunning}
+            />
           </div>
         </div>
       </div>

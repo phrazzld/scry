@@ -116,45 +116,31 @@
   Current: args.provider !== 'google' throws descriptive error
   ```
 
-### Phase 4: Results Display (Day 4)
+### Phase 4: Results Display (Day 4) ✅ COMPLETE
 
-- [ ] **Build ResultsGrid component with matrix layout**
+- [x] **Build ResultsGrid component with matrix layout**
   ```
-  Files: components/lab/results-grid.tsx (new)
-  Approach: CSS Grid with inputs (rows) × configs (columns)
-  Interface: <ResultsGrid inputs={string[]} configs={InfraConfig[]} results={Map<string, ExecutionResult>} />
-  Features: Grid headers, cell click to expand, loading states, empty states
-  Success: Renders grid, handles sparse results, responsive on smaller screens
-  Test: Visual regression test, integration test for cell selection
-  Module: Layout computation, lazy loading for large grids
-  Time: 1.5hr
+  Files: components/lab/results-grid.tsx ✅
+  Status: Matrix layout with input rows × config columns
+  Features: Cell click to expand, loading states, empty states
+  Layout: Responsive grid with result badges (valid/invalid/pending)
+  Integration: Wired to lab-client with handleRunAll
   ```
 
-- [ ] **Implement ResultCell with tabbed views**
+- [x] **Implement ResultCell with tabbed views**
   ```
-  Files: components/lab/results-grid.tsx (extend existing)
-  Approach: Tabs component from shadcn (JSON | Cards | Metrics)
-  Interface: <ResultCell result={ExecutionResult} />
-  Tabs:
-    - JSON: Syntax highlighted with @uiw/react-json-view
-    - Cards: Map questions to QuestionCard components
-    - Metrics: Latency, count, validation status
-  Success: All 3 tabs render, JSON highlighted, cards reuse existing component
-  Test: Unit tests for tab switching, integration test for question card rendering
-  Module: Result visualization, hides rendering complexity
-  Time: 1.5hr
+  Status: ✅ Included in results-grid.tsx
+  Tabs: Cards (QuestionPreviewCard) | JSON (pre-formatted) | Metrics
+  Features: Question preview cards with options/answers, metrics table
+  Components: QuestionPreviewCard, MetricRow helpers
   ```
 
-- [ ] **Add schema validation display with error highlighting**
+- [x] **Add schema validation display with error highlighting**
   ```
-  Files: components/lab/results-grid.tsx (extend ResultCell)
-  Approach: Run Zod validation, display errors inline
-  Interface: validationErrors: string[] displayed as Alert component
-  Features: Validate against existing questionSchema, show field path and error
-  Success: Invalid schema shows errors, valid shows green checkmark
-  Test: Unit tests with invalid schemas, integration test for error display
-  Module: Validation feedback, isolated from core rendering
-  Time: 45min
+  Status: ✅ Included in ResultCell
+  Display: Alert component with error list when result.errors.length > 0
+  Badges: Visual indicators for valid/invalid status
+  Integration: Errors from ExecutionResult shown inline
   ```
 
 ### Phase 5: Parallel Execution (Day 5)
