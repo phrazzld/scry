@@ -80,9 +80,10 @@ export function ReviewFlow() {
     }
   }, [question, questionId, setCurrentQuestion]);
 
-  // Reset state when question changes
+  // Reset state when question changes OR when transition completes
+  // This handles both normal question changes AND FSRS immediate re-review (same questionId)
   useEffect(() => {
-    if (questionId) {
+    if (questionId && !isTransitioning) {
       setSelectedAnswer('');
       setFeedbackState({
         showFeedback: false,
@@ -90,7 +91,7 @@ export function ReviewFlow() {
       });
       setQuestionStartTime(Date.now());
     }
-  }, [questionId]);
+  }, [questionId, isTransitioning]);
 
   // Refresh due count every 60s to catch cards becoming due from time passing
   useEffect(() => {
@@ -290,11 +291,16 @@ export function ReviewFlow() {
                   Submit
                 </Button>
               ) : (
-                <Button onClick={handleNext} disabled={isTransitioning} size="lg">
+                <Button
+                  onClick={handleNext}
+                  disabled={isTransitioning}
+                  size="lg"
+                  aria-busy={isTransitioning}
+                >
                   {isTransitioning ? (
                     <>
                       Loading
-                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" />
                     </>
                   ) : (
                     <>

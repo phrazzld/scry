@@ -1,98 +1,255 @@
-# TODO: Vector Embeddings - Ready for Merge
+# TODO: PR #45 - Review Transition Flicker Fix
 
-**Branch**: `feature/vector-embeddings-foundation`
-**PR**: [#47](https://github.com/phrazzld/scry/pull/47)
-**Status**: All blocking issues resolved ✅
-
----
-
-## Completed Fixes ✅
-
-- **CB-1**: Args validation fixed (convex/embeddings.ts:77)
-- **CB-2**: Error handling with graceful degradation (convex/embeddings.ts:214-228)
-- **CR-1**: Bandwidth optimization with DB-level filtering (convex/questionsLibrary.ts:211-253)
-- **CR-2**: Vector search archived view post-filtering (convex/embeddings.ts:282-305)
-- **CR-4**: Batch error logging with question details (convex/aiGeneration.ts:417-430)
-- **CR-6**: Query length validation (convex/embeddings.ts:211-217)
-
-**Total time invested**: ~2.5 hours
+**Branch**: `claude/investigate-review-flicker-011CULtDhNRvJE5T4ZZjLpxr`
+**PR**: [#45](https://github.com/phrazzld/scry/pull/45)
+**Status**: Addressing critical review feedback from Codex bot
 
 ---
 
-## Optional Improvements (Not Blocking)
+## Critical Fixes (Merge-Blocking)
 
-### CR-3: Add initial backfill migration [1.5hr]
+### CB-1: Fix loading timeout during transitions [15min] - P0
+**Location**: `hooks/use-review-flow.ts:134-159`
+**Priority**: CRITICAL - Blocks merge
 
-**Why**: Daily cron backfills 100/day = 100 days for 10K questions. One-time migration provides immediate value.
+**Problem**:
+The timeout effect only triggers when `phase === 'loading'`, but `REVIEW_COMPLETE` now keeps `phase: 'reviewing'`. If the next question fails to arrive (network issue, Convex outage), the UI stays in perpetual "Loading" state with no timeout recovery.
 
-**Implementation**: Add `backfillEmbeddingsInitial` to `convex/migrations.ts`:
-- Schedule embedding generation with 10-sec delays
-- Run in batches of 100 with 1-hour delays between batches
-- Monitor via Pino logs
+**Implementation**:
+1. Update timeout useEffect to trigger on `isTransitioning` in addition to `phase === 'loading'`
+2. Add `state.isTransitioning` to dependency array
+3. Ensure timeout clears when transitioning completes
 
-**Decision**: Optional - cron provides safety net, MVP valuable without instant rollout.
+**Code Change**:
+```typescript
+// Line 134-159
+useEffect(() => {
+  if (state.phase === 'loading' || state.isTransitioning) {
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+
+    // Set new timeout
+    loadingTimeoutRef.current = setTimeout(() => {
+      dispatch({ type: 'LOAD_TIMEOUT' });
+    }, LOADING_TIMEOUT_MS);
+  } else {
+    // Clear timeout when not loading
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+  }
+
+  return () => {
+    // Cleanup on unmount
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+  };
+}, [state.phase, state.isTransitioning]); // Add isTransitioning dependency
+```
+
+**Testing**:
+- Manual test: disconnect network, click Next, verify timeout fires after 5s
+- Verify timeout shows error state instead of infinite loading
+
+**Acceptance Criteria**:
+- Network failure during transition shows error after 5 seconds
+- Timeout message allows user to refresh/retry
+- No infinite loading states
 
 ---
 
-### CR-5: Strengthen rate limit protection [30min]
+### CB-2: Reset UI state when same question re-queued [10min] - P0
+**Location**: `components/review-flow.tsx:83-93`
+**Priority**: CRITICAL - Breaks FSRS immediate re-review
 
-**Current**: 10 parallel requests, 1-sec delay between batches
-**Proposed**: 5 parallel requests, 2-sec delay
+**Problem**:
+The reset effect depends on `questionId` changing. When FSRS immediately requeues the same question after an incorrect answer, `questionId` stays the same, so `selectedAnswer`, `feedbackState`, and timer aren't reset. User sees stale feedback and disabled "Next" button instead of being able to answer again.
 
-**Analysis**: Google free tier = 20M tokens/month (~55K/day). Daily sync = 2,000 tokens/day. Well under limits.
+**Implementation**:
+1. Add `isTransitioning` to reset useEffect dependencies
+2. Only reset when `questionId` exists AND not currently transitioning
+3. This ensures reset happens when transition completes, even if ID unchanged
 
-**Decision**: Monitor Pino logs for 429 errors first. Reduce batch size if needed post-launch.
+**Code Change**:
+```typescript
+// Reset state when question changes OR when transition completes
+useEffect(() => {
+  if (questionId && !isTransitioning) {
+    setSelectedAnswer('');
+    setFeedbackState({
+      showFeedback: false,
+      nextReviewInfo: null,
+    });
+    setQuestionStartTime(Date.now());
+  }
+}, [questionId, isTransitioning]); // Add isTransitioning dependency
+```
+
+**Testing**:
+- E2E test: Answer question incorrectly (FSRS should re-queue immediately)
+- Verify feedback clears and question becomes answerable again
+- Verify timer resets
+
+**Acceptance Criteria**:
+- Same question can be answered multiple times in a row
+- Feedback clears between attempts
+- Timer resets for each attempt
+- FSRS immediate re-review flow works correctly
 
 ---
 
-### CR-7: Adjust cron schedule [2min]
+## High Priority Improvements
 
-**Current**: Embedding sync at 3:30 AM
-**Proposed**: Move to 4:00 AM (avoid overlap with stats reconciliation at 3:15 AM)
+### HP-1: Add test coverage for isTransitioning [30min] - P1
+**Location**: `hooks/use-review-flow.test.ts`
+**Priority**: HIGH - Prevent regression
 
-**Why**: Prevent resource contention between cron jobs.
+**Implementation**:
+Add 4 test cases covering all `isTransitioning` state transitions:
+
+```typescript
+describe('Optimistic UI transitions', () => {
+  it('should set isTransitioning when REVIEW_COMPLETE dispatched', () => {
+    const state = {
+      ...reviewingState,
+      isTransitioning: false
+    };
+    const newState = reviewReducer(state, { type: 'REVIEW_COMPLETE' });
+
+    expect(newState.isTransitioning).toBe(true);
+    expect(newState.phase).toBe('reviewing');
+    expect(newState.lockId).toBeNull();
+  });
+
+  it('should clear isTransitioning when QUESTION_RECEIVED', () => {
+    const state = {
+      ...reviewingState,
+      isTransitioning: true
+    };
+    const newState = reviewReducer(state, {
+      type: 'QUESTION_RECEIVED',
+      payload: mockPayload
+    });
+
+    expect(newState.isTransitioning).toBe(false);
+    expect(newState.phase).toBe('reviewing');
+  });
+
+  it('should clear isTransitioning when LOAD_START', () => {
+    const state = {
+      ...reviewingState,
+      isTransitioning: true
+    };
+    const newState = reviewReducer(state, { type: 'LOAD_START' });
+
+    expect(newState.isTransitioning).toBe(false);
+    expect(newState.phase).toBe('loading');
+  });
+
+  it('should clear isTransitioning when LOAD_EMPTY', () => {
+    const state = {
+      ...reviewingState,
+      isTransitioning: true
+    };
+    const newState = reviewReducer(state, { type: 'LOAD_EMPTY' });
+
+    expect(newState.isTransitioning).toBe(false);
+    expect(newState.phase).toBe('empty');
+  });
+});
+```
+
+**Testing**:
+Run `pnpm test` to verify all tests pass
+
+**Acceptance Criteria**:
+- All state machine transitions for `isTransitioning` have test coverage
+- Tests pass in CI
+- Code coverage for optimistic UI behavior >90%
+
+---
+
+## Medium Priority Improvements
+
+### MP-1: Add aria-busy for accessibility [5min] - P2
+**Location**: `components/review-flow.tsx:264`
+**Priority**: MEDIUM - Accessibility compliance
+
+**Implementation**:
+1. Add `aria-busy={isTransitioning}` to Next button
+2. Add `aria-hidden="true"` to Loader2 icon (decorative)
+
+**Code Change**:
+```typescript
+<Button
+  onClick={handleNext}
+  disabled={isTransitioning}
+  size="lg"
+  aria-busy={isTransitioning}
+>
+  {isTransitioning ? (
+    <>
+      Loading
+      <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden="true" />
+    </>
+  ) : (
+    <>
+      Next
+      <ArrowRight className="ml-2 h-4 w-4" />
+    </>
+  )}
+</Button>
+```
+
+**Testing**:
+- Test with screen reader (VoiceOver on macOS)
+- Verify "busy" state announced when transitioning
+
+**Acceptance Criteria**:
+- Screen readers announce loading state
+- WCAG 2.1 AA compliance for interactive elements
 
 ---
 
 ## Pre-Merge Checklist
 
-**Tests**:
-- [x] TypeScript compiles without errors
-- [x] Unit tests pass
-- [ ] Manual test: Generate questions → verify embeddings (768 dimensions)
-- [ ] Manual test: Search in all views (active/archived/trash)
-- [ ] Manual test: Graceful degradation (remove `GOOGLE_AI_API_KEY`)
+**Critical Fixes**:
+- [ ] CB-1: Fix loading timeout during transitions
+- [ ] CB-2: Reset UI state for same-question re-review
+- [ ] HP-1: Add test coverage for isTransitioning
+
+**Optional Improvements**:
+- [ ] MP-1: Add aria-busy for accessibility
+
+**Testing**:
+- [ ] Run `pnpm test` - all tests pass
+- [ ] Run `pnpm tsc --noEmit` - no TypeScript errors
+- [ ] Manual test: Network failure during transition shows timeout
+- [ ] Manual test: Same question re-review works (answer incorrectly)
+- [ ] Manual test: Screen reader announces loading state
 
 **Verification**:
-- [ ] Review PR description matches implementation
-- [ ] BACKLOG.md updated with follow-up work
-- [ ] Commits squashed/cleaned if needed
-
-**Post-Merge Monitoring**:
-- [ ] Pino logs show embedding success rate >90%
-- [ ] Search latency <2 seconds
-- [ ] Sync cron executes daily without errors
-- [ ] No bandwidth spikes (monitor Convex dashboard)
+- [ ] All Codex P1 issues addressed
+- [ ] CI pipeline green
+- [ ] Ready for merge
 
 ---
 
 ## Context & Notes
 
-**Why This Feature**:
-- Enables semantic search ("React state management" finds useState, useReducer, Context)
-- Foundation for deduplication (find similar questions)
-- MVP validates embedding quality before building complex features
+**Source**: Codex bot review on PR #45 (2 P1 issues identified)
 
-**Key Decisions**:
-- **Inline generation**: Embeddings generated during background job (no user-facing latency)
-- **Hybrid search**: Vector + text (catches both semantic + keyword matches)
-- **Graceful degradation**: Questions save without embeddings if API fails
-- **Daily sync cron**: Backfills 100/day as safety net
+**Key Issues**:
+1. **Timeout regression**: Optimistic UI broke loading timeout by staying in `'reviewing'` phase
+2. **Re-review UX bug**: Same questionId doesn't trigger reset, breaks FSRS immediate re-review
 
-**Technical Details**:
-- Google `text-embedding-004`: 768 dimensions, free tier 20M tokens/month
-- Convex vector search: Native platform feature, filterFields for userId/deletedAt/archivedAt
-- Storage: 6KB per question (60MB for 10K questions)
-- Bandwidth: ~300KB per search (<0.03% monthly quota)
+**Impact**:
+- Without fixes: Users stuck on network failures, FSRS re-review broken
+- With fixes: Robust error handling, smooth re-review experience
 
-**Follow-Up Work**: See BACKLOG.md - "Vector Search Robustness Improvements" (11hr of polish deferred post-launch)
+**Total Effort**: ~1 hour
+**Blocking Issues**: 2 (will be 0 after fixes)

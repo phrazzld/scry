@@ -111,4 +111,83 @@ describe('reviewReducer', () => {
       expect(newState.isTransitioning).toBe(false); // New question clears transitioning state
     });
   });
+
+  describe('Optimistic UI transitions', () => {
+    // Common test fixtures
+    const mockQuestion = {
+      _id: 'q1' as Id<'questions'>,
+      question: 'Test question',
+      options: ['A', 'B', 'C', 'D'],
+      correctAnswer: 'A',
+      topic: 'Test',
+      difficulty: 'easy' as const,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      userId: 'user123',
+    };
+
+    const mockPayload = {
+      question: mockQuestion,
+      questionId: 'q1' as Id<'questions'>,
+      interactions: [],
+      lockId: 'lock123',
+    };
+
+    const reviewingState = {
+      phase: 'reviewing' as const,
+      question: mockQuestion,
+      questionId: 'q1' as Id<'questions'>,
+      interactions: [],
+      lockId: 'lock123',
+      isTransitioning: false,
+    };
+
+    it('should set isTransitioning when REVIEW_COMPLETE dispatched', () => {
+      const state = {
+        ...reviewingState,
+        isTransitioning: false,
+      };
+      const newState = reviewReducer(state, { type: 'REVIEW_COMPLETE' });
+
+      expect(newState.isTransitioning).toBe(true);
+      expect(newState.phase).toBe('reviewing');
+      expect(newState.lockId).toBeNull();
+    });
+
+    it('should clear isTransitioning when QUESTION_RECEIVED', () => {
+      const state = {
+        ...reviewingState,
+        isTransitioning: true,
+      };
+      const newState = reviewReducer(state, {
+        type: 'QUESTION_RECEIVED',
+        payload: mockPayload,
+      });
+
+      expect(newState.isTransitioning).toBe(false);
+      expect(newState.phase).toBe('reviewing');
+    });
+
+    it('should clear isTransitioning when LOAD_START', () => {
+      const state = {
+        ...reviewingState,
+        isTransitioning: true,
+      };
+      const newState = reviewReducer(state, { type: 'LOAD_START' });
+
+      expect(newState.isTransitioning).toBe(false);
+      expect(newState.phase).toBe('loading');
+    });
+
+    it('should clear isTransitioning when LOAD_EMPTY', () => {
+      const state = {
+        ...reviewingState,
+        isTransitioning: true,
+      };
+      const newState = reviewReducer(state, { type: 'LOAD_EMPTY' });
+
+      expect(newState.isTransitioning).toBe(false);
+      expect(newState.phase).toBe('empty');
+    });
+  });
 });

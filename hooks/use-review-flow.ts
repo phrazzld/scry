@@ -131,8 +131,9 @@ export function useReviewFlow() {
   const { hasChanged: dataHasChanged } = useDataHash(nextReview);
 
   // Set up loading timeout (5 seconds)
+  // Triggers for both initial loading and optimistic transitions
   useEffect(() => {
-    if (state.phase === 'loading') {
+    if (state.phase === 'loading' || state.isTransitioning) {
       // Clear any existing timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
@@ -143,7 +144,7 @@ export function useReviewFlow() {
         dispatch({ type: 'LOAD_TIMEOUT' });
       }, LOADING_TIMEOUT_MS);
     } else {
-      // Clear timeout when not loading
+      // Clear timeout when not loading/transitioning
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
@@ -156,7 +157,7 @@ export function useReviewFlow() {
         clearTimeout(loadingTimeoutRef.current);
       }
     };
-  }, [state.phase]);
+  }, [state.phase, state.isTransitioning]);
 
   // Process polling data and update state
   useEffect(() => {
