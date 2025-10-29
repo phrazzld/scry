@@ -77,8 +77,8 @@ export const executeConfig = action({
     configName: v.string(),
     provider: v.string(),
     model: v.string(),
-    temperature: v.number(),
-    maxTokens: v.number(),
+    temperature: v.optional(v.number()),
+    maxTokens: v.optional(v.number()),
     topP: v.optional(v.number()),
     phases: v.array(
       v.object({
