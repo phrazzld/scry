@@ -15,9 +15,6 @@
 - freemium? straight up total paywall? 7-30 day free trial? tokens?
 - how do we balance the usage-based costs we have -- particularly the generative ai costs -- with a good user experience?
 
-### [DX] Build Genesis Laboratory
-- developers of this project need an easy way to modify prompts, models, parameters, etc and run question generation to evaluate outputs
-
 ### [SECURITY] Update Vulnerable Dependencies
 **File**: `package.json`
 **Perspectives**: security-sentinel

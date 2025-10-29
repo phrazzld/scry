@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ConfigManager } from '@/components/lab/config-manager';
 import { InputSetManager } from '@/components/lab/input-set-manager';
 import {
   clearResults,
@@ -92,6 +93,33 @@ export function LabClient() {
     }
   };
 
+  // Config handlers
+  const handleToggleConfig = (id: string) => {
+    const newEnabledIds = new Set(enabledConfigIds);
+    if (newEnabledIds.has(id)) {
+      newEnabledIds.delete(id);
+    } else {
+      newEnabledIds.add(id);
+    }
+    setEnabledConfigIds(newEnabledIds);
+  };
+
+  const handleCreateConfig = (config: InfraConfig) => {
+    setConfigs([...configs, config]);
+    setEnabledConfigIds(new Set([...enabledConfigIds, config.id]));
+  };
+
+  const handleEditConfig = (config: InfraConfig) => {
+    setConfigs(configs.map((c) => (c.id === config.id ? config : c)));
+  };
+
+  const handleDeleteConfig = (id: string) => {
+    setConfigs(configs.filter((c) => c.id !== id));
+    const newEnabledIds = new Set(enabledConfigIds);
+    newEnabledIds.delete(id);
+    setEnabledConfigIds(newEnabledIds);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -135,10 +163,14 @@ export function LabClient() {
           {/* Center Panel: Configs (35%) */}
           <div className="lg:col-span-4 border rounded-lg p-4 overflow-y-auto">
             <h2 className="font-semibold mb-4">Infrastructure Configs</h2>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Configs: {configs.length}</p>
-              <p className="text-sm text-muted-foreground">Enabled: {enabledConfigIds.size}</p>
-            </div>
+            <ConfigManager
+              configs={configs}
+              enabledIds={enabledConfigIds}
+              onToggleEnabled={handleToggleConfig}
+              onCreate={handleCreateConfig}
+              onEdit={handleEditConfig}
+              onDelete={handleDeleteConfig}
+            />
           </div>
 
           {/* Right Panel: Results (40%) */}

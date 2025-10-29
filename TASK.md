@@ -1,790 +1,407 @@
-# Vector Embeddings Infrastructure - Semantic Search Foundation
-
-**Status**: Approved
-**Timeline**: 3-4 days
-**Priority**: P0 - FOUNDATIONAL
-
----
+# Genesis Laboratory: Generation Infrastructure Testing Tool
 
 ## Executive Summary
 
-**Problem**: Users cannot find questions by semantic meaning, only by browsing paginated lists. With 100+ questions, finding related content becomes tedious.
+Build a local-only development tool for testing different question generation infrastructure configurations. The lab enables saving test input sets, defining multiple generation configs (prompt chains, models, parameters), running them in parallel, comparing outputs manually, and promoting winning configs to production code.
 
-**Solution**: Build vector embeddings infrastructure enabling hybrid search (text keywords + semantic similarity) in the question library.
+**User Value**: Experiment with generation infrastructure changes (2-phase → 3-phase prompting, different templates, model selection) without manual job submission, waiting, and code editing.
 
-**User Value**: Search by meaning, not just exact text matches. "React state management" finds useState, useReducer, Context API questions even if those exact words aren't in the query.
-
-**Success Criteria**:
-- Questions generated with embeddings automatically
-- Hybrid search returns semantically relevant results
-- Manual QA validates embedding quality
-- Foundation ready for deduplication feature (future work)
-
----
+**Success Criteria**: Define 3 infrastructure configs, run against 5 test inputs, compare outputs side-by-side, promote best config to production files in under 5 minutes.
 
 ## User Context
 
-**Who**: Learners with growing question libraries (50-500+ questions)
+**Who**: Solo developer (local dev environment only)
+**Problem**: Testing generation infrastructure changes requires:
+1. Manually editing `convex/aiGeneration.ts`
+2. Submitting test jobs via UI
+3. Waiting for background processing
+4. Inspecting results
+5. Repeating for each variation
+6. Reverting code to test next variation
 
-**Problems Being Solved**:
-1. Can't find specific questions without scrolling through pages
-2. Don't know what related questions exist for a topic
-3. Manual organization (tags, collections) is tedious
-
-**Measurable Benefits**:
-- Search library in <2 seconds vs. 30+ seconds of browsing
-- Discover 5-10 related questions instantly
-- Validate embedding quality before building auto-deduplication
-
----
+**Benefit**:
+- Test 5 infrastructure variations in parallel vs. 5 sequential manual runs
+- Save/reuse test input sets for consistent comparison
+- Instant feedback on architectural changes
+- One-click promotion to production code
 
 ## Requirements
 
 ### Functional Requirements
 
-**FR1: Automatic Embedding Generation**
-- All newly generated questions receive embeddings automatically
-- Embedding generated during background question generation job
-- No user action required, no user-facing latency
+**Test Input Management**
+- Create/edit/delete named test input sets
+- Input set = array of test prompts (e.g., ["Master NATO alphabet", "Learn React hooks"])
+- Save to localStorage, export/import JSON
+- Quick actions: Add sample inputs, clear all
 
-**FR2: Hybrid Search**
-- Users can search library by text query
-- Returns results from both text matching AND semantic similarity
-- Filters respect view state (active/archived/trash)
-- Results ranked by relevance with similarity scores
+**Infrastructure Configuration**
+- Define N infrastructure configs (1 prod baseline + N experiments)
+- Each config specifies:
+  - Name and description
+  - Model selection (provider + model ID)
+  - Prompt chain architecture (1-phase, 2-phase, 3-phase, custom)
+  - Prompt templates (full text for each phase)
+  - Parameters (temperature, maxTokens, topP)
+- PROD config: Read-only, loaded from current `aiGeneration.ts`
+- Save configs to localStorage, export/import JSON
 
-**FR3: Backfill Safety Net**
-- Daily cronjob identifies questions without embeddings
-- Generates embeddings for up to 100 questions/day
-- Retries failed generations gracefully
+**Parallel Execution**
+- Select input set + select configs to run
+- Execute all enabled configs against all inputs in parallel
+- Display progress (X/Y complete)
+- Results grid: Inputs (rows) × Configs (columns)
+- Cancel all running generations
 
-**FR4: Search UI**
-- Search input in library header
-- Loading state during search
-- Results display with similarity scores
-- Clear "no results" state
+**Output Comparison**
+- Side-by-side view of all config outputs for same input
+- Display metrics: question count, latency, schema validation
+- Raw JSON view with syntax highlighting
+- Question card preview (reuse existing QuestionCard component)
+- Highlight schema validation errors
+
+**Promotion to Production**
+- Select winning config
+- Generate updated `convex/aiGeneration.ts` with new prompts/chain/model
+- Options:
+  - Copy code snippet to clipboard
+  - Direct file edit (write to filesystem)
+- Show git diff of changes before applying
 
 ### Non-Functional Requirements
 
-**NFR1: Performance**
-- Embedding generation: <300ms per question
-- Search response: <2 seconds for 50 results
-- No user-facing latency (background job)
-
-**NFR2: Bandwidth Efficiency**
-- Single search: <500KB bandwidth
-- Monthly search quota: <1% of 1GB Convex limit
-- Embedding storage: 6KB per question
-
-**NFR3: Reliability**
-- Graceful degradation if embedding fails
-- Questions save successfully even without embeddings
-- Sync cron self-heals embedding gaps
-
-**NFR4: Security**
-- User can only search their own questions
-- Server-side filtering enforces userId isolation
-- No embedding data leakage between users
-
----
+**Performance**: Execute 3 configs × 5 inputs = 15 parallel generations in <30s (network-bound)
+**Security**: Dev-only, no production access, runs against dev Convex deployment
+**Maintainability**: Isolated from production code, safe to experiment
+**Usability**: Zero-config startup, persistent state across sessions
 
 ## Architecture Decision
 
-### Selected Approach: Inline Background Generation + Hybrid Search
+### Selected Approach: Local React App + Convex Lab Actions
 
-**Why This Approach**:
-1. **User Value**: Embedding quality validated through search before building complex features (deduplication)
-2. **Simplicity**: Leverages existing background job infrastructure, minimal new complexity
-3. **Explicitness**: Questions either have embeddings or don't (optional field), no hidden state
-
-**Alternatives Considered**:
-
-| Approach | Value | Simplicity | Explicitness | Why Not Chosen |
-|----------|-------|------------|--------------|----------------|
-| **Inline Background Generation** (SELECTED) | HIGH - Immediate search | HIGH - Reuses job system | HIGH - Clear optional field | ✅ SELECTED |
-| On-demand generation (lazy) | LOW - Search delay | MEDIUM - New lazy load logic | LOW - Hidden loading state | Deferred search UX |
-| Client-side embedding | LOW - Can't do semantic search | LOW - Heavy client computation | MEDIUM - Clear client state | Impossible (need server for similarity) |
+**Rationale**:
+- **Simplicity**: Client-side state (localStorage), no database
+- **Explicitness**: Clear dev-only separation via `/lab` route
+- **User Value**: Fast iteration, visual comparison, safe experimentation
 
 ### Module Boundaries
 
-**`convex/embeddings.ts`** (NEW):
-- **Interface**: `searchQuestions(query, limit, view)`, `syncMissingEmbeddings()`
-- **Responsibility**: Embedding generation, vector search, backfill coordination
-- **Hidden Complexity**: Google AI API calls, cosine similarity computation, rate limiting
+**`app/lab/page.tsx`** - Main laboratory interface
+- **Interface**: Full-screen layout with panels (inputs, configs, results)
+- **Responsibility**: State orchestration, localStorage persistence
+- **Hidden Complexity**: Parallel execution coordination, result caching
 
-**`convex/aiGeneration.ts`** (MODIFIED):
-- **New Responsibility**: Generate embeddings inline during question generation
-- **Interface Change**: None (internal implementation detail)
-- **Hidden Complexity**: Embedding generation failures gracefully degrade
+**`convex/lab.ts`** - Laboratory execution actions
+- **Interface**: `executeConfig(config, testInput)` → `{questions, metrics, errors}`
+- **Responsibility**: Multi-phase prompt execution, provider integration
+- **Hidden Complexity**: Prompt template interpolation, error handling, timing
 
-**`convex/cron.ts`** (MODIFIED):
-- **New Responsibility**: Schedule daily embedding sync
-- **Interface**: Daily cron job at 3 AM UTC
-- **Hidden Complexity**: Rate limiting, batch processing
+**`components/lab/input-set-manager.tsx`** - Test input CRUD
+- **Interface**: `<InputSetManager sets={} onSelect={} onCreate={} />`
+- **Responsibility**: Input set management UI
+- **Hidden Complexity**: Validation, localStorage sync
 
-**`app/library/_components/library-client.tsx`** (MODIFIED):
-- **New Feature**: Search input with hybrid search
-- **Interface**: Text input, debounced search, results display
-- **Hidden Complexity**: Loading states, error handling, result ranking
+**`components/lab/config-editor.tsx`** - Infrastructure config editor
+- **Interface**: `<ConfigEditor config={} onChange={} />`
+- **Responsibility**: Prompt chain architecture definition
+- **Hidden Complexity**: Template validation, model selection, phase management
 
-### Abstraction Layers
+**`components/lab/results-grid.tsx`** - Comparison matrix
+- **Interface**: `<ResultsGrid inputs={} configs={} results={} />`
+- **Responsibility**: Side-by-side display, navigation
+- **Hidden Complexity**: Layout computation, lazy loading
 
-**Layer 1: Database Schema** (Convex)
-- Vocabulary: `embedding`, `vectorIndex`, `vectorSearch`
-- Concepts: Float64 arrays, cosine similarity, filter fields
+**`components/lab/promotion-dialog.tsx`** - Code generation
+- **Interface**: `<PromotionDialog config={} onPromote={} />`
+- **Responsibility**: Generate production code, show diff
+- **Hidden Complexity**: Code template generation, file I/O
 
-**Layer 2: Embedding Service** (`embeddings.ts`)
-- Vocabulary: `generateEmbedding`, `searchQuestions`, `syncMissing`
-- Concepts: Semantic similarity, hybrid search, graceful degradation
-- **Abstraction**: Hides Google AI API, vector math, batch processing
+### Alternatives Considered
 
-**Layer 3: UI Components** (React)
-- Vocabulary: `SearchInput`, `SearchResults`, `SimilarityScore`
-- Concepts: User query, search results, relevance ranking
-- **Abstraction**: Hides embeddings, vector search, API calls
-
----
+| Approach | Simplicity | User Value | Why Not Chosen |
+|----------|-----------|------------|----------------|
+| **CLI Tool** | High | Low | No visual output comparison |
+| **Separate Repo** | Low | High | Deployment overhead for solo dev |
+| **Jupyter Notebook** | Medium | Low | Poor UX for prompt editing |
+| **Selected: Next.js Route** | **High** | **High** | ✅ Best balance |
 
 ## Dependencies & Assumptions
 
-### Dependencies
+### External Dependencies
+- Existing: `@ai-sdk/google`, `ai` (Vercel AI SDK)
+- New: `@ai-sdk/openai`, `@ai-sdk/anthropic` (optional, for model flexibility)
+- `react-json-view` or `@uiw/react-json-view` (JSON viewer with syntax highlighting)
+- `monaco-react` (optional, for prompt template editing with syntax highlighting)
 
-**Existing (Already Integrated)**:
-- `@ai-sdk/google` (v1.2.22): Provides `embed()` function
-- `ai` (v4.3.16): Provides `embed` and `embedMany` utilities
-- Convex vector search: Native platform feature
-- Pino logger: Structured logging infrastructure
+### Environment Requirements
+- Development only: `NODE_ENV=development` or explicit dev guard
+- Convex dev deployment URL (amicable-lobster-935)
+- API keys already configured in Convex env
 
-**New Dependencies**: None
+### Scale Expectations
+- Max 10 test inputs per set
+- Max 5 infrastructure configs running in parallel
+- Test inputs <5KB each
+- Total results <5MB (localStorage limit ~10MB)
 
-### Assumptions
-
-**Scale**:
-- Average user has <1,000 questions
-- Average question text: 100-200 tokens
-- Search frequency: <50 queries/day/user
-
-**Environment**:
-- `GOOGLE_AI_API_KEY` configured in Convex backend
-- Google free tier quota: 20M tokens/month (sufficient for 100K questions/month)
-- Convex Starter plan: 1GB bandwidth/month
-
-**Technical**:
-- Convex vector search supports filtering by `undefined` fields (for deletedAt, archivedAt)
-- Embedding generation adds ~200-300ms per question (acceptable in background)
-- `text-embedding-004` produces stable 768-dimensional embeddings
-- Cosine similarity >0.7 indicates semantic relevance
-
-**User Behavior**:
-- Users will manually QA search results to validate quality
-- Similarity score distribution will inform deduplication threshold (future work)
-- Search is exploratory, not critical path (graceful degradation acceptable)
-
-### Environment Variables
-
-**Required**:
-- `GOOGLE_AI_API_KEY`: Already configured for question generation
-
-**Optional**: None
-
----
+### Integration Constraints
+- Must read production config from `convex/aiGeneration.ts` (parse source file)
+- Must not modify production code automatically (manual review required)
+- Must work offline after initial config load
 
 ## Implementation Phases
 
-### Phase 1: Schema & Inline Generation (Day 1-2)
+### Phase 1: Foundation (Day 1-2)
 
-**Deliverables**:
-- Schema updated with `embedding` field (optional, 768 dimensions)
-- Vector index `by_embedding` with filterFields: userId, deletedAt, archivedAt
-- `aiGeneration.ts` modified to generate embeddings inline
-- `questionsCrud.ts` accepts optional embedding parameter
-- Pino logging for embedding generation success/failure
+**Day 1: Core UI & State**
+- Create `/app/lab/page.tsx` with dev-only guard (`process.env.NODE_ENV === 'development'`)
+- Build 3-panel layout: Inputs (left) | Configs (center) | Results (right)
+- Implement localStorage hooks for persistence
+- Create `InputSetManager` component (CRUD for test inputs)
+- Create `ConfigEditor` component (basic form: name, model, 1 prompt template)
 
-**Testing**:
-- Generate 10 questions, verify embeddings present in DB
-- Check embedding dimensions (should be 768)
-- Verify Pino logs show embedding generation metrics
-- Confirm questions save successfully even if embedding fails
+**Day 2: Backend Execution**
+- Create `convex/lab.ts` with `executeConfig` action
+- Implement 2-phase execution (current prod architecture)
+- Support model switching (Gemini 2.5 Flash, Pro, Flash-Lite)
+- Return structured results: `{questions, metrics: {latency, count, valid}, errors}`
+- Add basic error handling and timeout (30s per execution)
 
-**Acceptance Criteria**:
-- New questions have `embedding` field populated
-- Embeddings are 768-dimensional float64 arrays
-- No user-facing latency increase (already background job)
-- Graceful degradation: Questions save without embeddings on failure
+**Acceptance**: Create 2 test inputs, define 2 configs (different models), run in parallel, view raw JSON results
 
----
+### Phase 2: Comparison & Architecture Flexibility (Day 3-4)
 
-### Phase 2: Search Implementation (Day 2-3)
+**Day 3: Multi-Phase Support**
+- Extend `ConfigEditor` to support 1-phase, 2-phase, 3-phase architectures
+- Add prompt template editor for each phase
+- Implement template variable interpolation (e.g., `{{userInput}}`, `{{clarifiedIntent}}`)
+- Update `convex/lab.ts` to execute N-phase chains dynamically
 
-**Deliverables**:
-- `convex/embeddings.ts` module with `searchQuestions` action
-- Hybrid search: Combine text search + vector search results
-- Merge and deduplicate results by question ID
-- Rank by relevance (similarity score)
-- Filter by userId, view state (active/archived/trash)
+**Day 4: Results Comparison**
+- Build `ResultsGrid` component with inputs × configs matrix
+- Add tabbed view per cell: JSON | Question Cards | Metrics
+- Implement schema validation display with error highlighting
+- Add question card preview (reuse existing `QuestionCard`)
+- Show latency, token count, validation status per config
 
-**Search Algorithm**:
-```typescript
-1. Generate embedding for user query
-2. Vector search: ctx.vectorSearch() with filters
-3. Text search: ctx.db.query() with .search() (keyword matching)
-4. Merge results: Deduplicate by _id, rank by score
-5. Return top 20-50 results
-```
+**Acceptance**: Define 3-phase config, run against 5 inputs, compare outputs in grid, view question cards
 
-**Testing**:
-- Search "React hooks" → returns useState, useEffect, useContext questions
-- Search "photosynthesis" → returns biology questions, not unrelated topics
-- Verify filters work: active view excludes deleted/archived
-- Check similarity scores: >0.7 for relevant, <0.5 for unrelated
+### Phase 3: Production Integration (Day 5)
 
-**Acceptance Criteria**:
-- Search returns semantically similar questions
-- Text search catches keyword matches
-- Filters respect view state (active/archived/trash)
-- Results ranked by relevance (highest scores first)
+**Day 5: Config Promotion**
+- Create `PromotionDialog` component
+- Implement code generation:
+  - Parse current `convex/aiGeneration.ts`
+  - Generate updated version with new prompts/chain/model
+  - Show diff (use `react-diff-viewer-continued` or Monaco diff editor)
+- Options:
+  1. Copy to clipboard (safe, manual paste)
+  2. Write to file (requires Node fs API via Next.js API route)
+- Add git diff preview before applying changes
 
----
+**Acceptance**: Select winning config, generate code, view diff, copy to clipboard, manually apply to `aiGeneration.ts`
 
-### Phase 3: UI Integration (Day 3)
+### Phase 4: Polish (Day 6 - Optional)
 
-**Deliverables**:
-- Search input in library header
-- Debounced search (300ms delay)
-- Loading spinner during search
-- Results display with similarity scores
-- Empty state for no results
-- Error handling for search failures
+**Day 6: UX Refinement**
+- Add keyboard shortcuts (Cmd+Enter to run, Cmd+S to save config)
+- Implement export/import for configs and input sets
+- Add "Load from Production" to auto-populate PROD baseline config
+- Show cost estimation per config (token usage × model pricing)
+- Add batch actions: Run all configs, Clear all results, Export all
 
-**UI Components**:
-- `<SearchInput>`: Text input with debounce
-- `<SearchResults>`: Question cards with similarity badges
-- `<SimilarityScore>`: Visual indicator (0.0-1.0 scale)
-
-**Testing**:
-- Type "React" → see loading spinner → see results
-- Verify debounce: Typing quickly doesn't trigger multiple searches
-- Check empty state: Search "xyzabc" shows "No results"
-- Error handling: Disconnect network, verify error message
-
-**Acceptance Criteria**:
-- Search input visible in library header
-- Results appear within 2 seconds
-- Similarity scores displayed as badges (e.g., "95% match")
-- Loading and error states work correctly
-
----
-
-### Phase 4: Backfill & Monitoring (Day 3-4)
-
-**Deliverables**:
-- Daily cron: `syncMissingEmbeddings` scheduled at 3 AM UTC
-- Batch processing: 100 questions/day, parallel batches of 10
-- Rate limit protection: Delays between batches
-- Graceful failure handling: Log errors, skip to next batch
-- Monitoring: Pino logs for sync progress, success rate
-
-**Sync Algorithm**:
-```typescript
-1. Query questions where embedding === undefined (limit 100)
-2. Chunk into batches of 10
-3. For each batch:
-   - Generate embeddings in parallel
-   - Save to DB
-   - Log success/failure
-4. Sleep 1 second between batches (rate limit protection)
-```
-
-**Testing**:
-- Create 150 questions without embeddings
-- Run cron manually
-- Verify 100 embeddings generated, 50 remain for next run
-- Check logs: Success count, failure count, duration
-- Test failure scenario: Invalid API key → graceful skip
-
-**Acceptance Criteria**:
-- Cron runs daily at 3 AM UTC
-- Processes up to 100 questions/day
-- Logs show success/failure metrics
-- Failed embeddings retry on next run
-- No rate limit errors from Google API
-
----
+**Acceptance**: Use keyboard shortcuts, export configs to JSON, reload in fresh session
 
 ## Risks & Mitigation
 
 | Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|-----------|
-| **Rate Limiting** (20M tokens/month) | LOW | MEDIUM | Daily sync limit (100/day = 3K tokens/day), monitor token usage via Pino |
-| **Embedding Quality Poor** | MEDIUM | HIGH | MVP validates quality through manual QA before building deduplication |
-| **Search Bandwidth Exceeds Quota** | LOW | MEDIUM | Server-side filtering, reasonable limits (20-50 results = 300KB/search) |
-| **Storage Growth** (6KB/question) | LOW | LOW | 10K questions = 60MB (well within Convex limits), grows linearly |
-| **Embedding Generation Failure** | MEDIUM | LOW | Graceful degradation: Save question without embedding, sync cron retries |
-| **Schema Migration Breaking** | LOW | HIGH | Use 3-phase pattern: Optional field → backfill → required (if needed) |
-| **Text Search Missing** | LOW | MEDIUM | Convex text search or simple `.filter()` fallback if native not available |
-
----
+|------|-----------|--------|------------|
+| **localStorage limit (10MB)** | Medium | Medium | Clear old results, warn at 8MB, compression |
+| **Parallel execution rate limits** | Low | Low | Solo dev, reasonable usage |
+| **Code gen breaks production** | High | Critical | Manual review required, show diff, clipboard-only default |
+| **Prompt template syntax errors** | Medium | Low | Validation before execution, clear error messages |
 
 ## Key Decisions
 
-### Decision 1: Inline Embedding Generation
+### 1. localStorage vs. Convex Database
+**Decision**: localStorage for all state
+**Rationale**: Simple, no backend overhead, sufficient for solo dev
+**Tradeoff**: No cross-device sync, 10MB limit
 
-**What**: Generate embeddings in the existing background question generation job
-**Alternatives**: On-demand (lazy), separate background job, client-side
-**Rationale**:
-- Questions are semantically searchable immediately after generation
-- No new background job infrastructure needed
-- User already waiting for background job (no perceived latency)
-- Graceful degradation: Question saves even if embedding fails
+### 2. Code Generation vs. Manual Copy-Paste
+**Decision**: Generate code + manual review
+**Rationale**: Explicitness, safety, git workflow compatibility
+**Tradeoff**: Extra step vs. automated (but risky) file editing
 
-**Tradeoffs**:
-- ✅ Immediate search availability for new questions
-- ✅ Simple implementation (reuse existing job flow)
-- ❌ Adds 200-300ms per question to background job (acceptable, already async)
+### 3. Parallel Execution All at Once vs. Queue
+**Decision**: Parallel execution with `Promise.all()`
+**Rationale**: Fast feedback (5x speedup for 5 configs)
+**Tradeoff**: Higher concurrent API usage (acceptable for dev)
 
----
+### 4. Monaco Editor vs. Textarea
+**Decision**: Start with textarea, upgrade to Monaco if needed
+**Rationale**: Simpler initial implementation, good enough for prompts
+**Tradeoff**: No syntax highlighting initially (can add later)
 
-### Decision 2: Audit/Sync Cronjob
+## Quality Validation
 
-**What**: Daily cron generates embeddings for questions missing them (100/day)
-**Alternatives**: One-time migration, on-demand, no backfill
-**Rationale**:
-- Safety net for existing questions without embeddings
-- Self-healing for failed embedding generations
-- Rate limit protection (100/day << 20M tokens/month)
-- Non-blocking (doesn't delay feature launch)
+### Deep Modules Check
+✅ **InputSetManager**: Simple CRUD interface hides localStorage sync, validation
+✅ **lab.ts**: Simple `executeConfig` hides multi-phase orchestration, error handling
+✅ **ResultsGrid**: Simple display interface hides layout computation, lazy loading
 
-**Tradeoffs**:
-- ✅ Graceful backfill (no rate limit risk)
-- ✅ Self-healing (retries failures automatically)
-- ❌ Takes 100 days for 10K questions (acceptable, not blocking user value)
+### Information Hiding Check
+✅ **Prompt chain changes isolated**: Adding 4-phase doesn't break UI
+✅ **Storage implementation hidden**: Can swap localStorage → Convex without UI changes
+✅ **Code generation isolated**: Template changes don't affect comparison UI
 
----
+### Abstraction Layers Check
+✅ **UI Layer**: Configs, Inputs, Results (user concepts)
+✅ **Execution Layer**: Prompt chains, Model calls, Validation (generation concepts)
+✅ **Storage Layer**: Persistence, Serialization (infrastructure concepts)
 
-### Decision 3: Hybrid Search (Text + Vector)
+## UI/UX Wireframe
 
-**What**: Search combines keyword matching (text) and semantic similarity (vector)
-**Alternatives**: Vector-only, text-only, separate search modes
-**Rationale**:
-- Catches both exact matches ("useState") and semantic matches ("React state hook")
-- Better UX than forcing users to choose search mode
-- Simple merge algorithm: Deduplicate by ID, rank by score
-- Validates vector search quality in real-world usage
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ 🧪 Genesis Laboratory                    [Export] [Import] [Settings] │
+├───────────────┬────────────────────┬───────────────────────────────────┤
+│ Test Inputs   │ Infrastructure     │ Results                           │
+│               │ Configs            │                                   │
+│ ┌───────────┐ │ ┌────────────────┐ │ ┌───────────────────────────────┐ │
+│ │ Input Set │ │ │ ✅ PROD        │ │ │    Input 1   Input 2   Input 3│ │
+│ │ "Sample"  │ │ │ 2-phase        │ │ ├───────────────────────────────┤ │
+│ │ ▸ (5)     │ │ │ Gemini 2.5 Pro│ │ │ PROD │ 26 ✅  │ 18 ✅  │ 30 ✅ │ │
+│ └───────────┘ │ │ [Read-Only]    │ │ │      │ 12.4s  │ 8.1s   │ 15.2s│ │
+│               │ └────────────────┘ │ ├──────┼────────┼────────┼──────┤ │
+│ ┌───────────┐ │ ┌────────────────┐ │ │Draft1│ 34 ⚠️ │ 22 ✅  │ 40 ✅ │ │
+│ │ + New Set │ │ │ ✅ Draft 1     │ │ │      │ 8.7s   │ 6.2s   │ 11.5s│ │
+│ └───────────┘ │ │ 3-phase        │ │ ├──────┼────────┼────────┼──────┤ │
+│               │ │ GPT-5 Mini     │ │ │Draft2│ 28 ✅  │ 20 ✅  │ 32 ✅ │ │
+│ Current:      │ │ T=0.7          │ │ │      │ 10.1s  │ 7.4s   │ 13.8s│ │
+│ Sample (5)    │ │ [Edit][Delete] │ │ └──────┴────────┴────────┴──────┘ │
+│               │ └────────────────┘ │                                   │
+│ 1. NATO alpha │ ┌────────────────┐ │ Selected: PROD × Input 1          │
+│ 2. React hooks│ │ ⬜ Draft 2     │ │ ┌───────────────────────────────┐ │
+│ 3. Photosyn   │ │ 1-phase        │ │ │ [JSON] [Cards] [Metrics]      │ │
+│ 4. Python OOP │ │ Claude Opus 4  │ │ │                               │ │
+│ 5. Civil War  │ │ T=0.8          │ │ │ {                             │ │
+│               │ │ [Edit][Delete] │ │ │   "questions": [              │ │
+│ [Edit Set]    │ └────────────────┘ │ │     {                         │ │
+│               │                    │ │       "question": "What is A  │ │
+│               │ ┌────────────────┐ │ │        in NATO alphabet?",    │ │
+│               │ │ + New Config   │ │ │       "type": "multiple-choi  │ │
+│               │ └────────────────┘ │ │        ce",                   │ │
+│               │                    │ │       ...                     │ │
+│               │ [Run All Enabled]  │ │                               │ │
+│               │                    │ │ [Promote to Prod]             │ │
+│               │                    │ └───────────────────────────────┘ │
+└───────────────┴────────────────────┴───────────────────────────────────┘
+```
 
-**Tradeoffs**:
-- ✅ Best of both worlds (precision + recall)
-- ✅ Validates embedding quality through usage
-- ❌ Slightly more complex than vector-only (acceptable complexity)
+## Data Structures
 
----
-
-### Decision 4: Server-Side Search
-
-**What**: Vector search runs on server, returns filtered results
-**Alternatives**: Client-side filtering, cached results
-**Rationale**:
-- Vector search requires server (cosine similarity computation)
-- 300KB per search is 0.03% of monthly quota (trivial cost)
-- Clean API: Client just displays results
-- Proper security: userId filtering server-side
-
-**Tradeoffs**:
-- ✅ Clean architecture, proper security
-- ✅ Acceptable bandwidth (300KB << 1GB quota)
-- ❌ Not reactive (action, not query) - acceptable, search is one-shot
-
----
-
-### Decision 5: Hardcoded Model
-
-**What**: `text-embedding-004` hardcoded in implementation
-**Alternatives**: Configurable model, multi-model support
-**Rationale**:
-- Faster iteration for MVP
-- Google SDK already integrated
-- Free tier sufficient (20M tokens/month)
-- Can abstract later if needed (BACKLOG: OpenRouter migration)
-
-**Tradeoffs**:
-- ✅ Simpler code, faster shipping
-- ✅ Sufficient for MVP validation
-- ❌ Switching models requires re-embedding all questions (acceptable future cost)
-
----
-
-### Decision 6: Graceful Degradation
-
-**What**: If embedding fails, save question without embedding
-**Alternatives**: Fail hard (reject question), retry infinitely
-**Rationale**:
-- Embeddings enhance search but aren't critical path
-- Sync cron will backfill missing embeddings
-- Better UX: Question generation succeeds
-- Aligns with philosophy from CLAUDE.md (bandwidth optimization, graceful failures)
-
-**Tradeoffs**:
-- ✅ Robust: Failures don't block question creation
-- ✅ Self-healing: Sync cron fills gaps
-- ❌ Temporary search gaps (acceptable, non-critical feature)
-
----
-
-## Success Criteria
-
-### MVP Acceptance (End of Phase 2)
-
-**Technical**:
-- ✅ New questions have `embedding` field populated (768 dimensions)
-- ✅ Vector index `by_embedding` exists in schema
-- ✅ Search action returns semantically similar questions
-- ✅ Filters work: userId, deletedAt, archivedAt
-- ✅ No embedding failures in Pino logs (graceful degradation working)
-
-**Functional**:
-- ✅ Search "React hooks" → returns useState, useEffect, useContext questions
-- ✅ Search "photosynthesis" → returns biology questions, not programming
-- ✅ Search respects view filters (active/archived/trash)
-- ✅ Results ranked by similarity score (highest first)
-
-**User Experience**:
-- ✅ Search response time <2 seconds
-- ✅ Results display with similarity scores
-- ✅ Empty state for no results
-- ✅ Loading state during search
-
----
-
-### Production Ready (End of Phase 4)
-
-**Technical**:
-- ✅ Daily cron scheduled and running
-- ✅ Sync processes 100 questions/day
-- ✅ Error handling verified (rate limits, API failures)
-- ✅ Monitoring dashboard shows embedding coverage
-
-**Functional**:
-- ✅ All existing questions have embeddings (or scheduled for backfill)
-- ✅ Library UI has search input
-- ✅ Hybrid search works (text + vector)
-- ✅ Search results accurate and relevant
-
-**Analytics** (Informs Future Deduplication):
-- ✅ Similarity score distribution documented (histogram of scores)
-- ✅ Manual QA of 20+ searches validates quality
-- ✅ Known duplicate pairs tested (similarity scores recorded)
-- ✅ False positive rate analyzed (>0.90 similarity, not duplicates)
-
----
-
-## Future Work (Out of Scope)
-
-**Not Implementing Now**:
-- ❌ Deduplication detection (requires similarity threshold analysis from this MVP)
-- ❌ "Postpone related items" feature (requires embeddings foundation)
-- ❌ Knowledge gap detection (requires embeddings + analytics)
-- ❌ Content-aware FSRS (research phase, needs embedding clustering)
-
-**Data Collection for Future Features**:
-- Similarity score distribution (informs deduplication threshold)
-- False positive rate (pairs >0.90 similarity that aren't duplicates)
-- User search patterns (common queries, result click-through)
-- Embedding quality feedback (relevant results vs. irrelevant)
-
-**Next Feature After MVP**: Deduplication
-Based on MVP data, spec out deduplication with confidence in similarity threshold (likely 0.90), UI for reviewing duplicate pairs, and smart merge preserving FSRS state.
-
----
-
-## Monitoring & Observability
-
-**Metrics to Track** (via Pino):
-
-**Embedding Generation**:
-- Success rate (generated / attempted)
-- Average generation time (ms per question)
-- Failure reasons (rate limit, API error, network)
-- Token usage (track toward 20M/month quota)
-
-**Search Performance**:
-- Search latency (time to first result)
-- Results count (avg results per query)
-- Similarity score distribution (histogram)
-- Search frequency (queries/day/user)
-
-**Backfill Progress**:
-- Questions with embeddings (count, percentage)
-- Questions without embeddings (count, age)
-- Sync cron success rate
-- Backfill completion ETA
-
-**Example Pino Log**:
-```json
-{
-  "level": "info",
-  "event": "embeddings.generation.success",
-  "questionId": "abc123",
-  "dimensions": 768,
-  "duration": 245,
-  "model": "text-embedding-004",
-  "timestamp": 1704067200000
+### Test Input Set
+```typescript
+interface InputSet {
+  id: string;
+  name: string;
+  description?: string;
+  inputs: string[]; // User prompts to test
+  createdAt: number;
+  updatedAt: number;
 }
 ```
 
----
-
-## Appendix: Technical Specifications
-
-### Schema Changes
-
+### Infrastructure Config
 ```typescript
-// convex/schema.ts
-questions: defineTable({
-  // ... existing fields ...
-  embedding: v.optional(v.array(v.float64())), // 768-dimensional vector
-  embeddingGeneratedAt: v.optional(v.number()), // Track freshness
-})
-  // ... existing indexes ...
-  .vectorIndex("by_embedding", {
-    vectorField: "embedding",
-    dimensions: 768, // Google text-embedding-004
-    filterFields: ["userId", "deletedAt", "archivedAt"]
-  })
-```
+interface InfraConfig {
+  id: string;
+  name: string;
+  description?: string;
+  isProd: boolean; // Read-only production baseline
 
-### Embedding Generation
+  // Model configuration
+  provider: 'google' | 'openai' | 'anthropic';
+  model: string; // e.g., 'gemini-2.5-flash', 'gpt-5-mini'
+  temperature: number;
+  maxTokens: number;
+  topP?: number;
 
-```typescript
-// convex/aiGeneration.ts (modified)
-import { embed } from 'ai';
-import { google } from '@ai-sdk/google';
+  // Prompt chain architecture
+  phases: PromptPhase[];
 
-// In processGenerationJob action:
-for (const question of generatedQuestions) {
-  try {
-    // Generate embedding
-    const { embedding } = await embed({
-      model: google.textEmbedding('text-embedding-004'),
-      value: `${question.question} ${question.explanation || ''}`
-    });
+  createdAt: number;
+  updatedAt: number;
+}
 
-    // Save with embedding
-    await ctx.runMutation(internal.questionsCrud.saveQuestion, {
-      ...question,
-      embedding,
-      embeddingGeneratedAt: Date.now()
-    });
-
-    logger.info({
-      event: 'embeddings.generation.success',
-      questionId: question._id,
-      dimensions: embedding.length
-    });
-  } catch (error) {
-    // Graceful degradation: Save without embedding
-    await ctx.runMutation(internal.questionsCrud.saveQuestion, question);
-
-    logger.warn({
-      event: 'embeddings.generation.failure',
-      error: error.message
-    });
-  }
+interface PromptPhase {
+  name: string; // e.g., "Intent Clarification", "Question Generation"
+  template: string; // Prompt template with {{variables}}
+  outputTo?: string; // Variable name for next phase (e.g., "clarifiedIntent")
 }
 ```
 
-### Search Action
-
+### Execution Result
 ```typescript
-// convex/embeddings.ts (new module)
-export const searchQuestions = action({
-  args: {
-    query: v.string(),
-    limit: v.optional(v.number()),
-    view: v.optional(v.union(
-      v.literal('active'),
-      v.literal('archived'),
-      v.literal('trash')
-    ))
-  },
-  handler: async (ctx, args) => {
-    const user = await requireUserFromClerk(ctx);
-    const limit = args.limit ?? 20;
+interface ExecutionResult {
+  configId: string;
+  input: string;
 
-    // 1. Generate query embedding
-    const { embedding } = await embed({
-      model: google.textEmbedding('text-embedding-004'),
-      value: args.query
-    });
+  // Output
+  questions: Question[]; // Generated questions
+  rawOutput: any; // Full AI response
 
-    // 2. Vector search
-    const vectorResults = await ctx.vectorSearch("questions", "by_embedding", {
-      vector: embedding,
-      limit: limit * 2, // Get more for merging
-      filter: (q) => {
-        const filters = [q.eq("userId", user._id)];
+  // Metrics
+  latency: number; // ms
+  tokenCount?: number;
+  valid: boolean; // Schema validation
+  errors: string[];
 
-        if (args.view === 'active') {
-          filters.push(q.eq("deletedAt", undefined));
-          filters.push(q.eq("archivedAt", undefined));
-        } else if (args.view === 'archived') {
-          filters.push(q.eq("deletedAt", undefined));
-          // Note: archivedAt must be checked post-fetch
-        } else if (args.view === 'trash') {
-          // deletedAt must be checked post-fetch
-        }
-
-        return q.and(...filters);
-      }
-    });
-
-    // 3. Text search (keyword matching)
-    const textResults = await ctx.runQuery(
-      internal.questionsLibrary.textSearchQuestions,
-      { query: args.query, limit, userId: user._id }
-    );
-
-    // 4. Merge and deduplicate
-    const merged = mergeSearchResults(vectorResults, textResults, limit);
-
-    logger.info({
-      event: 'embeddings.search.success',
-      query: args.query,
-      resultCount: merged.length,
-      vectorCount: vectorResults.length,
-      textCount: textResults.length
-    });
-
-    return merged;
-  }
-});
-
-function mergeSearchResults(vectorResults, textResults, limit) {
-  const seen = new Set();
-  const merged = [];
-
-  // Add vector results first (usually more relevant)
-  for (const result of vectorResults) {
-    if (!seen.has(result._id)) {
-      seen.add(result._id);
-      merged.push({ ...result, source: 'vector' });
-    }
-  }
-
-  // Add text results
-  for (const result of textResults) {
-    if (!seen.has(result._id)) {
-      seen.add(result._id);
-      merged.push({ ...result, source: 'text' });
-    }
-  }
-
-  // Return top N, sorted by score
-  return merged
-    .sort((a, b) => (b._score || 0) - (a._score || 0))
-    .slice(0, limit);
+  // Metadata
+  executedAt: number;
 }
 ```
 
-### Sync Cronjob
+## Implementation Checklist
 
-```typescript
-// convex/cron.ts (modified)
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+**Setup**:
+- [ ] Create `/app/lab` route with dev-only guard
+- [ ] Install optional dependencies (`@uiw/react-json-view`, `react-diff-viewer-continued`)
+- [ ] Add `.env.local` check for required API keys
 
-const crons = cronJobs();
+**Backend (convex/lab.ts)**:
+- [ ] Create `executeConfig` action with multi-phase support
+- [ ] Implement provider factory (Google/OpenAI/Anthropic)
+- [ ] Add template variable interpolation
+- [ ] Implement metrics tracking (latency, tokens)
+- [ ] Add schema validation with Zod
+- [ ] Error handling and timeout (30s)
 
-// Existing crons...
+**UI Components**:
+- [ ] Build `InputSetManager` (CRUD for test inputs)
+- [ ] Build `ConfigEditor` (prompt chain architecture)
+- [ ] Build `ResultsGrid` (comparison matrix)
+- [ ] Build `PromotionDialog` (code generation + diff)
+- [ ] Implement localStorage hooks for persistence
+- [ ] Add export/import functionality
 
-// NEW: Daily embedding sync
-crons.daily(
-  "sync question embeddings",
-  { hourUTC: 3, minuteUTC: 0 }, // 3 AM UTC
-  internal.embeddings.syncMissingEmbeddings
-);
+**Production Integration**:
+- [ ] Parse current `convex/aiGeneration.ts` to extract PROD config
+- [ ] Generate updated code with new prompts/chain/model
+- [ ] Show git diff preview
+- [ ] Copy to clipboard functionality
+- [ ] Optional: File write API route (requires user confirmation)
 
-export default crons;
-```
-
-```typescript
-// convex/embeddings.ts (sync function)
-export const syncMissingEmbeddings = internalAction({
-  handler: async (ctx) => {
-    const startTime = Date.now();
-
-    // Find questions without embeddings
-    const questions = await ctx.runQuery(
-      internal.embeddings.getQuestionsWithoutEmbeddings,
-      { limit: 100 }
-    );
-
-    logger.info({
-      event: 'embeddings.sync.start',
-      count: questions.length
-    });
-
-    let successCount = 0;
-    let failureCount = 0;
-
-    // Process in batches of 10 (rate limit protection)
-    const batches = chunk(questions, 10);
-
-    for (const batch of batches) {
-      const results = await Promise.allSettled(
-        batch.map(q => generateQuestionEmbedding(ctx, q._id))
-      );
-
-      successCount += results.filter(r => r.status === 'fulfilled').length;
-      failureCount += results.filter(r => r.status === 'rejected').length;
-
-      // Rate limit protection: 1 second between batches
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    const duration = Date.now() - startTime;
-
-    logger.info({
-      event: 'embeddings.sync.complete',
-      successCount,
-      failureCount,
-      duration,
-      questionsRemaining: await ctx.runQuery(
-        internal.embeddings.countQuestionsWithoutEmbeddings
-      )
-    });
-  }
-});
-
-async function generateQuestionEmbedding(ctx, questionId) {
-  const question = await ctx.runQuery(
-    internal.embeddings.getQuestion,
-    { questionId }
-  );
-
-  if (!question) return;
-
-  const { embedding } = await embed({
-    model: google.textEmbedding('text-embedding-004'),
-    value: `${question.question} ${question.explanation || ''}`
-  });
-
-  await ctx.runMutation(internal.embeddings.saveEmbedding, {
-    questionId,
-    embedding,
-    embeddingGeneratedAt: Date.now()
-  });
-}
-
-function chunk<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}
-```
+**Testing**:
+- [ ] Test 1-phase, 2-phase, 3-phase architectures
+- [ ] Verify parallel execution with 5+ configs
+- [ ] Test localStorage persistence across sessions
+- [ ] Verify schema validation with invalid outputs
+- [ ] Test promotion code generation accuracy
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-10-23
-**Next Review**: After Phase 2 completion (manual QA of search results)
+**Timeline**: 5-6 days (MVP + Polish)
+
+**Next Step**: Run `/plan` to break into granular tasks, or start with Phase 1 Day 1 foundation.

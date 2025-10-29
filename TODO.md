@@ -60,28 +60,28 @@
   Integrated: Used in lab-client.tsx with full state management
   ```
 
-- [ ] **Build ConfigEditor component**
+- [x] **Build ConfigEditor component**
   ```
-  Files: components/lab/config-editor.tsx (new)
-  Approach: Form with shadcn components (Select, Input, Textarea, Slider)
-  Interface: <ConfigEditor config={} onChange={} onSave={} onCancel={} />
-  Fields: name, description, provider select, model input, temperature slider, maxTokens, phases array
-  Success: Edit config, validate (name required, temp 0-2, tokens 1-65536), save to state
-  Test: Unit tests for validation, integration test for form submission
-  Module: Config CRUD, hides form state management and validation
-  Time: 2hr
+  Files: components/lab/config-editor.tsx ✅
+  Status: Form with Select, Input, Textarea for all config fields
+  Validation: name required, temp 0-2, tokens 1-65536, topP 0-1, phases validated
+  Features: Create/edit configs, read-only PROD config display
   ```
 
-- [ ] **Implement PromptPhaseEditor sub-component**
+- [x] **Implement PromptPhaseEditor sub-component**
   ```
-  Files: components/lab/config-editor.tsx (extend existing)
-  Approach: Dynamic array of phase editors (Add/Remove phase buttons)
-  Interface: <PhaseEditor phases={} onChange={} />
-  Features: Add phase, remove phase, edit template (Textarea), variable hints ({{userInput}})
-  Success: Add/remove phases, edit templates, preview variables
-  Test: Unit tests for add/remove logic
-  Module: Phase management, hides array manipulation complexity
-  Time: 1hr
+  Files: components/lab/config-editor.tsx ✅ (included in same file)
+  Status: Dynamic phase array with add/remove, template editor with variable hints
+  Features: Phase name, template textarea, outputTo variable for chaining
+  Integrated: Used within ConfigEditor component
+  ```
+
+- [x] **Build ConfigManager wrapper component**
+  ```
+  Files: components/lab/config-manager.tsx ✅ (bonus component)
+  Status: Lists configs with expand/collapse, enable/disable checkboxes
+  Features: CRUD operations, PROD config protection, phase preview
+  Integrated: Used in lab-client.tsx with full state management
   ```
 
 ### Phase 3: Backend Execution (Day 3)
