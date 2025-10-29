@@ -23,7 +23,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { useLiveRegion } from '@/components/ui/live-region';
 import { Textarea } from '@/components/ui/textarea';
 import { Id } from '@/convex/_generated/dataModel';
@@ -35,7 +34,6 @@ const questionEditSchema = z.object({
     .string()
     .min(1, 'Question is required')
     .max(500, 'Question must be less than 500 characters'),
-  topic: z.string().min(1, 'Topic is required').max(200, 'Topic must be less than 200 characters'),
   explanation: z.string().max(1000, 'Explanation must be less than 1000 characters').optional(),
 });
 
@@ -47,7 +45,6 @@ interface QuestionEditModalProps {
   question: {
     _id: Id<'questions'>;
     question: string;
-    topic: string;
     explanation?: string;
     type: 'multiple-choice' | 'true-false';
     options: string[];
@@ -72,7 +69,6 @@ export function QuestionEditModal({
     resolver: zodResolver(questionEditSchema),
     defaultValues: {
       question: question.question,
-      topic: question.topic,
       explanation: question.explanation || '',
     },
   });
@@ -82,7 +78,6 @@ export function QuestionEditModal({
     if (open) {
       form.reset({
         question: question.question,
-        topic: question.topic,
         explanation: question.explanation || '',
       });
     }
@@ -99,7 +94,6 @@ export function QuestionEditModal({
     const result = await optimisticEdit({
       questionId: question._id,
       question: values.question,
-      topic: values.topic,
       explanation: values.explanation || undefined,
     });
 
@@ -127,10 +121,7 @@ export function QuestionEditModal({
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Edit Question</DialogTitle>
-          <DialogDescription>
-            Update the question text, topic, or explanation. Note that answers and options cannot be
-            changed to preserve learning history.
-          </DialogDescription>
+          <DialogDescription>changed to preserve learning history.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -151,25 +142,6 @@ export function QuestionEditModal({
                     />
                   </FormControl>
                   <FormDescription>The main question text that users will see</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="topic"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Topic</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., JavaScript, History, Science"
-                      disabled={isLoading}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Category or subject area for this question</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

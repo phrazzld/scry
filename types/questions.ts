@@ -11,7 +11,7 @@ export interface SimpleQuestion {
 }
 
 export interface QuizGenerationRequest {
-  topic: string;
+  prompt: string;
 }
 
 // Types matching Convex schema for questions table
@@ -19,8 +19,6 @@ export interface Question {
   _id: Id<'questions'>;
   _creationTime: number;
   userId: Id<'users'>;
-  topic: string;
-  difficulty: string;
   question: string;
   type: QuestionType;
   options: string[];

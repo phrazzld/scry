@@ -356,6 +356,92 @@ export const processJob = internalAction({
         'Questions generated and validated'
       );
 
+      // Phase 2.5: Generate embeddings for semantic search
+      // Process in batches to avoid overwhelming the API
+      logger.info({ jobId: args.jobId }, 'Generating embeddings for questions');
+
+      const questionsWithEmbeddings: Array<
+        (typeof object.questions)[number] & {
+          embedding?: number[];
+          embeddingGeneratedAt?: number;
+        }
+      > = [];
+      let embeddingSuccessCount = 0;
+      let embeddingFailureCount = 0;
+
+      // Process embeddings in batches of 10 for rate limit protection
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < object.questions.length; i += BATCH_SIZE) {
+        const batch = object.questions.slice(i, i + BATCH_SIZE);
+
+        const embeddingResults = await Promise.allSettled(
+          batch.map(async (q) => {
+            // Combine question + explanation for richer semantic context
+            const text = `${q.question}${q.explanation ? ' ' + q.explanation : ''}`;
+
+            try {
+              const embedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
+                text,
+              });
+              return {
+                ...q,
+                embedding,
+                embeddingGeneratedAt: Date.now(),
+              };
+            } catch (error) {
+              // Graceful degradation: Log error but continue without embedding
+              logger.warn(
+                {
+                  jobId: args.jobId,
+                  questionPreview: q.question.slice(0, 50),
+                  error: (error as Error).message,
+                },
+                'Failed to generate embedding for question'
+              );
+              return q; // Return question without embedding
+            }
+          })
+        );
+
+        // Collect results (with or without embeddings)
+        embeddingResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const question = result.value;
+            questionsWithEmbeddings.push(question);
+            if ('embedding' in question) {
+              embeddingSuccessCount++;
+            } else {
+              embeddingFailureCount++;
+            }
+          } else {
+            // Log rejected promises with question details for debugging
+            const question = batch[index];
+            logger.warn(
+              {
+                event: 'embeddings.generation.batch-failure',
+                jobId: args.jobId,
+                questionPreview: question.question.slice(0, 50),
+                questionType: question.type,
+                error:
+                  result.reason instanceof Error ? result.reason.message : String(result.reason),
+              },
+              'Promise rejected during embedding generation'
+            );
+            embeddingFailureCount++;
+          }
+        });
+      }
+
+      logger.info(
+        {
+          jobId: args.jobId,
+          totalQuestions: object.questions.length,
+          embeddingSuccessCount,
+          embeddingFailureCount,
+        },
+        'Embedding generation complete'
+      );
+
       // Check for cancellation before saving
       const currentJob = await ctx.runQuery(internal.generationJobs.getJobByIdInternal, {
         jobId: args.jobId,
@@ -366,11 +452,10 @@ export const processJob = internalAction({
         return;
       }
 
-      // Save all validated questions atomically
+      // Save all validated questions (with embeddings where successful)
       const allQuestionIds = await ctx.runMutation(internal.questionsCrud.saveBatch, {
         userId: job.userId,
-        topic: job.prompt,
-        questions: object.questions,
+        questions: questionsWithEmbeddings,
       });
 
       logger.info(

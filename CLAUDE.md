@@ -38,14 +38,45 @@ Operational guidance for Claude Code working in this repository.
 
 **Vercel ≠ Convex:** Separate systems, must configure BOTH
 
-**Preview Limitation (Free Tier):**
-- Preview deployments share PROD Convex backend
-- Missing `GOOGLE_AI_API_KEY` in Convex prod breaks ALL environments
-- No env isolation until Convex Pro ($25/mo)
+**Convex Pro Architecture:**
+- **Production**: Uses `prod:` deploy key → uncommon-axolotl-639 backend
+- **Preview**: Uses `preview:` deploy key → branch-named isolated backends (e.g., `phaedrus:scry:feature-vector-embeddings-foundation`)
+- Each preview deployment gets its own isolated Convex backend with fresh data
+- Deploy key TYPE determines backend routing automatically
+- `NEXT_PUBLIC_CONVEX_URL` is auto-set by `npx convex deploy` (do not manually configure)
 
 **Variable Distribution:**
-- Convex backend: `GOOGLE_AI_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `NEXT_PUBLIC_APP_URL`
-- Vercel frontend: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`, `CLERK_*`
+- **Convex backend env vars**: `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`
+  - Set in Convex dashboard → Settings → Environment Variables
+  - Must be configured separately for production and preview backends
+- **Vercel env vars**: `CONVEX_DEPLOY_KEY` (prod/preview), `CLERK_*`
+  - Production: `prod:` key for production backend
+  - Preview: `preview:` key for isolated preview backends
+
+### Environment Variable Loading (CRITICAL)
+
+**Critical**: `.env.production` uses Vercel format (bare key=value), NOT bash export syntax.
+
+**❌ WRONG**:
+```bash
+source .env.production  # Silently fails, no error output
+npx convex run migrations:xyz
+# ^ Deploys to DEV (local context), not PROD
+```
+
+**✅ CORRECT**:
+```bash
+export CONVEX_DEPLOY_KEY=$(grep CONVEX_DEPLOY_KEY .env.production | cut -d= -f2)
+npx convex run migrations:xyz
+# ^ Explicitly targets PROD via env var
+```
+
+**Why this matters**:
+- Bash `source` returns exit code 0 even if file is invalid
+- Convex CLI defaults to local `.convex/config` if CONVEX_DEPLOY_KEY unset
+- No warning that deployment target switched
+
+**Safeguard**: Use `./scripts/deploy-production.sh` (handles env vars correctly) instead of manual commands.
 
 ## Deployment Architecture
 
@@ -53,8 +84,14 @@ Operational guidance for Claude Code working in this repository.
 
 **Automated (Recommended):**
 ```bash
-vercel --prod  # Runs: npx convex deploy --cmd 'pnpm build'
+vercel --prod           # Production: Deploys to uncommon-axolotl-639
+vercel                  # Preview: Creates branch-named isolated backend
 ```
+
+Both run: `npx convex deploy --cmd 'pnpm build'`
+- Deploy key TYPE (`prod:` vs `preview:`) determines target backend
+- `NEXT_PUBLIC_CONVEX_URL` is auto-injected by Convex
+- No manual backend URL configuration needed
 
 **Manual/Hotfix:**
 ```bash
@@ -66,6 +103,40 @@ vercel --prod  # Runs: npx convex deploy --cmd 'pnpm build'
 - Keep `convex/schemaVersion.ts` ↔ `lib/deployment-check.ts` synced
 - Deploy backend first, then frontend
 - Emergency bypass: `NEXT_PUBLIC_DISABLE_VERSION_CHECK=true`
+
+**Preview Deployment Lifecycle:**
+- Each Git branch gets isolated Convex backend (e.g., `phaedrus:scry:feature-branch-name`)
+- Fresh database with no production data
+- Automatically cleaned up when branch/deployment is deleted
+- Requires Convex Pro ($25/mo)
+
+### Deployment Safeguards
+
+**Pre-Deployment Checklist**:
+- [ ] Export CONVEX_DEPLOY_KEY: `echo $CONVEX_DEPLOY_KEY | grep "^prod:"`
+- [ ] Verify target: `echo $CONVEX_DEPLOY_KEY | cut -d: -f2 | cut -d'|' -f1`
+- [ ] Expected output: `uncommon-axolotl-639` (production)
+- [ ] Tests passing: `pnpm test && pnpm test:contract`
+- [ ] Health check: `./scripts/check-deployment-health.sh`
+
+**Common Failure Modes**:
+1. **"Migration says 690 migrated but data still broken"**
+   - Root cause: Deployed to DEV instead of PROD (wrong environment)
+   - Diagnosis: Check deployment URL in migration logs
+   - Fix: `export CONVEX_DEPLOY_KEY=<prod-key>`, re-run migration
+   - Prevention: Use `./scripts/run-migration.sh` (validates target)
+
+2. **"TypeScript compiles but migration doesn't detect fields"**
+   - Root cause: TypeScript optimizes away property checks for removed schema fields
+   - Bad: `if (doc.field !== undefined)` (compile-time check, gets removed)
+   - Good: `if ('field' in (doc as any))` (runtime property check)
+   - Prevention: Follow migration development guide
+
+3. **"Functions deployed successfully but not available"**
+   - Root cause: TypeScript compilation errors preventing actual deployment
+   - Diagnosis: Check `pnpm tsc --noEmit` for errors
+   - Fix: Resolve compilation errors, redeploy
+   - Prevention: Pre-deployment checklist includes tests
 
 ## Background Job System
 
@@ -235,3 +306,121 @@ When writing new Convex queries:
 - **Migration:** `convex/migrations.ts:initializeUserStats`
 - **Reconciliation:** `convex/userStats.ts:reconcileUserStats`
 - **Helpers:** `convex/lib/userStatsHelpers.ts`
+
+## Migration Development Patterns
+
+### Required Components
+
+Every migration MUST include:
+
+1. **Dry-run support**:
+   ```typescript
+   args: {
+     dryRun: v.optional(v.boolean()),
+   }
+   ```
+
+2. **Diagnostic query** (same file):
+   ```typescript
+   export const <migrationName>Diagnostic = query({
+     args: {},
+     handler: async (ctx) => {
+       // Return count of records that still need migration
+       const needsMigration = await ctx.db
+         .query('table')
+         .filter(q => 'deprecatedField' in q)
+         .take(1);
+       return { count: needsMigration.length };
+     }
+   });
+   ```
+
+3. **Runtime property checks** (not TypeScript types):
+   ```typescript
+   // ❌ WRONG: Compiler optimizes away (type erasure)
+   if (doc.deprecatedField !== undefined)
+
+   // ✅ CORRECT: Runtime check
+   if ('deprecatedField' in (doc as any))
+   ```
+
+4. **Environment logging**:
+   ```typescript
+   migrationLogger.info('Migration started', {
+     dryRun,
+     // Deployment context logged automatically via createLogger
+   });
+   ```
+
+5. **Batch processing** (for large datasets >500 records):
+   ```typescript
+   for (const batch of chunks(allRecords, 100)) {
+     // Process batch
+     migrationLogger.info(`Batch processed: ${stats.totalProcessed}`);
+   }
+   ```
+
+### 3-Phase Schema Removal Pattern
+
+When removing a field from schema, use this sequence to avoid schema validation errors:
+
+```bash
+# Phase 1: Make field optional (backwards-compatible)
+# Edit convex/schema.ts: fieldName: v.string() → v.optional(v.string())
+git commit -m "temp: make field optional for migration"
+./scripts/deploy-production.sh
+
+# Phase 2: Run migration on production
+./scripts/run-migration.sh <migrationName> production
+# Verify: npx convex run migrations:<migrationName>Diagnostic
+# Should return: { count: 0 }
+
+# Phase 3: Remove field from schema (pristine state)
+# Edit convex/schema.ts: Remove fieldName line entirely
+git commit -m "feat: remove field permanently - pristine schema"
+./scripts/deploy-production.sh
+```
+
+### Testing Workflow
+
+```bash
+# 1. Test in development
+export CONVEX_DEPLOY_KEY=dev:amicable-lobster-935|...
+npx convex run migrations:<name> --args '{"dryRun":true}'
+# Review output: "Would update X records"
+
+npx convex run migrations:<name>
+# Verify: "Successfully updated X records"
+
+npx convex run migrations:<name>Diagnostic
+# Should return: { count: 0 }
+
+# 2. Deploy to production (with safeguards)
+./scripts/run-migration.sh <name> production
+# Script enforces: dry-run → manual approval → actual migration → verification
+```
+
+### Anti-Patterns
+
+❌ **Testing migration by deploying schema change first**
+- Schema validation will reject existing data
+- Forces emergency rollback
+- **Always** run migration BEFORE removing field from schema
+
+❌ **Using TypeScript property checks for runtime data**
+```typescript
+// BAD: Gets optimized away at compile time
+if (question.topic !== undefined) { ... }
+
+// GOOD: Runtime property existence check
+if ('topic' in (question as any)) { ... }
+```
+
+❌ **Using `.filter()` after `.collect()` for migrations**
+- Fetches ALL records (bandwidth explosion for 10k+ items)
+- **Instead**: Use compound indexes or `.take()` with batching
+
+❌ **No dry-run or diagnostic queries**
+- Can't preview changes before running
+- No verification that migration completed
+- **Always** implement both for production migrations

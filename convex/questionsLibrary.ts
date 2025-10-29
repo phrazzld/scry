@@ -13,7 +13,7 @@
  */
 import { v } from 'convex/values';
 
-import { query } from './_generated/server';
+import { internalQuery, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 /**
@@ -102,61 +102,13 @@ export const getLibrary = query({
 });
 
 /**
- * Get recent topics ordered by usage frequency
- *
- * Returns most frequently used topics for quick generation autocomplete.
- * Excludes deleted questions from topic counting.
- */
-export const getRecentTopics = query({
-  args: {
-    limit: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    // Get authenticated user
-    const user = await requireUserFromClerk(ctx);
-    const userId = user._id;
-
-    // Query user's recent questions (not deleted)
-    const recentQuestions = await ctx.db
-      .query('questions')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .order('desc') // Most recent first
-      .take(100); // Get enough to find unique topics
-
-    // Filter out deleted questions and extract unique topics
-    const topicCounts = new Map<string, number>();
-
-    for (const question of recentQuestions) {
-      // Skip deleted questions
-      if (question.deletedAt) continue;
-
-      // Skip questions without topics
-      if (!question.topic) continue;
-
-      // Count occurrences of each topic
-      const count = topicCounts.get(question.topic) || 0;
-      topicCounts.set(question.topic, count + 1);
-    }
-
-    // Convert to array, sort by frequency (most used topics first), then take limit
-    const topics = Array.from(topicCounts.entries())
-      .sort(([, a], [, b]) => b - a) // Sort by count descending
-      .slice(0, args.limit || 5) // Take top 5 by default
-      .map(([topic]) => topic); // Extract just the topic names
-
-    return topics;
-  },
-});
-
-/**
  * Query questions with flexible filters
  *
  * Optimizes index selection based on provided filters.
- * Supports filtering by topic, attempt status, and deletion state.
+ * Supports filtering by attempt status and deletion state.
  */
 export const getUserQuestions = query({
   args: {
-    topic: v.optional(v.string()),
     onlyUnattempted: v.optional(v.boolean()),
     limit: v.optional(v.number()),
     includeDeleted: v.optional(v.boolean()), // Option to include deleted questions
@@ -168,15 +120,8 @@ export const getUserQuestions = query({
     // Choose the most selective index based on filters provided
     let query;
 
-    // If topic is specified, use the topic index (most selective)
-    if (args.topic) {
-      const topic = args.topic;
-      query = ctx.db
-        .query('questions')
-        .withIndex('by_user_topic', (q) => q.eq('userId', userId).eq('topic', topic));
-    }
     // If only unattempted filter is specified, use that index
-    else if (args.onlyUnattempted) {
+    if (args.onlyUnattempted) {
       query = ctx.db
         .query('questions')
         .withIndex('by_user_unattempted', (q) => q.eq('userId', userId).eq('attemptCount', 0));
@@ -190,7 +135,7 @@ export const getUserQuestions = query({
 
     // Apply additional filters in memory
     // If topic index was used but unattempted filter also requested, apply it here
-    if (args.topic && args.onlyUnattempted) {
+    if (args.onlyUnattempted) {
       questions = questions.filter((q) => q.attemptCount === 0);
     }
 
@@ -235,5 +180,76 @@ export const getQuizInteractionStats = query({
       uniqueQuestions,
       accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
     };
+  },
+});
+
+/**
+ * Text search questions by keyword matching
+ *
+ * Internal query for hybrid search (complements vector search).
+ * Uses Convex full-text search index to scan entire collection efficiently.
+ *
+ * Searches question text across ALL user's questions in the specified view,
+ * not just the first N results. This ensures comprehensive search results
+ * regardless of question creation date or collection size.
+ *
+ * Note: Currently searches 'question' field only (not 'explanation').
+ * This covers the majority of use cases while maintaining simple implementation.
+ *
+ * @internal Used by embeddings.searchQuestions for hybrid search
+ */
+export const textSearchQuestions = internalQuery({
+  args: {
+    query: v.string(),
+    limit: v.number(),
+    userId: v.id('users'),
+    view: v.optional(v.union(v.literal('active'), v.literal('archived'), v.literal('trash'))),
+  },
+  handler: async (ctx, args) => {
+    const { query, limit, userId, view = 'active' } = args;
+
+    // Start with search index query (scans entire collection efficiently)
+    let searchQuery = ctx.db
+      .query('questions')
+      .withSearchIndex('search_questions', (q) => q.search('question', query));
+
+    // Apply view-specific filters (DB-level filtering for efficiency)
+    switch (view) {
+      case 'active':
+        // Active: not archived AND not deleted
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.eq(q.field('deletedAt'), undefined),
+            q.eq(q.field('archivedAt'), undefined)
+          )
+        );
+        break;
+
+      case 'archived':
+        // Archived: has archivedAt AND not deleted
+        searchQuery = searchQuery.filter((q) =>
+          q.and(
+            q.eq(q.field('userId'), userId),
+            q.neq(q.field('archivedAt'), undefined),
+            q.eq(q.field('deletedAt'), undefined)
+          )
+        );
+        break;
+
+      case 'trash':
+        // Trash: has deletedAt (regardless of archivedAt)
+        searchQuery = searchQuery.filter((q) =>
+          q.and(q.eq(q.field('userId'), userId), q.neq(q.field('deletedAt'), undefined))
+        );
+        break;
+
+      default:
+        // Fallback: filter by userId only
+        searchQuery = searchQuery.filter((q) => q.eq(q.field('userId'), userId));
+    }
+
+    // Return top N matches (search index already found all matches)
+    return await searchQuery.take(limit);
   },
 });

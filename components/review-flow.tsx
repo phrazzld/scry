@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Calendar, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { useQuery } from 'convex/react';
+import { ArrowRight, Calendar, Clock, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { EditQuestionModal } from '@/components/edit-question-modal';
@@ -13,6 +14,7 @@ import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
 import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
+import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
 import { useConfirmation } from '@/hooks/use-confirmation';
 import { useReviewShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -51,6 +53,14 @@ export function ReviewFlow() {
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
+  // Periodic refresh key for due count (updates every 60s to catch time-based card scheduling)
+  const [refreshKey, setRefreshKey] = useState(Date.now());
+
+  // Query for current due count with periodic refresh
+  const dueCountData = useQuery(api.spacedRepetition.getDueCount, {
+    _refreshTimestamp: refreshKey,
+  });
+
   // Edit/Delete functionality
   const [editModalOpen, setEditModalOpen] = useState(false);
   const { optimisticEdit, optimisticDelete } = useQuestionMutations();
@@ -81,6 +91,15 @@ export function ReviewFlow() {
       setQuestionStartTime(Date.now());
     }
   }, [questionId]);
+
+  // Refresh due count every 60s to catch cards becoming due from time passing
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey(Date.now());
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
@@ -167,7 +186,6 @@ export function ReviewFlow() {
       const result = await optimisticEdit({
         questionId,
         question: updates.question,
-        topic: '', // We don't have topic in SimpleQuestion, using empty string
         explanation: updates.explanation,
         options: updates.options,
         correctAnswer: updates.correctAnswer,
@@ -212,6 +230,17 @@ export function ReviewFlow() {
       <PageContainer className="py-6">
         <div className="max-w-[760px]">
           <article className="space-y-6">
+            {/* Due count indicator - refined pill design */}
+            {dueCountData && (
+              <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 shadow-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium tabular-nums">
+                  <span className="text-foreground">{dueCountData.totalReviewable}</span>
+                  <span className="text-muted-foreground ml-1">cards due</span>
+                </span>
+              </div>
+            )}
+
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
               fallbackMessage="Unable to display this question. Try refreshing or moving to the next question."

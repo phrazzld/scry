@@ -48,7 +48,6 @@ function createMockQuestion(
     _id: id as Id<'questions'>,
     _creationTime: Date.now(),
     userId: 'user123' as Id<'users'>,
-    topic: 'Testing',
     question: 'Test question?',
     type: 'multiple-choice',
     options: ['A', 'B', 'C', 'D'],

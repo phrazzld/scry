@@ -58,7 +58,6 @@ describe('useQuestionMutations', () => {
       type: 'multiple-choice',
       options: ['3', '4', '5', '6'],
       difficulty: 'easy',
-      topic: 'Math',
       attemptCount: 0,
       correctCount: 0,
     };
@@ -72,7 +71,6 @@ describe('useQuestionMutations', () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
           question: 'What is 3+3?',
-          topic: mockQuestion.topic,
         });
       });
 
@@ -85,7 +83,6 @@ describe('useQuestionMutations', () => {
 
       const updates = {
         question: 'Updated question?',
-        topic: mockQuestion.topic,
         explanation: 'Updated explanation',
       };
 
@@ -99,7 +96,6 @@ describe('useQuestionMutations', () => {
       expect(mockUpdateQuestion).toHaveBeenCalledWith({
         questionId: mockQuestion._id,
         question: updates.question,
-        topic: updates.topic,
         explanation: updates.explanation,
       });
     });
@@ -113,7 +109,6 @@ describe('useQuestionMutations', () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
           question: 'Will fail',
-          topic: mockQuestion.topic,
         });
       });
 
@@ -132,7 +127,6 @@ describe('useQuestionMutations', () => {
         await result.current.optimisticEdit({
           questionId: mockQuestion._id,
           question: 'Updated successfully',
-          topic: mockQuestion.topic,
         });
       });
 

@@ -5,7 +5,7 @@ import { reviewReducer } from './use-review-flow';
 
 describe('reviewReducer', () => {
   describe('REVIEW_COMPLETE action', () => {
-    it('should reset full state to loading phase when review is complete', () => {
+    it('should maintain reviewing phase with isTransitioning flag for optimistic UI', () => {
       // Arrange: Set up initial state with active question in reviewing phase
       const initialState = {
         phase: 'reviewing' as const,
@@ -33,17 +33,19 @@ describe('reviewReducer', () => {
           },
         ],
         lockId: 'lock123',
+        isTransitioning: false,
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
       const newState = reviewReducer(initialState, { type: 'REVIEW_COMPLETE' });
 
-      // Assert: Verify full state reset
-      expect(newState.phase).toBe('loading');
-      expect(newState.question).toBeNull();
-      expect(newState.questionId).toBeNull();
-      expect(newState.interactions).toEqual([]);
-      expect(newState.lockId).toBeNull();
+      // Assert: Verify optimistic UI state - stays in reviewing but releases lock and marks transitioning
+      expect(newState.phase).toBe('reviewing');
+      expect(newState.question).toBe(initialState.question); // Question retained for optimistic UI
+      expect(newState.questionId).toBe(initialState.questionId); // Question ID retained
+      expect(newState.interactions).toBe(initialState.interactions); // Interactions retained
+      expect(newState.lockId).toBeNull(); // Lock released to allow new question
+      expect(newState.isTransitioning).toBe(true); // Marked as transitioning
     });
 
     it('should handle REVIEW_COMPLETE even when state is already partially reset', () => {
@@ -54,29 +56,32 @@ describe('reviewReducer', () => {
         questionId: null,
         interactions: [],
         lockId: 'lock456',
+        isTransitioning: false,
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
       const newState = reviewReducer(initialState, { type: 'REVIEW_COMPLETE' });
 
-      // Assert: Verify state transitions to loading
-      expect(newState.phase).toBe('loading');
+      // Assert: Verify state stays in reviewing with transition flag and releases lock
+      expect(newState.phase).toBe('reviewing');
       expect(newState.lockId).toBeNull();
+      expect(newState.isTransitioning).toBe(true);
     });
   });
 
   describe('Data processing after REVIEW_COMPLETE', () => {
-    it('should process data updates when phase is loading (after REVIEW_COMPLETE)', () => {
-      // This test verifies that the condition check allows processing when transitioning from loading
+    it('should process data updates when receiving new question', () => {
+      // This test verifies that the reducer accepts QUESTION_RECEIVED
       const stateInLoading = {
         phase: 'loading' as const,
         question: null,
         questionId: null,
         interactions: [],
         lockId: null,
+        isTransitioning: false,
       };
 
-      // The reducer should accept QUESTION_RECEIVED when in loading phase
+      // The reducer should accept QUESTION_RECEIVED
       const questionReceivedAction = {
         type: 'QUESTION_RECEIVED' as const,
         payload: {
@@ -103,6 +108,7 @@ describe('reviewReducer', () => {
       expect(newState.phase).toBe('reviewing');
       expect(newState.question).toBeDefined();
       expect(newState.questionId).toBe('q2' as Id<'questions'>);
+      expect(newState.isTransitioning).toBe(false); // New question clears transitioning state
     });
   });
 });

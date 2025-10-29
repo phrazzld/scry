@@ -285,8 +285,45 @@ export const getNextReview = query({
     // Sort by retrievability (lower = higher priority)
     questionsWithPriority.sort((a, b) => a.retrievability - b.retrievability);
 
-    // Return the highest priority question - Pure FSRS, no tricks
-    const nextQuestion = questionsWithPriority[0].question;
+    // Dynamic urgency tier shuffle for temporal dispersion
+    // Rationale: Only shuffle items with similar retrievability (within threshold).
+    // Prevents temporal clustering (same _creationTime → same priority)
+    // while strictly respecting FSRS priority (never shuffles across urgency gaps).
+    // Learning science: Interleaving improves retention vs. blocked practice.
+    //
+    // Dynamic threshold (vs hard-coded N=10) ensures FSRS compliance:
+    // - If top 3 items have retrievability 0.05-0.08 (similar), shuffle all 3
+    // - If item 1 is 0.05 but item 10 is 0.90 (very different), only shuffle similar items
+    // - Prevents most urgent cards being shown only 10% of time due to wide spread
+    const URGENCY_DELTA = 0.05; // Only shuffle within 5% retrievability spread
+    const urgentTier = [];
+    const baseRetrievability = questionsWithPriority[0].retrievability;
+
+    // Build urgentTier: all items within URGENCY_DELTA of most urgent item
+    // Note: retrievability is sorted ascending (lower = higher priority)
+    // For negative scores (new questions), baseRetrievability is most negative (e.g., -2.0)
+    // We want items where abs(retrievability - baseRetrievability) <= URGENCY_DELTA
+    for (const item of questionsWithPriority) {
+      const spread = Math.abs(item.retrievability - baseRetrievability);
+      if (spread <= URGENCY_DELTA) {
+        urgentTier.push(item);
+      } else {
+        break; // Stop when urgency gap too large (list is sorted)
+      }
+    }
+
+    // Fisher-Yates shuffle: O(N) unbiased random permutation
+    // Loop stops at i > 0 (not i >= 0) because position 0 doesn't need selection:
+    // it participates in swaps via j selection from remaining positions
+    // Uses Math.random() for non-deterministic shuffle (different order each session)
+    // vs shuffleWithSeed (deterministic, reproducible for testing)
+    // Tradeoff: sacrifices reproducibility for variety, acceptable for UX diversity
+    for (let i = urgentTier.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [urgentTier[i], urgentTier[j]] = [urgentTier[j], urgentTier[i]];
+    }
+
+    const nextQuestion = urgentTier[0].question;
 
     // Get interaction history for this question
     // Bandwidth optimization: Limit to 10 most recent interactions instead of all
@@ -345,23 +382,6 @@ export const getDueCount = query({
       )
       .take(1000); // Cap at 1000 - beyond this we show "1000+" badge
     dueCount = dueQuestions.length;
-
-    // Also count learning/relearning cards as "due" since they need immediate review
-    // This ensures "0 due" is never shown when learning cards exist
-    const learningQuestions = await ctx.db
-      .query('questions')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .filter((q) =>
-        q.and(
-          q.or(q.eq(q.field('state'), 'learning'), q.eq(q.field('state'), 'relearning')),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined),
-          // Don't double-count cards already in dueQuestions
-          q.gt(q.field('nextReview'), now)
-        )
-      )
-      .take(1000); // Match due cards limit for consistency
-    dueCount += learningQuestions.length;
 
     // Count new questions using pagination
     let newCount = 0;
