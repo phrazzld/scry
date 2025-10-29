@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { InputSetManager } from '@/components/lab/input-set-manager';
 import {
   clearResults,
   isApproachingQuota,
@@ -75,6 +76,22 @@ export function LabClient() {
     toast.success('Results cleared');
   };
 
+  // Input set handlers
+  const handleCreateInputSet = (set: InputSet) => {
+    setInputSets([...inputSets, set]);
+  };
+
+  const handleEditInputSet = (id: string, updates: Partial<InputSet>) => {
+    setInputSets(inputSets.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+  };
+
+  const handleDeleteInputSet = (id: string) => {
+    setInputSets(inputSets.filter((s) => s.id !== id));
+    if (selectedInputSetId === id) {
+      setSelectedInputSetId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -105,12 +122,14 @@ export function LabClient() {
           {/* Left Panel: Input Sets (25%) */}
           <div className="lg:col-span-3 border rounded-lg p-4 overflow-y-auto">
             <h2 className="font-semibold mb-4">Test Inputs</h2>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Input sets: {inputSets.length}</p>
-              <p className="text-sm text-muted-foreground">
-                Selected: {selectedInputSetId ? '1 set' : 'None'}
-              </p>
-            </div>
+            <InputSetManager
+              sets={inputSets}
+              selectedId={selectedInputSetId}
+              onSelect={setSelectedInputSetId}
+              onCreate={handleCreateInputSet}
+              onEdit={handleEditInputSet}
+              onDelete={handleDeleteInputSet}
+            />
           </div>
 
           {/* Center Panel: Configs (35%) */}
