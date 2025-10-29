@@ -80,6 +80,81 @@ export function LabClient() {
     toast.success('Results cleared');
   };
 
+  // Export/Import handlers
+  const handleExportData = () => {
+    const exportData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      inputSets,
+      configs: configs.filter((c) => !c.isProd), // Don't export PROD config
+      results,
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lab-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Data exported', {
+      description: `${inputSets.length} input sets, ${configs.length} configs`,
+    });
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importData = JSON.parse(content);
+
+        // Validate structure
+        if (!importData.version || !importData.inputSets || !importData.configs) {
+          toast.error('Invalid import file', {
+            description: 'Missing required fields',
+          });
+          return;
+        }
+
+        // Import input sets
+        if (Array.isArray(importData.inputSets)) {
+          setInputSets([...inputSets, ...importData.inputSets]);
+        }
+
+        // Import configs (exclude PROD)
+        if (Array.isArray(importData.configs)) {
+          const nonProdConfigs = importData.configs.filter((c: InfraConfig) => !c.isProd);
+          setConfigs([...configs, ...nonProdConfigs]);
+        }
+
+        // Optionally import results
+        if (Array.isArray(importData.results)) {
+          setResults([...results, ...importData.results]);
+        }
+
+        toast.success('Data imported', {
+          description: `Added ${importData.inputSets.length} input sets, ${importData.configs.length} configs`,
+        });
+      } catch (error) {
+        toast.error('Import failed', {
+          description: error instanceof Error ? error.message : 'Invalid JSON file',
+        });
+      }
+    };
+    reader.readAsText(file);
+
+    // Reset input so the same file can be imported again
+    event.target.value = '';
+  };
+
   // Input set handlers
   const handleCreateInputSet = (set: InputSet) => {
     setInputSets([...inputSets, set]);
@@ -235,6 +310,16 @@ export function LabClient() {
               </p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={handleExportData}
+                className="px-3 py-1.5 text-sm border rounded hover:bg-accent"
+              >
+                Export Data
+              </button>
+              <label className="px-3 py-1.5 text-sm border rounded hover:bg-accent cursor-pointer">
+                Import Data
+                <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
+              </label>
               <button
                 onClick={handleClearResults}
                 className="px-3 py-1.5 text-sm border rounded hover:bg-accent"

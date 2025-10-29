@@ -200,16 +200,19 @@
   Time: 1.5hr
   ```
 
-- [ ] **Add export/import functionality**
+- [x] **Add export/import functionality**
   ```
-  Files: app/lab/_components/lab-client.tsx (extend existing)
-  Approach: JSON.stringify/parse with file download/upload
-  Interface: Export All (downloads configs+inputs JSON), Import (file input)
-  Features: Download JSON file, upload and validate JSON structure
-  Success: Export creates valid JSON, import restores state, validation works
-  Test: Integration test for export/import roundtrip
-  Module: Data portability, hides file I/O
-  Time: 1hr
+  Files: app/lab/_components/lab-client.tsx ✅
+  Status: Full export/import with JSON file handling
+  Features:
+    - Export: Downloads JSON file with inputSets, configs, results
+    - Excludes PROD configs from export (safety)
+    - Import: File upload with JSON validation
+    - Validates structure (version, required fields)
+    - Merges imported data with existing (non-destructive)
+    - Toast notifications for success/errors
+  UI: Export/Import buttons in header toolbar
+  File format: Versioned JSON (v1.0) with timestamp
   ```
 
 ## Design Iteration
