@@ -163,8 +163,12 @@ export function ConfigManager({
                 <span>{config.model}</span>
                 <span>•</span>
                 <span>{config.phases.length}-phase</span>
-                <span>•</span>
-                <span>T={config.temperature}</span>
+                {config.temperature !== undefined && (
+                  <>
+                    <span>•</span>
+                    <span>T={config.temperature}</span>
+                  </>
+                )}
               </div>
 
               {/* Expanded content */}

@@ -165,13 +165,14 @@ export const executeConfig = action({
         // Execute phase (use generateObject for final phase, generateText for intermediate)
         if (i === args.phases.length - 1) {
           // Final phase - expect structured output
+          // Only include parameters if explicitly set (production omits them for model defaults)
           const response = await generateObject({
             model,
             schema: questionsSchema,
             prompt,
-            temperature: args.temperature,
-            maxTokens: args.maxTokens,
-            topP: args.topP,
+            ...(args.temperature !== undefined && { temperature: args.temperature }),
+            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
+            ...(args.topP !== undefined && { topP: args.topP }),
           });
 
           finalOutput = response.object;
@@ -189,12 +190,13 @@ export const executeConfig = action({
         } else {
           // Intermediate phase - text output
           const { generateText: genText } = await import('ai');
+          // Only include parameters if explicitly set (production omits them for model defaults)
           const response = await genText({
             model,
             prompt,
-            temperature: args.temperature,
-            maxTokens: args.maxTokens,
-            topP: args.topP,
+            ...(args.temperature !== undefined && { temperature: args.temperature }),
+            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
+            ...(args.topP !== undefined && { topP: args.topP }),
           });
 
           const output = response.text;

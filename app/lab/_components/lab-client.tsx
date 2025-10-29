@@ -47,9 +47,8 @@ function createProdConfig(): InfraConfig {
     description: 'Live production infrastructure - reflects actual prompts used in app',
     provider: PROD_CONFIG_METADATA.provider,
     model: PROD_CONFIG_METADATA.model,
-    temperature: PROD_CONFIG_METADATA.temperature,
-    maxTokens: PROD_CONFIG_METADATA.maxTokens,
-    topP: PROD_CONFIG_METADATA.topP,
+    // Production omits temperature/maxTokens/topP (uses model defaults)
+    // DO NOT add them - structured output is sensitive to parameter overrides
     phases: [
       {
         name: 'Intent Clarification',

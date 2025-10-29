@@ -43,9 +43,9 @@ export interface InfraConfig {
   // Model configuration
   provider: AIProvider;
   model: string; // e.g., 'gemini-2.5-flash', 'gpt-5-mini', 'claude-opus-4'
-  temperature: number; // 0-2
-  maxTokens: number; // 1-65536
-  topP?: number; // 0-1
+  temperature?: number; // Optional: 0-2 (undefined = model default)
+  maxTokens?: number; // Optional: 1-65536 (undefined = model default)
+  topP?: number; // Optional: 0-1 (undefined = model default)
 
   // Prompt chain architecture
   phases: PromptPhase[];
@@ -107,10 +107,12 @@ export function isValidPhase(phase: PromptPhase): boolean {
 export function isValidConfig(config: InfraConfig): boolean {
   return (
     config.name.trim().length > 0 &&
-    config.temperature >= 0 &&
-    config.temperature <= 2 &&
-    config.maxTokens >= 1 &&
-    config.maxTokens <= 65536 &&
+    // Temperature is optional, but if set must be in range
+    (config.temperature === undefined || (config.temperature >= 0 && config.temperature <= 2)) &&
+    // MaxTokens is optional, but if set must be in range
+    (config.maxTokens === undefined || (config.maxTokens >= 1 && config.maxTokens <= 65536)) &&
+    // TopP is optional, but if set must be in range
+    (config.topP === undefined || (config.topP >= 0 && config.topP <= 1)) &&
     config.phases.length > 0 &&
     config.phases.every(isValidPhase)
   );

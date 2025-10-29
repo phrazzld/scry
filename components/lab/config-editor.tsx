@@ -39,8 +39,12 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
   const [description, setDescription] = useState(config?.description || '');
   const [provider, setProvider] = useState<AIProvider>(config?.provider || 'google');
   const [model, setModel] = useState(config?.model || 'gemini-2.5-flash');
-  const [temperature, setTemperature] = useState(config?.temperature.toString() || '0.7');
-  const [maxTokens, setMaxTokens] = useState(config?.maxTokens.toString() || '8192');
+  const [temperature, setTemperature] = useState(
+    config?.temperature !== undefined ? config.temperature.toString() : ''
+  );
+  const [maxTokens, setMaxTokens] = useState(
+    config?.maxTokens !== undefined ? config.maxTokens.toString() : ''
+  );
   const [topP, setTopP] = useState(config?.topP?.toString() || '');
   const [phases, setPhases] = useState<PromptPhase[]>(
     config?.phases || [
@@ -59,21 +63,24 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
       return;
     }
 
-    const tempNum = parseFloat(temperature);
-    if (isNaN(tempNum) || tempNum < 0 || tempNum > 2) {
-      toast.error('Temperature must be between 0 and 2');
+    // Temperature is optional (empty = model default)
+    const tempNum = temperature ? parseFloat(temperature) : undefined;
+    if (temperature && (isNaN(tempNum!) || tempNum! < 0 || tempNum! > 2)) {
+      toast.error('Temperature must be between 0 and 2 (or leave empty for model default)');
       return;
     }
 
-    const tokensNum = parseInt(maxTokens, 10);
-    if (isNaN(tokensNum) || tokensNum < 1 || tokensNum > 65536) {
-      toast.error('Max tokens must be between 1 and 65536');
+    // MaxTokens is optional (empty = model default)
+    const tokensNum = maxTokens ? parseInt(maxTokens, 10) : undefined;
+    if (maxTokens && (isNaN(tokensNum!) || tokensNum! < 1 || tokensNum! > 65536)) {
+      toast.error('Max tokens must be between 1 and 65536 (or leave empty for model default)');
       return;
     }
 
+    // TopP is optional (empty = model default)
     const topPNum = topP ? parseFloat(topP) : undefined;
     if (topP && (isNaN(topPNum!) || topPNum! < 0 || topPNum! > 1)) {
-      toast.error('Top P must be between 0 and 1');
+      toast.error('Top P must be between 0 and 1 (or leave empty for model default)');
       return;
     }
 
@@ -196,7 +203,7 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <Label htmlFor="config-temperature">Temperature *</Label>
+            <Label htmlFor="config-temperature">Temperature</Label>
             <Input
               id="config-temperature"
               type="number"
@@ -206,12 +213,13 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
               disabled={config?.isProd}
+              placeholder="Model default"
             />
-            <p className="text-xs text-muted-foreground mt-1">0-2</p>
+            <p className="text-xs text-muted-foreground mt-1">0-2 (empty = default)</p>
           </div>
 
           <div>
-            <Label htmlFor="config-max-tokens">Max Tokens *</Label>
+            <Label htmlFor="config-max-tokens">Max Tokens</Label>
             <Input
               id="config-max-tokens"
               type="number"
@@ -221,8 +229,9 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
               value={maxTokens}
               onChange={(e) => setMaxTokens(e.target.value)}
               disabled={config?.isProd}
+              placeholder="Model default"
             />
-            <p className="text-xs text-muted-foreground mt-1">1-65536</p>
+            <p className="text-xs text-muted-foreground mt-1">1-65536 (empty = default)</p>
           </div>
 
           <div>
@@ -235,10 +244,10 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
               step="0.1"
               value={topP}
               onChange={(e) => setTopP(e.target.value)}
-              placeholder="Optional"
+              placeholder="Model default"
               disabled={config?.isProd}
             />
-            <p className="text-xs text-muted-foreground mt-1">0-1</p>
+            <p className="text-xs text-muted-foreground mt-1">0-1 (empty = default)</p>
           </div>
         </div>
       </div>

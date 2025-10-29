@@ -146,17 +146,12 @@ Generate the questions now. Return only the questions array matching the schema 
 /**
  * Production configuration metadata
  *
- * These are the actual parameters used in production question generation.
- * Temperature and maxTokens are not explicitly set in production (use defaults).
+ * These are the EXACT parameters used in production question generation.
+ * Production omits temperature/maxTokens/topP entirely (uses model defaults).
+ * DO NOT add these parameters - structured output is sensitive to overrides.
  */
 export const PROD_CONFIG_METADATA = {
   provider: 'google' as const,
   model: 'gemini-2.5-flash',
-  // Production uses AI SDK defaults:
-  // - Temperature: unset (model default)
-  // - MaxTokens: unset (model default)
-  // For lab testing, we use explicit values:
-  temperature: 0.7,
-  maxTokens: 8192,
-  topP: undefined, // Not used in production
+  // Production omits temperature/maxTokens/topP (model chooses optimal values)
 } as const;
