@@ -206,7 +206,10 @@ export function LibraryCards({
 
                   {/* Due status - prominent on active tab */}
                   {currentTab === 'active' && isDue && (
-                    <span className="text-warning font-semibold shrink-0">Due now</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="h-2 w-2 rounded-full bg-warning" />
+                      <span className="text-warning font-semibold">Due now</span>
+                    </div>
                   )}
 
                   {/* Stats - only on active tab, de-emphasized */}
