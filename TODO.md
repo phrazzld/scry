@@ -1,98 +1,325 @@
-# TODO: Vector Embeddings - Ready for Merge
+# TODO: Genesis Laboratory
 
-**Branch**: `feature/vector-embeddings-foundation`
-**PR**: [#47](https://github.com/phrazzld/scry/pull/47)
-**Status**: All blocking issues resolved ✅
+## Context
 
----
+**Approach**: Local-only dev tool with 3-panel UI (Inputs | Configs | Results), localStorage persistence, parallel execution via Convex lab actions
 
-## Completed Fixes ✅
+**Key Patterns Identified**:
+- localStorage: Use existing `lib/storage.ts` `safeStorage` wrapper
+- Convex actions: Follow `convex/aiGeneration.ts` pattern (internalAction, error handling, logging)
+- Component structure: Follow `components/generation-task-card.tsx` (Card-based, type guards, state management)
+- Page routing: Follow `app/library/page.tsx` pattern (client component wrapper)
+- Type definitions: Follow `types/generation-jobs.ts` pattern (Doc types, type guards)
 
-- **CB-1**: Args validation fixed (convex/embeddings.ts:77)
-- **CB-2**: Error handling with graceful degradation (convex/embeddings.ts:214-228)
-- **CR-1**: Bandwidth optimization with DB-level filtering (convex/questionsLibrary.ts:211-253)
-- **CR-2**: Vector search archived view post-filtering (convex/embeddings.ts:282-305)
-- **CR-4**: Batch error logging with question details (convex/aiGeneration.ts:417-430)
-- **CR-6**: Query length validation (convex/embeddings.ts:211-217)
+**Files to Create**:
+- `app/lab/page.tsx` - Main route (dev-only wrapper)
+- `app/lab/_components/lab-client.tsx` - Client component with state
+- `convex/lab.ts` - Execution actions
+- `types/lab.ts` - Type definitions
+- `components/lab/` - UI modules (InputSetManager, ConfigEditor, ResultsGrid)
+- `lib/lab-storage.ts` - localStorage helpers
 
-**Total time invested**: ~2.5 hours
+## Implementation Tasks
 
----
+### Phase 1: Foundation & Storage (Day 1) ✅ COMPLETE
 
-## Optional Improvements (Not Blocking)
+- [x] **Create lab type definitions with validation**
+  ```
+  Files: types/lab.ts ✅
+  Status: Implemented with InputSet, InfraConfig, PromptPhase, ExecutionResult types
+  Type guards: isProdConfig, isValidInputSet, isValidPhase, isValidConfig
+  ```
 
-### CR-3: Add initial backfill migration [1.5hr]
+- [x] **Implement localStorage persistence layer**
+  ```
+  Files: lib/lab-storage.ts ✅
+  Status: SSR-safe with quota handling, JSON serialize/deserialize
+  Interface: save/load for inputSets, configs, results + clearResults
+  ```
 
-**Why**: Daily cron backfills 100/day = 100 days for 10K questions. One-time migration provides immediate value.
+- [x] **Create dev-only lab route**
+  ```
+  Files: app/lab/page.tsx ✅
+  Status: Dev-only guard implemented, renders LabClient
+  ```
 
-**Implementation**: Add `backfillEmbeddingsInitial` to `convex/migrations.ts`:
-- Schedule embedding generation with 10-sec delays
-- Run in batches of 100 with 1-hour delays between batches
-- Monitor via Pino logs
+- [x] **Build main lab client with 3-panel layout**
+  ```
+  Files: app/lab/_components/lab-client.tsx ✅
+  Status: 3-panel grid (25% | 35% | 40%), localStorage persistence
+  State: inputSets, configs, results, selectedInputSetId, enabledConfigIds
+  ```
 
-**Decision**: Optional - cron provides safety net, MVP valuable without instant rollout.
+### Phase 2: Input & Config Management (Day 2)
 
----
+- [x] **Implement InputSetManager component**
+  ```
+  Files: components/lab/input-set-manager.tsx ✅
+  Status: Card-based CRUD with expand/collapse, validation (max 10 inputs)
+  Features: Create/edit/delete sets, inline editing, toast notifications
+  Integrated: Used in lab-client.tsx with full state management
+  ```
 
-### CR-5: Strengthen rate limit protection [30min]
+- [ ] **Build ConfigEditor component**
+  ```
+  Files: components/lab/config-editor.tsx (new)
+  Approach: Form with shadcn components (Select, Input, Textarea, Slider)
+  Interface: <ConfigEditor config={} onChange={} onSave={} onCancel={} />
+  Fields: name, description, provider select, model input, temperature slider, maxTokens, phases array
+  Success: Edit config, validate (name required, temp 0-2, tokens 1-65536), save to state
+  Test: Unit tests for validation, integration test for form submission
+  Module: Config CRUD, hides form state management and validation
+  Time: 2hr
+  ```
 
-**Current**: 10 parallel requests, 1-sec delay between batches
-**Proposed**: 5 parallel requests, 2-sec delay
+- [ ] **Implement PromptPhaseEditor sub-component**
+  ```
+  Files: components/lab/config-editor.tsx (extend existing)
+  Approach: Dynamic array of phase editors (Add/Remove phase buttons)
+  Interface: <PhaseEditor phases={} onChange={} />
+  Features: Add phase, remove phase, edit template (Textarea), variable hints ({{userInput}})
+  Success: Add/remove phases, edit templates, preview variables
+  Test: Unit tests for add/remove logic
+  Module: Phase management, hides array manipulation complexity
+  Time: 1hr
+  ```
 
-**Analysis**: Google free tier = 20M tokens/month (~55K/day). Daily sync = 2,000 tokens/day. Well under limits.
+### Phase 3: Backend Execution (Day 3)
 
-**Decision**: Monitor Pino logs for 429 errors first. Reduce batch size if needed post-launch.
+- [ ] **Create lab.ts with executeConfig action**
+  ```
+  Files: convex/lab.ts (new)
+  Approach: Follow convex/aiGeneration.ts pattern - internalAction, error handling, logging
+  Interface: executeConfig(config: InfraConfig, testInput: string) → ExecutionResult
+  Implementation:
+    - Provider factory (google/openai/anthropic from config.provider)
+    - Template interpolation (replace {{variables}} with actual values)
+    - Execute N-phase chain sequentially
+    - Schema validation with existing questionSchema/questionsSchema
+    - Metrics (latency, token count from AI SDK response)
+  Success: Executes 2-phase with Gemini, returns valid ExecutionResult, handles errors
+  Test: Integration test with mock AI SDK, unit tests for template interpolation
+  Module: Hides multi-provider complexity, exposes simple execute interface
+  Time: 2.5hr
+  ```
 
----
+- [ ] **Implement template variable interpolation**
+  ```
+  Files: convex/lab.ts (extend existing)
+  Approach: Simple string replace with context object
+  Interface: interpolateTemplate(template: string, vars: Record<string, string>) → string
+  Features: Replace {{varName}} with vars.varName, handle missing vars (throw error)
+  Success: Replaces all variables, errors on missing, escapes special chars
+  Test: Unit tests for all variable patterns, edge cases (nested, missing)
+  Module: Template engine, isolated from execution logic
+  Time: 30min
+  ```
 
-### CR-7: Adjust cron schedule [2min]
+- [ ] **Add provider factory for multi-model support**
+  ```
+  Files: convex/lab.ts (extend existing)
+  Approach: Factory pattern with switch statement
+  Interface: createProvider(provider: string, model: string, apiKey: string) → LanguageModel
+  Implementation:
+    - google: createGoogleGenerativeAI({apiKey})(model)
+    - openai: createOpenAI({apiKey})(model)
+    - anthropic: createAnthropic({apiKey})(model)
+  Success: Returns correct provider instance, handles missing API keys
+  Test: Unit tests for each provider path, error handling
+  Module: Provider abstraction, hides SDK initialization
+  Time: 45min
+  ```
 
-**Current**: Embedding sync at 3:30 AM
-**Proposed**: Move to 4:00 AM (avoid overlap with stats reconciliation at 3:15 AM)
+### Phase 4: Results Display (Day 4)
 
-**Why**: Prevent resource contention between cron jobs.
+- [ ] **Build ResultsGrid component with matrix layout**
+  ```
+  Files: components/lab/results-grid.tsx (new)
+  Approach: CSS Grid with inputs (rows) × configs (columns)
+  Interface: <ResultsGrid inputs={string[]} configs={InfraConfig[]} results={Map<string, ExecutionResult>} />
+  Features: Grid headers, cell click to expand, loading states, empty states
+  Success: Renders grid, handles sparse results, responsive on smaller screens
+  Test: Visual regression test, integration test for cell selection
+  Module: Layout computation, lazy loading for large grids
+  Time: 1.5hr
+  ```
 
----
+- [ ] **Implement ResultCell with tabbed views**
+  ```
+  Files: components/lab/results-grid.tsx (extend existing)
+  Approach: Tabs component from shadcn (JSON | Cards | Metrics)
+  Interface: <ResultCell result={ExecutionResult} />
+  Tabs:
+    - JSON: Syntax highlighted with @uiw/react-json-view
+    - Cards: Map questions to QuestionCard components
+    - Metrics: Latency, count, validation status
+  Success: All 3 tabs render, JSON highlighted, cards reuse existing component
+  Test: Unit tests for tab switching, integration test for question card rendering
+  Module: Result visualization, hides rendering complexity
+  Time: 1.5hr
+  ```
 
-## Pre-Merge Checklist
+- [ ] **Add schema validation display with error highlighting**
+  ```
+  Files: components/lab/results-grid.tsx (extend ResultCell)
+  Approach: Run Zod validation, display errors inline
+  Interface: validationErrors: string[] displayed as Alert component
+  Features: Validate against existing questionSchema, show field path and error
+  Success: Invalid schema shows errors, valid shows green checkmark
+  Test: Unit tests with invalid schemas, integration test for error display
+  Module: Validation feedback, isolated from core rendering
+  Time: 45min
+  ```
 
-**Tests**:
-- [x] TypeScript compiles without errors
-- [x] Unit tests pass
-- [ ] Manual test: Generate questions → verify embeddings (768 dimensions)
-- [ ] Manual test: Search in all views (active/archived/trash)
-- [ ] Manual test: Graceful degradation (remove `GOOGLE_AI_API_KEY`)
+### Phase 5: Parallel Execution (Day 5)
 
-**Verification**:
-- [ ] Review PR description matches implementation
-- [ ] BACKLOG.md updated with follow-up work
-- [ ] Commits squashed/cleaned if needed
+- [ ] **Implement parallel execution orchestrator**
+  ```
+  Files: app/lab/_components/lab-client.tsx (extend existing)
+  Approach: Promise.all() with progress tracking
+  Interface: handleRunAll() → void (updates results state incrementally)
+  Implementation:
+    - Filter enabled configs
+    - For each input × config, create promise
+    - Promise.all() execution
+    - Update results Map as each promise resolves
+    - Handle partial failures (some configs succeed, others fail)
+  Success: Runs 3 configs × 5 inputs in parallel, updates progress, handles errors
+  Test: Integration test with mock convex actions, verify parallel execution
+  Module: Execution coordination, hides Promise complexity
+  Time: 1hr
+  ```
 
-**Post-Merge Monitoring**:
-- [ ] Pino logs show embedding success rate >90%
-- [ ] Search latency <2 seconds
-- [ ] Sync cron executes daily without errors
-- [ ] No bandwidth spikes (monitor Convex dashboard)
+- [ ] **Add progress tracking and cancellation**
+  ```
+  Files: app/lab/_components/lab-client.tsx (extend existing)
+  Approach: AbortController pattern, progress state
+  Interface: Progress bar showing "X/Y complete", Cancel button
+  State: executionProgress: {total, completed, failed}, abortController
+  Success: Progress updates in real-time, Cancel stops pending executions
+  Test: Integration test for cancellation mid-execution
+  Module: Progress feedback, hides abort logic
+  Time: 45min
+  ```
 
----
+### Phase 6: Production Integration (Day 6)
 
-## Context & Notes
+- [ ] **Create PromotionDialog component**
+  ```
+  Files: components/lab/promotion-dialog.tsx (new)
+  Approach: AlertDialog from shadcn with code preview
+  Interface: <PromotionDialog config={InfraConfig} onConfirm={} onCancel={} />
+  Features: Show config summary, warning message, Copy to Clipboard button
+  Success: Dialog renders, clipboard copy works, can cancel
+  Test: Unit test for clipboard API, integration test for dialog flow
+  Module: Promotion UX, hides clipboard complexity
+  Time: 45min
+  ```
 
-**Why This Feature**:
-- Enables semantic search ("React state management" finds useState, useReducer, Context)
-- Foundation for deduplication (find similar questions)
-- MVP validates embedding quality before building complex features
+- [ ] **Implement code generation for aiGeneration.ts**
+  ```
+  Files: components/lab/promotion-dialog.tsx (extend existing)
+  Approach: Template string generation
+  Interface: generateAIGenerationCode(config: InfraConfig) → string
+  Output: Updated buildIntentClarificationPrompt and buildQuestionPromptFromIntent
+  Features: Replace prompt templates, update model selection, preserve formatting
+  Success: Generated code is valid TypeScript, matches existing structure
+  Test: Unit tests comparing generated vs. expected output
+  Module: Code generation, isolated from UI
+  Time: 1.5hr
+  ```
 
-**Key Decisions**:
-- **Inline generation**: Embeddings generated during background job (no user-facing latency)
-- **Hybrid search**: Vector + text (catches both semantic + keyword matches)
-- **Graceful degradation**: Questions save without embeddings if API fails
-- **Daily sync cron**: Backfills 100/day as safety net
+- [ ] **Add export/import functionality**
+  ```
+  Files: app/lab/_components/lab-client.tsx (extend existing)
+  Approach: JSON.stringify/parse with file download/upload
+  Interface: Export All (downloads configs+inputs JSON), Import (file input)
+  Features: Download JSON file, upload and validate JSON structure
+  Success: Export creates valid JSON, import restores state, validation works
+  Test: Integration test for export/import roundtrip
+  Module: Data portability, hides file I/O
+  Time: 1hr
+  ```
 
-**Technical Details**:
-- Google `text-embedding-004`: 768 dimensions, free tier 20M tokens/month
-- Convex vector search: Native platform feature, filterFields for userId/deletedAt/archivedAt
-- Storage: 6KB per question (60MB for 10K questions)
-- Bandwidth: ~300KB per search (<0.03% monthly quota)
+## Design Iteration
 
-**Follow-Up Work**: See BACKLOG.md - "Vector Search Robustness Improvements" (11hr of polish deferred post-launch)
+**After Phase 3**: Review execution layer
+- Is template interpolation flexible enough for complex chains?
+- Should provider factory support custom API keys per config?
+- Are error messages clear enough for debugging prompt issues?
+
+**After Phase 5**: Review state management
+- Is localStorage limit (10MB) sufficient? Add warning at 8MB
+- Should results be compressed (gzip) for larger datasets?
+- Is parallel execution fast enough? Profile for bottlenecks
+
+## Module Boundaries Validation
+
+**Strong Modules** (high value, low interface complexity):
+- ✅ `lab-storage.ts`: 4 functions hide localStorage + JSON complexity
+- ✅ `executeConfig`: Single function hides multi-phase + multi-provider logic
+- ✅ `ResultsGrid`: Simple props, complex layout computation hidden
+
+**Potential Shallow Modules** (watch for):
+- ⚠️ `PromptPhaseEditor`: If just wrapping Textarea, consider inline
+- ⚠️ Type guards in `types/lab.ts`: Keep minimal, avoid duplication
+
+## Testing Strategy
+
+**Unit Tests** (isolated, fast):
+- Type guards, template interpolation, validation functions
+- localStorage helpers (mock localStorage)
+- Code generation output
+
+**Integration Tests** (component + hooks):
+- InputSetManager CRUD flow
+- ConfigEditor form submission
+- ResultsGrid rendering with real data
+- Parallel execution with mock Convex
+
+**E2E Tests** (optional, manual for MVP):
+- Full workflow: Create input → Config → Run → View results → Promote
+
+## Acceptance Criteria
+
+**Phase 1-2 Complete**:
+- Can create input set with 5 prompts
+- Can create 2 configs (different models)
+- State persists across page refresh
+
+**Phase 3-4 Complete**:
+- Can run 2 configs against 1 input
+- See results in grid with JSON tab
+- Schema validation shows errors
+
+**Phase 5-6 Complete**:
+- Run 3 configs × 5 inputs in parallel (<30s)
+- View progress, cancel mid-execution
+- Promote config to clipboard as valid code
+
+## Dependencies to Install
+
+```bash
+pnpm add @uiw/react-json-view @ai-sdk/openai @ai-sdk/anthropic
+pnpm add -D @types/react-json-view
+```
+
+## Timeline
+
+- **Day 1**: Phase 1 (4-5hr)
+- **Day 2**: Phase 2 (4.5hr)
+- **Day 3**: Phase 3 (3.75hr)
+- **Day 4**: Phase 4 (3.75hr)
+- **Day 5**: Phase 5 (1.75hr)
+- **Day 6**: Phase 6 (3.25hr)
+
+**Total**: ~21hr across 6 days (sustainable 3-4hr/day pace)
+
+## Next Steps
+
+```bash
+git checkout -b feature/genesis-laboratory
+pnpm add @uiw/react-json-view @ai-sdk/openai @ai-sdk/anthropic
+```
+
+Start with Phase 1, Task 1: Create `types/lab.ts`
