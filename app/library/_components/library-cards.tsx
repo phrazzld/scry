@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, Calendar, Clock, ListChecks, RotateCcw, Target, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
-import { formatShortRelativeTime } from '@/lib/utils/date-format';
+import { formatDueTime, formatShortRelativeTime } from '@/lib/utils/date-format';
 
 import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
 
@@ -144,7 +144,7 @@ export function LibraryCards({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 gap-3">
         {questions.map((question) => {
           const isSelected = selectedIds.has(question._id);
           const isDue =
@@ -160,7 +160,7 @@ export function LibraryCards({
               `}
             >
               <div
-                className="p-3 min-h-[100px] flex flex-col gap-2 cursor-pointer"
+                className="px-4 pt-2 pb-0 flex flex-col cursor-pointer"
                 onClick={() => handleCardTap(question)}
                 onTouchStart={() => handleLongPressStart(question._id)}
                 onTouchEnd={handleLongPressEnd}
@@ -168,8 +168,8 @@ export function LibraryCards({
                 onMouseUp={handleLongPressEnd}
                 onMouseLeave={handleLongPressEnd}
               >
-                {/* Header row: checkbox (if selection mode) + question */}
-                <div className="flex items-start gap-2.5">
+                {/* Question content */}
+                <div className="flex items-start gap-2.5 pb-1">
                   {selectionMode && (
                     <Checkbox
                       checked={isSelected}
@@ -182,53 +182,109 @@ export function LibraryCards({
 
                   {/* Two-line question text */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium leading-snug line-clamp-2">
+                    <p className="text-sm font-medium leading-tight line-clamp-2">
                       {question.question}
                     </p>
                   </div>
                 </div>
 
-                {/* Metadata row: type, status, date */}
-                <div className="flex items-center gap-2 text-xs">
-                  {/* Type badge with embedding indicator */}
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {question.type === 'multiple-choice' ? 'MC' : 'T/F'}
-                    {question.embedding && (
-                      <span
-                        className="ml-1 text-success"
-                        role="img"
-                        aria-label="Semantic search enabled"
-                      >
-                        ●
-                      </span>
-                    )}
-                  </Badge>
+                {/* Metadata row: Twitter-style with separator and hover states */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/40 pt-2.5 mt-1">
+                  {/* Type */}
+                  <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="group flex items-center gap-1 cursor-pointer">
+                          <ListChecks className="h-3.5 w-3.5 transition-colors group-hover:text-blue-500" />
+                          <span className="transition-colors group-hover:text-blue-500">
+                            {question.type === 'multiple-choice' ? 'MC' : 'T/F'}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {question.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
 
-                  {/* Due status - prominent on active tab */}
-                  {currentTab === 'active' && isDue && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="h-2 w-2 rounded-full bg-warning" />
-                      <span className="text-warning font-semibold">Due now</span>
+                  {/* Due Status */}
+                  {currentTab === 'active' ? (
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="group flex items-center gap-1 cursor-pointer">
+                            <Clock className="h-3.5 w-3.5 transition-colors group-hover:text-amber-500" />
+                            <span className="transition-colors group-hover:text-amber-500">
+                              {isDue
+                                ? 'Due now'
+                                : question.nextReview
+                                  ? formatDueTime(question.nextReview)
+                                  : 'Not scheduled'}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Next review time</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="group flex items-center gap-1 cursor-pointer">
+                            <Clock className="h-3.5 w-3.5 transition-colors group-hover:text-amber-500" />
+                            <span className="transition-colors group-hover:text-amber-500">
+                              {currentTab === 'archived' && question.archivedAt
+                                ? formatShortRelativeTime(question.archivedAt)
+                                : currentTab === 'trash' && question.deletedAt
+                                  ? formatShortRelativeTime(question.deletedAt)
+                                  : formatShortRelativeTime(question.generatedAt)}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {currentTab === 'archived'
+                              ? 'Archived'
+                              : currentTab === 'trash'
+                                ? 'Deleted'
+                                : 'Created'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+
+                  {/* Performance */}
+                  {currentTab === 'active' ? (
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="group flex items-center gap-1 cursor-pointer">
+                            <Target className="h-3.5 w-3.5 transition-colors group-hover:text-purple-500" />
+                            <span className="transition-colors group-hover:text-purple-500">
+                              {question.attemptCount === 0
+                                ? '-'
+                                : `${Math.round(((question.successRate || 0) * question.attemptCount) / 100)}/${question.attemptCount}`}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Correct / Total attempts</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <div className="group flex items-center gap-1 cursor-pointer opacity-40">
+                      <Target className="h-3.5 w-3.5 transition-colors group-hover:text-purple-500 group-hover:opacity-100" />
+                      <span className="transition-colors group-hover:text-purple-500 group-hover:opacity-100">
+                        -
+                      </span>
                     </div>
                   )}
-
-                  {/* Stats - only on active tab, de-emphasized */}
-                  {currentTab === 'active' && !isDue && (
-                    <span className="text-muted-foreground truncate">
-                      {question.attemptCount === 0
-                        ? 'Not attempted'
-                        : `${question.successRate}% · ${question.attemptCount} ${question.attemptCount === 1 ? 'attempt' : 'attempts'}`}
-                    </span>
-                  )}
-
-                  {/* Date - contextual based on tab */}
-                  <span className="text-muted-foreground ml-auto shrink-0">
-                    {currentTab === 'archived' && question.archivedAt
-                      ? formatShortRelativeTime(question.archivedAt)
-                      : currentTab === 'trash' && question.deletedAt
-                        ? formatShortRelativeTime(question.deletedAt)
-                        : formatShortRelativeTime(question.generatedAt)}
-                  </span>
                 </div>
               </div>
             </Card>
@@ -242,67 +298,87 @@ export function LibraryCards({
           {selectedQuestion && (
             <>
               <SheetHeader>
-                <SheetTitle className="text-left leading-relaxed">
+                <SheetTitle className="text-left leading-snug">
                   {selectedQuestion.question}
                 </SheetTitle>
               </SheetHeader>
 
               {/* Metadata */}
-              <div className="px-4 space-y-3">
+              <div className="px-4 space-y-2">
+                {/* Compact badges */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="px-2 py-0.5 text-xs">
                     {selectedQuestion.type === 'multiple-choice' ? 'Multiple Choice' : 'True/False'}
                   </Badge>
-                  {selectedQuestion.embedding && (
-                    <Badge variant="outline" className="text-success border-success/30">
-                      Semantic Search Enabled
+                  {selectedQuestion.embedding ? (
+                    <Badge
+                      variant="outline"
+                      className="px-2 py-0.5 text-xs text-success border-success/30"
+                    >
+                      Semantically Searchable
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="px-2 py-0.5 text-xs text-muted-foreground border-border"
+                    >
+                      Not Embedded
                     </Badge>
                   )}
                 </div>
 
-                {/* Stats */}
-                {currentTab === 'active' && (
-                  <div className="text-sm space-y-1">
-                    {selectedQuestion.attemptCount > 0 ? (
-                      <>
-                        <div>
-                          <span className="font-medium">
-                            {selectedQuestion.successRate}% success rate
+                {/* Icon-value stats */}
+                <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
+                  {currentTab === 'active' && (
+                    <>
+                      {/* Performance */}
+                      <div className="flex items-center gap-1.5">
+                        <Target className="h-4 w-4" />
+                        <span>
+                          {selectedQuestion.attemptCount > 0
+                            ? `${selectedQuestion.successRate}% (${Math.round(((selectedQuestion.successRate || 0) * selectedQuestion.attemptCount) / 100)}/${selectedQuestion.attemptCount})`
+                            : 'Not attempted'}
+                        </span>
+                      </div>
+
+                      {/* Due status */}
+                      {selectedQuestion.nextReview && (
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {selectedQuestion.nextReview < Date.now()
+                              ? 'Due now'
+                              : formatDueTime(selectedQuestion.nextReview)}
                           </span>
                         </div>
-                        <div className="text-muted-foreground">
-                          {selectedQuestion.attemptCount}{' '}
-                          {selectedQuestion.attemptCount === 1 ? 'attempt' : 'attempts'}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-muted-foreground">Not attempted yet</div>
-                    )}
+                      )}
+                    </>
+                  )}
 
-                    {selectedQuestion.nextReview && (
-                      <div className="text-muted-foreground">
-                        Next review:{' '}
-                        {selectedQuestion.nextReview < Date.now() ? (
-                          <span className="text-warning font-medium">Due now</span>
-                        ) : (
-                          formatDistanceToNow(selectedQuestion.nextReview, { addSuffix: true })
-                        )}
-                      </div>
-                    )}
+                  {/* Archived/Deleted date */}
+                  {currentTab === 'archived' && selectedQuestion.archivedAt && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4" />
+                      <span>Archived {formatShortRelativeTime(selectedQuestion.archivedAt)}</span>
+                    </div>
+                  )}
+                  {currentTab === 'trash' && selectedQuestion.deletedAt && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4" />
+                      <span>Deleted {formatShortRelativeTime(selectedQuestion.deletedAt)}</span>
+                    </div>
+                  )}
+
+                  {/* Created date */}
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    <span>Created {formatShortRelativeTime(selectedQuestion.generatedAt)}</span>
                   </div>
-                )}
-
-                <div className="text-sm text-muted-foreground">
-                  {currentTab === 'archived' && selectedQuestion.archivedAt
-                    ? `Archived ${formatDistanceToNow(selectedQuestion.archivedAt, { addSuffix: true })}`
-                    : currentTab === 'trash' && selectedQuestion.deletedAt
-                      ? `Deleted ${formatDistanceToNow(selectedQuestion.deletedAt, { addSuffix: true })}`
-                      : `Created ${formatDistanceToNow(selectedQuestion.generatedAt, { addSuffix: true })}`}
                 </div>
               </div>
 
               {/* Actions */}
-              <SheetFooter className="gap-2">
+              <SheetFooter className="border-t border-border/40 pt-4 gap-2">
                 {currentTab === 'active' && (
                   <>
                     {onArchive && (

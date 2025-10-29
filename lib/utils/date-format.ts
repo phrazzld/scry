@@ -51,3 +51,28 @@ export function formatCardDate(timestamp: number, includeAgo = false): string {
   }
   return short;
 }
+
+/**
+ * Format a future due time for spaced repetition cards
+ * Shows actionable scheduling information
+ * @param dueTimestamp - Unix timestamp in milliseconds of when card is due
+ * @returns Format like "Due now", "Due in 3h", "Due tomorrow", "Due Jan 15"
+ */
+export function formatDueTime(dueTimestamp: number): string {
+  const now = Date.now();
+  const diff = dueTimestamp - now;
+
+  if (diff <= 0) return 'Due now';
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 60) return `Due in ${minutes}m`;
+  if (hours < 24) return `Due in ${hours}h`;
+  if (days === 1) return 'Due tomorrow';
+  if (days < 7) return `Due in ${days}d`;
+
+  const date = new Date(dueTimestamp);
+  return `Due ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
