@@ -189,5 +189,21 @@ describe('reviewReducer', () => {
       expect(newState.isTransitioning).toBe(false);
       expect(newState.phase).toBe('empty');
     });
+
+    it('should clear isTransitioning when TRANSITION_FAILED', () => {
+      // This case handles when same question returns during transition
+      // (e.g., interaction save failed due to network error or auth issue)
+      const state = {
+        ...reviewingState,
+        lockId: null, // Lock released after REVIEW_COMPLETE
+        isTransitioning: true, // Waiting for next question
+      };
+      const newState = reviewReducer(state, { type: 'TRANSITION_FAILED' });
+
+      expect(newState.isTransitioning).toBe(false);
+      expect(newState.phase).toBe('reviewing'); // Stay in reviewing phase
+      expect(newState.question).toBe(mockQuestion); // Question retained
+      expect(newState.lockId).toBeNull(); // Lock stays released
+    });
   });
 });

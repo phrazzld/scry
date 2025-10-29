@@ -35,6 +35,7 @@ type ReviewAction =
       };
     }
   | { type: 'REVIEW_COMPLETE' }
+  | { type: 'TRANSITION_FAILED' }
   | { type: 'IGNORE_UPDATE'; reason: string };
 
 // Initial state
@@ -93,6 +94,14 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         phase: 'reviewing', // Stay in reviewing phase
         lockId: null, // Release lock so new question can load
         isTransitioning: true, // Mark as transitioning for UI feedback
+      };
+
+    case 'TRANSITION_FAILED':
+      // Clear transitioning state when same question returns during transition
+      // This happens when interaction save fails (e.g., network error, auth issue)
+      return {
+        ...state,
+        isTransitioning: false,
       };
 
     case 'IGNORE_UPDATE':
@@ -163,7 +172,7 @@ export function useReviewFlow() {
   useEffect(() => {
     // If data hasn't actually changed, skip processing (unless transitioning from loading)
     // Special case: after REVIEW_COMPLETE, we need to process even if same question returns
-    if (!dataHasChanged && state.phase !== 'loading') {
+    if (!dataHasChanged && state.phase !== 'loading' && !state.isTransitioning) {
       dispatch({ type: 'IGNORE_UPDATE', reason: 'Data unchanged from previous poll' });
       return;
     }
@@ -216,13 +225,20 @@ export function useReviewFlow() {
         // This ensures UI resets properly when incorrect answers trigger immediate review
         lastQuestionIdRef.current = nextReview.question._id;
       } else {
-        dispatch({
-          type: 'IGNORE_UPDATE',
-          reason: 'Poll executed but data unchanged - same question ID',
-        });
+        // Same question returned
+        if (state.isTransitioning) {
+          // If transitioning and same question returns (e.g., interaction save failed),
+          // clear transition state to prevent infinite loading
+          dispatch({ type: 'TRANSITION_FAILED' });
+        } else {
+          dispatch({
+            type: 'IGNORE_UPDATE',
+            reason: 'Poll executed but data unchanged - same question ID',
+          });
+        }
       }
     }
-  }, [nextReview, state.lockId, state.phase, dataHasChanged]);
+  }, [nextReview, state.lockId, state.phase, state.isTransitioning, dataHasChanged]);
 
   // Memoized handler for review completion
   const handleReviewComplete = useCallback(async () => {

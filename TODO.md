@@ -218,22 +218,22 @@ Run `pnpm test` to verify all tests pass
 ## Pre-Merge Checklist
 
 **Critical Fixes**:
-- [ ] CB-1: Fix loading timeout during transitions
-- [ ] CB-2: Reset UI state for same-question re-review
-- [ ] HP-1: Add test coverage for isTransitioning
+- [x] CB-1: Fix loading timeout during transitions
+- [x] CB-2: Reset UI state for same-question re-review
+- [x] HP-1: Add test coverage for isTransitioning
 
 **Optional Improvements**:
-- [ ] MP-1: Add aria-busy for accessibility
+- [x] MP-1: Add aria-busy for accessibility
 
 **Testing**:
-- [ ] Run `pnpm test` - all tests pass
-- [ ] Run `pnpm tsc --noEmit` - no TypeScript errors
+- [x] Run `pnpm test` - all tests pass
+- [x] Run `pnpm tsc --noEmit` - no TypeScript errors
 - [ ] Manual test: Network failure during transition shows timeout
 - [ ] Manual test: Same question re-review works (answer incorrectly)
 - [ ] Manual test: Screen reader announces loading state
 
 **Verification**:
-- [ ] All Codex P1 issues addressed
+- [x] All Codex P1 issues addressed
 - [ ] CI pipeline green
 - [ ] Ready for merge
 
