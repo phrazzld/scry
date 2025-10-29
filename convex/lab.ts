@@ -12,7 +12,7 @@ import { v } from 'convex/values';
 import pino from 'pino';
 import { z } from 'zod';
 
-import { internalAction } from './_generated/server';
+import { action } from './_generated/server';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 
 // Logger for this module
@@ -66,8 +66,12 @@ function interpolateTemplate(template: string, context: Record<string, string>):
  *
  * Runs N-phase prompt chain sequentially, validates output against schema,
  * returns ExecutionResult with metrics.
+ *
+ * Note: This is a public action (not internal) to allow client calls from the lab UI.
+ * The lab is dev-only (guarded by NODE_ENV check), and this function has no
+ * security concerns (validates inputs, reads API key from env, returns safe data).
  */
-export const executeConfig = internalAction({
+export const executeConfig = action({
   args: {
     configId: v.string(),
     configName: v.string(),
