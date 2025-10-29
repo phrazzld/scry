@@ -190,20 +190,31 @@ describe('reviewReducer', () => {
       expect(newState.phase).toBe('empty');
     });
 
-    it('should clear isTransitioning when TRANSITION_FAILED', () => {
-      // This case handles when same question returns during transition
-      // (e.g., interaction save failed due to network error or auth issue)
-      const state = {
+    it('should re-establish lock when same question returns during transition', () => {
+      // This case handles FSRS re-review: when same question returns during transition,
+      // we need to re-establish lock protection to prevent polling from replacing it
+      const initialState = {
         ...reviewingState,
         lockId: null, // Lock released after REVIEW_COMPLETE
         isTransitioning: true, // Waiting for next question
       };
-      const newState = reviewReducer(state, { type: 'TRANSITION_FAILED' });
 
-      expect(newState.isTransitioning).toBe(false);
-      expect(newState.phase).toBe('reviewing'); // Stay in reviewing phase
-      expect(newState.question).toBe(mockQuestion); // Question retained
-      expect(newState.lockId).toBeNull(); // Lock stays released
+      const sameQuestionPayload = {
+        question: mockQuestion,
+        questionId: 'q1' as Id<'questions'>, // Same ID
+        interactions: [],
+        lockId: 'q1-1234567890', // New lock generated
+      };
+
+      const newState = reviewReducer(initialState, {
+        type: 'QUESTION_RECEIVED',
+        payload: sameQuestionPayload,
+      });
+
+      expect(newState.phase).toBe('reviewing');
+      expect(newState.lockId).toBe('q1-1234567890'); // Lock re-established
+      expect(newState.isTransitioning).toBe(false); // Transition complete
+      expect(newState.question).toBe(mockQuestion); // Question set
     });
   });
 });

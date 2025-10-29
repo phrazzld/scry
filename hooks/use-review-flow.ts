@@ -35,7 +35,6 @@ type ReviewAction =
       };
     }
   | { type: 'REVIEW_COMPLETE' }
-  | { type: 'TRANSITION_FAILED' }
   | { type: 'IGNORE_UPDATE'; reason: string };
 
 // Initial state
@@ -94,14 +93,6 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         phase: 'reviewing', // Stay in reviewing phase
         lockId: null, // Release lock so new question can load
         isTransitioning: true, // Mark as transitioning for UI feedback
-      };
-
-    case 'TRANSITION_FAILED':
-      // Clear transitioning state when same question returns during transition
-      // This happens when interaction save fails (e.g., network error, auth issue)
-      return {
-        ...state,
-        isTransitioning: false,
       };
 
     case 'IGNORE_UPDATE':
@@ -227,9 +218,33 @@ export function useReviewFlow() {
       } else {
         // Same question returned
         if (state.isTransitioning) {
-          // If transitioning and same question returns (e.g., interaction save failed),
-          // clear transition state to prevent infinite loading
-          dispatch({ type: 'TRANSITION_FAILED' });
+          // Treat as full question receipt to re-establish lock protection
+          // This is critical for FSRS re-review: lock prevents polling from
+          // replacing question while user is mid-review
+
+          // Convert to quiz format for compatibility
+          const question: SimpleQuestion = {
+            question: nextReview.question.question,
+            options: nextReview.question.options,
+            correctAnswer: nextReview.question.correctAnswer,
+            explanation: nextReview.question.explanation || '',
+          };
+
+          // Generate new lock ID to protect re-review session
+          const lockId = `${nextReview.question._id}-${Date.now()}`;
+
+          dispatch({
+            type: 'QUESTION_RECEIVED',
+            payload: {
+              question,
+              questionId: nextReview.question._id,
+              interactions: nextReview.interactions || [],
+              lockId, // New lock protects re-review session
+            },
+          });
+
+          // Note: lastQuestionIdRef stays unchanged, so this is still detected
+          // as "same question" on next poll (important for deduplication)
         } else {
           dispatch({
             type: 'IGNORE_UPDATE',
