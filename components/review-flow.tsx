@@ -61,6 +61,14 @@ export function ReviewFlow() {
     _refreshTimestamp: refreshKey,
   });
 
+  // Cache the last known due count to prevent flicker during refetch
+  const [cachedDueCount, setCachedDueCount] = useState(0);
+  useEffect(() => {
+    if (dueCountData !== undefined) {
+      setCachedDueCount(dueCountData.totalReviewable);
+    }
+  }, [dueCountData]);
+
   // Edit/Delete functionality
   const [editModalOpen, setEditModalOpen] = useState(false);
   const { optimisticEdit, optimisticDelete } = useQuestionMutations();
@@ -231,16 +239,14 @@ export function ReviewFlow() {
       <PageContainer className="py-6">
         <div className="max-w-[760px]">
           <article className="space-y-6">
-            {/* Due count indicator - refined pill design */}
-            {dueCountData && (
-              <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 shadow-sm">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium tabular-nums">
-                  <span className="text-foreground">{dueCountData.totalReviewable}</span>
-                  <span className="text-muted-foreground ml-1">cards due</span>
-                </span>
-              </div>
-            )}
+            {/* Due count indicator - refined pill design - always visible, maintains value during refetch */}
+            <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 shadow-sm">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium tabular-nums">
+                <span className="text-foreground">{cachedDueCount}</span>
+                <span className="text-muted-foreground ml-1">cards due</span>
+              </span>
+            </div>
 
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
