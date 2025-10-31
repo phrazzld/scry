@@ -156,8 +156,16 @@ export function UnifiedLabClient() {
             provider: selectedConfig.provider,
             model: selectedConfig.model,
             temperature: selectedConfig.temperature,
-            maxTokens: selectedConfig.maxTokens,
-            topP: selectedConfig.topP,
+            // Conditionally spread provider-specific properties
+            ...(selectedConfig.provider === 'google' && {
+              maxTokens: selectedConfig.maxTokens,
+              topP: selectedConfig.topP,
+            }),
+            ...(selectedConfig.provider === 'openai' && {
+              reasoningEffort: selectedConfig.reasoningEffort,
+              verbosity: selectedConfig.verbosity,
+              maxCompletionTokens: selectedConfig.maxCompletionTokens,
+            }),
             phases: selectedConfig.phases,
             testInput: newRun.input,
           }),
@@ -167,8 +175,16 @@ export function UnifiedLabClient() {
             provider: comparisonConfig.provider,
             model: comparisonConfig.model,
             temperature: comparisonConfig.temperature,
-            maxTokens: comparisonConfig.maxTokens,
-            topP: comparisonConfig.topP,
+            // Conditionally spread provider-specific properties
+            ...(comparisonConfig.provider === 'google' && {
+              maxTokens: comparisonConfig.maxTokens,
+              topP: comparisonConfig.topP,
+            }),
+            ...(comparisonConfig.provider === 'openai' && {
+              reasoningEffort: comparisonConfig.reasoningEffort,
+              verbosity: comparisonConfig.verbosity,
+              maxCompletionTokens: comparisonConfig.maxCompletionTokens,
+            }),
             phases: comparisonConfig.phases,
             testInput: newRun.input,
           }),
@@ -211,8 +227,16 @@ export function UnifiedLabClient() {
           provider: selectedConfig.provider,
           model: selectedConfig.model,
           temperature: selectedConfig.temperature,
-          maxTokens: selectedConfig.maxTokens,
-          topP: selectedConfig.topP,
+          // Conditionally spread provider-specific properties
+          ...(selectedConfig.provider === 'google' && {
+            maxTokens: selectedConfig.maxTokens,
+            topP: selectedConfig.topP,
+          }),
+          ...(selectedConfig.provider === 'openai' && {
+            reasoningEffort: selectedConfig.reasoningEffort,
+            verbosity: selectedConfig.verbosity,
+            maxCompletionTokens: selectedConfig.maxCompletionTokens,
+          }),
           phases: selectedConfig.phases,
           testInput: newRun.input,
         });

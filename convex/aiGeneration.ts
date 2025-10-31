@@ -7,7 +7,8 @@
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateObject, generateText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateObject, generateText, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { z } from 'zod';
@@ -110,39 +111,102 @@ export const processJob = internalAction({
   handler: async (ctx, args) => {
     const startTime = Date.now();
 
-    // Initialize Google AI client with API key from environment at runtime
-    // This ensures the key is read fresh from env vars, not cached from module load time
-    const apiKey = process.env.GOOGLE_AI_API_KEY;
-    const keyDiagnostics = getSecretDiagnostics(apiKey);
+    // Initialize AI provider from environment configuration
+    // Defaults to OpenAI for production, but can be overridden via env vars
+    const provider = process.env.AI_PROVIDER || 'openai';
+    const modelName = process.env.AI_MODEL || 'gpt-5-mini';
+    const reasoningEffort = process.env.AI_REASONING_EFFORT || 'high';
 
-    logger.info(
-      {
-        jobId: args.jobId,
-        keyDiagnostics,
-        deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-      },
-      'Read Google AI API key metadata from environment'
-    );
+    // Declare keyDiagnostics outside conditional blocks for error handler access
+    let keyDiagnostics: ReturnType<typeof getSecretDiagnostics> = {
+      present: false,
+      length: 0,
+      fingerprint: null,
+    };
+    let model: LanguageModel;
 
-    if (!apiKey || apiKey === '') {
-      const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
-      logger.error(
+    if (provider === 'google') {
+      const apiKey = process.env.GOOGLE_AI_API_KEY;
+      keyDiagnostics = getSecretDiagnostics(apiKey);
+
+      logger.info(
         {
           jobId: args.jobId,
+          provider: 'google',
+          model: modelName,
           keyDiagnostics,
           deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
         },
-        errorMessage
+        'Using Google AI provider'
       );
+
+      if (!apiKey || apiKey === '') {
+        const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
+        logger.error(
+          {
+            jobId: args.jobId,
+            keyDiagnostics,
+            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+          },
+          errorMessage
+        );
+        await ctx.runMutation(internal.generationJobs.failJob, {
+          jobId: args.jobId,
+          errorMessage,
+          errorCode: 'API_KEY',
+          retryable: false,
+        });
+        throw new Error(errorMessage);
+      }
+      const google = createGoogleGenerativeAI({ apiKey });
+      model = google(modelName) as unknown as LanguageModel;
+    } else if (provider === 'openai') {
+      const apiKey = process.env.OPENAI_API_KEY;
+      keyDiagnostics = getSecretDiagnostics(apiKey);
+
+      logger.info(
+        {
+          jobId: args.jobId,
+          provider: 'openai',
+          model: modelName,
+          reasoningEffort,
+          keyDiagnostics,
+          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+        },
+        'Using OpenAI provider with reasoning'
+      );
+
+      if (!apiKey || apiKey === '') {
+        const errorMessage = 'OPENAI_API_KEY not configured in Convex environment';
+        logger.error(
+          {
+            jobId: args.jobId,
+            keyDiagnostics,
+            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+          },
+          errorMessage
+        );
+        await ctx.runMutation(internal.generationJobs.failJob, {
+          jobId: args.jobId,
+          errorMessage,
+          errorCode: 'API_KEY',
+          retryable: false,
+        });
+        throw new Error(errorMessage);
+      }
+      const openai = createOpenAI({ apiKey });
+      model = openai(modelName) as unknown as LanguageModel;
+    } else {
+      const errorMessage = `Unsupported AI_PROVIDER: ${provider}. Use 'google' or 'openai'.`;
+      logger.error({ jobId: args.jobId, provider }, errorMessage);
       await ctx.runMutation(internal.generationJobs.failJob, {
         jobId: args.jobId,
         errorMessage,
-        errorCode: 'API_KEY',
+        errorCode: 'CONFIG_ERROR',
         retryable: false,
       });
       throw new Error(errorMessage);
     }
-    const google = createGoogleGenerativeAI({ apiKey });
 
     try {
       logger.info({ jobId: args.jobId }, 'Starting job processing');
@@ -176,8 +240,13 @@ export const processJob = internalAction({
 
       const intentPrompt = buildIntentClarificationPrompt(job.prompt);
       const { text: clarifiedIntent } = await generateText({
-        model: google('gemini-2.5-flash'),
+        model,
         prompt: intentPrompt,
+        // OpenAI reasoning for Phase 1 (use medium effort for analysis)
+        ...(provider === 'openai' && {
+          reasoning_effort: 'medium',
+          verbosity: 'medium',
+        }),
       });
 
       logger.info(
@@ -208,18 +277,37 @@ export const processJob = internalAction({
 
       logger.info({ jobId: args.jobId }, 'Starting question generation with schema validation');
 
-      const { object } = await generateObject({
-        model: google('gemini-2.5-flash'),
+      const response = await generateObject({
+        model,
         schema: questionsSchema,
         prompt: questionPrompt,
+        // OpenAI reasoning for Phase 2 (use configured effort level for quality)
+        ...(provider === 'openai' && {
+          reasoning_effort: reasoningEffort as 'minimal' | 'low' | 'medium' | 'high',
+          verbosity: 'medium',
+          max_completion_tokens: 65536,
+        }),
       });
+
+      const { object } = response;
+
+      // Log reasoning token usage if available (OpenAI)
+      // Type assertion needed as completion_tokens_details is OpenAI-specific
+      const reasoningTokens =
+        (response.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
+          ?.completion_tokens_details?.reasoning_tokens || 0;
 
       logger.info(
         {
           jobId: args.jobId,
           questionCount: object.questions.length,
+          totalTokens: response.usage?.totalTokens,
+          reasoningTokens,
+          ...(reasoningTokens > 0 && {
+            reasoningPercentage: Math.round((reasoningTokens / response.usage.totalTokens) * 100),
+          }),
         },
-        'Questions generated and validated'
+        'Questions generated and validated with reasoning'
       );
 
       // Phase 2.5: Generate embeddings for semantic search

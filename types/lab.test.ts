@@ -39,7 +39,8 @@ describe('Lab Type Guards', () => {
         provider: 'openai',
         model: 'gpt-5-mini',
         temperature: 0.7,
-        maxTokens: 4096,
+        reasoningEffort: 'high', // OpenAI-specific parameter
+        maxCompletionTokens: 4096, // OpenAI uses maxCompletionTokens, not maxTokens
         phases: [{ name: 'Test', template: 'Test prompt' }],
         createdAt: Date.now(),
         updatedAt: Date.now(),

@@ -38,16 +38,19 @@ import type { ExecutionResult, InfraConfig, TestInput } from '@/types/lab';
  *
  * This references the exact same prompt templates used in production,
  * ensuring the lab always shows the current production infrastructure.
+ * Now using OpenAI GPT-5 mini with high reasoning for superior question quality.
  */
 function createProdConfig(): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
-    name: 'PRODUCTION (Current)',
-    description: 'Live production infrastructure - reflects actual prompts used in app',
+    name: 'PRODUCTION (OpenAI GPT-5)',
+    description: 'Live production infrastructure - OpenAI GPT-5 mini with high reasoning',
     provider: PROD_CONFIG_METADATA.provider,
     model: PROD_CONFIG_METADATA.model,
-    // Production omits temperature/maxTokens/topP (uses model defaults)
+    reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
+    verbosity: 'medium' as const,
+    // Production omits temperature/maxCompletionTokens (uses model defaults)
     // DO NOT add them - structured output is sensitive to parameter overrides
     phases: [
       {
@@ -295,8 +298,16 @@ export function LabClient() {
           provider: config.provider,
           model: config.model,
           temperature: config.temperature,
-          maxTokens: config.maxTokens,
-          topP: config.topP,
+          // Conditionally spread provider-specific properties
+          ...(config.provider === 'google' && {
+            maxTokens: config.maxTokens,
+            topP: config.topP,
+          }),
+          ...(config.provider === 'openai' && {
+            reasoningEffort: config.reasoningEffort,
+            verbosity: config.verbosity,
+            maxCompletionTokens: config.maxCompletionTokens,
+          }),
           phases: config.phases,
           testInput: input.text,
         })

@@ -2117,6 +2117,51 @@ export const assessQuestionQuality = internalAction({
 
 ---
 
+---
+
+### [PRODUCT] Question Generation & Maintenance
+
+**Future Enhancements**
+
+- **Maintenance Suggestion System**: Nightly cron job that finds semantic duplicates using existing embeddings
+  - Implementation: `convex/questionMaintenance.ts` with cron trigger
+  - Features: Cluster detection (similarity > 0.85), user-approval workflow, maintenance UI tab
+  - Value: Handles duplicates from ANY source (generations, manual entry, imports)
+  - Estimated effort: 2-3 days (backend cron, suggestion schema, UI tab)
+  - Note: Deferred because deduplication is a data maintenance problem, not a generation problem
+
+- **Structured Phase 1 Output**: Return JSON with testable propositions instead of natural language
+  - Benefits: Programmatic validation, explicit difficulty planning, better debugging
+  - Complexity: Requires new Zod schema, updates to Phase 2 processing, more rigid structure
+  - Value: Nice-to-have for observability, not critical for quality
+  - Estimated effort: 1-2 days
+
+- **Selective Regeneration**: If specific questions fail validation, regenerate only those
+  - Current: User retries entire job
+  - Improvement: Identify low-quality questions, regenerate just those
+  - Dependency: Requires validation layer (currently prompt-based)
+  - Estimated effort: 2-3 days
+
+**Nice-to-Have Improvements**
+
+- **Difficulty Ordering**: Sort questions easy → hard automatically post-generation
+  - Current: Questions in arbitrary order
+  - Value: Better learning progression
+  - Effort: Trivial (simple sort by difficulty tag if LLM tags them)
+
+- **Format Distribution Analytics**: Track cloze vs MCQ ratios in Genesis Lab results
+  - Value: Quick visual validation of format matching rules
+  - Effort: Small (add chart to ResultsGrid component)
+
+**Technical Debt Opportunities**
+
+- **Prompt Template Testing**: Unit tests for prompt template functions
+  - Current: Manual testing in Genesis Lab only
+  - Benefit: Regression detection when modifying prompts
+  - Effort: Medium (need to mock LLM responses or use fixtures)
+
+---
+
 ## Later (Someday/Maybe, 6+ months)
 
 ### [PRODUCT] Quality Feedback Loop

@@ -183,14 +183,38 @@ export function ConfigManager({
                 <div className="space-y-2 pt-2 border-t">
                   <div className="text-xs space-y-1">
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-muted-foreground">Max Tokens:</span>{' '}
-                        {config.maxTokens}
-                      </div>
-                      {config.topP !== undefined && (
-                        <div>
-                          <span className="text-muted-foreground">Top P:</span> {config.topP}
-                        </div>
+                      {/* Google-specific parameters */}
+                      {config.provider === 'google' && (
+                        <>
+                          {config.maxTokens !== undefined && (
+                            <div>
+                              <span className="text-muted-foreground">Max Tokens:</span>{' '}
+                              {config.maxTokens}
+                            </div>
+                          )}
+                          {config.topP !== undefined && (
+                            <div>
+                              <span className="text-muted-foreground">Top P:</span> {config.topP}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {/* OpenAI-specific parameters */}
+                      {config.provider === 'openai' && (
+                        <>
+                          {config.reasoningEffort && (
+                            <div>
+                              <span className="text-muted-foreground">Reasoning:</span>{' '}
+                              {config.reasoningEffort}
+                            </div>
+                          )}
+                          {config.verbosity && (
+                            <div>
+                              <span className="text-muted-foreground">Verbosity:</span>{' '}
+                              {config.verbosity}
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

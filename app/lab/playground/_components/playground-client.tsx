@@ -122,8 +122,16 @@ export function PlaygroundClient() {
           provider: config.provider,
           model: config.model,
           temperature: config.temperature,
-          maxTokens: config.maxTokens,
-          topP: config.topP,
+          // Conditionally spread provider-specific properties
+          ...(config.provider === 'google' && {
+            maxTokens: config.maxTokens,
+            topP: config.topP,
+          }),
+          ...(config.provider === 'openai' && {
+            reasoningEffort: config.reasoningEffort,
+            verbosity: config.verbosity,
+            maxCompletionTokens: config.maxCompletionTokens,
+          }),
           phases: config.phases,
           testInput: input.trim(),
         });

@@ -46,12 +46,13 @@ Operational guidance for Claude Code working in this repository.
 - `NEXT_PUBLIC_CONVEX_URL` is auto-set by `npx convex deploy` (do not manually configure)
 
 **Variable Distribution:**
-- **Convex backend env vars**: `GOOGLE_AI_API_KEY`, `NEXT_PUBLIC_APP_URL`
+- **Convex backend env vars**: `OPENAI_API_KEY`, `GOOGLE_AI_API_KEY`, `AI_PROVIDER`, `AI_MODEL`, `AI_REASONING_EFFORT`, `NEXT_PUBLIC_APP_URL`
   - Set in Convex dashboard → Settings → Environment Variables
   - Must be configured separately for production and preview backends
-- **Vercel env vars**: `CONVEX_DEPLOY_KEY` (prod/preview), `CLERK_*`
+- **Vercel env vars**: `CONVEX_DEPLOY_KEY` (prod/preview), `CLERK_*`, `OPENAI_API_KEY` (for Convex deployments)
   - Production: `prod:` key for production backend
   - Preview: `preview:` key for isolated preview backends
+  - `OPENAI_API_KEY` needed in Vercel for automated deployments that trigger Convex backend deploys
 
 ### Environment Variable Loading (CRITICAL)
 
@@ -148,6 +149,137 @@ Both run: `npx convex deploy --cmd 'pnpm build'`
 
 **Lifecycle:** pending → processing → completed/failed/cancelled
 **Cleanup:** Daily cron (3 AM UTC) removes completed (7d), failed (30d)
+
+## AI Provider Configuration
+
+**Production Provider:** OpenAI GPT-5 mini with high reasoning effort
+**Fallback Provider:** Google Gemini 2.5 Flash (kept for rollback capability)
+
+### Multi-Provider Architecture
+
+**Provider Selection (Environment-Driven):**
+- Set via `AI_PROVIDER` env var: `openai` (default) or `google`
+- Production uses OpenAI for superior question quality via reasoning models
+- Google provider kept configured for instant rollback if needed
+
+**Implementation Pattern:**
+- **No provider factory** - inline conditionals in `convex/lab.ts` and `convex/aiGeneration.ts`
+- **Discriminated unions** - TypeScript type safety via `GoogleInfraConfig | OpenAIInfraConfig`
+- **Minimal abstraction** - only abstract when 3+ concrete examples exist (Carmack's rule)
+
+### OpenAI Reasoning Models
+
+**What are reasoning models?**
+- GPT-5, GPT-5-mini, GPT-5-nano perform internal chain-of-thought before responding
+- Invisible "reasoning tokens" billed as output tokens (~30-50% of total)
+- Superior quality for structured output, format adherence, context injection
+
+**Reasoning Parameters:**
+```typescript
+reasoning_effort: 'minimal' | 'low' | 'medium' | 'high'
+  // Controls internal reasoning token budget
+  // Production uses 'high' for maximum question quality
+
+verbosity: 'low' | 'medium' | 'high'
+  // Controls output conciseness (not reasoning depth)
+  // Production uses 'medium' for balanced explanations
+
+max_completion_tokens: number
+  // TOTAL tokens including invisible reasoning tokens
+  // Production uses 65536 (model default) for long-form generation
+```
+
+**Prompt Optimization for Reasoning Models:**
+- ✅ Direct task descriptions with clear examples
+- ✅ Explicit JSON schema requirements
+- ❌ "Think step by step" (redundant - model does this internally)
+- ❌ "Explain your reasoning" (wastes output tokens)
+
+### Configuration Reference
+
+**Required Environment Variables:**
+
+```bash
+# Convex Backend (set via: npx convex env set VAR value --prod)
+OPENAI_API_KEY=sk-proj-...              # OpenAI API key
+AI_PROVIDER=openai                       # Provider selection
+AI_MODEL=gpt-5-mini                      # Model name
+AI_REASONING_EFFORT=high                 # Reasoning budget (openai only)
+
+# Kept for rollback
+GOOGLE_AI_API_KEY=AIzaSy...             # Google AI key
+
+# Vercel (set via: vercel env add OPENAI_API_KEY production)
+OPENAI_API_KEY=sk-proj-...              # Needed for Convex deployments during Vercel build
+```
+
+**Configuration Locations:**
+- `.env.local` - Local development (both Next.js and Convex via `npx convex dev`)
+- `.env.production` - Production reference (not directly used, copied to Convex/Vercel)
+- Convex dashboard - Production backend env vars
+- Vercel dashboard - Build-time env vars (for Convex deployments)
+
+### Cost Analysis
+
+**OpenAI GPT-5-mini (high reasoning):**
+- Input: $0.25/M tokens
+- Output: $2.00/M tokens (includes reasoning tokens)
+- Per generation: ~$0.0163 (avg 4k input, 2.5k output + 2k reasoning)
+
+**Google Gemini 2.5 Flash:**
+- Input: $0.10/M tokens
+- Output: $0.40/M tokens
+- Per generation: ~$0.0021 (avg 4k input, 2.5k output)
+
+**Cost Increase:** ~8x higher for OpenAI
+**Justification:** Reasoning models deliver superior:
+- Format adherence (fewer schema validation errors)
+- Context injection (better source attribution in questions)
+- Deduplication (fewer redundant questions)
+- Overall question quality (measured in Genesis Lab)
+
+### Rollback Procedures
+
+**Instant rollback to Google Gemini:**
+```bash
+# Production
+npx convex env set AI_PROVIDER "google" --prod
+
+# Verify
+npx convex env list --prod | grep AI_PROVIDER
+```
+
+**No code deployment needed** - provider switch is environment-driven
+
+**When to rollback:**
+- OpenAI API outage (check status.openai.com)
+- Cost concerns (monitor usage in OpenAI dashboard)
+- Quality regression (compare Genesis Lab results)
+
+### Genesis Laboratory Testing
+
+**PROD Baseline Config:**
+- Name: "PRODUCTION (OpenAI GPT-5)"
+- Provider: `openai`
+- Model: `gpt-5-mini`
+- Reasoning Effort: `high`
+- Verbosity: `medium`
+- Auto-updated from `convex/lib/promptTemplates.ts:PROD_CONFIG_METADATA`
+
+**Comparing Providers:**
+1. Create test input in Genesis Lab (e.g., "Nicene Creed")
+2. PROD config uses OpenAI (baseline)
+3. Create custom config with `provider: "google"` (comparison)
+4. Run both configs on same input
+5. Compare: format adherence, context injection, deduplication, reasoning token usage
+
+### References
+
+- **Type definitions:** `types/lab.ts` - Discriminated unions for provider configs
+- **Executor:** `convex/lab.ts` - Genesis Lab multi-phase executor
+- **Production pipeline:** `convex/aiGeneration.ts` - Background question generation
+- **Prompt templates:** `convex/lib/promptTemplates.ts` - Single source of truth
+- **UI client:** `app/lab/_components/lab-client.tsx` - PROD config creation
 
 ## Convex Real-Time (Zero Polling)
 

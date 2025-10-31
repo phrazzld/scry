@@ -23,7 +23,14 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { isValidConfig, type AIProvider, type InfraConfig, type PromptPhase } from '@/types/lab';
+import {
+  isValidConfig,
+  type AIProvider,
+  type GoogleInfraConfig,
+  type InfraConfig,
+  type OpenAIInfraConfig,
+  type PromptPhase,
+} from '@/types/lab';
 
 interface ConfigEditorProps {
   config?: InfraConfig; // Existing config to edit (undefined for create)
@@ -43,9 +50,13 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
     config?.temperature !== undefined ? config.temperature.toString() : ''
   );
   const [maxTokens, setMaxTokens] = useState(
-    config?.maxTokens !== undefined ? config.maxTokens.toString() : ''
+    config?.provider === 'google' && config.maxTokens !== undefined
+      ? config.maxTokens.toString()
+      : ''
   );
-  const [topP, setTopP] = useState(config?.topP?.toString() || '');
+  const [topP, setTopP] = useState(
+    config?.provider === 'google' && config.topP !== undefined ? config.topP.toString() : ''
+  );
   const [phases, setPhases] = useState<PromptPhase[]>(
     config?.phases || [
       {
@@ -101,16 +112,13 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
       }
     }
 
-    const newConfig: InfraConfig = {
+    // Build provider-specific config based on provider selection
+    const baseFields = {
       id: config?.id || Date.now().toString(),
       name: name.trim(),
       description: description.trim() || undefined,
       isProd: config?.isProd || false,
-      provider,
       model: model.trim(),
-      temperature: tempNum,
-      maxTokens: tokensNum,
-      topP: topPNum,
       phases: phases.map((p) => ({
         name: p.name.trim(),
         template: p.template.trim(),
@@ -119,6 +127,26 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
       createdAt: config?.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
+
+    let newConfig: InfraConfig;
+    if (provider === 'google') {
+      const googleConfig: GoogleInfraConfig = {
+        ...baseFields,
+        provider: 'google',
+        temperature: tempNum,
+        maxTokens: tokensNum,
+        topP: topPNum,
+      };
+      newConfig = googleConfig;
+    } else {
+      // OpenAI config (reasoningEffort/verbosity/maxCompletionTokens not available in this editor yet)
+      const openaiConfig: OpenAIInfraConfig = {
+        ...baseFields,
+        provider: 'openai',
+        temperature: tempNum,
+      };
+      newConfig = openaiConfig;
+    }
 
     if (!isValidConfig(newConfig)) {
       toast.error('Invalid configuration');

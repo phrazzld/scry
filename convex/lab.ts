@@ -3,11 +3,12 @@
  *
  * Handles execution of infrastructure configurations for testing.
  * Supports multi-phase prompt chains with template interpolation.
- * Currently supports Google AI provider (extensible to OpenAI/Anthropic).
+ * Supports Google AI and OpenAI providers (including GPT-5 reasoning models).
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateObject } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateObject, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { z } from 'zod';
@@ -77,9 +78,16 @@ export const executeConfig = action({
     configName: v.string(),
     provider: v.string(),
     model: v.string(),
+    // Google parameters
     temperature: v.optional(v.number()),
     maxTokens: v.optional(v.number()),
     topP: v.optional(v.number()),
+    // OpenAI reasoning parameters
+    reasoningEffort: v.optional(
+      v.union(v.literal('minimal'), v.literal('low'), v.literal('medium'), v.literal('high'))
+    ),
+    verbosity: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'))),
+    maxCompletionTokens: v.optional(v.number()),
     phases: v.array(
       v.object({
         name: v.string(),
@@ -105,40 +113,55 @@ export const executeConfig = action({
         'Starting config execution'
       );
 
-      // Initialize provider (currently only Google supported)
-      if (args.provider !== 'google') {
-        throw new Error(
-          `Provider '${args.provider}' not yet supported. Currently only 'google' is implemented.`
-        );
-      }
+      // Initialize provider based on config
+      let model: LanguageModel;
+      if (args.provider === 'google') {
+        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        const keyDiagnostics = getSecretDiagnostics(apiKey);
 
-      const apiKey = process.env.GOOGLE_AI_API_KEY;
-      const keyDiagnostics = getSecretDiagnostics(apiKey);
-
-      logger.info(
-        {
-          configId: args.configId,
-          keyDiagnostics,
-          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-        },
-        'Read Google AI API key metadata from environment'
-      );
-
-      if (!apiKey || apiKey === '') {
-        const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
-        logger.error(
+        logger.info(
           {
             configId: args.configId,
+            provider: 'google',
             keyDiagnostics,
             deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
           },
-          errorMessage
+          'Using Google AI provider'
         );
-        throw new Error(errorMessage);
-      }
 
-      const google = createGoogleGenerativeAI({ apiKey });
-      const model = google(args.model);
+        if (!apiKey || apiKey === '') {
+          const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
+          logger.error({ configId: args.configId, keyDiagnostics }, errorMessage);
+          throw new Error(errorMessage);
+        }
+
+        const google = createGoogleGenerativeAI({ apiKey });
+        model = google(args.model) as unknown as LanguageModel;
+      } else if (args.provider === 'openai') {
+        const apiKey = process.env.OPENAI_API_KEY;
+        const keyDiagnostics = getSecretDiagnostics(apiKey);
+
+        logger.info(
+          {
+            configId: args.configId,
+            provider: 'openai',
+            keyDiagnostics,
+            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+          },
+          'Using OpenAI provider'
+        );
+
+        if (!apiKey || apiKey === '') {
+          const errorMessage = 'OPENAI_API_KEY not configured in Convex environment';
+          logger.error({ configId: args.configId, keyDiagnostics }, errorMessage);
+          throw new Error(errorMessage);
+        }
+
+        const openai = createOpenAI({ apiKey });
+        model = openai(args.model) as unknown as LanguageModel;
+      } else {
+        throw new Error(`Provider '${args.provider}' not supported. Use 'google' or 'openai'.`);
+      }
 
       // Execute N-phase chain
       const context: Record<string, string> = {
@@ -170,13 +193,24 @@ export const executeConfig = action({
             model,
             schema: questionsSchema,
             prompt,
+            // Standard parameters (Google + OpenAI)
             ...(args.temperature !== undefined && { temperature: args.temperature }),
             ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
             ...(args.topP !== undefined && { topP: args.topP }),
+            // OpenAI reasoning parameters (ignored by Google models)
+            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
+            ...(args.verbosity && { verbosity: args.verbosity }),
+            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
           });
 
           finalOutput = response.object;
           totalTokens += response.usage?.totalTokens || 0;
+
+          // Log reasoning token usage if available (OpenAI)
+          // Type assertion needed as completion_tokens_details is OpenAI-specific
+          const reasoningTokens =
+            (response.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
+              ?.completion_tokens_details?.reasoning_tokens || 0;
 
           logger.info(
             {
@@ -184,6 +218,12 @@ export const executeConfig = action({
               phase: i + 1,
               questionCount: response.object.questions.length,
               tokensUsed: response.usage?.totalTokens || 0,
+              reasoningTokens,
+              ...(reasoningTokens > 0 && {
+                reasoningPercentage: Math.round(
+                  (reasoningTokens / response.usage.totalTokens) * 100
+                ),
+              }),
             },
             'Final phase completed'
           );
@@ -194,9 +234,14 @@ export const executeConfig = action({
           const response = await genText({
             model,
             prompt,
+            // Standard parameters (Google + OpenAI)
             ...(args.temperature !== undefined && { temperature: args.temperature }),
             ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
             ...(args.topP !== undefined && { topP: args.topP }),
+            // OpenAI reasoning parameters (ignored by Google models)
+            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
+            ...(args.verbosity && { verbosity: args.verbosity }),
+            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
           });
 
           const output = response.text;
