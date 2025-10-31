@@ -1,8 +1,8 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-20
-**Analysis Method**: Strategic roadmap synthesis + 7-perspective specialized audit
-**Overall Grade**: A- (Excellent technical foundation, strategic intelligence layer needed)
+**Last Groomed**: 2025-10-31
+**Analysis Method**: Quality infrastructure audit + platform engineering review
+**Overall Grade**: A- (Strong foundation, quality gates needed refinement)
 
 ---
 
@@ -11,6 +11,276 @@
 ### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
 - we are consistently using gigabytes of database bandwidth each day
 - this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
+
+---
+
+## Quality Gates Enhancements (from 2025-10-31 audit)
+
+### [DEVOPS] Alternative Coverage Reporting Solutions
+
+**Context**: Codecov recommended in TODO.md, but alternatives exist for different needs.
+
+**Options**:
+
+**1. GitHub Pages Coverage Report** (2h)
+- Deploy HTML coverage report to gh-pages branch after main merges
+- Accessible at `https://username.github.io/scry/coverage`
+- **Pros**: No external dependency, full HTML report always accessible
+- **Cons**: No PR integration, no trend tracking
+- **Use case**: Private repos wanting coverage reports without paid service
+
+**2. Self-Hosted Coverage Badge** (2h)
+- Generate badge JSON in CI, store in GitHub Gist
+- Use dynamic-badges-action to create badge from JSON
+- **Pros**: Free, no signup, works for private repos
+- **Cons**: No trend visualization, manual setup
+
+**Decision**: Use Codecov (in TODO.md) for superior features. These alternatives documented for teams with different constraints.
+
+**Effort**: 2-4h | **Impact**: LOW - Alternative approaches, not improvements
+
+---
+
+### [DEVOPS] Advanced Lighthouse CI Features
+
+**Context**: Basic Lighthouse CI in TODO.md. These enhancements add sophistication.
+
+**Features**:
+
+**1. Lighthouse Server (self-hosted dashboard)** (1d)
+- Permanent storage of Lighthouse results
+- Historical trend charts
+- Compare multiple branches
+- Requires: Docker deployment, PostgreSQL database
+- **Value**: Better than temporary-public-storage, but maintenance burden
+
+**2. Budget.json per route** (2h)
+- Different performance budgets for different pages
+- Example: Homepage 85 score, admin dashboard 75 score
+- More granular than global thresholds
+- **Value**: Prevents "admin page is slow so we lower global budget"
+
+**3. Custom Lighthouse plugins** (3-4h)
+- Audit custom metrics (e.g., "time to first question rendered")
+- Requires: Lighthouse plugin development
+- **Value**: App-specific performance metrics
+
+**Decision**: Start with basic Lighthouse CI (TODO.md). Add these if performance monitoring becomes critical to business.
+
+**Effort**: 2-6d | **Impact**: MEDIUM - Enhanced monitoring, not essential
+
+---
+
+### [DEVOPS] Deployment Smoke Test Enhancements
+
+**Context**: Basic health endpoint check in TODO.md. These add depth.
+
+**Enhancements**:
+
+**1. E2E smoke tests on preview** (4h)
+- Run subset of Playwright tests against preview URL
+- Example: Test auth flow, question generation, review session
+- **Tradeoff**: Slower PR checks (add 2-3 minutes)
+- **Value**: Catches UI regressions, not just backend health
+
+**2. Visual regression testing** (1d)
+- Capture screenshots of key pages
+- Compare to baseline with Percy or Chromatic
+- **Cost**: Percy $249/mo, Chromatic free tier (5000 snapshots/mo)
+- **Value**: Prevents accidental CSS/layout breakage
+
+**3. Accessibility testing** (2h)
+- Run axe-core against preview deployment
+- Fail if WCAG violations detected
+- **Value**: Automated accessibility compliance
+
+**Decision**: Start with health endpoint (TODO.md). Add E2E smoke tests if preview deployments frequently break in ways health check doesn't catch.
+
+**Effort**: 6-8h total | **Impact**: MEDIUM - Deeper validation
+
+---
+
+### [DEVOPS] Migration Safety Enhancements
+
+**Context**: 3-phase schema removal pattern exists. These add safety.
+
+**Enhancements**:
+
+**1. Migration rollback documentation** (2-3h)
+- Runbook: "How to rollback schema migrations"
+- Templates for inverse transformations
+- Shadow table patterns for reversible changes
+- Backup verification procedures
+- **Reference**: BACKLOG.md already has item for this at line 1217
+
+**2. Pre-migration backup automation** (3h)
+- Convex export before running production migrations
+- Store in S3 or GitHub artifacts
+- Retention: 30 days
+- **Value**: Easy rollback via restore from backup
+
+**3. Migration dry-run CI check** (2h)
+- PR changes to `convex/migrations.ts` trigger validation
+- Check: Does new migration have `dryRun` parameter?
+- Check: Does diagnostic query exist?
+- **Value**: Catches missing safety patterns before merge
+
+**Decision**: Document rollback patterns (high value, low effort). Automate backup/dry-run checks if migrations become frequent (>1/week).
+
+**Effort**: 7-8h total | **Impact**: MEDIUM - Safety net for risky operations
+
+---
+
+### [SECURITY] Advanced Secret Scanning
+
+**Context**: Gitleaks in TODO.md security workflow. These add depth.
+
+**Enhancements**:
+
+**1. TruffleHog for git history scanning** (1h)
+- Scans entire git history for secrets (not just current HEAD)
+- Detects secrets in old commits
+- **Value**: Catches secrets committed then removed
+- **Note**: One-time scan valuable, ongoing use overlaps with Gitleaks
+
+**2. Secret rotation automation** (1d)
+- Scheduled workflow to rotate API keys
+- Integrations: Clerk, Google AI, Convex deploy keys
+- **Value**: Security best practice, reduces blast radius
+- **Complexity**: HIGH - each service has different rotation API
+
+**3. Secret scanning for dependencies** (2h)
+- Scan node_modules for hardcoded secrets
+- Use: npm-audit-ci with custom rules
+- **Value**: Detects compromised dependencies with embedded keys
+
+**Decision**: Gitleaks (TODO.md) covers 90% of use cases. TruffleHog worth one-time scan. Rotation automation deferred until security team established.
+
+**Effort**: 4-5h one-time + 1d automation | **Impact**: LOW-MEDIUM - Marginal security gains
+
+---
+
+### [TESTING] Advanced Test Coverage Features
+
+**Context**: Basic coverage thresholds in TODO.md. These add sophistication.
+
+**Enhancements**:
+
+**1. Mutation testing with Stryker** (1d setup + ongoing)
+- Tests your tests by mutating code
+- Example: Change `>` to `>=`, do tests catch it?
+- **Cost**: 10x slower than normal tests (hours not seconds)
+- **Value**: Identifies weak tests that always pass
+- **Decision**: Valuable for critical paths (FSRS algorithm, auth logic)
+
+**2. Coverage diff enforcement** (2h)
+- Fail PR if coverage decreases by >1%
+- Prevents "death by a thousand cuts" degradation
+- **Value**: Maintains coverage momentum
+- **Note**: Codecov has this built-in
+
+**3. Branch coverage heatmap** (4h)
+- Visual report showing which code branches are covered
+- Color-coded: green (covered), yellow (partial), red (uncovered)
+- **Value**: Better than line coverage for finding gaps
+- **Note**: Vitest v8 coverage includes branch coverage
+
+**Decision**: Codecov (TODO.md) provides diff enforcement. Stryker valuable for FSRS algorithm validation. Heatmap already exists in HTML coverage report.
+
+**Effort**: 1d Stryker setup | **Impact**: MEDIUM - Deeper test quality insights
+
+---
+
+### [RELEASE] Advanced Changelog Features
+
+**Context**: Basic Changesets in TODO.md. These add polish.
+
+**Enhancements**:
+
+**1. Changelog categories** (1h)
+- Group changes: Features, Fixes, Security, Performance
+- Use changeset frontmatter to categorize
+- **Value**: More readable changelog
+- **Note**: Changesets supports this via custom changelog generator
+
+**2. Breaking change warnings** (1h)
+- Highlight breaking changes prominently
+- Auto-generate migration guide snippets
+- **Value**: Prevents surprise breaking changes for users
+
+**3. GitHub Release notes auto-generation** (30m)
+- Post-release: Create GitHub release with changelog
+- Attach build artifacts
+- **Value**: One-stop release communication
+
+**Decision**: Start with basic Changesets (TODO.md). Add categories if changelog becomes hard to read (>10 changes/release).
+
+**Effort**: 2-3h | **Impact**: LOW - Polish, not functionality
+
+---
+
+### [DEVOPS] Git Hook Enhancements (Lefthook)
+
+**Context**: Basic Lefthook migration in TODO.md. These add power-user features.
+
+**Enhancements**:
+
+**1. Commit message validation** (30m)
+- Enforce conventional commits: `feat:`, `fix:`, `docs:`
+- Block commits with vague messages
+- **Value**: Better git history, enables semantic-release
+- **Tradeoff**: Friction for quick commits
+
+**2. Pre-push Convex function validation** (1h)
+- Run `npx convex typecheck` before pushing
+- Catches Convex function errors locally
+- **Value**: Prevents CI failures from Convex type errors
+
+**3. Selective hook execution** (30m)
+- Environment variable to skip hooks: `SKIP_HOOKS=1 git commit`
+- Per-hook skipping: `SKIP_FORMAT=1 git commit`
+- **Value**: Escape hatch for emergencies
+
+**Decision**: Basic Lefthook (TODO.md) sufficient. Add commit message validation if team adopts semantic versioning.
+
+**Effort**: 2h | **Impact**: LOW - Nice-to-have conveniences
+
+---
+
+### [MONITORING] Performance Tracking Enhancements
+
+**Context**: Bundle size limits in TODO.md. These add runtime monitoring.
+
+**Enhancements**:
+
+**1. Real User Monitoring (RUM)** (1d)
+- Vercel Analytics already installed (`@vercel/analytics`)
+- Add custom metrics: Time to first question, review session latency
+- **Value**: Production performance insights (Lighthouse = lab, RUM = real)
+
+**2. Core Web Vitals tracking** (2h)
+- Track LCP, FID, CLS in production
+- Alert if metrics degrade
+- **Value**: Correlate performance with user engagement
+- **Note**: Vercel Speed Insights already tracks this
+
+**3. Bundle analysis automation** (1h)
+- Generate bundle analysis report on every build
+- Upload to Vercel or S3
+- Compare bundle composition over time
+- **Value**: Identify what's growing bundle size
+
+**Decision**: Vercel Analytics + Speed Insights already installed. Leverage existing instrumentation before adding custom metrics.
+
+**Effort**: 4-5h | **Impact**: LOW - Already have monitoring foundation
+
+---
+
+## Earlier Backlog Items (Pre-2025-10-31)
+
+### [AI] Migrate provider to OpenRouter or Vercel AI SDK
+- support arbitrary set of model compositions for question generation and other ai / llm / generative features
+- sometimes we want gemini-2.5-flash, sometimes we want gpt-5-mini, sometimes we want something else etc
 
 ### [BUSINESS] Paywall the Service
 - brainstorm and determine the best pricing model for scry
