@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * Results Grid Component
+ * Results Grid Component (Redesigned)
  *
- * Matrix display of execution results (inputs � configs).
- * Includes ResultCell with tabbed views (JSON | Cards | Metrics).
+ * Stacked expandable cards showing results for each input × config combination.
+ * Improved output clarity with inline expansion.
  */
 import { useState } from 'react';
 import {
@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { type ExecutionResult, type InfraConfig, type InputSet } from '@/types/lab';
+import { type ExecutionResult, type InfraConfig, type TestInput } from '@/types/lab';
 
 /**
  * Error category types for better error handling
@@ -106,9 +106,10 @@ function getCategoryDisplay(category: ErrorCategory): { label: string; className
 }
 
 interface ResultsGridProps {
-  inputSet: InputSet | null;
+  inputs: TestInput[];
+  selectedInputIds: Set<string>;
   configs: InfraConfig[];
-  enabledConfigIds: Set<string>;
+  selectedConfigIds: Set<string>;
   results: ExecutionResult[];
   onRunAll: () => void;
   isRunning: boolean;
@@ -116,17 +117,19 @@ interface ResultsGridProps {
 }
 
 export function ResultsGrid({
-  inputSet,
+  inputs,
+  selectedInputIds,
   configs,
-  enabledConfigIds,
+  selectedConfigIds,
   results,
   onRunAll,
   isRunning,
   executionProgress,
 }: ResultsGridProps) {
-  const [selectedResult, setSelectedResult] = useState<ExecutionResult | null>(null);
+  const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
 
-  const enabledConfigs = configs.filter((c) => enabledConfigIds.has(c.id));
+  const selectedInputs = inputs.filter((i) => selectedInputIds.has(i.id));
+  const selectedConfigs = configs.filter((c) => selectedConfigIds.has(c.id));
 
   // Build results map for quick lookup: `${input}_${configId}` -> result
   const resultsMap = new Map<string, ExecutionResult>();
@@ -135,18 +138,18 @@ export function ResultsGrid({
     resultsMap.set(key, result);
   }
 
-  if (!inputSet || inputSet.inputs.length === 0) {
+  if (selectedInputs.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p className="text-sm">Select an input set to view results</p>
+        <p className="text-sm">Select at least one input to view results</p>
       </div>
     );
   }
 
-  if (enabledConfigs.length === 0) {
+  if (selectedConfigs.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p className="text-sm">Enable at least one config to run tests</p>
+        <p className="text-sm">Select at least one config to run tests</p>
       </div>
     );
   }
@@ -156,23 +159,14 @@ export function ResultsGrid({
       {/* Run Controls */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {inputSet.inputs.length} input{inputSet.inputs.length !== 1 ? 's' : ''} �{' '}
-          {enabledConfigs.length} config{enabledConfigs.length !== 1 ? 's' : ''} ={' '}
-          {inputSet.inputs.length * enabledConfigs.length} test
-          {inputSet.inputs.length * enabledConfigs.length !== 1 ? 's' : ''}
+          {selectedInputs.length} input{selectedInputs.length !== 1 ? 's' : ''} ×{' '}
+          {selectedConfigs.length} config{selectedConfigs.length !== 1 ? 's' : ''} ={' '}
+          {selectedInputs.length * selectedConfigs.length} test
+          {selectedInputs.length * selectedConfigs.length !== 1 ? 's' : ''}
         </div>
-        <button
-          onClick={onRunAll}
-          disabled={isRunning}
-          className={cn(
-            'px-4 py-2 text-sm font-medium rounded border transition-colors',
-            isRunning
-              ? 'bg-muted text-muted-foreground cursor-not-allowed'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
-          )}
-        >
+        <Button onClick={onRunAll} disabled={isRunning} size="lg">
           {isRunning ? 'Running...' : 'Run All Tests'}
-        </button>
+        </Button>
       </div>
 
       {/* Progress Indicator */}
@@ -200,163 +194,139 @@ export function ResultsGrid({
         </div>
       )}
 
-      {/* Results Matrix */}
+      {/* Stacked Results */}
       <div className="space-y-3">
-        {inputSet.inputs.map((input, inputIndex) => (
-          <Card key={inputIndex} className="p-3">
-            <div className="space-y-2">
-              {/* Input Label */}
-              <div className="text-sm font-medium border-b pb-2">
-                Input {inputIndex + 1}: {input.substring(0, 60)}
-                {input.length > 60 ? '...' : ''}
-              </div>
+        {selectedInputs.map((input) =>
+          selectedConfigs.map((config) => {
+            const key = `${input.text}_${config.id}`;
+            const result = resultsMap.get(key);
+            const isExpanded = expandedResultId === key;
 
-              {/* Config Results */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {enabledConfigs.map((config) => {
-                  const key = `${input}_${config.id}`;
-                  const result = resultsMap.get(key);
-
-                  return (
-                    <button
-                      key={config.id}
-                      onClick={() => result && setSelectedResult(result)}
-                      className={cn(
-                        'p-2 text-left rounded border transition-colors',
-                        result
-                          ? result.valid
-                            ? 'border-green-500 bg-green-50 dark:bg-green-950/20 hover:bg-green-100 dark:hover:bg-green-950/30'
-                            : 'border-red-500 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/30'
-                          : 'border-muted bg-muted/30 hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium truncate">{config.name}</span>
-                        {result ? (
-                          result.valid ? (
-                            <CheckCircle2Icon className="size-4 text-green-600 shrink-0" />
-                          ) : (
-                            <XCircleIcon className="size-4 text-red-600 shrink-0" />
-                          )
-                        ) : (
-                          <ClockIcon className="size-4 text-muted-foreground shrink-0" />
+            return (
+              <Card
+                key={key}
+                className={cn(
+                  'transition-all',
+                  result ? (result.valid ? 'border-green-500' : 'border-red-500') : 'border-muted'
+                )}
+              >
+                {/* Collapsed Header */}
+                <button
+                  onClick={() => setExpandedResultId(isExpanded ? null : key)}
+                  className="w-full p-4 text-left hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{config.name}</span>
+                        {result && (
+                          <>
+                            {result.valid ? (
+                              <CheckCircle2Icon className="size-4 text-green-600 shrink-0" />
+                            ) : (
+                              <XCircleIcon className="size-4 text-red-600 shrink-0" />
+                            )}
+                          </>
                         )}
                       </div>
+                      <p className="text-sm text-muted-foreground truncate">{input.text}</p>
                       {result && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {result.questions.length} questions · {result.latency}ms
+                        <div className="flex gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs">
+                            {result.questions.length} questions
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {result.latency}ms
+                          </Badge>
+                          {result.tokenCount && result.tokenCount > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              {result.tokenCount} tokens
+                            </Badge>
+                          )}
                         </div>
                       )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </Card>
-        ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!result && <ClockIcon className="size-5 text-muted-foreground shrink-0" />}
+                      {isExpanded ? (
+                        <ChevronUpIcon className="size-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDownIcon className="size-5 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Expanded Content */}
+                {isExpanded && result && (
+                  <div className="border-t p-4 space-y-4">
+                    {/* Validation Errors */}
+                    {result.errors.length > 0 && <ErrorDisplay errors={result.errors} />}
+
+                    {/* Tabbed Content */}
+                    <Tabs defaultValue="cards" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="cards">Questions</TabsTrigger>
+                        <TabsTrigger value="json">JSON</TabsTrigger>
+                        <TabsTrigger value="metrics">Metrics</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="cards" className="space-y-3 mt-4">
+                        {result.questions.length === 0 ? (
+                          <div className="text-center py-8 text-sm text-muted-foreground">
+                            No questions generated
+                          </div>
+                        ) : (
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          result.questions.map((question: any, index: number) => (
+                            <QuestionCard key={index} question={question} index={index} />
+                          ))
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="json" className="mt-4">
+                        <div className="rounded border bg-muted/30 p-4 overflow-auto max-h-[500px]">
+                          <pre className="text-xs">{JSON.stringify(result.rawOutput, null, 2)}</pre>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="metrics" className="mt-4">
+                        <div className="space-y-3">
+                          <MetricRow label="Latency" value={`${result.latency}ms`} />
+                          <MetricRow
+                            label="Token Count"
+                            value={result.tokenCount?.toString() || 'N/A'}
+                          />
+                          <MetricRow
+                            label="Questions Generated"
+                            value={result.questions.length.toString()}
+                          />
+                          <MetricRow
+                            label="Schema Validation"
+                            value={result.valid ? 'Passed' : 'Failed'}
+                            valueClassName={result.valid ? 'text-green-600' : 'text-red-600'}
+                          />
+                          <MetricRow
+                            label="Executed At"
+                            value={new Date(result.executedAt).toLocaleString()}
+                          />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                )}
+              </Card>
+            );
+          })
+        )}
       </div>
 
-      {/* Selected Result Detail */}
-      {selectedResult && (
-        <Card className="p-4">
-          <ResultCell result={selectedResult} onClose={() => setSelectedResult(null)} />
-        </Card>
-      )}
-    </div>
-  );
-}
-
-/**
- * ResultCell Component
- *
- * Detailed view of a single execution result with tabbed display.
- */
-interface ResultCellProps {
-  result: ExecutionResult;
-  onClose: () => void;
-}
-
-function ResultCell({ result, onClose }: ResultCellProps) {
-  return (
-    <div className="space-y-3">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold">{result.configName}</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            Input: {result.input.substring(0, 80)}
-            {result.input.length > 80 ? '...' : ''}
-          </p>
+      {/* Empty state */}
+      {selectedInputs.length > 0 && selectedConfigs.length > 0 && results.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-sm">No results yet. Click &ldquo;Run All Tests&rdquo; to begin.</p>
         </div>
-        <button
-          onClick={onClose}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <XCircleIcon className="size-5" />
-        </button>
-      </div>
-
-      {/* Metrics Summary */}
-      <div className="flex flex-wrap gap-2">
-        <Badge variant={result.valid ? 'default' : 'destructive'}>
-          {result.valid ? 'Valid' : 'Invalid'}
-        </Badge>
-        <Badge variant="outline">{result.questions.length} questions</Badge>
-        <Badge variant="outline">{result.latency}ms</Badge>
-        {result.tokenCount && result.tokenCount > 0 && (
-          <Badge variant="outline">{result.tokenCount} tokens</Badge>
-        )}
-        {result.errors.length > 0 && (
-          <Badge variant="destructive">
-            {result.errors.length} error{result.errors.length !== 1 ? 's' : ''}
-          </Badge>
-        )}
-      </div>
-
-      {/* Validation Errors */}
-      {result.errors.length > 0 && <ErrorDisplay errors={result.errors} />}
-
-      {/* Tabbed Content */}
-      <Tabs defaultValue="cards">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="cards">Cards</TabsTrigger>
-          <TabsTrigger value="json">JSON</TabsTrigger>
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="cards" className="space-y-2 mt-3">
-          {result.questions.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No questions generated
-            </div>
-          ) : (
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            result.questions.map((question: any, index: number) => (
-              <QuestionPreviewCard key={index} question={question} index={index} />
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="json" className="mt-3">
-          <div className="rounded border bg-muted/30 p-3 overflow-auto max-h-[500px]">
-            <pre className="text-xs">{JSON.stringify(result.rawOutput, null, 2)}</pre>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="metrics" className="mt-3">
-          <div className="space-y-3">
-            <MetricRow label="Latency" value={`${result.latency}ms`} />
-            <MetricRow label="Token Count" value={result.tokenCount?.toString() || 'N/A'} />
-            <MetricRow label="Questions Generated" value={result.questions.length.toString()} />
-            <MetricRow
-              label="Schema Validation"
-              value={result.valid ? 'Passed' : 'Failed'}
-              valueClassName={result.valid ? 'text-green-600' : 'text-red-600'}
-            />
-            <MetricRow label="Executed At" value={new Date(result.executedAt).toLocaleString()} />
-          </div>
-        </TabsContent>
-      </Tabs>
+      )}
     </div>
   );
 }
@@ -381,7 +351,7 @@ function ErrorDisplay({ errors }: ErrorDisplayProps) {
   const { label, className } = getCategoryDisplay(category);
   const hint = getErrorHint(category);
 
-  // Extract summary (first line or first 100 chars)
+  // Extract summary (first line or first 150 chars)
   const summary = primaryError.split('\n')[0].substring(0, 150);
 
   const handleCopyError = () => {
@@ -399,21 +369,20 @@ function ErrorDisplay({ errors }: ErrorDisplayProps) {
             <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleCopyError}>
               <CopyIcon className="h-3 w-3" />
             </Button>
-            {errors.length > 1 ||
-              (primaryError.length > 150 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => setShowDetails(!showDetails)}
-                >
-                  {showDetails ? (
-                    <ChevronUpIcon className="h-3 w-3" />
-                  ) : (
-                    <ChevronDownIcon className="h-3 w-3" />
-                  )}
-                </Button>
-              ))}
+            {(errors.length > 1 || primaryError.length > 150) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                onClick={() => setShowDetails(!showDetails)}
+              >
+                {showDetails ? (
+                  <ChevronUpIcon className="h-3 w-3" />
+                ) : (
+                  <ChevronDownIcon className="h-3 w-3" />
+                )}
+              </Button>
+            )}
           </div>
         </AlertTitle>
         <AlertDescription className="space-y-2">
@@ -440,47 +409,49 @@ function ErrorDisplay({ errors }: ErrorDisplayProps) {
 }
 
 /**
- * QuestionPreviewCard Component
+ * QuestionCard Component
  *
- * Simple card preview of a generated question.
+ * Larger, more prominent question display.
  */
-interface QuestionPreviewCardProps {
+interface QuestionCardProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   question: any;
   index: number;
 }
 
-function QuestionPreviewCard({ question, index }: QuestionPreviewCardProps) {
+function QuestionCard({ question, index }: QuestionCardProps) {
   return (
-    <Card className="p-3">
-      <div className="space-y-2">
+    <Card className="p-4">
+      <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Q{index + 1}</span>
-          <Badge variant="outline" className="text-xs">
-            {question.type || 'unknown'}
-          </Badge>
+          <span className="text-sm font-medium text-muted-foreground">Question {index + 1}</span>
+          <Badge variant="outline">{question.type || 'unknown'}</Badge>
         </div>
-        <p className="text-sm font-medium">{question.question}</p>
+        <p className="text-base font-medium leading-relaxed">{question.question}</p>
         {question.options && question.options.length > 0 && (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {question.options.map((option: string, optIndex: number) => (
               <div
                 key={optIndex}
                 className={cn(
-                  'text-xs p-2 rounded border',
+                  'text-sm p-3 rounded border transition-colors',
                   option === question.correctAnswer
-                    ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-950/20 font-medium'
                     : 'border-muted bg-muted/30'
                 )}
               >
                 {option}
-                {option === question.correctAnswer && <span className="ml-2 text-green-600"></span>}
+                {option === question.correctAnswer && (
+                  <span className="ml-2 text-green-600">✓ Correct</span>
+                )}
               </div>
             ))}
           </div>
         )}
         {question.explanation && (
-          <p className="text-xs text-muted-foreground">{question.explanation}</p>
+          <div className="pt-2 border-t">
+            <p className="text-sm text-muted-foreground">{question.explanation}</p>
+          </div>
         )}
       </div>
     </Card>

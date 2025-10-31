@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExecutionResult, InfraConfig, InputSet } from '@/types/lab';
+import type { ExecutionResult, InfraConfig, TestInput } from '@/types/lab';
 
 import {
   clearAllLabData,
@@ -8,10 +8,10 @@ import {
   getLabDataSize,
   isApproachingQuota,
   loadConfigs,
-  loadInputSets,
+  loadInputs,
   loadResults,
   saveConfigs,
-  saveInputSets,
+  saveInputs,
   saveResults,
 } from './lab-storage';
 
@@ -33,7 +33,6 @@ const localStorageMock = (() => {
   };
 })();
 
- 
 (global as any).localStorage = localStorageMock;
 
 describe('Lab Storage', () => {
@@ -41,41 +40,38 @@ describe('Lab Storage', () => {
     localStorageMock.clear();
   });
 
-  describe('InputSets', () => {
-    const mockInputSet: InputSet = {
+  describe('TestInputs', () => {
+    const mockInput: TestInput = {
       id: '1',
-      name: 'Test Set',
-      inputs: ['Input 1', 'Input 2'],
+      text: 'Test input text',
       createdAt: Date.now(),
-      updatedAt: Date.now(),
     };
 
-    it('saves and loads input sets', () => {
-      const sets = [mockInputSet];
-      const saved = saveInputSets(sets);
+    it('saves and loads test inputs', () => {
+      const inputs = [mockInput];
+      const saved = saveInputs(inputs);
       expect(saved).toBe(true);
 
-      const loaded = loadInputSets();
+      const loaded = loadInputs();
       expect(loaded).toHaveLength(1);
       expect(loaded[0].id).toBe('1');
-      expect(loaded[0].name).toBe('Test Set');
-      expect(loaded[0].inputs).toEqual(['Input 1', 'Input 2']);
+      expect(loaded[0].text).toBe('Test input text');
     });
 
-    it('returns empty array when no input sets', () => {
-      const loaded = loadInputSets();
+    it('returns empty array when no test inputs', () => {
+      const loaded = loadInputs();
       expect(loaded).toEqual([]);
     });
 
     it('handles invalid JSON gracefully', () => {
-      localStorageMock.setItem('scry-lab-input-sets', 'invalid json');
-      const loaded = loadInputSets();
+      localStorageMock.setItem('scry-lab-inputs', 'invalid json');
+      const loaded = loadInputs();
       expect(loaded).toEqual([]);
     });
 
     it('handles non-array JSON gracefully', () => {
-      localStorageMock.setItem('scry-lab-input-sets', '{"key": "value"}');
-      const loaded = loadInputSets();
+      localStorageMock.setItem('scry-lab-inputs', '{"key": "value"}');
+      const loaded = loadInputs();
       expect(loaded).toEqual([]);
     });
   });
@@ -157,12 +153,10 @@ describe('Lab Storage', () => {
 
   describe('clearAllLabData', () => {
     it('clears all lab data from localStorage', () => {
-      const mockInputSet: InputSet = {
+      const mockInput: TestInput = {
         id: '1',
-        name: 'Test',
-        inputs: ['Test'],
+        text: 'Test',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
       const mockConfig: InfraConfig = {
         id: '1',
@@ -188,13 +182,13 @@ describe('Lab Storage', () => {
         executedAt: Date.now(),
       };
 
-      saveInputSets([mockInputSet]);
+      saveInputs([mockInput]);
       saveConfigs([mockConfig]);
       saveResults([mockResult]);
 
       clearAllLabData();
 
-      expect(loadInputSets()).toEqual([]);
+      expect(loadInputs()).toEqual([]);
       expect(loadConfigs()).toEqual([]);
       expect(loadResults()).toEqual([]);
     });
@@ -202,15 +196,13 @@ describe('Lab Storage', () => {
 
   describe('getLabDataSize', () => {
     it('calculates approximate size of lab data', () => {
-      const mockData = {
+      const mockData: TestInput = {
         id: '1',
-        name: 'Test',
-        inputs: ['Test'],
+        text: 'Test',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
 
-      saveInputSets([mockData as InputSet]);
+      saveInputs([mockData]);
       const size = getLabDataSize();
       expect(size).toBeGreaterThan(0);
     });
@@ -223,28 +215,24 @@ describe('Lab Storage', () => {
 
   describe('isApproachingQuota', () => {
     it('returns false when below threshold', () => {
-      const mockInputSet: InputSet = {
+      const mockInput: TestInput = {
         id: '1',
-        name: 'Small',
-        inputs: ['Test'],
+        text: 'Small test input',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      saveInputSets([mockInputSet]);
+      saveInputs([mockInput]);
 
       const approaching = isApproachingQuota(1024 * 1024); // 1MB threshold
       expect(approaching).toBe(false);
     });
 
     it('returns true when above threshold', () => {
-      const mockInputSet: InputSet = {
+      const mockInput: TestInput = {
         id: '1',
-        name: 'Large',
-        inputs: ['Test'],
+        text: 'Large test input',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      saveInputSets([mockInputSet]);
+      saveInputs([mockInput]);
 
       const approaching = isApproachingQuota(10); // Tiny threshold
       expect(approaching).toBe(true);
@@ -254,11 +242,11 @@ describe('Lab Storage', () => {
   describe('Error Handling', () => {
     it('handles JSON.stringify errors', () => {
       // Create circular reference
-       
-      const circular: any = { id: '1', name: 'Test' };
+
+      const circular: any = { id: '1', text: 'Test' };
       circular.self = circular;
 
-      const saved = saveInputSets([circular as InputSet]);
+      const saved = saveInputs([circular as TestInput]);
       expect(saved).toBe(false);
     });
 
@@ -268,15 +256,13 @@ describe('Lab Storage', () => {
         throw new Error('QuotaExceededError');
       });
 
-      const mockInputSet: InputSet = {
+      const mockInput: TestInput = {
         id: '1',
-        name: 'Test',
-        inputs: ['Test'],
+        text: 'Test',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
 
-      const saved = saveInputSets([mockInputSet]);
+      const saved = saveInputs([mockInput]);
       expect(saved).toBe(false);
 
       localStorageMock.setItem = originalSetItem;

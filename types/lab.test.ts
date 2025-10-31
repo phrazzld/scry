@@ -5,12 +5,12 @@ import {
   isProdConfig,
   isSuccessfulExecution,
   isValidConfig,
-  isValidInputSet,
   isValidPhase,
+  isValidTestInput,
   type ExecutionResult,
   type InfraConfig,
-  type InputSet,
   type PromptPhase,
+  type TestInput,
 } from './lab';
 
 describe('Lab Type Guards', () => {
@@ -48,49 +48,32 @@ describe('Lab Type Guards', () => {
     });
   });
 
-  describe('isValidInputSet', () => {
-    it('returns true for valid input set', () => {
-      const set: InputSet = {
+  describe('isValidTestInput', () => {
+    it('returns true for valid test input', () => {
+      const input: TestInput = {
         id: '1',
-        name: 'Test Set',
-        inputs: ['Input 1', 'Input 2', 'Input 3'],
+        text: 'Test input text',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      expect(isValidInputSet(set)).toBe(true);
+      expect(isValidTestInput(input)).toBe(true);
     });
 
-    it('returns false for empty inputs', () => {
-      const set: InputSet = {
+    it('returns false for empty text', () => {
+      const input: TestInput = {
         id: '1',
-        name: 'Empty',
-        inputs: [],
+        text: '',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      expect(isValidInputSet(set)).toBe(false);
+      expect(isValidTestInput(input)).toBe(false);
     });
 
-    it('returns false for too many inputs', () => {
-      const set: InputSet = {
+    it('returns false for whitespace only text', () => {
+      const input: TestInput = {
         id: '1',
-        name: 'Too Many',
-        inputs: Array(11).fill('Input'),
+        text: '   ',
         createdAt: Date.now(),
-        updatedAt: Date.now(),
       };
-      expect(isValidInputSet(set)).toBe(false);
-    });
-
-    it('returns false for blank inputs', () => {
-      const set: InputSet = {
-        id: '1',
-        name: 'Blank',
-        inputs: ['Valid', '   ', 'Also valid'],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      expect(isValidInputSet(set)).toBe(false);
+      expect(isValidTestInput(input)).toBe(false);
     });
   });
 

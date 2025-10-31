@@ -1,4 +1,4 @@
-import { LabClient } from './_components/lab-client';
+import { UnifiedLabClient } from './_components/unified-lab-client';
 
 /**
  * Genesis Laboratory Route
@@ -21,5 +21,5 @@ export default function LabPage() {
     );
   }
 
-  return <LabClient />;
+  return <UnifiedLabClient />;
 }

@@ -12,7 +12,7 @@ import { useAction } from 'convex/react';
 import { toast } from 'sonner';
 
 import { ConfigManager } from '@/components/lab/config-manager';
-import { InputSetManager } from '@/components/lab/input-set-manager';
+import { InputManager } from '@/components/lab/input-manager';
 import { ResultsGrid } from '@/components/lab/results-grid';
 import { PageContainer } from '@/components/page-container';
 import { api } from '@/convex/_generated/api';
@@ -25,13 +25,13 @@ import {
   clearResults,
   isApproachingQuota,
   loadConfigs,
-  loadInputSets,
+  loadInputs,
   loadResults,
   saveConfigs,
-  saveInputSets,
+  saveInputs,
   saveResults,
 } from '@/lib/lab-storage';
-import type { ExecutionResult, InfraConfig, InputSet } from '@/types/lab';
+import type { ExecutionResult, InfraConfig, TestInput } from '@/types/lab';
 
 /**
  * Create PROD baseline config using shared production prompts
@@ -69,15 +69,15 @@ function createProdConfig(): InfraConfig {
 
 export function LabClient() {
   // State
-  const [inputSets, setInputSets] = useState<InputSet[]>([]);
+  const [inputs, setInputs] = useState<TestInput[]>([]);
   const [configs, setConfigs] = useState<InfraConfig[]>([]);
   const [results, setResults] = useState<ExecutionResult[]>([]);
-  const [selectedInputSetId, setSelectedInputSetId] = useState<string | null>(null);
-  const [enabledConfigIds, setEnabledConfigIds] = useState<Set<string>>(new Set());
+  const [selectedInputIds, setSelectedInputIds] = useState<Set<string>>(new Set());
+  const [selectedConfigIds, setSelectedConfigIds] = useState<Set<string>>(new Set());
 
   // Load state from localStorage on mount
   useEffect(() => {
-    const loadedSets = loadInputSets();
+    const loadedInputs = loadInputs();
     let loadedConfigs = loadConfigs();
     const loadedResults = loadResults();
 
@@ -93,17 +93,13 @@ export function LabClient() {
       loadedConfigs = loadedConfigs.map((c) => (c.isProd ? prodConfig : c));
     }
 
-    setInputSets(loadedSets);
+    setInputs(loadedInputs);
     setConfigs(loadedConfigs);
     setResults(loadedResults);
 
-    // Select first input set by default
-    if (loadedSets.length > 0) {
-      setSelectedInputSetId(loadedSets[0].id);
-    }
-
-    // Enable all configs by default
-    setEnabledConfigIds(new Set(loadedConfigs.map((c) => c.id)));
+    // Select all inputs and configs by default
+    setSelectedInputIds(new Set(loadedInputs.map((i) => i.id)));
+    setSelectedConfigIds(new Set(loadedConfigs.map((c) => c.id)));
 
     // Check quota warning
     if (isApproachingQuota()) {
@@ -115,8 +111,8 @@ export function LabClient() {
 
   // Persist state to localStorage on change
   useEffect(() => {
-    saveInputSets(inputSets);
-  }, [inputSets]);
+    saveInputs(inputs);
+  }, [inputs]);
 
   useEffect(() => {
     saveConfigs(configs);
@@ -135,9 +131,9 @@ export function LabClient() {
   // Export/Import handlers
   const handleExportData = () => {
     const exportData = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
-      inputSets,
+      inputs,
       configs: configs.filter((c) => !c.isProd), // Don't export PROD config
       results,
     };
@@ -154,7 +150,7 @@ export function LabClient() {
     URL.revokeObjectURL(url);
 
     toast.success('Data exported', {
-      description: `${inputSets.length} input sets, ${configs.length} configs`,
+      description: `${inputs.length} inputs, ${configs.length} configs`,
     });
   };
 
@@ -169,16 +165,16 @@ export function LabClient() {
         const importData = JSON.parse(content);
 
         // Validate structure
-        if (!importData.version || !importData.inputSets || !importData.configs) {
+        if (!importData.version || !importData.inputs || !importData.configs) {
           toast.error('Invalid import file', {
             description: 'Missing required fields',
           });
           return;
         }
 
-        // Import input sets
-        if (Array.isArray(importData.inputSets)) {
-          setInputSets([...inputSets, ...importData.inputSets]);
+        // Import inputs
+        if (Array.isArray(importData.inputs)) {
+          setInputs([...inputs, ...importData.inputs]);
         }
 
         // Import configs (exclude PROD)
@@ -193,7 +189,7 @@ export function LabClient() {
         }
 
         toast.success('Data imported', {
-          description: `Added ${importData.inputSets.length} input sets, ${importData.configs.length} configs`,
+          description: `Added ${importData.inputs.length} inputs, ${importData.configs.length} configs`,
         });
       } catch (error) {
         toast.error('Import failed', {
@@ -207,36 +203,48 @@ export function LabClient() {
     event.target.value = '';
   };
 
-  // Input set handlers
-  const handleCreateInputSet = (set: InputSet) => {
-    setInputSets([...inputSets, set]);
-  };
-
-  const handleEditInputSet = (id: string, updates: Partial<InputSet>) => {
-    setInputSets(inputSets.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-  };
-
-  const handleDeleteInputSet = (id: string) => {
-    setInputSets(inputSets.filter((s) => s.id !== id));
-    if (selectedInputSetId === id) {
-      setSelectedInputSetId(null);
+  // Input handlers
+  const handleToggleInput = (id: string) => {
+    const newSelectedIds = new Set(selectedInputIds);
+    if (newSelectedIds.has(id)) {
+      newSelectedIds.delete(id);
+    } else {
+      newSelectedIds.add(id);
     }
+    setSelectedInputIds(newSelectedIds);
+  };
+
+  const handleCreateInput = (input: TestInput) => {
+    setInputs([...inputs, input]);
+    // Auto-select new input
+    setSelectedInputIds(new Set([...selectedInputIds, input.id]));
+  };
+
+  const handleEditInput = (id: string, text: string) => {
+    setInputs(inputs.map((i) => (i.id === id ? { ...i, text } : i)));
+  };
+
+  const handleDeleteInput = (id: string) => {
+    setInputs(inputs.filter((i) => i.id !== id));
+    const newSelectedIds = new Set(selectedInputIds);
+    newSelectedIds.delete(id);
+    setSelectedInputIds(newSelectedIds);
   };
 
   // Config handlers
   const handleToggleConfig = (id: string) => {
-    const newEnabledIds = new Set(enabledConfigIds);
-    if (newEnabledIds.has(id)) {
-      newEnabledIds.delete(id);
+    const newSelectedIds = new Set(selectedConfigIds);
+    if (newSelectedIds.has(id)) {
+      newSelectedIds.delete(id);
     } else {
-      newEnabledIds.add(id);
+      newSelectedIds.add(id);
     }
-    setEnabledConfigIds(newEnabledIds);
+    setSelectedConfigIds(newSelectedIds);
   };
 
   const handleCreateConfig = (config: InfraConfig) => {
     setConfigs([...configs, config]);
-    setEnabledConfigIds(new Set([...enabledConfigIds, config.id]));
+    setSelectedConfigIds(new Set([...selectedConfigIds, config.id]));
   };
 
   const handleEditConfig = (config: InfraConfig) => {
@@ -245,9 +253,9 @@ export function LabClient() {
 
   const handleDeleteConfig = (id: string) => {
     setConfigs(configs.filter((c) => c.id !== id));
-    const newEnabledIds = new Set(enabledConfigIds);
-    newEnabledIds.delete(id);
-    setEnabledConfigIds(newEnabledIds);
+    const newSelectedIds = new Set(selectedConfigIds);
+    newSelectedIds.delete(id);
+    setSelectedConfigIds(newSelectedIds);
   };
 
   // Execution handlers
@@ -256,31 +264,31 @@ export function LabClient() {
   const executeConfig = useAction(api.lab.executeConfig);
 
   const handleRunAll = async () => {
-    const selectedSet = inputSets.find((s) => s.id === selectedInputSetId);
-    if (!selectedSet || selectedSet.inputs.length === 0) {
-      toast.error('No input set selected');
+    const selectedInputs = inputs.filter((i) => selectedInputIds.has(i.id));
+    if (selectedInputs.length === 0) {
+      toast.error('No inputs selected');
       return;
     }
 
-    const enabledConfigs = configs.filter((c) => enabledConfigIds.has(c.id));
-    if (enabledConfigs.length === 0) {
-      toast.error('No configs enabled');
+    const selectedConfigs = configs.filter((c) => selectedConfigIds.has(c.id));
+    if (selectedConfigs.length === 0) {
+      toast.error('No configs selected');
       return;
     }
 
-    const totalTests = selectedSet.inputs.length * enabledConfigs.length;
+    const totalTests = selectedInputs.length * selectedConfigs.length;
     setIsRunning(true);
     setExecutionProgress({ total: totalTests, completed: 0, failed: 0 });
 
     toast.info('Starting execution...', {
-      description: `Running ${selectedSet.inputs.length} × ${enabledConfigs.length} tests`,
+      description: `Running ${selectedInputs.length} × ${selectedConfigs.length} tests`,
     });
 
     // Create promises for all config × input combinations
     const executionPromises: Promise<ExecutionResult>[] = [];
 
-    for (const input of selectedSet.inputs) {
-      for (const config of enabledConfigs) {
+    for (const input of selectedInputs) {
+      for (const config of selectedConfigs) {
         const promise = executeConfig({
           configId: config.id,
           configName: config.name,
@@ -290,7 +298,7 @@ export function LabClient() {
           maxTokens: config.maxTokens,
           topP: config.topP,
           phases: config.phases,
-          testInput: input,
+          testInput: input.text,
         })
           .then((result) => {
             // Update progress on success
@@ -311,7 +319,7 @@ export function LabClient() {
             return {
               configId: config.id,
               configName: config.name,
-              input,
+              input: input.text,
               questions: [],
               rawOutput: null,
               latency: 0,
@@ -362,6 +370,12 @@ export function LabClient() {
               </p>
             </div>
             <div className="flex gap-2">
+              <a
+                href="/lab/playground"
+                className="px-3 py-1.5 text-sm border rounded hover:bg-accent"
+              >
+                ⚡ Playground
+              </a>
               <button
                 onClick={handleExportData}
                 className="px-3 py-1.5 text-sm border rounded hover:bg-accent"
@@ -386,7 +400,7 @@ export function LabClient() {
       {/* 3-Panel Layout */}
       <PageContainer className="py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
-          {/* Left Panel: Input Sets (25%) */}
+          {/* Left Panel: Test Inputs (25%) */}
           <div className="lg:col-span-3 border rounded-lg p-4 overflow-y-auto">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm">
@@ -394,17 +408,17 @@ export function LabClient() {
               </span>
               Test Inputs
             </h2>
-            <InputSetManager
-              sets={inputSets}
-              selectedId={selectedInputSetId}
-              onSelect={setSelectedInputSetId}
-              onCreate={handleCreateInputSet}
-              onEdit={handleEditInputSet}
-              onDelete={handleDeleteInputSet}
+            <InputManager
+              inputs={inputs}
+              selectedIds={selectedInputIds}
+              onToggleSelected={handleToggleInput}
+              onCreate={handleCreateInput}
+              onEdit={handleEditInput}
+              onDelete={handleDeleteInput}
             />
           </div>
 
-          {/* Center Panel: Configs (35%) */}
+          {/* Center Panel: Infrastructure Configs (35%) */}
           <div className="lg:col-span-4 border rounded-lg p-4 overflow-y-auto">
             <h2 className="font-semibold mb-4 flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm">
@@ -414,7 +428,7 @@ export function LabClient() {
             </h2>
             <ConfigManager
               configs={configs}
-              enabledIds={enabledConfigIds}
+              enabledIds={selectedConfigIds}
               onToggleEnabled={handleToggleConfig}
               onCreate={handleCreateConfig}
               onEdit={handleEditConfig}
@@ -431,9 +445,10 @@ export function LabClient() {
               Results
             </h2>
             <ResultsGrid
-              inputSet={inputSets.find((s) => s.id === selectedInputSetId) || null}
+              inputs={inputs}
+              selectedInputIds={selectedInputIds}
               configs={configs}
-              enabledConfigIds={enabledConfigIds}
+              selectedConfigIds={selectedConfigIds}
               results={results}
               onRunAll={handleRunAll}
               isRunning={isRunning}

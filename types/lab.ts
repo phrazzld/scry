@@ -11,15 +11,12 @@
 export type AIProvider = 'google' | 'openai' | 'anthropic';
 
 /**
- * Test input set - collection of prompts to test against
+ * Individual test input
  */
-export interface InputSet {
+export interface TestInput {
   id: string;
-  name: string;
-  description?: string;
-  inputs: string[]; // Test prompts (max 10)
+  text: string; // The actual prompt text to test
   createdAt: number;
-  updatedAt: number;
 }
 
 /**
@@ -84,14 +81,10 @@ export function isProdConfig(config: InfraConfig): boolean {
 }
 
 /**
- * Type guard to check if an input set is valid
+ * Type guard to check if a test input is valid
  */
-export function isValidInputSet(set: InputSet): boolean {
-  return (
-    set.inputs.length > 0 &&
-    set.inputs.length <= 10 &&
-    set.inputs.every((input) => input.trim().length > 0)
-  );
+export function isValidTestInput(input: TestInput): boolean {
+  return input.text.trim().length > 0;
 }
 
 /**

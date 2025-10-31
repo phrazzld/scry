@@ -5,45 +5,45 @@
  * Follows lib/storage.ts safeStorage pattern with JSON serialization.
  */
 
-import type { ExecutionResult, InfraConfig, InputSet } from '@/types/lab';
+import type { ExecutionResult, InfraConfig, TestInput } from '@/types/lab';
 
 import { safeStorage } from './storage';
 
 // Storage keys
 const STORAGE_KEYS = {
-  INPUT_SETS: 'scry-lab-input-sets',
+  INPUTS: 'scry-lab-inputs',
   CONFIGS: 'scry-lab-configs',
   RESULTS: 'scry-lab-results',
 } as const;
 
 /**
- * Save input sets to localStorage
+ * Save test inputs to localStorage
  * @returns true if save succeeded, false otherwise
  */
-export function saveInputSets(sets: InputSet[]): boolean {
+export function saveInputs(inputs: TestInput[]): boolean {
   try {
-    const json = JSON.stringify(sets);
-    return safeStorage.setItem(STORAGE_KEYS.INPUT_SETS, json);
+    const json = JSON.stringify(inputs);
+    return safeStorage.setItem(STORAGE_KEYS.INPUTS, json);
   } catch (error) {
-    console.error('Failed to save input sets:', error);
+    console.error('Failed to save test inputs:', error);
     return false;
   }
 }
 
 /**
- * Load input sets from localStorage
- * @returns Array of input sets, empty array if none found or error
+ * Load test inputs from localStorage
+ * @returns Array of test inputs, empty array if none found or error
  */
-export function loadInputSets(): InputSet[] {
+export function loadInputs(): TestInput[] {
   try {
-    const json = safeStorage.getItem(STORAGE_KEYS.INPUT_SETS);
+    const json = safeStorage.getItem(STORAGE_KEYS.INPUTS);
     if (!json) {
       return [];
     }
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.error('Failed to load input sets:', error);
+    console.error('Failed to load test inputs:', error);
     return [];
   }
 }
@@ -123,7 +123,7 @@ export function clearResults(): void {
  * Clear all lab data from localStorage
  */
 export function clearAllLabData(): void {
-  safeStorage.removeItem(STORAGE_KEYS.INPUT_SETS);
+  safeStorage.removeItem(STORAGE_KEYS.INPUTS);
   safeStorage.removeItem(STORAGE_KEYS.CONFIGS);
   safeStorage.removeItem(STORAGE_KEYS.RESULTS);
 }
@@ -134,12 +134,12 @@ export function clearAllLabData(): void {
  */
 export function getLabDataSize(): number {
   try {
-    const inputSetsJson = safeStorage.getItem(STORAGE_KEYS.INPUT_SETS) || '';
+    const inputsJson = safeStorage.getItem(STORAGE_KEYS.INPUTS) || '';
     const configsJson = safeStorage.getItem(STORAGE_KEYS.CONFIGS) || '';
     const resultsJson = safeStorage.getItem(STORAGE_KEYS.RESULTS) || '';
 
     // Approximate size in bytes (UTF-16 encoding, 2 bytes per char)
-    return (inputSetsJson.length + configsJson.length + resultsJson.length) * 2;
+    return (inputsJson.length + configsJson.length + resultsJson.length) * 2;
   } catch {
     return 0;
   }

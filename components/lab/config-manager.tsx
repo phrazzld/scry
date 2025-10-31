@@ -157,17 +157,24 @@ export function ConfigManager({
               </div>
 
               {/* Metadata */}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{config.provider}</span>
-                <span>•</span>
-                <span>{config.model}</span>
-                <span>•</span>
-                <span>{config.phases.length}-phase</span>
-                {config.temperature !== undefined && (
-                  <>
-                    <span>•</span>
-                    <span>T={config.temperature}</span>
-                  </>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{config.provider}</span>
+                  <span>•</span>
+                  <span>{config.model}</span>
+                  <span>•</span>
+                  <span>{config.phases.length}-phase</span>
+                  {config.temperature !== undefined && (
+                    <>
+                      <span>•</span>
+                      <span>T={config.temperature}</span>
+                    </>
+                  )}
+                </div>
+                {!isExpanded && (
+                  <div className="text-xs text-muted-foreground/70 truncate">
+                    {config.phases.map((p) => p.name).join(' → ')}
+                  </div>
                 )}
               </div>
 

@@ -1595,6 +1595,528 @@ tags: defineTable({
 
 ---
 
+### [ARCHITECTURE] Genesis Lab: Dynamic Pipeline Executor
+**Perspectives**: architecture-guardian, complexity-archaeologist
+**Severity**: MEDIUM (Strategic)
+**Impact**: Enable arbitrary multi-phase configs in production, instant promotion/rollback
+
+**Current State**: Production is hardcoded 2-phase pipeline (`buildIntentClarificationPrompt` → `buildQuestionPromptFromIntent`). Genesis Lab supports arbitrary phases but can't promote to production.
+
+**The Problem**: Lab configs with 3+ phases or different variable naming can't be promoted without manually rewriting production code. Future vision (context-aware phases with learner data queries) fundamentally incompatible with current architecture.
+
+**Decision Triggers** (build this when ANY occurs):
+- Promoting >5 configs/month for 2+ consecutive months
+- Production schema changes break all Lab configs (major refactor)
+- Context-aware phases become necessary (Phase 2 dependency)
+
+**Architecture Changes**:
+
+**1. Database-Backed Production Config**
+```typescript
+// New table: productionConfigs
+defineTable({
+  configId: v.string(), // 'prod'
+  name: v.string(),
+  phases: v.array(v.object({
+    name: v.string(),
+    template: v.string(),
+    outputTo: v.optional(v.string()),
+  })),
+  provider: v.string(),
+  model: v.string(),
+  temperature: v.optional(v.number()),
+  maxTokens: v.optional(v.number()),
+  isActive: v.boolean(),
+  activatedAt: v.number(),
+  activatedBy: v.id('users'),
+  version: v.number(),
+}).index('by_active', ['isActive'])
+```
+
+**2. Refactor aiGeneration.ts to Generic Executor**
+```typescript
+export const processGenerationJob = internalAction({
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.runQuery(internal.generationJobs.getJob, { jobId });
+
+    // Read production config from DB (not hardcoded)
+    const prodConfig = await ctx.runQuery(internal.configs.getProdConfig);
+
+    // Execute phases dynamically
+    const context: Record<string, any> = { userInput: job.userInput };
+
+    for (const phase of prodConfig.phases) {
+      const prompt = interpolateVariables(phase.template, context);
+
+      const result = await generateText({
+        model: createModel(prodConfig),
+        prompt,
+      });
+
+      if (phase.outputTo) {
+        context[phase.outputTo] = result.text;
+      }
+    }
+
+    // Final phase output
+    return context;
+  }
+});
+
+function interpolateVariables(template: string, context: Record<string, any>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => context[key] || '');
+}
+```
+
+**3. Instant Promotion from Lab**
+```typescript
+// In config-manager-page.tsx
+<Button onClick={async () => {
+  await promoteToProduction(selectedConfig);
+  toast.success('Config promoted to production - live immediately');
+}}>
+  Promote to PROD
+</Button>
+
+// Convex mutation
+export const promoteToProduction = mutation({
+  args: { configId: v.id('infraConfigs') },
+  handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.configId);
+    const user = await requireUser(ctx);
+
+    // Deactivate current PROD
+    const current = await ctx.db
+      .query('productionConfigs')
+      .withIndex('by_active', q => q.eq('isActive', true))
+      .first();
+
+    if (current) {
+      await ctx.db.patch(current._id, { isActive: false });
+    }
+
+    // Activate new config
+    await ctx.db.insert('productionConfigs', {
+      ...config,
+      isActive: true,
+      activatedAt: Date.now(),
+      activatedBy: user._id,
+      version: (current?.version || 0) + 1,
+    });
+
+    return { success: true };
+  }
+});
+```
+
+**4. Safety: Fallback to Code + Sync Job**
+```typescript
+// If DB empty/corrupted, fall back to code
+async function getProdConfig(ctx): Promise<InfraConfig> {
+  const dbConfig = await ctx.db
+    .query('productionConfigs')
+    .withIndex('by_active', q => q.eq('isActive', true))
+    .first();
+
+  if (dbConfig) return dbConfig;
+
+  // Fallback: Import from code
+  return PROD_CONFIG_FROM_CODE;
+}
+
+// Hourly cron: Snapshot DB → code for audit trail
+export const syncConfigToCode = internalMutation({
+  schedule: { hourly: { minuteUTC: 0 } },
+  handler: async (ctx) => {
+    const prodConfig = await getProdConfig(ctx);
+
+    // Generate PR with snapshot (manual approval)
+    // Keeps git history synchronized with DB
+  }
+});
+```
+
+**Implementation Steps**:
+1. Add `productionConfigs` table to schema (1h)
+2. Migration: Seed initial PROD config from code (1h)
+3. Refactor `aiGeneration.ts` to read from DB (4h)
+4. Add promotion UI in Lab (2h)
+5. Build rollback UI (show version history, revert) (2h)
+6. Add monitoring/alerting for config changes (2h)
+7. Testing: Verify promotion doesn't break generation (2h)
+
+**Rollback Strategy**:
+```typescript
+// Instant rollback to previous version
+export const rollbackProduction = mutation({
+  args: { toVersion: v.number() },
+  handler: async (ctx, args) => {
+    // Find config at that version
+    const target = await findConfigVersion(args.toVersion);
+
+    // Activate it
+    await promoteToProduction(ctx, { configId: target._id });
+  }
+});
+```
+
+**Effort**: 2-3 days | **Impact**: HIGH - Enables future evolution
+**Prerequisites**: None (standalone improvement)
+**Risk**: Runtime dependency on DB (mitigated by code fallback)
+
+---
+
+### [ARCHITECTURE] Genesis Lab: Context-Aware Phases
+**Perspectives**: product-visionary, architecture-guardian
+**Severity**: HIGH (Strategic)
+**Impact**: Multi-action pipelines with learner data - major competitive differentiator
+
+**Current State**: Phases are LLM calls with string template interpolation only. Can't fetch learner performance, query content library, or run computations.
+
+**The Vision**: Question generation informed by learner's past performance, current content library, struggling topics, interests, etc.
+
+**Example Pipeline**:
+```typescript
+{
+  phases: [
+    {
+      type: 'query',
+      name: 'Fetch User Performance',
+      query: 'analytics:getUserPerformanceMetrics',
+      args: { userId: '{{userId}}', topicId: '{{topicId}}', days: 30 },
+      outputTo: 'performance'
+    },
+    {
+      type: 'compute',
+      name: 'Calculate Optimal Difficulty',
+      function: 'algorithms:computeTargetDifficulty',
+      args: {
+        recentAccuracy: '{{performance.accuracy}}',
+        topicMastery: '{{performance.mastery}}'
+      },
+      outputTo: 'targetDifficulty'
+    },
+    {
+      type: 'llm',
+      name: 'Generate Contextual Questions',
+      template: `Generate questions about: {{userInput}}
+
+Learner Context:
+- Recent accuracy: {{performance.accuracy}}%
+- Struggling with: {{performance.weakAreas}}
+- Target difficulty: {{targetDifficulty}}
+
+Generate questions that address their weak areas at appropriate difficulty...`,
+      outputTo: 'questions'
+    }
+  ]
+}
+```
+
+**Phase Types**:
+
+**1. Query Phase** - Execute Convex query
+```typescript
+{
+  type: 'query',
+  name: 'Fetch Related Content',
+  query: 'library:getRelatedQuestions',
+  args: { topicId: '{{topicId}}', limit: 10 },
+  outputTo: 'relatedContent'
+}
+```
+
+**2. Compute Phase** - Run pure function
+```typescript
+{
+  type: 'compute',
+  name: 'Analyze Learning Gaps',
+  function: 'analytics:identifyKnowledgeGaps',
+  args: {
+    performance: '{{performance}}',
+    contentLibrary: '{{relatedContent}}'
+  },
+  outputTo: 'gaps'
+}
+```
+
+**3. LLM Phase** - Generate with AI (existing)
+```typescript
+{
+  type: 'llm',
+  name: 'Generate Targeted Questions',
+  template: 'Generate questions filling these gaps: {{gaps}}...',
+  outputTo: 'questions'
+}
+```
+
+**Context Management**:
+- Context starts with: `{ userId, userInput, topicId }`
+- Each phase adds to context via `outputTo`
+- Later phases can reference any prior output
+- Use Handlebars/JSONPath for complex references
+
+**Security Considerations**:
+- Phases run in action context (have auth)
+- Query phases: whitelist of allowed queries
+- Compute phases: whitelist of allowed functions
+- No arbitrary code execution
+
+**Lab UI Changes**:
+
+**Phase Type Selector**:
+```typescript
+<Select value={phase.type} onValueChange={...}>
+  <SelectItem value="query">Query Phase</SelectItem>
+  <SelectItem value="compute">Compute Phase</SelectItem>
+  <SelectItem value="llm">LLM Phase</SelectItem>
+</Select>
+```
+
+**Query Builder** (for query phases):
+```typescript
+<Combobox
+  label="Query to Execute"
+  options={availableQueries} // Auto-complete from schema
+  value={phase.query}
+  onChange={...}
+/>
+
+<DynamicArgsEditor args={phase.args} querySchema={selectedQuerySchema} />
+```
+
+**Context Explorer** (show what's available):
+```typescript
+<Card>
+  <CardHeader>Available Variables</CardHeader>
+  <CardContent>
+    <code>userId</code>: User ID (always available)
+    <code>userInput</code>: User's prompt (always available)
+    <code>performance</code>: From "Fetch User Performance" phase
+    <code>targetDifficulty</code>: From "Calculate Difficulty" phase
+  </CardContent>
+</Card>
+```
+
+**Implementation Steps**:
+1. Extend phase schema to support type + type-specific fields (2h)
+2. Build phase executor with type dispatch (4h)
+3. Implement query phase executor (2h)
+4. Implement compute phase executor (2h)
+5. Build Lab UI for phase type selection (3h)
+6. Build query builder UI (4h)
+7. Build compute function picker UI (3h)
+8. Add context explorer/debugger (2h)
+9. Testing: End-to-end multi-action pipeline (3h)
+
+**Effort**: 1-2 weeks | **Impact**: Revolutionary - personalized learning at scale
+**Prerequisites**: Dynamic Pipeline Executor (Phase 1)
+**Risk**: Complexity - need excellent debugging tools
+
+---
+
+### [PRODUCT] Genesis Lab: Automated Testing & Rollout
+**Perspectives**: product-visionary, architecture-guardian
+**Severity**: MEDIUM (Quality)
+**Impact**: Data-driven promotion decisions, safe canary deployments
+
+**Current State**: Manual promotion with no metrics, no A/B testing, no gradual rollout.
+
+**The Vision**: Automated quality assessment, canary deployments, automatic rollback on regression.
+
+**Features**:
+
+**1. A/B Testing Framework**
+```typescript
+// Run both configs on same inputs, compare results
+export const compareConfigs = internalAction({
+  args: {
+    configA: v.id('infraConfigs'),
+    configB: v.id('infraConfigs'),
+    testInputs: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const results = {
+      configA: { validCount: 0, avgLatency: 0, avgQuestions: 0 },
+      configB: { validCount: 0, avgLatency: 0, avgQuestions: 0 },
+    };
+
+    // Run both configs in parallel
+    for (const input of args.testInputs) {
+      const [resultA, resultB] = await Promise.all([
+        executeConfig(args.configA, input),
+        executeConfig(args.configB, input),
+      ]);
+
+      // Collect metrics
+      if (resultA.valid) results.configA.validCount++;
+      results.configA.avgLatency += resultA.latency;
+      // ... more metrics
+    }
+
+    // Statistical significance test
+    const winner = determineWinner(results);
+
+    return { results, winner, confidence: calculateConfidence(results) };
+  }
+});
+```
+
+**2. Canary Deployment with Gradual Rollout**
+```typescript
+// New field in productionConfigs
+defineTable({
+  // ... existing fields
+  rolloutPercentage: v.number(), // 5, 25, 50, 100
+  metricsWindow: v.object({
+    successRate: v.number(),
+    avgLatency: v.number(),
+    errorRate: v.number(),
+  }),
+})
+
+// Modified generation: Sample config by rollout percentage
+export const processGenerationJob = internalAction({
+  handler: async (ctx, { jobId }) => {
+    const configs = await ctx.runQuery(internal.configs.getActiveConfigs);
+
+    // Weighted random selection by rolloutPercentage
+    const config = sampleByWeight(configs);
+
+    // Execute and track metrics
+    const result = await executeConfig(config, job.userInput);
+
+    // Store metrics for monitoring
+    await trackConfigMetrics(ctx, config._id, result);
+  }
+});
+```
+
+**3. Automated Rollback on Regression**
+```typescript
+// Hourly cron: Check canary metrics
+export const monitorCanaryHealth = internalMutation({
+  schedule: { hourly: { minuteUTC: 15 } },
+  handler: async (ctx) => {
+    const canary = await getCanaryConfig(ctx);
+    const baseline = await getProdConfig(ctx);
+
+    const canaryMetrics = await getMetrics(ctx, canary._id, last24Hours);
+    const baselineMetrics = await getMetrics(ctx, baseline._id, last24Hours);
+
+    // Check for regression (>10% drop in success rate)
+    if (canaryMetrics.successRate < baselineMetrics.successRate * 0.9) {
+      // Auto-rollback
+      await rollbackToBaseline(ctx);
+
+      // Alert
+      await sendSlackAlert(`Canary config rolled back due to ${
+        (1 - canaryMetrics.successRate / baselineMetrics.successRate) * 100
+      }% regression in success rate`);
+    } else if (canaryMetrics.successRate >= baselineMetrics.successRate) {
+      // Promote to next stage (5% → 25% → 50% → 100%)
+      await increaseRollout(ctx, canary._id);
+    }
+  }
+});
+```
+
+**4. Metrics Collection**
+```typescript
+// Track every generation result
+defineTable({
+  configId: v.id('productionConfigs'),
+  timestamp: v.number(),
+  valid: v.boolean(),
+  questionCount: v.number(),
+  latency: v.number(),
+  tokenCount: v.number(),
+  userId: v.id('users'),
+}).index('by_config_time', ['configId', 'timestamp'])
+
+// Quality metrics (LLM-as-judge)
+export const assessQuestionQuality = internalAction({
+  handler: async (ctx, { questions }) => {
+    const { object } = await generateObject({
+      model: google('gemini-2.5-flash'),
+      schema: z.object({
+        scores: z.array(z.object({
+          clarity: z.number().min(0).max(1),
+          accuracy: z.number().min(0).max(1),
+          difficulty: z.enum(['too-easy', 'appropriate', 'too-hard']),
+        })),
+        overallQuality: z.number().min(0).max(1),
+      }),
+      prompt: `Rate the quality of these generated questions: ${JSON.stringify(questions)}...`,
+    });
+
+    return object;
+  }
+});
+```
+
+**5. Promotion Dashboard**
+```typescript
+// Show metrics comparison before promoting
+<Card>
+  <CardHeader>
+    <CardTitle>Config Performance Comparison</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Metric</TableHead>
+          <TableHead>Current PROD</TableHead>
+          <TableHead>Candidate</TableHead>
+          <TableHead>Delta</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>Success Rate</TableCell>
+          <TableCell>94.2%</TableCell>
+          <TableCell>96.8%</TableCell>
+          <TableCell className="text-green-600">+2.6%</TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>Avg Latency</TableCell>
+          <TableCell>2.1s</TableCell>
+          <TableCell>1.8s</TableCell>
+          <TableCell className="text-green-600">-0.3s</TableCell>
+        </TableRow>
+        {/* ... more metrics */}
+      </TableBody>
+    </Table>
+
+    <Button onClick={startCanaryDeployment} disabled={!metricsConfident}>
+      Start Canary (5% rollout)
+    </Button>
+  </CardContent>
+</Card>
+```
+
+**Implementation Steps**:
+1. Add metrics tracking schema (1h)
+2. Build metrics collection in generation (2h)
+3. Implement A/B testing framework (1d)
+4. Build canary deployment system (1d)
+5. Automated health monitoring + rollback (1d)
+6. LLM-as-judge quality assessment (1d)
+7. Promotion dashboard UI (1d)
+8. Slack/email alerting integration (0.5d)
+
+**Effort**: 1 week | **Impact**: HIGH - Safe, data-driven promotion
+**Prerequisites**: Dynamic Pipeline Executor (Phase 1)
+**Risk**: Over-automation - still need human judgment for strategic changes
+
+**Decision Triggers** (build this when ANY occurs):
+- Promoting configs weekly and want confidence metrics
+- Production incident from bad config (need canary safety)
+- Multiple config variants to test (need A/B framework)
+
+---
+
 ## Later (Someday/Maybe, 6+ months)
 
 ### [PRODUCT] Quality Feedback Loop
