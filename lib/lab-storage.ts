@@ -16,6 +16,9 @@ const STORAGE_KEYS = {
   RESULTS: 'scry-lab-results',
 } as const;
 
+// localStorage quota warning threshold (8MB for typical 10MB quota)
+const DEFAULT_QUOTA_WARNING_BYTES = 8 * 1024 * 1024;
+
 /**
  * Save test inputs to localStorage
  * @returns true if save succeeded, false otherwise
@@ -150,6 +153,8 @@ export function getLabDataSize(): number {
  * @param warnThresholdBytes Warning threshold (default 8MB for 10MB quota)
  * @returns true if approaching quota
  */
-export function isApproachingQuota(warnThresholdBytes: number = 8 * 1024 * 1024): boolean {
+export function isApproachingQuota(
+  warnThresholdBytes: number = DEFAULT_QUOTA_WARNING_BYTES
+): boolean {
   return getLabDataSize() >= warnThresholdBytes;
 }
