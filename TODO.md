@@ -26,7 +26,7 @@
 
 ---
 
-- [~] ### Create Prettier configuration file
+- [x] ### Create Prettier configuration file
 
 **File**: `.prettierrc.json` (create new)
 
@@ -62,7 +62,7 @@
 
 ---
 
-- [ ] ### Add post-deploy health check to CI build job
+- [~] ### Add post-deploy health check to CI build job
 
 **File**: `.github/workflows/ci.yml:84` (after build step)
 
