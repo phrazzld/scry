@@ -8,7 +8,7 @@
 
 ## Phase 1: Critical Fixes (Do First)
 
-- [~] ### Fix build command to include Convex deployment
+- [x] ### Fix build command to include Convex deployment
 
 **File**: `package.json:13`
 
@@ -26,7 +26,7 @@
 
 ---
 
-- [ ] ### Create Prettier configuration file
+- [~] ### Create Prettier configuration file
 
 **File**: `.prettierrc.json` (create new)
 
