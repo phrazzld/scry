@@ -151,7 +151,7 @@
 
 ---
 
-- [~] ### Set up Codecov for test coverage visibility
+- [x] ### Set up Codecov for test coverage visibility
 
 **Problem**: Coverage generated but not visible. No badges, trends, or PR diff coverage. Hard to know if coverage is improving or degrading.
 
