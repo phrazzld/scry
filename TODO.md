@@ -62,7 +62,7 @@
 
 ---
 
-- [~] ### Add post-deploy health check to CI build job
+- [x] ### Add post-deploy health check to CI build job
 
 **File**: `.github/workflows/ci.yml:84` (after build step)
 
