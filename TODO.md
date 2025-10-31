@@ -84,7 +84,7 @@
 
 ## Phase 2: Developer Experience (High ROI)
 
-- [~] ### Migrate from Husky to Lefthook
+- [x] ### Migrate from Husky to Lefthook
 
 **Problem**: Pre-commit hooks take 10-30s due to sequential type-checking on every staged file via lint-staged. Incentivizes `--no-verify`.
 
