@@ -197,8 +197,8 @@ Question Budget: [total] questions ([breakdown by difficulty])
 - [x] Update progress tracking (5 phases instead of 2)
 
 ### Update PROD_CONFIG_METADATA
-- [~] Document 5-phase architecture
-- [~] Specify model for each phase:
+- [x] Document 5-phase architecture
+- [x] Specify model for each phase:
   - Phase 1: gpt-5-mini, medium reasoning
   - Phase 2: gpt-5, high reasoning
   - Phase 3: gpt-5-mini, high reasoning
@@ -257,9 +257,9 @@ Question Budget: [total] questions ([breakdown by difficulty])
 - [ ] Day 5: Test all 5 phases in isolation
 
 **Week 2: Execution Modules** ← CURRENT PHASE
-- Day 1-2: Update `convex/lab.ts` for 5-phase execution
-- Day 3-4: Update `convex/aiGeneration.ts` for 5-phase flow
-- Day 5: Integration testing in Genesis Lab
+- ✅ Day 1-2: Update `convex/lab.ts` for 5-phase execution
+- ✅ Day 3-4: Update `convex/aiGeneration.ts` for 5-phase flow
+- [ ] Day 5: Integration testing in Genesis Lab
 
 **Week 3: Validation & Rollout**
 - Day 1-2: Regression testing with test cases
