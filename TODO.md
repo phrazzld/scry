@@ -429,7 +429,7 @@ jobs:
 
 ---
 
-- [ ] ### Add environment variable validation to CI
+- [~] ### Add environment variable validation to CI
 
 **File**: `.github/workflows/ci.yml:38` (add to quality job)
 
