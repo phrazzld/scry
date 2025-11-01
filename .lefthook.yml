@@ -15,6 +15,6 @@ pre-push:
     typecheck:
       run: pnpm tsc --noEmit --incremental
     test:
-      run: pnpm test --run --changed
+      run: pnpm test --changed
     convex-check:
       run: pnpm test:contract
