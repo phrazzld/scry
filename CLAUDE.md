@@ -319,8 +319,8 @@ pnpm test:contract  # API contract validation
 ```
 
 **Utility scripts:**
-- `./scripts/validate-env-vars.sh` - Check env config
-- `./scripts/check-deployment-health.sh` - Verify functions deployed
+- `./scripts/check-deployment-health.sh` - Verify Convex functions deployed
+- `convex/health.ts` - Functional health checks (GOOGLE_AI_API_KEY validation, env vars)
 
 ## Database Bandwidth Optimization
 

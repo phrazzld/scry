@@ -36,17 +36,6 @@ jobs:
           pnpm audit --audit-level=critical &
           wait
 
-      - name: Validate production environment variables
-        run: |
-          # Install vercel CLI for env validation
-          npm install -g vercel
-
-          # Check env vars are set (script validates both Vercel and Convex)
-          ./scripts/validate-env-vars.sh production
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
       - name: Check for .only in tests
         run: |
           if git grep -E "(describe|test|it)\.only" "*.test.{ts,tsx}"; then
