@@ -100,6 +100,41 @@ Both run: `npx convex deploy --cmd 'pnpm build'`
 ./scripts/check-deployment-health.sh  # Verify critical functions exist
 ```
 
+### Build Script Usage (CRITICAL)
+
+**Context-Specific Build Commands:**
+
+The project has three build scripts for different contexts. Using the wrong one causes deployment failures.
+
+| Command | Context | Deploys Convex? | Usage |
+|---------|---------|-----------------|-------|
+| `pnpm build` | CI/Vercel builds | ❌ No | **Used by** `vercel-build.sh` via `--cmd` flag<br>**Never run directly** (Convex already deployed by wrapper) |
+| `pnpm build:local` | Local testing | ✅ Yes (dev) | Testing production builds locally<br>`npx convex deploy && next build` |
+| `pnpm build:prod` | Manual production | ✅ Yes (atomic) | Standalone production build<br>`npx convex deploy --cmd 'next build'` |
+| `pnpm dev` | Development | ✅ Yes (watch) | Normal development with hot reload<br>`concurrently "next dev" "convex dev"` |
+
+**Why multiple build commands?**
+
+The base `build` script is called by `vercel-build.sh` via the `--cmd` flag:
+```bash
+# vercel-build.sh orchestrates the deployment
+npx convex deploy --cmd 'pnpm build'
+```
+
+This ensures atomicity: Convex functions only deploy if frontend build succeeds, preventing mismatched versions.
+
+**Common mistake**: Running `pnpm build` directly and expecting Convex to deploy
+- **Result**: Next.js builds but Convex functions not deployed
+- **Fix**: Use `pnpm build:local` for local production builds OR use Vercel/deploy-production.sh for actual deployments
+
+**When to use each command:**
+
+- **Development** → `pnpm dev` (always)
+- **Local production testing** → `pnpm build:local` (deploys to dev backend, then builds)
+- **CI/Vercel builds** → Automatic (vercel-build.sh handles everything)
+- **Manual production deploy** → `./scripts/deploy-production.sh` (uses `build:prod` internally)
+- **Never run** → `pnpm build` directly (only for use by vercel-build.sh)
+
 **Schema Versioning:**
 - Keep `convex/schemaVersion.ts` ↔ `lib/deployment-check.ts` synced
 - Deploy backend first, then frontend
