@@ -329,28 +329,39 @@ export const executeConfig = action({
       let valid = false;
       let questions: unknown[] = [];
 
-      if (finalOutput && typeof finalOutput === 'object' && 'questions' in finalOutput) {
-        try {
-          const validated = questionsSchema.parse(finalOutput);
-          questions = validated.questions;
-          valid = true;
-        } catch (validationError) {
-          errors.push(
-            `Schema validation failed: ${validationError instanceof Error ? validationError.message : String(validationError)}`
-          );
-          logger.warn(
-            {
-              configId: args.configId,
-              validationError:
-                validationError instanceof Error
-                  ? validationError.message
-                  : String(validationError),
-            },
-            'Output failed schema validation'
-          );
+      // Determine if final phase expects questions output
+      const finalPhase = args.phases[args.phases.length - 1];
+      const expectsQuestions =
+        finalPhase.outputType === 'questions' || (!finalPhase.outputType && args.phases.length > 1); // Default: expect questions if multi-phase
+
+      if (expectsQuestions) {
+        // Validate questions output
+        if (finalOutput && typeof finalOutput === 'object' && 'questions' in finalOutput) {
+          try {
+            const validated = questionsSchema.parse(finalOutput);
+            questions = validated.questions;
+            valid = true;
+          } catch (validationError) {
+            errors.push(
+              `Schema validation failed: ${validationError instanceof Error ? validationError.message : String(validationError)}`
+            );
+            logger.warn(
+              {
+                configId: args.configId,
+                validationError:
+                  validationError instanceof Error
+                    ? validationError.message
+                    : String(validationError),
+              },
+              'Output failed schema validation'
+            );
+          }
+        } else {
+          errors.push('No valid output generated');
         }
       } else {
-        errors.push('No valid output generated');
+        // Text or error output - valid if phase completed without errors
+        valid = errors.length === 0;
       }
 
       const latency = Date.now() - startTime;
