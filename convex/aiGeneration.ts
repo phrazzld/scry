@@ -17,14 +17,19 @@ import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 import {
-  buildIntentClarificationPrompt,
-  buildQuestionPromptFromIntent,
+  buildContentAnalysisPrompt,
+  buildDraftGenerationPrompt,
+  buildErrorDetectionPrompt,
+  buildPedagogicalBlueprintPrompt,
+  buildRefinementPrompt,
 } from './lib/promptTemplates';
 
 // Logger for this module
 const logger = pino({ name: 'aiGeneration' });
 
-// Zod schemas for question generation
+// Zod schemas for 5-phase question generation architecture
+
+// Phase 3 & 5: Question generation
 const questionSchema = z.object({
   question: z.string(),
   type: z.enum(['multiple-choice', 'true-false']), // Required - must be exactly one of these values
@@ -35,6 +40,18 @@ const questionSchema = z.object({
 
 const questionsSchema = z.object({
   questions: z.array(questionSchema),
+});
+
+// Phase 4: Error detection
+const errorSchema = z.object({
+  questionId: z.string(),
+  errorType: z.string(),
+  description: z.string(),
+  suggestion: z.string(),
+});
+
+const errorsSchema = z.object({
+  errors: z.array(errorSchema),
 });
 
 /**
@@ -235,14 +252,19 @@ export const processJob = internalAction({
 
       logger.info({ jobId: args.jobId, prompt: job.prompt }, 'Job details fetched');
 
-      // Phase 1: Clarify learning intent
-      logger.info({ jobId: args.jobId, phase: 'clarifying' }, 'Starting intent clarification');
+      // Phase 1: Content Analysis
+      logger.info({ jobId: args.jobId, phase: 1 }, 'Phase 1: Content Analysis');
 
-      const intentPrompt = buildIntentClarificationPrompt(job.prompt);
-      const { text: clarifiedIntent } = await generateText({
+      await ctx.runMutation(internal.generationJobs.updateProgress, {
+        jobId: args.jobId,
+        phase: 'analyzing',
+      });
+
+      const contentAnalysisPrompt = buildContentAnalysisPrompt(job.prompt);
+      const { text: contentAnalysis } = await generateText({
         model,
-        prompt: intentPrompt,
-        // OpenAI reasoning for Phase 1 (use medium effort for analysis)
+        prompt: contentAnalysisPrompt,
+        // gpt-5-mini, medium reasoning for content analysis
         ...(provider === 'openai' && {
           reasoning_effort: 'medium',
           verbosity: 'medium',
@@ -252,62 +274,152 @@ export const processJob = internalAction({
       logger.info(
         {
           jobId: args.jobId,
-          clarifiedIntentPreview: clarifiedIntent.slice(0, 200),
+          phase: 1,
+          outputLength: contentAnalysis.length,
         },
-        'Intent clarified'
+        'Phase 1 complete: Content analyzed'
       );
 
-      // Extract estimated question count
-      const estimatedTotal = extractEstimatedCount(clarifiedIntent);
+      // Extract estimated question count from content analysis
+      const estimatedTotal = extractEstimatedCount(contentAnalysis);
 
-      // Update progress with estimate and move to generation phase
+      // Phase 2: Pedagogical Blueprint
+      logger.info({ jobId: args.jobId, phase: 2 }, 'Phase 2: Pedagogical Blueprint');
+
+      await ctx.runMutation(internal.generationJobs.updateProgress, {
+        jobId: args.jobId,
+        phase: 'planning',
+        estimatedTotal,
+      });
+
+      const pedagogicalBlueprintPrompt = buildPedagogicalBlueprintPrompt(contentAnalysis);
+      const { text: pedagogicalBlueprint } = await generateText({
+        model,
+        prompt: pedagogicalBlueprintPrompt,
+        // gpt-5, high reasoning for pedagogical planning
+        ...(provider === 'openai' && {
+          reasoning_effort: 'high',
+          verbosity: 'medium',
+        }),
+      });
+
+      logger.info(
+        {
+          jobId: args.jobId,
+          phase: 2,
+          outputLength: pedagogicalBlueprint.length,
+        },
+        'Phase 2 complete: Pedagogical blueprint created'
+      );
+
+      // Phase 3: Draft Generation
+      logger.info({ jobId: args.jobId, phase: 3 }, 'Phase 3: Draft Generation');
+
       await ctx.runMutation(internal.generationJobs.updateProgress, {
         jobId: args.jobId,
         phase: 'generating',
         estimatedTotal,
       });
 
-      logger.info(
-        { jobId: args.jobId, estimatedTotal, phase: 'generating' },
-        'Moving to generation phase'
-      );
-
-      // Phase 2: Generate questions with full validation
-      const questionPrompt = buildQuestionPromptFromIntent(clarifiedIntent);
-
-      logger.info({ jobId: args.jobId }, 'Starting question generation with schema validation');
-
-      const response = await generateObject({
+      const draftPrompt = buildDraftGenerationPrompt(contentAnalysis, pedagogicalBlueprint);
+      const draftResponse = await generateObject({
         model,
         schema: questionsSchema,
-        prompt: questionPrompt,
-        // OpenAI reasoning for Phase 2 (use configured effort level for quality)
+        prompt: draftPrompt,
+        // gpt-5-mini, high reasoning for question generation
         ...(provider === 'openai' && {
-          reasoning_effort: reasoningEffort as 'minimal' | 'low' | 'medium' | 'high',
+          reasoning_effort: 'high',
           verbosity: 'medium',
           max_completion_tokens: 65536,
         }),
       });
 
-      const { object } = response;
+      logger.info(
+        {
+          jobId: args.jobId,
+          phase: 3,
+          questionCount: draftResponse.object.questions.length,
+          totalTokens: draftResponse.usage?.totalTokens,
+        },
+        'Phase 3 complete: Draft questions generated'
+      );
+
+      // Phase 4: Error Detection
+      logger.info({ jobId: args.jobId, phase: 4 }, 'Phase 4: Error Detection');
+
+      await ctx.runMutation(internal.generationJobs.updateProgress, {
+        jobId: args.jobId,
+        phase: 'validating',
+      });
+
+      const errorDetectionPrompt = buildErrorDetectionPrompt(JSON.stringify(draftResponse.object));
+      const errorResponse = await generateObject({
+        model,
+        schema: errorsSchema,
+        prompt: errorDetectionPrompt,
+        // gpt-5-mini, medium reasoning for error detection
+        ...(provider === 'openai' && {
+          reasoning_effort: 'medium',
+          verbosity: 'medium',
+        }),
+      });
+
+      logger.info(
+        {
+          jobId: args.jobId,
+          phase: 4,
+          errorCount: errorResponse.object.errors.length,
+          totalTokens: errorResponse.usage?.totalTokens,
+        },
+        'Phase 4 complete: Errors detected'
+      );
+
+      // Phase 5: Refinement
+      logger.info({ jobId: args.jobId, phase: 5 }, 'Phase 5: Refinement');
+
+      await ctx.runMutation(internal.generationJobs.updateProgress, {
+        jobId: args.jobId,
+        phase: 'refining',
+      });
+
+      const refinementPrompt = buildRefinementPrompt(
+        JSON.stringify(draftResponse.object),
+        JSON.stringify(errorResponse.object)
+      );
+      const finalResponse = await generateObject({
+        model,
+        schema: questionsSchema,
+        prompt: refinementPrompt,
+        // gpt-5-mini, high reasoning for refinement
+        ...(provider === 'openai' && {
+          reasoning_effort: 'high',
+          verbosity: 'medium',
+          max_completion_tokens: 65536,
+        }),
+      });
+
+      const { object } = finalResponse;
 
       // Log reasoning token usage if available (OpenAI)
-      // Type assertion needed as completion_tokens_details is OpenAI-specific
       const reasoningTokens =
-        (response.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
+        (finalResponse.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
           ?.completion_tokens_details?.reasoning_tokens || 0;
 
       logger.info(
         {
           jobId: args.jobId,
+          phase: 5,
           questionCount: object.questions.length,
-          totalTokens: response.usage?.totalTokens,
+          totalTokens: finalResponse.usage?.totalTokens,
           reasoningTokens,
-          ...(reasoningTokens > 0 && {
-            reasoningPercentage: Math.round((reasoningTokens / response.usage.totalTokens) * 100),
-          }),
+          ...(reasoningTokens > 0 &&
+            finalResponse.usage?.totalTokens && {
+              reasoningPercentage: Math.round(
+                (reasoningTokens / finalResponse.usage.totalTokens) * 100
+              ),
+            }),
         },
-        'Questions generated and validated with reasoning'
+        'Phase 5 complete: Final questions refined'
       );
 
       // Phase 2.5: Generate embeddings for semantic search

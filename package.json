@@ -29,7 +29,7 @@
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.2.22",
+    "@ai-sdk/google": "^2.0.26",
     "@ai-sdk/openai": "^2.0.59",
     "@clerk/clerk-react": "^5.47.0",
     "@clerk/nextjs": "^6.32.0",
@@ -53,7 +53,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
-    "ai": "^4.3.16",
+    "ai": "^5.0.86",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.2",
@@ -73,7 +73,7 @@
     "tailwind-merge": "^3.3.1",
     "ts-fsrs": "^5.2.1",
     "ws": "^8.18.3",
-    "zod": "^3.25.67"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@clerk/testing": "^1.13.0",
