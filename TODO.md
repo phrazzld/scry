@@ -208,7 +208,7 @@ Question Budget: [total] questions ([breakdown by difficulty])
 ## Testing Strategy
 
 ### Genesis Lab Incremental Testing
-- [ ] Test Phase 1 alone: Verify content analysis output
+- [x] Test Phase 1 alone: Verify content analysis output
 - [ ] Test Phase 1+2: Verify pedagogical blueprint
 - [ ] Test Phase 1+2+3: Verify draft questions (expect errors like Q3)
 - [ ] Test Phase 1+2+3+4: Verify error detection catches Q3 cloze duplication
