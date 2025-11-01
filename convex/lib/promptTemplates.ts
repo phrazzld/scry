@@ -50,18 +50,38 @@ Challenge enough for effortful retrieval, not so hard it's demotivating:
 - **Procedural content**: Test reasoning behind steps, not just sequence
 
 ## 4. Question Type Appropriateness
-Match format to content nature:
-- **Cloze deletion**: Verbatim memorization, fill-in-blank within context
+
+**For Verbatim Memorization (prayers, poems, quotes, definitions):**
+- Test sequential recall line-by-line or phrase-by-phrase
+- Q1: "What is the first line/phrase of [text]?"
+- Q2-N: "After [previous line], what comes next?"
+- Use all multiple-choice format (NOT fill-in-blank text input)
+- Distractors MUST be:
+  - Other actual lines from the same text (tests sequence knowledge), OR
+  - Meaningful word substitutions that change content
+- Distractors MUST NOT be:
+  - Capitalization variants (e.g., "may God" vs "May God")
+  - Punctuation variants (e.g., semicolon vs period)
+  - Trivial reorderings of the same words
+
+**For Conceptual Content:**
 - **Multiple choice**: Discrimination between similar concepts, recognition testing
 - **True/false**: Binary distinctions, common misconceptions
-- Mix types to maintain engagement and test different retrieval paths
+- Mix types to test understanding from different angles
+
+**Anti-Patterns (NEVER create these):**
+- Meta-questions confirming user intent ("Select the version you want to memorize...")
+- Questions testing punctuation as primary knowledge ("Does this line end with a semicolon?")
+- Questions testing capitalization ("Is 'Saint' spelled out or abbreviated?")
+- Large text blocks (>50 characters) embedded in answer options
 
 ## 5. Discriminative Contrast (Multiple Choice)
 Distractors should:
 - Represent plausible errors or common misconceptions
-- Test genuine understanding, not random guessing
+- Test genuine understanding, not formatting trivia
 - Force discrimination between similar concepts
-- Avoid trick questions or trivial differences
+- For verbatim: Use other lines from text OR meaningful word changes
+- NEVER use capitalization/punctuation variants as distractors
 
 ## 6. Elaborative Encoding
 Explanations build understanding:
