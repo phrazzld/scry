@@ -298,7 +298,7 @@ export default defineWorkspace([
 
 ## Phase 3: Infrastructure Quality Gates
 
-- [ ] ### Create Lighthouse CI workflow for performance budgets
+- [~] ### Create Lighthouse CI workflow for performance budgets
 
 **File**: `.github/workflows/lighthouse.yml` (create new)
 
