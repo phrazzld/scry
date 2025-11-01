@@ -180,8 +180,8 @@ If you discover a security vulnerability:
 
 **Related Documentation**:
 - Preview deployment architecture: `CLAUDE.md` lines 81-125
-- Environment validation script: `scripts/validate-env-vars.sh`
-- Health check implementation: `convex/health.ts`
+- Post-deployment health checks: `convex/health.ts` (functional validation)
+- Deployment verification: `scripts/check-deployment-health.sh`
 
 ---
 

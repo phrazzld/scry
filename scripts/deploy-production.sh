@@ -35,22 +35,16 @@ echo "$ROCKET Production Deployment Pipeline"
 echo "========================================="
 echo ""
 
-# Step 0: Validate Environment Variables
-echo -e "${BLUE}Step 0/4:${NC} Validating environment configuration..."
-echo ""
-
-if ./scripts/validate-env-vars.sh production; then
-  echo ""
-  echo -e "${CHECK} ${GREEN}Environment validation passed${NC}"
-else
-  echo ""
-  echo -e "${CROSS} ${RED}FAILED: Environment validation failed${NC}"
-  echo ""
-  echo -e "${YELLOW}${WARNING} Fix missing environment variables before deploying${NC}"
-  echo ""
-  exit 1
-fi
-
+# Step 0: Environment validation removed
+# Pre-flight env var validation fundamentally cannot work:
+# - Requires admin key (overprivileged for automated scripts)
+# - Production deploy keys lack env var read permissions (intentional security)
+# - Post-deployment health checks provide superior validation (test actual functionality)
+#
+# Validation now happens via:
+# - scripts/check-deployment-health.sh (validates Convex functions deployed)
+# - convex/health.ts (functional testing of GOOGLE_AI_API_KEY, env vars)
+# - app/api/health/route.ts (basic system health)
 echo ""
 
 # Step 1: Deploy Convex Backend

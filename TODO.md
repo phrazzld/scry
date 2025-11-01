@@ -211,14 +211,14 @@
 
 **Goal**: Remove CI validation step that fundamentally cannot work (requires admin key, which is security risk). Rely on post-deployment health checks instead.
 
-- [ ] **Remove environment validation step from .github/workflows/ci.yml**
+- [x] **Remove environment validation step from .github/workflows/ci.yml**
   - Open `.github/workflows/ci.yml`
   - Delete lines 39-48 (entire "Validate production environment variables" step)
   - Verify the next step "Check for .only in tests" (lines 50-56) remains intact
   - Success criteria: Git diff shows clean removal of validation step, no syntax errors in workflow file
   - Context: This validation requires `npx convex env get`, which needs admin key (overprivileged for CI). Production deploy keys intentionally lack env var read access. Post-deployment health checks provide better validation anyway (tests actual functionality, not hypothetical config).
 
-- [ ] **Delete scripts/validate-env-vars.sh**
+- [x] **Delete scripts/validate-env-vars.sh**
   - Run: `rm scripts/validate-env-vars.sh`
   - Verify no other files reference this script: `git grep validate-env-vars.sh`
   - Success criteria: Script deleted, no remaining references in codebase
