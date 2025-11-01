@@ -168,3 +168,23 @@ export function hasExecutionErrors(result: ExecutionResult): boolean {
 export function isSuccessfulExecution(result: ExecutionResult): boolean {
   return result.valid && result.errors.length === 0 && result.questions.length > 0;
 }
+
+/**
+ * Get unique models used across all phases in a config
+ * Used to detect multi-model architectures
+ */
+export function getUniqueModels(config: InfraConfig): string[] {
+  const models = new Set<string>();
+  models.add(config.model); // Add base model
+  // Could add phase-specific models here in the future if needed
+  return Array.from(models);
+}
+
+/**
+ * Check if a config uses multiple different models
+ */
+export function isMultiModelConfig(config: InfraConfig): boolean {
+  // For now, detect based on PROD_CONFIG_METADATA structure
+  // Phase 2 uses gpt-5, others use gpt-5-mini
+  return config.phases.length >= 5 && config.name.includes('5-Phase');
+}

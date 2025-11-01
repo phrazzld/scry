@@ -161,7 +161,9 @@ export function ConfigManager({
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{config.provider}</span>
                   <span>•</span>
-                  <span>{isMultiModelConfig(config) ? 'mixed models' : config.model}</span>
+                  <span>
+                    {isMultiModelConfig(config) ? 'mixed models' : config.model}
+                  </span>
                   <span>•</span>
                   <span>{config.phases.length}-phase</span>
                   {config.temperature !== undefined && (
@@ -221,94 +223,18 @@ export function ConfigManager({
 
                   <div className="space-y-1">
                     <h4 className="text-xs font-medium">Phases:</h4>
-                    {config.phases.map((phase, idx) => {
-                      // Get model for this phase (hardcoded for now based on PROD_CONFIG_METADATA)
-                      const phaseModel =
-                        isMultiModelConfig(config) && phase.name.includes('Phase 2')
-                          ? 'gpt-5'
-                          : config.model;
-                      const isDifferentModel =
-                        isMultiModelConfig(config) && phaseModel !== config.model;
-
-                      // Get reasoning effort for this phase if OpenAI
-                      const reasoning =
-                        config.provider === 'openai' && config.reasoningEffort
-                          ? phase.name.includes('Phase 2') ||
-                            phase.name.includes('Phase 3') ||
-                            phase.name.includes('Phase 5')
-                            ? 'high'
-                            : 'medium'
-                          : null;
-
-                      return (
-                        <div
-                          key={idx}
-                          className={cn(
-                            'text-xs rounded px-2 py-1.5',
-                            isDifferentModel
-                              ? 'bg-purple-100/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900'
-                              : 'bg-muted/50'
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium">
-                              {idx + 1}. {phase.name}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {phase.outputType && (
-                                <span
-                                  className={cn(
-                                    'px-1.5 py-0.5 rounded text-[10px] font-medium',
-                                    phase.outputType === 'text' &&
-                                      'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300',
-                                    phase.outputType === 'questions' &&
-                                      'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300',
-                                    phase.outputType === 'errors' &&
-                                      'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
-                                  )}
-                                >
-                                  {phase.outputType === 'text' && '📄 text'}
-                                  {phase.outputType === 'questions' && '❓ questions'}
-                                  {phase.outputType === 'errors' && '⚠️ errors'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5 text-muted-foreground">
-                            <span
-                              className={
-                                isDifferentModel
-                                  ? 'font-medium text-purple-600 dark:text-purple-400'
-                                  : ''
-                              }
-                            >
-                              → {phaseModel}
-                            </span>
-                            {reasoning && (
-                              <>
-                                <span>•</span>
-                                <span
-                                  className={cn(
-                                    'px-1 rounded text-[10px]',
-                                    reasoning === 'high'
-                                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300'
-                                      : 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
-                                  )}
-                                >
-                                  {reasoning}
-                                </span>
-                              </>
-                            )}
-                            {phase.outputTo && (
-                              <>
-                                <span>•</span>
-                                <span className="text-[10px]">{'{{' + phase.outputTo + '}}'}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {config.phases.map((phase, idx) => (
+                      <div key={idx} className="text-xs bg-muted/50 rounded px-2 py-1.5">
+                        <span className="font-medium">
+                          {idx + 1}. {phase.name}
+                        </span>
+                        {phase.outputTo && (
+                          <span className="text-muted-foreground ml-2">
+                            � {'{{' + phase.outputTo + '}}'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
 
                   <div className="flex gap-2 pt-1">
