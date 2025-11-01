@@ -56,13 +56,23 @@ Challenge enough for effortful retrieval, not so hard it's demotivating:
 - Q1: "What is the first line/phrase of [text]?"
 - Q2-N: "After [previous line], what comes next?"
 - Use all multiple-choice format (NOT fill-in-blank text input)
-- Distractors MUST be:
-  - Other actual lines from the same text (tests sequence knowledge), OR
-  - Meaningful word substitutions that change content
+
+**Distractor Strategy (CRITICAL for effective testing):**
+- **PREFER**: Meaningful word/phrase substitutions that:
+  - Are grammatically compatible with the question position
+  - Make semantic sense in context
+  - Test actual knowledge of specific words, not just logic
+  - Examples: "defend us" → "protect us" / "guide us" / "stand with us"
+- **AVOID**: Random other lines from the text that are:
+  - Grammatically incompatible (e.g., dependent clause as answer to "what comes first?")
+  - Obviously wrong from context alone (e.g., closing "Amen" as distractor for early lines)
+  - Eliminable through logic without knowing the actual text
 - Distractors MUST NOT be:
   - Capitalization variants (e.g., "may God" vs "May God")
   - Punctuation variants (e.g., semicolon vs period)
   - Trivial reorderings of the same words
+
+**Quality Check**: If a learner can eliminate a distractor through grammar/context alone without knowing the text, it's a bad distractor.
 
 **For Conceptual Content:**
 - **Multiple choice**: Discrimination between similar concepts, recognition testing
@@ -78,9 +88,10 @@ Challenge enough for effortful retrieval, not so hard it's demotivating:
 ## 5. Discriminative Contrast (Multiple Choice)
 Distractors should:
 - Represent plausible errors or common misconceptions
-- Test genuine understanding, not formatting trivia
+- Test genuine understanding, not formatting trivia or logic puzzles
 - Force discrimination between similar concepts
-- For verbatim: Use other lines from text OR meaningful word changes
+- **For verbatim sequential recall**: Prefer meaningful word/phrase substitutions over random other lines
+- **Quality test**: Could a learner eliminate this distractor through grammar/context without knowing the content? If yes, it's too weak.
 - NEVER use capitalization/punctuation variants as distractors
 
 ## 6. Elaborative Encoding
