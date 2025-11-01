@@ -1,0 +1,56 @@
+name: Security Audit
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly Monday 6am UTC
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for Gitleaks
+
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.12.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run npm audit (HIGH/CRITICAL only)
+        run: pnpm audit --audit-level=high
+        continue-on-error: true
