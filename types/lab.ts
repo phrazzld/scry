@@ -24,9 +24,10 @@ export interface TestInput {
  * Prompt phase in a multi-phase generation chain
  */
 export interface PromptPhase {
-  name: string; // e.g., "Intent Clarification", "Question Generation"
+  name: string; // e.g., "Phase 1: Content Analysis", "Phase 2: Pedagogical Blueprint"
   template: string; // Prompt template with {{variables}}
-  outputTo?: string; // Variable name for next phase (e.g., "clarifiedIntent")
+  outputTo?: string; // Variable name for next phase (e.g., "contentAnalysis", "pedagogicalBlueprint")
+  outputType?: 'text' | 'questions' | 'errors'; // Output format for this phase
 }
 
 /**

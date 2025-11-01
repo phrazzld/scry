@@ -207,14 +207,15 @@ Question Budget: [total] questions ([breakdown by difficulty])
 
 ## Testing Strategy
 
-### Genesis Lab Incremental Testing
-- [x] Test Phase 1 alone: Verify content analysis output
-- [ ] Test Phase 1+2: Verify pedagogical blueprint
-- [ ] Test Phase 1+2+3: Verify draft questions (expect errors like Q3)
-- [ ] Test Phase 1+2+3+4: Verify error detection catches Q3 cloze duplication
-- [ ] Test Phase 1+2+3+4+5: Verify final output has no Q3-style errors
+### Manual Testing via Genesis Lab UI
+Use the Genesis Lab UI (http://localhost:3000/lab) to test the 5-phase architecture:
+- PRODUCTION config now uses 5-phase architecture
+- Test with various content types (verbatim, conceptual, mixed)
+- Inspect intermediate phase outputs in execution logs
+- Iterate on prompts directly in UI
 
-### Regression Testing
+### Quality Validation (Manual)
+Test with real content to verify quality improvements:
 - [ ] "St Michael prayer" (verbatim) - Should fix Q3 cloze duplication
 - [ ] "Shakespeare's Sonnet 18" (verbatim) - Should have proper cloze format
 - [ ] "React useState Hook" (conceptual) - Should have no structural references
