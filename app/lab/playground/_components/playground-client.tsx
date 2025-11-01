@@ -19,8 +19,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/convex/_generated/api';
 import {
-  buildIntentClarificationPrompt,
-  buildQuestionPromptFromIntent,
+  buildContentAnalysisPrompt,
+  buildDraftGenerationPrompt,
+  buildErrorDetectionPrompt,
+  buildPedagogicalBlueprintPrompt,
+  buildRefinementPrompt,
   PROD_CONFIG_METADATA,
 } from '@/convex/lib/promptTemplates';
 import { loadConfigs } from '@/lib/lab-storage';
@@ -28,25 +31,47 @@ import { cn } from '@/lib/utils';
 import type { ExecutionResult, InfraConfig } from '@/types/lab';
 
 /**
- * Create PROD config inline (matches lab-client pattern)
+ * Create PROD config (5-phase architecture)
  */
 function createProdConfig(): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
-    name: 'PRODUCTION',
-    description: 'Live production infrastructure',
+    name: 'PRODUCTION (5-Phase)',
+    description: '5-phase architecture with bidirectional self-correction',
     provider: PROD_CONFIG_METADATA.provider,
     model: PROD_CONFIG_METADATA.model,
+    reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
+    verbosity: 'medium' as const,
     phases: [
       {
-        name: 'Intent Clarification',
-        template: buildIntentClarificationPrompt('{{userInput}}'),
-        outputTo: 'clarifiedIntent',
+        name: 'Phase 1: Content Analysis',
+        template: buildContentAnalysisPrompt('{{userInput}}'),
+        outputTo: 'contentAnalysis',
+        outputType: 'text' as const,
       },
       {
-        name: 'Question Generation',
-        template: buildQuestionPromptFromIntent('{{clarifiedIntent}}'),
+        name: 'Phase 2: Pedagogical Blueprint',
+        template: buildPedagogicalBlueprintPrompt('{{contentAnalysis}}'),
+        outputTo: 'pedagogicalBlueprint',
+        outputType: 'text' as const,
+      },
+      {
+        name: 'Phase 3: Draft Generation',
+        template: buildDraftGenerationPrompt('{{contentAnalysis}}', '{{pedagogicalBlueprint}}'),
+        outputTo: 'draftQuestions',
+        outputType: 'questions' as const,
+      },
+      {
+        name: 'Phase 4: Error Detection',
+        template: buildErrorDetectionPrompt('{{draftQuestions}}'),
+        outputTo: 'errors',
+        outputType: 'errors' as const,
+      },
+      {
+        name: 'Phase 5: Refinement',
+        template: buildRefinementPrompt('{{draftQuestions}}', '{{errors}}'),
+        outputType: 'questions' as const,
       },
     ],
     isProd: true,
