@@ -2980,3 +2980,140 @@ if (i === args.phases.length - 1) {
 - Knowledge graph visualization
 - Prompt engineering improvements
 - Quality feedback loop system
+
+---
+
+## DevOps Pipeline Improvements (from 2025-11-01 Vercel Build Fix)
+
+**Context**: While fixing double deployment bug and removing impossible CI validation, identified several optional improvements for future consideration.
+
+### [DEVOPS] Unified Health Check Endpoint
+
+**Current State**: Health validation split across two mechanisms:
+- `scripts/check-deployment-health.sh`: Validates Convex functions exist, schema version matches
+- `app/api/health/route.ts` + `convex/health.ts`: Validates env vars, API connectivity, backend availability
+
+**Proposal**: Consolidate into single comprehensive health endpoint
+
+**Benefits**:
+- Single source of truth for deployment health
+- Consistent validation logic across local/CI/production
+- Easier to test and maintain
+- Better module depth (deep functionality behind simple HTTP interface)
+
+**Implementation**:
+- Move check-deployment-health.sh logic into `convex/health.ts`
+- Enhance `/api/health` to return detailed subsystem status (functions, schema, env vars, API connectivity)
+- Add optional `?verbose=true` parameter for detailed diagnostics
+- Update CI to call health endpoint instead of bash script
+
+**Effort**: 3-4h | **Impact**: MEDIUM - Simplifies validation architecture
+
+---
+
+### [DEVOPS] Vercel GitHub Action Migration
+
+**Current State**: Custom `vercel-build.sh` script handles deployment orchestration
+
+**Proposal**: Replace with official Vercel GitHub Action
+
+**Benefits**:
+- Better integration with GitHub (deployment statuses, environment tracking)
+- Automatic preview URL comments on PRs
+- Simpler configuration (declarative YAML vs bash scripting)
+- Official support from Vercel team
+
+**Tradeoffs**:
+- Less control over deployment flow
+- Requires VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets
+- May need project linking setup
+
+**Implementation**:
+- Add `.vercel/project.json` with org/project IDs
+- Create `.github/workflows/deploy.yml` using `amondnet/vercel-action@v25`
+- Configure secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+- Test preview and production deployments
+- Archive vercel-build.sh
+
+**Effort**: 4-6h | **Impact**: LOW - Current script works fine, this is optimization
+
+---
+
+### [DEVOPS] Enhanced Preview Deployment Smoke Tests
+
+**Current State**: `preview-smoke-test.yml` waits for deployment and checks basic availability
+
+**Proposal**: Call `/api/health` endpoint with comprehensive validation
+
+**Benefits**:
+- Catches env var misconfigurations before manual QA
+- Validates Convex backend connectivity (preview deployments use isolated backends)
+- Tests actual functionality, not just "site is up"
+
+**Implementation**:
+- Add step to preview-smoke-test.yml: `curl $PREVIEW_URL/api/health | jq .status`
+- Fail check if status != "healthy"
+- Display health check recommendations on failure
+- Add retry logic (backend might take few seconds to fully initialize)
+
+**Effort**: 1-2h | **Impact**: MEDIUM - Early detection of preview deployment issues
+
+**Decision**: High value, low effort. Consider implementing soon.
+
+---
+
+### [DOCS] Convex Deploy Key Types Documentation
+
+**Context**: Confusion about production vs admin vs preview deploy keys and their permissions
+
+**Proposal**: Add comprehensive guide to `docs/convex-deploy-keys.md`
+
+**Content**:
+- Table of deploy key types with permissions matrix
+- When to use each key type
+- Security implications (why admin keys shouldn't be in CI)
+- How to generate and rotate keys
+- Troubleshooting common auth errors
+
+**Benefits**:
+- Prevents repeated confusion about "why can't CI read env vars?"
+- Documents security model (production keys intentionally limited)
+- Reference for onboarding new developers
+
+**Effort**: 2h | **Impact**: LOW - Nice-to-have, not urgent
+
+---
+
+### [REFACTOR] Build Script Simplification
+
+**Current State**: Multiple build scripts for different contexts (build, build:prod, build:local)
+
+**Alternative Approach**: Single script with environment detection
+
+```json
+{
+  "scripts": {
+    "build": "node scripts/smart-build.js"
+  }
+}
+```
+
+Where `smart-build.js`:
+- Detects context (Vercel CI, local, other)
+- Runs appropriate build sequence
+- Provides clear output explaining what it's doing
+
+**Tradeoffs**:
+- Simpler package.json (one command)
+- More complex logic (Node script vs declarative scripts)
+- Harder to understand what happens without reading script
+
+**Verdict**: ❌ Not recommended. Multiple explicit scripts have better clarity than implicit smart detection. Current approach follows principle of "make it obvious, not clever."
+
+**Effort**: N/A - Rejected | **Impact**: N/A
+
+---
+
+**Last Updated**: 2025-11-01
+**Related TODO**: TODO.md "Fix Vercel Build Failures & CI Validation"
+

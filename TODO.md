@@ -124,7 +124,7 @@
 
 **Goal**: Make build process work correctly in all contexts (local development, Vercel CI, manual production builds) without nested deployments.
 
-- [ ] **Update package.json with context-specific build scripts**
+- [x] **Update package.json with context-specific build scripts**
   - Change `"build": "npx convex deploy && next build"` to `"build": "next build"`
   - Add `"build:prod": "npx convex deploy --cmd 'next build'"` for standalone atomic production builds
   - Add `"build:local": "npx convex deploy && next build"` for local testing of production builds
@@ -132,7 +132,7 @@
   - Success criteria: `pnpm build` only builds Next.js, `pnpm build:local` deploys Convex then builds Next.js for local testing, `pnpm build:prod` uses atomic `--cmd` flag for production
   - Context: The base `build` script is called by vercel-build.sh via `--cmd` flag. It shouldn't deploy Convex itself because vercel-build.sh already handles deployment. The new scripts provide explicit paths for different build contexts.
 
-- [ ] **Add inline documentation explaining build script usage**
+- [x] **Add inline documentation explaining build script usage**
   - In package.json, add comment block above scripts section:
     ```json
     "// NOTE": "Build script contexts:",
@@ -143,7 +143,7 @@
   - Success criteria: Developers reading package.json understand when to use which script
   - Context: Prevents confusion from having multiple build commands. Makes implicit contract (vercel-build.sh owns deployment) explicit.
 
-- [ ] **Verify vercel-build.sh uses --cmd flag correctly**
+- [x] **Verify vercel-build.sh uses --cmd flag correctly**
   - Open `scripts/vercel-build.sh`
   - Confirm line 51 is: `npx convex deploy --cmd 'pnpm build'`
   - Confirm script validates CONVEX_DEPLOY_KEY exists (lines 18-32)
