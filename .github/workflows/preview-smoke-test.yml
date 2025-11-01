@@ -1,0 +1,31 @@
+name: Preview Deployment Smoke Test
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Vercel preview deployment
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+        id: waitForDeployment
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 300
+
+      - name: Test preview health endpoint
+        run: |
+          response=$(curl -f -s "${{ steps.waitForDeployment.outputs.url }}/api/health")
+          echo "Health check response: $response"
+
+          # Verify status is "healthy"
+          status=$(echo $response | jq -r '.status')
+          if [ "$status" != "healthy" ]; then
+            echo "ERROR: Preview deployment unhealthy: $status"
+            echo $response | jq '.recommendations'
+            exit 1
+          fi
