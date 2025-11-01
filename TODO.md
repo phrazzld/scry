@@ -1,693 +1,285 @@
-# TODO: Quality Gates Improvements
+# TODO: Fix Vercel Build Failures & CI Validation
 
-**Context**: Comprehensive quality infrastructure audit revealed critical gaps in developer experience, coverage visibility, and infrastructure quality gates. These tasks improve deployment safety, reduce CI/CD time, and increase confidence in code changes.
+**Status**: In Progress
+**Created**: 2025-11-01
+**Context**: Production deployments failing due to double-deployment bug + CI validation requiring impossible authentication. See ultrathink analysis for full design review.
 
-**Philosophy**: Platform engineering mindset - ask "is this gate preventing real problems or creating bureaucracy?" Each improvement here has demonstrated value.
+**Root Causes Identified:**
+1. **Double deployment**: vercel-build.sh uses `--cmd 'pnpm build'` but package.json build script also runs `npx convex deploy`, causing nested deploy (first succeeds, second 404s)
+2. **Missing secret**: CONVEX_DEPLOY_KEY not in GitHub secrets (verified via `gh secret list`)
+3. **Impossible validation**: CI tries to validate Convex env vars with `npx convex env get`, but production deploy keys lack read permissions (only admin keys can read env vars)
+4. **Broken local builds**: Proposed fix would make `pnpm build` fail locally because Convex functions wouldn't be deployed first
 
----
-
-## Phase 1: Critical Fixes (Do First)
-
-- [x] ### Fix build command to include Convex deployment
-
-**File**: `package.json:13`
-
-**Problem**: Build script is just `next build`, missing Convex backend deployment. CLAUDE.md explicitly requires "npx convex deploy && next build". Local builds work but CI/production could fail if Convex state is stale.
-
-**Change**:
-```json
-- "build": "next build",
-+ "build": "npx convex deploy && next build",
-```
-
-**Why**: Ensures Convex functions are deployed before Next.js build attempts to import them. Prevents runtime "function not found" errors in production.
-
-**Success**: Running `pnpm build` deploys Convex functions first, then builds Next.js. Convex deployment URL is available during Next.js build.
+**Strategic Approach**: Fix incrementally with independent verification at each step. Deploy fast, validate reality (post-deployment health checks) instead of validating hypotheticals (pre-flight env var existence).
 
 ---
 
-- [x] ### Create Prettier configuration file
+## Phase 1: Investigation & Verification
 
-**File**: `.prettierrc.json` (create new)
+**Goal**: Verify assumptions before making changes. Ensure health checks provide sufficient coverage to replace pre-flight validation.
 
-**Problem**: No `.prettierrc` found but Prettier plugins installed (`@ianvs/prettier-plugin-sort-imports`, `prettier-plugin-ember-template-tag`). Formatter settings inconsistent across developers/IDEs.
+- [x] **Audit health check coverage against validate-env-vars.sh requirements**
+  - Read `scripts/validate-env-vars.sh` and extract all vars from `CONVEX_REQUIRED_VARS` and `VERCEL_REQUIRED_VARS` arrays
+  - Read `app/api/health/route.ts` and `convex/health.ts` to see which vars they actually validate
+  - Create comparison table: which vars are validated by health checks, which aren't
+  - Success criteria: Confirm health checks validate at minimum `GOOGLE_AI_API_KEY` (critical for AI generation), `NEXT_PUBLIC_CONVEX_URL` (critical for backend connectivity), and `CONVEX_CLOUD_URL`. If gaps exist for critical vars, note them for potential health check enhancement.
+  - Context: We're replacing pre-flight "does env var exist?" checks with post-deployment "does the system actually work?" checks. This task ensures we're not losing critical validation coverage.
+  ```
+  Work Log:
 
-**Create**:
-```json
-{
-  "semi": true,
-  "trailingComma": "es5",
-  "singleQuote": true,
-  "tabWidth": 2,
-  "printWidth": 100,
-  "plugins": [
-    "@ianvs/prettier-plugin-sort-imports",
-    "prettier-plugin-ember-template-tag"
-  ],
-  "importOrder": [
-    "^react$",
-    "^next",
-    "<THIRD_PARTY_MODULES>",
-    "^@/",
-    "^[./]"
-  ],
-  "importOrderSeparation": true,
-  "importOrderSortSpecifiers": true
-}
-```
+  === ENVIRONMENT VARIABLE COVERAGE ANALYSIS ===
 
-**Why**: Ensures consistent formatting across team, enables auto-import sorting (currently installed but not configured), prevents formatting debates.
+  Variables from validate-env-vars.sh:
 
-**Success**: Run `pnpm format`, imports are sorted by configured order, code formatted consistently.
+  CONVEX_REQUIRED_VARS (2):
+    - GOOGLE_AI_API_KEY
+    - NEXT_PUBLIC_APP_URL
 
----
+  VERCEL_REQUIRED_VARS (5):
+    - NEXT_PUBLIC_CONVEX_URL
+    - CONVEX_DEPLOY_KEY
+    - CLERK_SECRET_KEY
+    - CLERK_WEBHOOK_SECRET
+    - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
-- [x] ### Add post-deploy health check to CI build job
+  Health Check Coverage Analysis:
 
-**File**: `.github/workflows/ci.yml:84` (after build step)
+  app/api/health/route.ts:
+    - Validates: NONE (basic uptime/memory check only)
+    - No env var validation
 
-**Problem**: Convex deploys succeed but critical functions might be missing. No validation that deployment is actually healthy.
+  convex/health.ts:
+    - check() query: Validates GOOGLE_AI_API_KEY, NEXT_PUBLIC_APP_URL, CONVEX_CLOUD_URL
+    - detailed() query: Same as check() with status levels
+    - testGoogleAiKey() action: FUNCTIONAL test of GOOGLE_AI_API_KEY (makes actual API call)
+    - functional() action: Comprehensive check with API test + recommendations
 
-**Add after line 84 (build step)**:
-```yaml
-- name: Validate deployment health
-  run: ./scripts/check-deployment-health.sh
-  env:
-    NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
-```
+  === COMPARISON TABLE ===
 
-**Why**: Script already exists (`scripts/check-deployment-health.sh`), just not integrated into CI. Catches schema mismatches, missing functions before they hit production.
+  | Variable                          | validate-env-vars.sh | Health Checks | Validated By        |
+  |-----------------------------------|----------------------|---------------|---------------------|
+  | GOOGLE_AI_API_KEY (critical)      | ✅ Convex            | ✅ FUNCTIONAL | convex/health.ts    |
+  | NEXT_PUBLIC_APP_URL               | ✅ Convex            | ✅ Existence  | convex/health.ts    |
+  | CONVEX_CLOUD_URL                  | ❌ Not checked       | ✅ Existence  | convex/health.ts    |
+  | NEXT_PUBLIC_CONVEX_URL            | ✅ Vercel            | ❌ Not checked| N/A                 |
+  | CONVEX_DEPLOY_KEY                 | ✅ Vercel            | ❌ Not checked| N/A                 |
+  | CLERK_SECRET_KEY                  | ✅ Vercel            | ❌ Not checked| N/A                 |
+  | CLERK_WEBHOOK_SECRET              | ✅ Vercel            | ❌ Not checked| N/A                 |
+  | NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY | ✅ Vercel            | ❌ Not checked| N/A                 |
 
-**Success**: CI build job fails if critical Convex functions missing after deployment.
+  === CRITICAL FINDINGS ===
 
----
+  ✅ STRENGTH: convex/health.ts provides SUPERIOR validation:
+     - Not just existence checks, but FUNCTIONAL testing
+     - testGoogleAiKey() actually calls Google AI API with test prompt
+     - Classifies errors (INVALID_KEY, RATE_LIMIT, API_DISABLED, NETWORK)
+     - Provides actionable recommendations
 
-## Phase 2: Developer Experience (High ROI)
+  ✅ COVERAGE ADEQUATE for Convex vars:
+     - GOOGLE_AI_API_KEY: Functionally validated (better than existence check)
+     - NEXT_PUBLIC_APP_URL: Existence validated
+     - CONVEX_CLOUD_URL: Existence validated (auto-set by Convex)
 
-- [x] ### Migrate from Husky to Lefthook
+  ⚠️ GAP: Vercel vars not validated by health checks
+     - NEXT_PUBLIC_CONVEX_URL: Frontend-only var, no backend validation possible
+     - CONVEX_DEPLOY_KEY: Deployment auth, not runtime var
+     - CLERK_*: Authentication vars, but Clerk integration itself tests them
 
-**Problem**: Pre-commit hooks take 10-30s due to sequential type-checking on every staged file via lint-staged. Incentivizes `--no-verify`.
+  === VERDICT ===
 
-**Expected gain**: Pre-commit <5s (vs current 10-30s), pre-push <15s.
+  Health checks provide BETTER validation than validate-env-vars.sh:
 
-**Steps**:
+  1. Functional testing > Existence checking
+     - validate-env-vars.sh: "Is GOOGLE_AI_API_KEY set?" ✅
+     - convex/health.ts: "Does GOOGLE_AI_API_KEY actually work?" ✅
 
-1. **Install Lefthook**:
-   ```bash
-   pnpm add -D lefthook
-   pnpm remove husky
-   ```
+  2. Validates in context (post-deployment)
+     - Tests actual deployment configuration
+     - Catches real issues (expired keys, rate limits, network problems)
+     - Not hypothetical "vars exist" checks
 
-2. **Create `.lefthook.yml`**:
-   ```yaml
-   pre-commit:
-     parallel: true
-     commands:
-       format:
-         glob: "*.{js,jsx,ts,tsx,json,md}"
-         run: prettier --write {staged_files}
-       lint:
-         glob: "*.{js,jsx,ts,tsx}"
-         run: eslint --fix --cache {staged_files}
-       secrets:
-         run: gitleaks protect --staged
+  3. Gap analysis for Vercel vars:
+     - NEXT_PUBLIC_CONVEX_URL: Auto-verified by frontend connectivity
+       (if frontend can't reach Convex, app fails immediately)
+     - CONVEX_DEPLOY_KEY: Only needed at deploy time (vercel-build.sh validates)
+     - CLERK_*: Verified by Clerk SDK when auth is used
 
-   pre-push:
-     commands:
-       typecheck:
-         run: pnpm tsc --noEmit --incremental
-       test:
-         run: pnpm test --run --changed
-       convex-check:
-         run: pnpm test:contract
-   ```
+  RECOMMENDATION: Proceed with removing validate-env-vars.sh
+  - No critical validation loss
+  - Health checks are superior approach
+  - Vercel var gaps are acceptable (validated by usage, not existence)
+  ```
 
-3. **Update `package.json:28`**:
-   ```json
-   - "prepare": "husky",
-   + "prepare": "lefthook install",
-   ```
-
-4. **Remove lint-staged type-check** in `package.json:109-115`:
-   ```json
-   "lint-staged": {
-     "*.{js,jsx,ts,tsx}": [
-       "prettier --write",
-   -   "eslint --fix",
-   -   "bash -c 'pnpm tsc --noEmit'"
-   +   "eslint --fix"
-     ]
-   }
-   ```
-
-5. **Delete `.husky/` directory**:
-   ```bash
-   rm -rf .husky
-   ```
-
-**Why**: Type-checking entire project on every commit is slow and redundant (runs in CI anyway). Move to pre-push where it's expected to take longer. Parallel execution of format + lint + secrets saves 5-10s.
-
-**Success**: Commit takes <5s, pre-push runs type-check + tests in parallel, all hooks faster than current setup.
+- [ ] **Retrieve production CONVEX_DEPLOY_KEY from Convex dashboard**
+  - Log into https://dashboard.convex.dev
+  - Navigate to Settings → Project Settings → Deploy Keys
+  - Copy **Production Deploy Key** (starts with `prod:`)
+  - Store temporarily in password manager (will be added to GitHub secrets in Phase 3)
+  - Success criteria: Have production deploy key ready for GitHub secret creation
+  - Context: This key is required for vercel-build.sh to deploy Convex functions. Currently missing from GitHub secrets, causing build failures.
 
 ---
 
-- [x] ### Set up Codecov for test coverage visibility
+## Phase 2: Fix Double Deployment Bug
 
-**Problem**: Coverage generated but not visible. No badges, trends, or PR diff coverage. Hard to know if coverage is improving or degrading.
+**Goal**: Make build process work correctly in all contexts (local development, Vercel CI, manual production builds) without nested deployments.
 
-**Steps**:
+- [ ] **Update package.json with context-specific build scripts**
+  - Change `"build": "npx convex deploy && next build"` to `"build": "next build"`
+  - Add `"build:prod": "npx convex deploy --cmd 'next build'"` for standalone atomic production builds
+  - Add `"build:local": "npx convex deploy && next build"` for local testing of production builds
+  - Keep `"dev": "concurrently \"next dev --turbopack\" \"convex dev\""` unchanged
+  - Success criteria: `pnpm build` only builds Next.js, `pnpm build:local` deploys Convex then builds Next.js for local testing, `pnpm build:prod` uses atomic `--cmd` flag for production
+  - Context: The base `build` script is called by vercel-build.sh via `--cmd` flag. It shouldn't deploy Convex itself because vercel-build.sh already handles deployment. The new scripts provide explicit paths for different build contexts.
 
-1. **Sign up at codecov.io**, link GitHub repo
+- [ ] **Add inline documentation explaining build script usage**
+  - In package.json, add comment block above scripts section:
+    ```json
+    "// NOTE": "Build script contexts:",
+    "// build": "Used by vercel-build.sh --cmd flag (Convex already deployed)",
+    "// build:prod": "Standalone production build with atomic deployment",
+    "// build:local": "Local production build for testing (deploys then builds)",
+    ```
+  - Success criteria: Developers reading package.json understand when to use which script
+  - Context: Prevents confusion from having multiple build commands. Makes implicit contract (vercel-build.sh owns deployment) explicit.
 
-2. **Add to CI workflow** in `.github/workflows/ci.yml:57` (after test step):
-   ```yaml
-   - name: Upload coverage to Codecov
-     uses: codecov/codecov-action@v4
-     with:
-       files: ./coverage/coverage-final.json
-       token: ${{ secrets.CODECOV_TOKEN }}
-       fail_ci_if_error: false
-   ```
+- [ ] **Verify vercel-build.sh uses --cmd flag correctly**
+  - Open `scripts/vercel-build.sh`
+  - Confirm line 51 is: `npx convex deploy --cmd 'pnpm build'`
+  - Confirm script validates CONVEX_DEPLOY_KEY exists (lines 18-32)
+  - No changes needed if correct (this is verification task)
+  - Success criteria: vercel-build.sh correctly orchestrates deploy → build sequence
+  - Context: The `--cmd` flag ensures atomicity: Convex functions only deploy if frontend build succeeds. This prevents mismatched frontend/backend versions in production.
 
-3. **Add Codecov badge to README.md:3** (after title):
-   ```markdown
-   [![codecov](https://codecov.io/gh/YOUR_USERNAME/scry/branch/main/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/YOUR_USERNAME/scry)
-   ```
-
-4. **Add GitHub secret**: `CODECOV_TOKEN` (from Codecov dashboard)
-
-**Why**: Codecov provides coverage trends, diff coverage in PRs (shows +/- % for each PR), identifies uncovered lines. Free for open source. Superior to self-hosted badges.
-
-**Success**: PR comments show coverage delta (+2.5%), badge in README displays current coverage %, Codecov dashboard shows trend over time.
-
----
-
-- [x] ### Add coverage thresholds for critical paths
-
-**File**: `vitest.config.ts:16-31`
-
-**Problem**: 723 tests but no enforcement of coverage minimums. Critical paths (auth, FSRS scheduler, payment logic) could drop to 0% without CI failing.
-
-**Change**:
-```typescript
-coverage: {
-  provider: 'v8',
-  reporter: ['text', 'json', 'json-summary', 'html', 'lcov'], // Add lcov for Codecov
-  // Global thresholds (Google research: 60% acceptable, 75% commendable)
-  thresholds: {
-    lines: 60,
-    functions: 60,
-    branches: 55,
-    statements: 60,
-  },
-  // Per-file thresholds for critical paths
-  perFile: true,
-  include: [
-    'lib/**',
-    'convex/**',
-    'hooks/**',
-  ],
-  exclude: [
-    'node_modules/',
-    'dist/',
-    '.next/',
-    '**/*.d.ts',
-    '**/*.config.*',
-    '**/test/**',
-    '**/tests/**',
-    'lib/generated/**',
-    'scripts/**',
-  ],
-},
-```
-
-**Create `vitest.workspace.ts`** for critical path overrides:
-```typescript
-import { defineWorkspace } from 'vitest/config';
-
-export default defineWorkspace([
-  {
-    test: {
-      include: ['convex/spacedRepetition.test.ts'],
-      coverage: {
-        thresholds: {
-          lines: 80,
-          functions: 80,
-        },
-      },
-    },
-  },
-  {
-    test: {
-      include: ['lib/auth-cookies.test.ts'],
-      coverage: {
-        thresholds: {
-          lines: 80,
-        },
-      },
-    },
-  },
-]);
-```
-
-**Why**: FSRS scheduling and auth are critical paths where bugs cause data loss. 80% threshold ensures they're well-tested. Global 60% threshold prevents degradation without being oppressive.
-
-**Success**: CI fails if critical path coverage drops below 80%, or global coverage drops below 60%.
+- [ ] **Test local build workflow with new scripts**
+  - Run `pnpm build:local` locally
+  - Verify: (1) Convex deploys to dev backend, (2) Next.js build succeeds, (3) no duplicate deployment
+  - Check `.next/` directory contains static assets
+  - Run `pnpm build` alone (should build Next.js without deploying Convex)
+  - Success criteria: Both commands work correctly, no errors, build output matches expectations
+  - Context: This validates the fix before pushing to CI. If local builds fail, the problem is in our script changes, not infrastructure.
 
 ---
 
-- [x] ### Add bundle size limit enforcement
+## Phase 3: Infrastructure Setup
 
-**Problem**: No enforcement of bundle size growth. Could accidentally ship 2MB of dependencies without noticing until production performance degrades.
+**Goal**: Add missing GitHub secret required for Convex deployment in CI/Vercel.
 
-**Steps**:
+- [ ] **Add CONVEX_DEPLOY_KEY to GitHub repository secrets**
+  - Use production deploy key from Phase 1
+  - Run: `gh secret set CONVEX_DEPLOY_KEY` (will prompt for value)
+  - Paste production deploy key when prompted
+  - Verify: `gh secret list | grep CONVEX_DEPLOY_KEY` shows the secret exists
+  - Success criteria: Secret appears in `gh secret list` output
+  - Context: This key authorizes vercel-build.sh to deploy Convex functions in CI/Vercel builds. Without it, deployments fail with authentication errors. Production deploy keys can deploy code but cannot read environment variables (intentional security limitation).
 
-1. **Install size-limit**:
-   ```bash
-   pnpm add -D size-limit @size-limit/preset-app
-   ```
-
-2. **Create `.size-limit.json`**:
-   ```json
-   [
-     {
-       "name": "Client bundle",
-       "path": ".next/static/**/*.js",
-       "limit": "500 KB",
-       "webpack": false
-     }
-   ]
-   ```
-
-3. **Add CI check** in `.github/workflows/ci.yml:84` (after build):
-   ```yaml
-   - name: Check bundle size
-     run: pnpm size-limit
-   ```
-
-4. **Add npm script** in `package.json:29`:
-   ```json
-   "size": "size-limit"
-   ```
-
-**Why**: Bundle size directly impacts Time to Interactive. Lighthouse tests exist but not enforced. size-limit fails CI if bundle exceeds threshold, with clear error message.
-
-**Success**: CI fails if bundle exceeds 500KB, developers notified before merge.
+- [ ] **Verify secret propagation to GitHub Actions**
+  - Push a trivial commit to trigger CI
+  - Check CI quality job runs successfully (should still fail on env validation for now)
+  - Look for "CONVEX_DEPLOY_KEY not set" errors in logs (shouldn't appear now)
+  - Success criteria: No authentication errors in CI logs related to Convex deployment
+  - Context: Verifies secret is correctly configured before we remove validation step. If this fails, we know the secret setup was wrong before we remove our ability to validate.
 
 ---
 
-## Phase 3: Infrastructure Quality Gates
+## Phase 4: Remove Broken Pre-Flight Validation
 
-- [x] ### Create Lighthouse CI workflow for performance budgets
+**Goal**: Remove CI validation step that fundamentally cannot work (requires admin key, which is security risk). Rely on post-deployment health checks instead.
 
-**File**: `.github/workflows/lighthouse.yml` (create new)
+- [ ] **Remove environment validation step from .github/workflows/ci.yml**
+  - Open `.github/workflows/ci.yml`
+  - Delete lines 39-48 (entire "Validate production environment variables" step)
+  - Verify the next step "Check for .only in tests" (lines 50-56) remains intact
+  - Success criteria: Git diff shows clean removal of validation step, no syntax errors in workflow file
+  - Context: This validation requires `npx convex env get`, which needs admin key (overprivileged for CI). Production deploy keys intentionally lack env var read access. Post-deployment health checks provide better validation anyway (tests actual functionality, not hypothetical config).
 
-**Problem**: Lighthouse tools installed (`package.json:20-21`) but no automated performance regression detection. Performance can degrade silently.
+- [ ] **Delete scripts/validate-env-vars.sh**
+  - Run: `rm scripts/validate-env-vars.sh`
+  - Verify no other files reference this script: `git grep validate-env-vars.sh`
+  - Success criteria: Script deleted, no remaining references in codebase
+  - Context: This 188-line script becomes dead code after removing CI validation. Deleting prevents zombie code confusion. If env validation is needed in future, health checks are the right pattern (validate actual functionality, not config existence).
 
-**Create**:
-```yaml
-name: Lighthouse CI
-on:
-  pull_request:
-    branches: [main, master]
-
-jobs:
-  lighthouse:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v2
-        with:
-          version: '10.12.1'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20.19.0'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build application
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
-
-      - name: Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v10
-        with:
-          urls: |
-            http://localhost:3000
-            http://localhost:3000/quiz-mode
-          configPath: './lighthouserc.json'
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-```
-
-**Create `lighthouserc.json`**:
-```json
-{
-  "ci": {
-    "collect": {
-      "numberOfRuns": 3,
-      "startServerCommand": "pnpm start",
-      "startServerReadyPattern": "Ready",
-      "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/quiz-mode"
-      ]
-    },
-    "assert": {
-      "preset": "lighthouse:recommended",
-      "assertions": {
-        "categories:performance": ["error", {"minScore": 0.85}],
-        "first-contentful-paint": ["error", {"maxNumericValue": 2000}],
-        "interactive": ["error", {"maxNumericValue": 3500}],
-        "speed-index": ["error", {"maxNumericValue": 3000}],
-        "cumulative-layout-shift": ["error", {"maxNumericValue": 0.1}]
-      }
-    },
-    "upload": {
-      "target": "temporary-public-storage"
-    }
-  }
-}
-```
-
-**Why**: Performance is a feature. Lighthouse CI catches regressions before they reach production. Budgets set at current performance levels (85 performance score, <2s FCP).
-
-**Success**: PR checks fail if performance score drops below 85, or FCP exceeds 2 seconds.
+- [ ] **Verify CI build job health checks remain intact**
+  - Open `.github/workflows/ci.yml` and locate build job (lines 92-124)
+  - Confirm line 117-120 contains: "Validate deployment health" step calling `./scripts/check-deployment-health.sh`
+  - Confirm line 122-123 contains: "Check bundle size" step calling `pnpm size-limit`
+  - No changes needed (verification task)
+  - Success criteria: Post-deployment health checks still run, providing actual validation of working system
+  - Context: These health checks replace pre-flight validation with better approach: deploy, then verify it actually works. Tests real API connectivity, schema validity, and function availability.
 
 ---
 
-- [x] ### Add preview deployment smoke tests
+## Phase 5: Documentation & Polish
 
-**File**: `.github/workflows/preview-smoke-test.yml` (create new)
+**Goal**: Document the new build workflow and environment variable architecture for future developers.
 
-**Problem**: Preview deploys might be broken, discovered only when manually testing. No automated validation that preview URL is functional.
+- [ ] **Create docs/environment-variables.md reference**
+  - Create `docs/` directory if it doesn't exist
+  - Write comprehensive table of all env vars with columns: Variable Name, Convex (Y/N), Vercel (Y/N), CI (Y/N), Purpose, How to Set
+  - Include these vars at minimum:
+    - `GOOGLE_AI_API_KEY`: Backend AI generation (Convex only)
+    - `NEXT_PUBLIC_CONVEX_URL`: Frontend backend connection (Vercel, auto-set by convex deploy)
+    - `CONVEX_DEPLOY_KEY`: Deployment authentication (Vercel + CI)
+    - `CLERK_SECRET_KEY`: Auth verification (Vercel + CI)
+    - `CLERK_WEBHOOK_SECRET`: Webhook validation (Vercel + CI)
+    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`: Frontend auth (Vercel + CI)
+  - Add section explaining Convex vs Vercel env vars are separate systems (setting in one doesn't set in other)
+  - Success criteria: Single source of truth for "which env var goes where" questions
+  - Context: Eliminates repeated confusion about environment variable configuration. Current knowledge is scattered across validate-env-vars.sh, CLAUDE.md, and tribal knowledge.
 
-**Create**:
-```yaml
-name: Preview Deployment Smoke Test
-on:
-  pull_request:
-    types: [opened, synchronize]
+- [ ] **Update CLAUDE.md with build script usage patterns**
+  - Open `CLAUDE.md` in project root
+  - Add section under "## Deployment Architecture" explaining:
+    - When to use `pnpm build` (never directly, only via vercel-build.sh)
+    - When to use `pnpm build:local` (testing production builds locally)
+    - When to use `pnpm build:prod` (manual production deployments)
+    - When to use `pnpm dev` (normal development)
+  - Add note that vercel-build.sh is the canonical production build path
+  - Success criteria: Developers understand build workflow without tribal knowledge
+  - Context: CLAUDE.md is the project's operational guide. This prevents confusion from having multiple build commands and makes the implicit contract (vercel-build.sh owns production builds) explicit.
 
-jobs:
-  smoke-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Wait for Vercel preview deployment
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
-        id: waitForDeployment
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 300
-
-      - name: Test preview health endpoint
-        run: |
-          response=$(curl -f -s "${{ steps.waitForDeployment.outputs.url }}/api/health")
-          echo "Health check response: $response"
-
-          # Verify status is "healthy"
-          status=$(echo $response | jq -r '.status')
-          if [ "$status" != "healthy" ]; then
-            echo "ERROR: Preview deployment unhealthy: $status"
-            echo $response | jq '.recommendations'
-            exit 1
-          fi
-```
-
-**Why**: Health endpoint exists (`app/api/health/route.ts`), comprehensive checks already implemented. Just need to call it from CI. Catches environment variable misconfigurations, Convex connection issues before manual QA.
-
-**Success**: PR checks fail if preview deployment health endpoint returns non-healthy status.
+- [ ] **Update TODO.md to reflect completion**
+  - Mark all tasks as completed with `[x]`
+  - Add summary at top noting: "Completed 2025-11-0X. Fixed double deployment bug, removed impossible pre-flight validation, enhanced documentation."
+  - Move any optional enhancements to BACKLOG.md
+  - Success criteria: TODO.md accurately reflects completed work
+  - Context: Keeps project management artifacts in sync with reality.
 
 ---
 
-- [x] ### Add environment variable validation to CI
+## Success Criteria for Entire Fix
 
-**File**: `.github/workflows/ci.yml:38` (add to quality job)
+**Build Pipeline**:
+- ✅ Vercel builds succeed without double deployment
+- ✅ Local production builds work with `pnpm build:local`
+- ✅ CI runs without environment validation failures
 
-**Problem**: Missing env vars discovered only when deployment fails. `validate-env-vars.sh` exists but not used in CI.
-
-**Add to quality job after line 37**:
-```yaml
-- name: Validate production environment variables
-  run: |
-    # Install vercel CLI for env validation
-    npm install -g vercel
-
-    # Check env vars are set (script validates both Vercel and Convex)
-    ./scripts/validate-env-vars.sh production
-  env:
-    CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-    VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-```
-
-**Why**: Script already exists and validates both Vercel and Convex env vars. Failing CI early (in 30s) saves 5+ minutes waiting for Vercel deployment to fail.
-
-**Success**: CI quality job fails if required env vars missing, lists which vars need to be set.
-
----
-
-- [x] ### Consolidate security scanning into dedicated workflow
-
-**File**: `.github/workflows/security.yml` (create new)
-
-**Problem**: Security scanning scattered (Gitleaks in hooks, Dependabot configured, npm audit in CI). No centralized weekly security review.
-
-**Create**:
-```yaml
-name: Security Audit
-on:
-  push:
-    branches: [main, master]
-  pull_request:
-  schedule:
-    - cron: '0 6 * * 1' # Weekly Monday 6am UTC
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Full history for Gitleaks
-
-      - name: Run Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'HIGH,CRITICAL'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-      - uses: pnpm/action-setup@v2
-        with:
-          version: '10.12.1'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20.19.0'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run npm audit (HIGH/CRITICAL only)
-        run: pnpm audit --audit-level=high
-        continue-on-error: true
-```
-
-**Why**: Trivy scans dependencies + container images + misconfigurations (more comprehensive than just npm audit). Gitleaks scans full history. Results integrated into GitHub Security tab. Weekly scan catches new vulnerabilities.
-
-**Success**: Weekly security scan runs, results visible in GitHub Security tab, HIGH/CRITICAL alerts fail PR checks.
-
----
-
-## Phase 4: Release Management
-
-- [x] ### Set up Changesets for automated changelog
-
-**Problem**: No CHANGELOG.md, manual version bumps, no release automation. Git tags exist but not correlated with releases.
-
-**Steps**:
-
-1. **Install Changesets**:
-   ```bash
-   pnpm add -D @changesets/cli
-   pnpm changeset init
-   ```
-
-2. **Configure `.changeset/config.json`**:
-   ```json
-   {
-     "$schema": "https://unpkg.com/@changesets/config@2.3.0/schema.json",
-     "changelog": "@changesets/cli/changelog",
-     "commit": false,
-     "fixed": [],
-     "linked": [],
-     "access": "public",
-     "baseBranch": "main",
-     "updateInternalDependencies": "patch",
-     "ignore": []
-   }
-   ```
-
-3. **Create `.github/workflows/release.yml`**:
-   ```yaml
-   name: Release
-   on:
-     push:
-       branches: [main]
-
-   concurrency: ${{ github.workflow }}-${{ github.ref }}
-
-   jobs:
-     release:
-       runs-on: ubuntu-latest
-       permissions:
-         contents: write
-         pull-requests: write
-       steps:
-         - uses: actions/checkout@v4
-           with:
-             fetch-depth: 0
-
-         - uses: pnpm/action-setup@v2
-           with:
-             version: '10.12.1'
-
-         - uses: actions/setup-node@v4
-           with:
-             node-version: '20.19.0'
-             cache: 'pnpm'
-
-         - name: Install dependencies
-           run: pnpm install --frozen-lockfile
-
-         - name: Create Release Pull Request
-           uses: changesets/action@v1
-           with:
-             publish: pnpm changeset tag
-           env:
-             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-   ```
-
-4. **Add npm script** in `package.json:29`:
-   ```json
-   "changeset": "changeset",
-   "version-packages": "changeset version",
-   ```
-
-**Workflow**:
-1. Developer adds changeset: `pnpm changeset` → creates `.changeset/some-feature.md`
-2. On merge to main, bot creates "Version Packages" PR
-3. Merge PR → auto version bump, CHANGELOG update, git tag, GitHub release
-
-**Why**: Changesets better for TypeScript monolith apps than semantic-release (which requires strict conventional commits). Human-written changelog entries vs auto-generated. Explicit control over versioning.
-
-**Success**: Add changeset file, merge PR, bot creates "Version Packages" PR with updated CHANGELOG.md and version bump.
-
----
-
-## Phase 5: Test Quality Improvements
-
-- [~] ### Fix or delete skipped E2E tests
-
-**Problem**: 4 E2E tests using `.skip` or `.only` (found by grep). Skipped tests create false confidence, `.only` blocks other tests from running.
-
-**Files to review**:
-- `tests/e2e/spaced-repetition.test.ts`
-- `tests/e2e/spaced-repetition.local.test.ts`
-- `tests/e2e/review-next-button-fix.test.ts`
-- `tests/e2e/example-auth.test.ts`
-
-**Steps**:
-1. Review each test with `.skip` or `.only`
-2. For each: either fix the test, or delete it if obsolete
-3. Run full E2E suite to verify all tests pass
-
-**Why**: Skipped tests either indicate flaky tests (need fixing) or tests that are no longer relevant (delete). `.only` accidentally left in blocks other tests.
-
-**Success**: All E2E tests run, no `.skip` or `.only` present, suite passes.
-
----
-
-- [x] ### Add CI check to prevent `.only` commits
-
-**File**: `.github/workflows/ci.yml:38` (add to quality job)
-
-**Problem**: Developers forget to remove `.only` before committing, blocks entire test suite from running in CI.
-
-**Add to quality job**:
-```yaml
-- name: Check for .only in tests
-  run: |
-    if git grep -E "(describe|test|it)\.only" "*.test.{ts,tsx}"; then
-      echo "ERROR: Found .only in test files"
-      echo "Remove .only before committing"
-      exit 1
-    fi
-```
-
-**Why**: Catches `.only` early in CI quality checks (fast feedback). Prevents accidentally shipping tests that block the suite.
-
-**Success**: CI fails if `.only` found in test files, lists which files contain it.
-
----
-
-## Appendix: Success Metrics
+**Validation**:
+- ✅ Post-deployment health checks validate critical env vars
+- ✅ No overprivileged secrets (admin keys) in CI
+- ✅ Deployments that succeed are actually functional (not just "vars exist")
 
 **Developer Experience**:
-- Pre-commit time: 10-30s → <5s (5-10 min/dev/day saved)
-- Pre-push time: Unknown → <15s
-- Coverage visibility: None → Badge in README + PR comments
-
-**Deployment Safety**:
-- Health checks: 0 → 2 (post-deploy + preview smoke test)
-- Performance monitoring: Manual → Automated (Lighthouse CI)
-- Env var validation: Post-deploy → Pre-deploy
-
-**Code Quality**:
-- Coverage enforcement: None → 60% global, 80% critical paths
-- Bundle size: Unmonitored → 500KB limit enforced
-- Security scanning: Scattered → Centralized weekly scan
-
-**Release Management**:
-- Changelog: Manual → Automated via Changesets
-- Version bumps: Manual → Automated via Changesets
-- Git tags: Manual → Automated via Changesets
-
-**Estimated ROI**:
-- Time savings: 5-10 min/dev/day (faster commits + pre-push)
-- Bug prevention: Catch 80%+ of deployment issues before production
-- Reduced incident response: Health checks catch misconfigurations early
+- ✅ Clear documentation of which build command to use when
+- ✅ Single source of truth for environment variable configuration
+- ✅ No tribal knowledge required to understand build workflow
 
 ---
 
-**Last Updated**: 2025-10-31
-**Estimated Total Effort**: 16-20 hours spread across phases
-**Risk Level**: Low (all changes additive except Husky→Lefthook migration)
+## Rollback Plan
+
+If CI still fails after all tasks complete:
+
+1. Check CI logs for specific error
+2. Verify CONVEX_DEPLOY_KEY secret exists and is production key (starts with `prod:`)
+3. Test vercel-build.sh locally: `CONVEX_DEPLOY_KEY=<key> ./scripts/vercel-build.sh`
+4. If health checks fail, temporarily re-add validation step to isolate issue
+5. Escalate to Convex support if deploy key permissions seem wrong
+
+---
+
+## Future Enhancements (see BACKLOG.md)
+
+- Consolidate `check-deployment-health.sh` and `/api/health` into single comprehensive endpoint
+- Add preview deployment smoke tests (already in preview-smoke-test.yml, verify it calls /api/health)
+- Consider Vercel GitHub Action instead of vercel-build.sh for better integration
