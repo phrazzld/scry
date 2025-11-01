@@ -99,3 +99,6 @@ jobs:
         run: ./scripts/check-deployment-health.sh
         env:
           NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+
+      - name: Check bundle size
+        run: pnpm size-limit
