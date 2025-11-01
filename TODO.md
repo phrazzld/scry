@@ -182,7 +182,7 @@
 
 ---
 
-- [ ] ### Add coverage thresholds for critical paths
+- [~] ### Add coverage thresholds for critical paths
 
 **File**: `vitest.config.ts:16-31`
 

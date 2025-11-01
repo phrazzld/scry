@@ -15,8 +15,17 @@ export default defineConfig({
     // Coverage configuration
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'json-summary', 'html'],
-      // No thresholds enforced - coverage is informational only
+      reporter: ['text', 'json', 'json-summary', 'html', 'lcov'], // Add lcov for Codecov
+      // Global thresholds (Google research: 60% acceptable, 75% commendable)
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 55,
+        statements: 60,
+      },
+      // Per-file thresholds for critical paths
+      perFile: true,
+      include: ['lib/**', 'convex/**', 'hooks/**'],
       exclude: [
         'node_modules/',
         'dist/',
