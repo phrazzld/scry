@@ -1578,18 +1578,103 @@ Generate the questions now. Return only the questions array matching the schema 
 }
 
 /**
- * Production configuration metadata
+ * Production configuration metadata - 5-Phase Architecture
  *
- * These are the EXACT parameters used in production question generation.
- * Now using OpenAI GPT-5 mini with high reasoning effort for superior
- * question quality (better format matching, context injection, and deduplication).
+ * Implements Bidirectional Self-Correction architecture to eliminate
+ * quality issues (cloze duplication, structural references, logic errors).
  *
- * Production omits temperature/maxCompletionTokens (uses model defaults).
- * Reasoning effort is explicitly set to 'high' for maximum quality.
+ * DESIGN PHILOSOPHY:
+ * - Separation of concerns (each phase does ONE thing well)
+ * - Bidirectional correction (Phase 4 → Phase 5 feedback loop)
+ * - Explicit error detection rules (not just "self-critique")
+ * - Defer validation to Phase 4 (don't overload Phase 3 with simultaneous tasks)
+ *
+ * PHASE BREAKDOWN:
+ *
+ * Phase 1: Content Analysis
+ * - Model: gpt-5-mini
+ * - Reasoning: medium
+ * - Output: text (content classification, atomic knowledge units, count estimate)
+ * - Cognitive Load: LOW (single analytical task - WHAT to test)
+ * - Cost: ~2K tokens
+ *
+ * Phase 2: Pedagogical Blueprint
+ * - Model: gpt-5 (strategic planning needs highest reasoning)
+ * - Reasoning: high
+ * - Output: text (Bloom's levels, difficulty targets, misconceptions, question budget)
+ * - Cognitive Load: MEDIUM (strategic planning - HOW to test)
+ * - Cost: ~3K tokens
+ *
+ * Phase 3: Draft Generation
+ * - Model: gpt-5-mini
+ * - Reasoning: high
+ * - Output: questions object (may contain errors - NO self-critique yet)
+ * - Cognitive Load: MEDIUM-HIGH (generation only, no validation)
+ * - Cost: ~12K tokens
+ *
+ * Phase 4: Error Detection
+ * - Model: gpt-5-mini
+ * - Reasoning: medium
+ * - Output: errors object (specific problems with question IDs and fix instructions)
+ * - Cognitive Load: LOW-MEDIUM (validation only, no fixes yet)
+ * - Cost: ~5K tokens
+ * - Checks: cloze duplications, structural references, meta-answers, missing context, schema violations
+ *
+ * Phase 5: Refinement
+ * - Model: gpt-5-mini
+ * - Reasoning: high
+ * - Output: questions object (final corrected questions array)
+ * - Cognitive Load: MEDIUM (correction only - apply Phase 4 fixes)
+ * - Cost: ~8K tokens
+ *
+ * COST ANALYSIS:
+ * - Total: ~30K tokens (3K gpt-5, 27K gpt-5-mini)
+ * - vs 2-phase baseline: ~17K tokens (all gpt-5-mini)
+ * - Cost increase: ~75% (mostly Phase 4 & 5 validation/correction overhead)
+ * - Quality ROI: Eliminates logic errors, proper self-correction, pedagogically grounded questions
+ *
+ * KEY INSIGHT FROM Q3 FAILURE:
+ * When an LLM has 6+ simultaneous constraints to satisfy (generate + validate +
+ * format + match distribution + design distractors + critique), basic logic errors
+ * slip through. Breaking into focused phases reduces cognitive load and improves reliability.
  */
 export const PROD_CONFIG_METADATA = {
   provider: 'openai' as const,
-  model: 'gpt-5-mini',
-  reasoningEffort: 'high' as const,
+  model: 'gpt-5-mini', // Primary model (used for 4 of 5 phases)
+  reasoningEffort: 'high' as const, // Default reasoning effort for generation phases
   // Production omits temperature/maxCompletionTokens (model chooses optimal values)
+
+  // 5-Phase Architecture Details:
+  phases: [
+    {
+      name: 'Phase 1: Content Analysis',
+      model: 'gpt-5-mini',
+      reasoningEffort: 'medium' as const,
+      outputType: 'text' as const,
+    },
+    {
+      name: 'Phase 2: Pedagogical Blueprint',
+      model: 'gpt-5',
+      reasoningEffort: 'high' as const,
+      outputType: 'text' as const,
+    },
+    {
+      name: 'Phase 3: Draft Generation',
+      model: 'gpt-5-mini',
+      reasoningEffort: 'high' as const,
+      outputType: 'questions' as const,
+    },
+    {
+      name: 'Phase 4: Error Detection',
+      model: 'gpt-5-mini',
+      reasoningEffort: 'medium' as const,
+      outputType: 'errors' as const,
+    },
+    {
+      name: 'Phase 5: Refinement',
+      model: 'gpt-5-mini',
+      reasoningEffort: 'high' as const,
+      outputType: 'questions' as const,
+    },
+  ],
 } as const;

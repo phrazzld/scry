@@ -188,17 +188,17 @@ Question Budget: [total] questions ([breakdown by difficulty])
 - [x] Log token usage for each phase
 
 ### Update convex/aiGeneration.ts
-- [~] Implement 5-phase flow in `processJob` action
-- [~] Phase 1: Content Analysis → text
-- [~] Phase 2: Pedagogical Blueprint → text
-- [~] Phase 3: Draft Generation → object (with bloomLevel, difficulty metadata)
-- [~] Phase 4: Error Detection → object (error list)
-- [~] Phase 5: Refinement → object (final questions)
-- [~] Update progress tracking (5 phases instead of 2)
+- [x] Implement 5-phase flow in `processJob` action
+- [x] Phase 1: Content Analysis → text
+- [x] Phase 2: Pedagogical Blueprint → text
+- [x] Phase 3: Draft Generation → object (with bloomLevel, difficulty metadata)
+- [x] Phase 4: Error Detection → object (error list)
+- [x] Phase 5: Refinement → object (final questions)
+- [x] Update progress tracking (5 phases instead of 2)
 
 ### Update PROD_CONFIG_METADATA
-- [ ] Document 5-phase architecture
-- [ ] Specify model for each phase:
+- [~] Document 5-phase architecture
+- [~] Specify model for each phase:
   - Phase 1: gpt-5-mini, medium reasoning
   - Phase 2: gpt-5, high reasoning
   - Phase 3: gpt-5-mini, high reasoning
