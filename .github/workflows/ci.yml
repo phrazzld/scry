@@ -47,6 +47,14 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
+      - name: Check for .only in tests
+        run: |
+          if git grep -E "(describe|test|it)\.only" "*.test.{ts,tsx}"; then
+            echo "ERROR: Found .only in test files"
+            echo "Remove .only before committing"
+            exit 1
+          fi
+
   # Test job - runs in parallel with build
   test:
     runs-on: ubuntu-latest
