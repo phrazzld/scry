@@ -529,7 +529,7 @@ jobs:
 
 ## Phase 4: Release Management
 
-- [ ] ### Set up Changesets for automated changelog
+- [~] ### Set up Changesets for automated changelog
 
 **Problem**: No CHANGELOG.md, manual version bumps, no release automation. Git tags exist but not correlated with releases.
 
