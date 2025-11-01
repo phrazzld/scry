@@ -615,7 +615,7 @@ jobs:
 
 ## Phase 5: Test Quality Improvements
 
-- [ ] ### Fix or delete skipped E2E tests
+- [~] ### Fix or delete skipped E2E tests
 
 **Problem**: 4 E2E tests using `.skip` or `.only` (found by grep). Skipped tests create false confidence, `.only` blocks other tests from running.
 
