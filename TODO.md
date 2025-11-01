@@ -455,7 +455,7 @@ jobs:
 
 ---
 
-- [~] ### Consolidate security scanning into dedicated workflow
+- [x] ### Consolidate security scanning into dedicated workflow
 
 **File**: `.github/workflows/security.yml` (create new)
 
