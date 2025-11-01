@@ -636,7 +636,7 @@ jobs:
 
 ---
 
-- [~] ### Add CI check to prevent `.only` commits
+- [x] ### Add CI check to prevent `.only` commits
 
 **File**: `.github/workflows/ci.yml:38` (add to quality job)
 
