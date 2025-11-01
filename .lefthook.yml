@@ -6,7 +6,7 @@ pre-commit:
       run: prettier --write {staged_files}
     lint:
       glob: "*.{js,jsx,ts,tsx}"
-      run: eslint --fix --cache {staged_files}
+      run: pnpm eslint --fix --cache {staged_files}
     secrets:
       run: gitleaks protect --staged
 
