@@ -27,6 +27,8 @@
     "convex:deploy": "convex deploy",
     "prepare": "lefthook install",
     "size": "size-limit",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
@@ -79,6 +81,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "@clerk/testing": "^1.13.0",
     "@eslint/eslintrc": "^3",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
