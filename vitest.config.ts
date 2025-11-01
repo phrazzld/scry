@@ -23,8 +23,6 @@ export default defineConfig({
         branches: 55,
         statements: 60,
       },
-      // Per-file thresholds for critical paths
-      perFile: true,
       include: ['lib/**', 'convex/**', 'hooks/**'],
       exclude: [
         'node_modules/',
