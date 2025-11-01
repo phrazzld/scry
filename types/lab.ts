@@ -26,8 +26,8 @@ export interface TestInput {
 export interface PromptPhase {
   name: string; // e.g., "Phase 1: Content Analysis", "Phase 2: Pedagogical Blueprint"
   template: string; // Prompt template with {{variables}}
-  outputTo?: string; // Variable name for next phase (e.g., "contentAnalysis", "pedagogicalBlueprint")
-  outputType?: 'text' | 'questions' | 'errors'; // Output format for this phase
+  outputTo?: string; // Variable name for next phase (optional for single-phase configs)
+  outputType?: 'text' | 'questions'; // Output format for this phase
 }
 
 /**

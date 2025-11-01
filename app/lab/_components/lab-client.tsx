@@ -16,14 +16,7 @@ import { InputManager } from '@/components/lab/input-manager';
 import { ResultsGrid } from '@/components/lab/results-grid';
 import { PageContainer } from '@/components/page-container';
 import { api } from '@/convex/_generated/api';
-import {
-  buildContentAnalysisPrompt,
-  buildDraftGenerationPrompt,
-  buildErrorDetectionPrompt,
-  buildPedagogicalBlueprintPrompt,
-  buildRefinementPrompt,
-  PROD_CONFIG_METADATA,
-} from '@/convex/lib/promptTemplates';
+import { buildLearningSciencePrompt, PROD_CONFIG_METADATA } from '@/convex/lib/promptTemplates';
 import {
   clearResults,
   isApproachingQuota,
@@ -41,50 +34,23 @@ import type { ExecutionResult, InfraConfig, TestInput } from '@/types/lab';
  *
  * This references the exact same prompt templates used in production,
  * ensuring the lab always shows the current production infrastructure.
- * Now using OpenAI GPT-5 mini with high reasoning for superior question quality.
+ * Now using OpenAI GPT-5 with high reasoning and learning science principles.
  */
 function createProdConfig(): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
-    name: 'PRODUCTION (5-Phase)',
-    description: '5-phase architecture with bidirectional self-correction',
+    name: 'PRODUCTION (Learning Science)',
+    description: '1-phase GPT-5 with comprehensive learning science principles',
     provider: PROD_CONFIG_METADATA.provider,
     model: PROD_CONFIG_METADATA.model,
     reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
-    verbosity: 'medium' as const,
-    // Production omits temperature/maxCompletionTokens (uses model defaults)
-    // DO NOT add them - structured output is sensitive to parameter overrides
+    verbosity: PROD_CONFIG_METADATA.verbosity,
     phases: [
       {
-        name: 'Phase 1: Content Analysis',
-        template: buildContentAnalysisPrompt('{{userInput}}'),
-        outputTo: 'contentAnalysis',
-        outputType: 'text' as const,
-      },
-      {
-        name: 'Phase 2: Pedagogical Blueprint',
-        template: buildPedagogicalBlueprintPrompt('{{contentAnalysis}}'),
-        outputTo: 'pedagogicalBlueprint',
-        outputType: 'text' as const,
-      },
-      {
-        name: 'Phase 3: Draft Generation',
-        template: buildDraftGenerationPrompt('{{contentAnalysis}}', '{{pedagogicalBlueprint}}'),
-        outputTo: 'draftQuestions',
+        name: 'Learning Science Question Generation',
+        template: buildLearningSciencePrompt('{{userInput}}'),
         outputType: 'questions' as const,
-      },
-      {
-        name: 'Phase 4: Error Detection',
-        template: buildErrorDetectionPrompt('{{draftQuestions}}'),
-        outputTo: 'errors',
-        outputType: 'errors' as const,
-      },
-      {
-        name: 'Phase 5: Refinement',
-        template: buildRefinementPrompt('{{draftQuestions}}', '{{errors}}'),
-        outputType: 'questions' as const,
-        // Final phase - no outputTo
       },
     ],
     isProd: true,

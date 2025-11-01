@@ -2,8 +2,11 @@
  * Genesis Laboratory Execution Module
  *
  * Handles execution of infrastructure configurations for testing.
- * Supports multi-phase prompt chains with template interpolation.
+ * Supports both single-phase (recommended) and multi-phase prompt chains.
  * Supports Google AI and OpenAI providers (including GPT-5 reasoning models).
+ *
+ * RECOMMENDED: 1-phase learning science architecture (see PROD_CONFIG_METADATA)
+ * LEGACY: Multi-phase chains with template interpolation (for experimentation)
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -19,9 +22,7 @@ import { getSecretDiagnostics } from './lib/envDiagnostics';
 // Logger for this module
 const logger = pino({ name: 'lab' });
 
-// Zod schemas for 5-phase question generation architecture
-
-// Phase 3 & 5: Question generation output
+// Zod schema for question generation
 const questionSchema = z.object({
   question: z.string(),
   type: z.enum(['multiple-choice', 'true-false']),
@@ -32,18 +33,6 @@ const questionSchema = z.object({
 
 const questionsSchema = z.object({
   questions: z.array(questionSchema),
-});
-
-// Phase 4: Error detection output
-const errorSchema = z.object({
-  questionId: z.string(),
-  errorType: z.string(),
-  description: z.string(),
-  suggestion: z.string(),
-});
-
-const errorsSchema = z.object({
-  errors: z.array(errorSchema),
 });
 
 /**
@@ -107,9 +96,7 @@ export const executeConfig = action({
         name: v.string(),
         template: v.string(),
         outputTo: v.optional(v.string()),
-        outputType: v.optional(
-          v.union(v.literal('text'), v.literal('questions'), v.literal('errors'))
-        ),
+        outputType: v.optional(v.union(v.literal('text'), v.literal('questions'))),
       })
     ),
     testInput: v.string(),
@@ -289,38 +276,6 @@ export const executeConfig = action({
                 }),
             },
             'Questions phase completed'
-          );
-        } else if (outputType === 'errors') {
-          // Error detection output (Phase 4)
-          const response = await generateObject({
-            model,
-            schema: errorsSchema,
-            prompt,
-            // Standard parameters (Google + OpenAI)
-            ...(args.temperature !== undefined && { temperature: args.temperature }),
-            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
-            ...(args.topP !== undefined && { topP: args.topP }),
-            // OpenAI reasoning parameters (ignored by Google models)
-            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
-            ...(args.verbosity && { verbosity: args.verbosity }),
-            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
-          });
-
-          totalTokens += response.usage?.totalTokens || 0;
-
-          // Store JSON output in context for next phase
-          if (phase.outputTo) {
-            context[phase.outputTo] = JSON.stringify(response.object);
-          }
-
-          logger.info(
-            {
-              configId: args.configId,
-              phase: i + 1,
-              errorCount: response.object.errors.length,
-              tokensUsed: response.usage?.totalTokens || 0,
-            },
-            'Error detection phase completed'
           );
         }
       }

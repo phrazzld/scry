@@ -24,11 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  buildIntentClarificationPrompt,
-  buildQuestionPromptFromIntent,
-  PROD_CONFIG_METADATA,
-} from '@/convex/lib/promptTemplates';
+import { buildLearningSciencePrompt, PROD_CONFIG_METADATA } from '@/convex/lib/promptTemplates';
 import { loadConfigs, saveConfigs } from '@/lib/lab-storage';
 import {
   isValidConfig,
@@ -46,19 +42,17 @@ function createProdConfig(): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
-    name: 'PRODUCTION',
-    description: 'Live production infrastructure',
+    name: 'PRODUCTION (Learning Science)',
+    description: '1-phase GPT-5 with comprehensive learning science principles',
     provider: PROD_CONFIG_METADATA.provider,
     model: PROD_CONFIG_METADATA.model,
+    reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
+    verbosity: PROD_CONFIG_METADATA.verbosity,
     phases: [
       {
-        name: 'Intent Clarification',
-        template: buildIntentClarificationPrompt('{{userInput}}'),
-        outputTo: 'clarifiedIntent',
-      },
-      {
-        name: 'Question Generation',
-        template: buildQuestionPromptFromIntent('{{clarifiedIntent}}'),
+        name: 'Learning Science Question Generation',
+        template: buildLearningSciencePrompt('{{userInput}}'),
+        outputType: 'questions',
       },
     ],
     isProd: true,

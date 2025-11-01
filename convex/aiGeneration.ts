@@ -3,12 +3,17 @@
  *
  * Processes background question generation jobs using validated AI generation.
  * This module handles the complete lifecycle from job initialization through
- * intent clarification, question generation with schema validation, and completion.
+ * question generation with schema validation and completion.
+ *
+ * ARCHITECTURE: 1-Phase Learning Science Approach
+ * - Single comprehensive prompt incorporating all learning science principles
+ * - GPT-5 with high reasoning effort for optimal quality
+ * - Structured outputs via Zod schema validation
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateObject, generateText, type LanguageModel } from 'ai';
+import { generateObject, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { z } from 'zod';
@@ -16,20 +21,12 @@ import { z } from 'zod';
 import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
-import {
-  buildContentAnalysisPrompt,
-  buildDraftGenerationPrompt,
-  buildErrorDetectionPrompt,
-  buildPedagogicalBlueprintPrompt,
-  buildRefinementPrompt,
-} from './lib/promptTemplates';
+import { buildLearningSciencePrompt } from './lib/promptTemplates';
 
 // Logger for this module
 const logger = pino({ name: 'aiGeneration' });
 
-// Zod schemas for 5-phase question generation architecture
-
-// Phase 3 & 5: Question generation
+// Zod schema for 1-phase question generation
 const questionSchema = z.object({
   question: z.string(),
   type: z.enum(['multiple-choice', 'true-false']), // Required - must be exactly one of these values
@@ -41,42 +38,6 @@ const questionSchema = z.object({
 const questionsSchema = z.object({
   questions: z.array(questionSchema),
 });
-
-// Phase 4: Error detection
-const errorSchema = z.object({
-  questionId: z.string(),
-  errorType: z.string(),
-  description: z.string(),
-  suggestion: z.string(),
-});
-
-const errorsSchema = z.object({
-  errors: z.array(errorSchema),
-});
-
-/**
- * Extract estimated question count from clarified intent
- *
- * Looks for numeric patterns like "30-40 questions" in the text.
- * Returns a reasonable default if no clear estimate found.
- */
-function extractEstimatedCount(clarifiedIntent: string): number {
-  // Look for patterns like "30-40 questions" or "20 questions"
-  const rangeMatch = clarifiedIntent.match(/(\d+)-(\d+)\s+questions?/i);
-  if (rangeMatch) {
-    const min = parseInt(rangeMatch[1], 10);
-    const max = parseInt(rangeMatch[2], 10);
-    return Math.floor((min + max) / 2);
-  }
-
-  const singleMatch = clarifiedIntent.match(/(\d+)\s+questions?/i);
-  if (singleMatch) {
-    return parseInt(singleMatch[1], 10);
-  }
-
-  // Default to 20 if no estimate found
-  return 20;
-}
 
 /**
  * Classify error for appropriate handling and retry logic
@@ -252,148 +213,23 @@ export const processJob = internalAction({
 
       logger.info({ jobId: args.jobId, prompt: job.prompt }, 'Job details fetched');
 
-      // Phase 1: Content Analysis
-      logger.info({ jobId: args.jobId, phase: 1 }, 'Phase 1: Content Analysis');
-
-      await ctx.runMutation(internal.generationJobs.updateProgress, {
-        jobId: args.jobId,
-        phase: 'analyzing',
-      });
-
-      const contentAnalysisPrompt = buildContentAnalysisPrompt(job.prompt);
-      const { text: contentAnalysis } = await generateText({
-        model,
-        prompt: contentAnalysisPrompt,
-        // gpt-5-mini, medium reasoning for content analysis
-        ...(provider === 'openai' && {
-          reasoning_effort: 'medium',
-          verbosity: 'medium',
-        }),
-      });
-
-      logger.info(
-        {
-          jobId: args.jobId,
-          phase: 1,
-          outputLength: contentAnalysis.length,
-        },
-        'Phase 1 complete: Content analyzed'
-      );
-
-      // Extract estimated question count from content analysis
-      const estimatedTotal = extractEstimatedCount(contentAnalysis);
-
-      // Phase 2: Pedagogical Blueprint
-      logger.info({ jobId: args.jobId, phase: 2 }, 'Phase 2: Pedagogical Blueprint');
-
-      await ctx.runMutation(internal.generationJobs.updateProgress, {
-        jobId: args.jobId,
-        phase: 'planning',
-        estimatedTotal,
-      });
-
-      const pedagogicalBlueprintPrompt = buildPedagogicalBlueprintPrompt(contentAnalysis);
-      const { text: pedagogicalBlueprint } = await generateText({
-        model,
-        prompt: pedagogicalBlueprintPrompt,
-        // gpt-5, high reasoning for pedagogical planning
-        ...(provider === 'openai' && {
-          reasoning_effort: 'high',
-          verbosity: 'medium',
-        }),
-      });
-
-      logger.info(
-        {
-          jobId: args.jobId,
-          phase: 2,
-          outputLength: pedagogicalBlueprint.length,
-        },
-        'Phase 2 complete: Pedagogical blueprint created'
-      );
-
-      // Phase 3: Draft Generation
-      logger.info({ jobId: args.jobId, phase: 3 }, 'Phase 3: Draft Generation');
+      // Single Phase: Learning Science Question Generation
+      logger.info({ jobId: args.jobId }, 'Generating questions with learning science principles');
 
       await ctx.runMutation(internal.generationJobs.updateProgress, {
         jobId: args.jobId,
         phase: 'generating',
-        estimatedTotal,
       });
 
-      const draftPrompt = buildDraftGenerationPrompt(contentAnalysis, pedagogicalBlueprint);
-      const draftResponse = await generateObject({
-        model,
-        schema: questionsSchema,
-        prompt: draftPrompt,
-        // gpt-5-mini, high reasoning for question generation
-        ...(provider === 'openai' && {
-          reasoning_effort: 'high',
-          verbosity: 'medium',
-          max_completion_tokens: 65536,
-        }),
-      });
-
-      logger.info(
-        {
-          jobId: args.jobId,
-          phase: 3,
-          questionCount: draftResponse.object.questions.length,
-          totalTokens: draftResponse.usage?.totalTokens,
-        },
-        'Phase 3 complete: Draft questions generated'
-      );
-
-      // Phase 4: Error Detection
-      logger.info({ jobId: args.jobId, phase: 4 }, 'Phase 4: Error Detection');
-
-      await ctx.runMutation(internal.generationJobs.updateProgress, {
-        jobId: args.jobId,
-        phase: 'validating',
-      });
-
-      const errorDetectionPrompt = buildErrorDetectionPrompt(JSON.stringify(draftResponse.object));
-      const errorResponse = await generateObject({
-        model,
-        schema: errorsSchema,
-        prompt: errorDetectionPrompt,
-        // gpt-5-mini, medium reasoning for error detection
-        ...(provider === 'openai' && {
-          reasoning_effort: 'medium',
-          verbosity: 'medium',
-        }),
-      });
-
-      logger.info(
-        {
-          jobId: args.jobId,
-          phase: 4,
-          errorCount: errorResponse.object.errors.length,
-          totalTokens: errorResponse.usage?.totalTokens,
-        },
-        'Phase 4 complete: Errors detected'
-      );
-
-      // Phase 5: Refinement
-      logger.info({ jobId: args.jobId, phase: 5 }, 'Phase 5: Refinement');
-
-      await ctx.runMutation(internal.generationJobs.updateProgress, {
-        jobId: args.jobId,
-        phase: 'refining',
-      });
-
-      const refinementPrompt = buildRefinementPrompt(
-        JSON.stringify(draftResponse.object),
-        JSON.stringify(errorResponse.object)
-      );
+      const questionPrompt = buildLearningSciencePrompt(job.prompt);
       const finalResponse = await generateObject({
         model,
         schema: questionsSchema,
-        prompt: refinementPrompt,
-        // gpt-5-mini, high reasoning for refinement
+        prompt: questionPrompt,
+        // GPT-5, high reasoning, high verbosity for maximum quality
         ...(provider === 'openai' && {
           reasoning_effort: 'high',
-          verbosity: 'medium',
+          verbosity: 'high',
           max_completion_tokens: 65536,
         }),
       });
@@ -408,7 +244,6 @@ export const processJob = internalAction({
       logger.info(
         {
           jobId: args.jobId,
-          phase: 5,
           questionCount: object.questions.length,
           totalTokens: finalResponse.usage?.totalTokens,
           reasoningTokens,
@@ -419,10 +254,10 @@ export const processJob = internalAction({
               ),
             }),
         },
-        'Phase 5 complete: Final questions refined'
+        'Question generation complete'
       );
 
-      // Phase 2.5: Generate embeddings for semantic search
+      // Generate embeddings for semantic search
       // Process in batches to avoid overwhelming the API
       logger.info({ jobId: args.jobId }, 'Generating embeddings for questions');
 
@@ -532,19 +367,8 @@ export const processJob = internalAction({
         'Questions saved to database'
       );
 
-      // Phase 3: Job completion
+      // Job completion
       const durationMs = Date.now() - startTime;
-
-      logger.info(
-        {
-          jobId: args.jobId,
-          questionsSaved: allQuestionIds.length,
-          durationMs,
-        },
-        'Question generation complete'
-      );
-
-      // Extract topic from clarified intent or use prompt
       const topic = job.prompt;
 
       // Mark job as completed

@@ -262,14 +262,11 @@ export function ConfigManager({
                                     phase.outputType === 'text' &&
                                       'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300',
                                     phase.outputType === 'questions' &&
-                                      'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300',
-                                    phase.outputType === 'errors' &&
-                                      'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300'
+                                      'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300'
                                   )}
                                 >
                                   {phase.outputType === 'text' && '📄 text'}
                                   {phase.outputType === 'questions' && '❓ questions'}
-                                  {phase.outputType === 'errors' && '⚠️ errors'}
                                 </span>
                               )}
                             </div>

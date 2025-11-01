@@ -1,12 +1,24 @@
-# TODO: 5-Phase Question Generation with Self-Correction
+# Question Generation Architecture
 
-## Overview
+## Current Status: 1-Phase Learning Science Approach ✅
 
-Implementing **5-Phase Architecture with Bidirectional Self-Correction** to fix quality issues (e.g., Q3 cloze duplication error).
+**Date Implemented**: 2025-11-01
 
-**Problem Identified**: Current 2-phase prompt has too many simultaneous responsibilities, causing cognitive overload and logic errors.
+**Architecture**: Single comprehensive prompt leveraging GPT-5 with high reasoning effort.
 
-**Solution**: Separate concerns into 5 focused phases with explicit error detection and correction.
+**Rationale**:
+- 5-phase architecture caused information fragmentation across phases
+- Quality issues: grammar errors, duplicates, missing content, unwanted complexity
+- GPT-5 with high reasoning performs better with comprehensive single prompts
+- Principle-based guidance (WHAT to achieve) vs procedural prescription (HOW to do it)
+
+---
+
+## Previous: 5-Phase Architecture with Bidirectional Self-Correction (Deprecated)
+
+**Problem Identified**: Multi-phase separation caused information loss and contradictory instructions.
+
+**Original Solution**: Separate concerns into 5 focused phases with explicit error detection and correction.
 
 ## Architecture
 
