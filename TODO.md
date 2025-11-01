@@ -382,7 +382,7 @@ jobs:
 
 ---
 
-- [~] ### Add preview deployment smoke tests
+- [x] ### Add preview deployment smoke tests
 
 **File**: `.github/workflows/preview-smoke-test.yml` (create new)
 
