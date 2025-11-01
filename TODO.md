@@ -256,7 +256,7 @@ export default defineWorkspace([
 
 ---
 
-- [ ] ### Add bundle size limit enforcement
+- [~] ### Add bundle size limit enforcement
 
 **Problem**: No enforcement of bundle size growth. Could accidentally ship 2MB of dependencies without noticing until production performance degrades.
 
