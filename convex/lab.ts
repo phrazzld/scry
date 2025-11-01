@@ -19,7 +19,9 @@ import { getSecretDiagnostics } from './lib/envDiagnostics';
 // Logger for this module
 const logger = pino({ name: 'lab' });
 
-// Zod schemas for question generation (reusing from aiGeneration)
+// Zod schemas for 5-phase question generation architecture
+
+// Phase 3 & 5: Question generation output
 const questionSchema = z.object({
   question: z.string(),
   type: z.enum(['multiple-choice', 'true-false']),
@@ -30,6 +32,18 @@ const questionSchema = z.object({
 
 const questionsSchema = z.object({
   questions: z.array(questionSchema),
+});
+
+// Phase 4: Error detection output
+const errorSchema = z.object({
+  questionId: z.string(),
+  errorType: z.string(),
+  description: z.string(),
+  suggestion: z.string(),
+});
+
+const errorsSchema = z.object({
+  errors: z.array(errorSchema),
 });
 
 /**
@@ -93,6 +107,9 @@ export const executeConfig = action({
         name: v.string(),
         template: v.string(),
         outputTo: v.optional(v.string()),
+        outputType: v.optional(
+          v.union(v.literal('text'), v.literal('questions'), v.literal('errors'))
+        ),
       })
     ),
     testInput: v.string(),
@@ -178,6 +195,7 @@ export const executeConfig = action({
             configId: args.configId,
             phase: i + 1,
             phaseName: phase.name,
+            outputType: phase.outputType || 'text',
           },
           'Executing phase'
         );
@@ -185,52 +203,14 @@ export const executeConfig = action({
         // Interpolate template with current context
         const prompt = interpolateTemplate(phase.template, context);
 
-        // Execute phase (use generateObject for final phase, generateText for intermediate)
-        if (i === args.phases.length - 1) {
-          // Final phase - expect structured output
-          // Only include parameters if explicitly set (production omits them for model defaults)
-          const response = await generateObject({
-            model,
-            schema: questionsSchema,
-            prompt,
-            // Standard parameters (Google + OpenAI)
-            ...(args.temperature !== undefined && { temperature: args.temperature }),
-            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
-            ...(args.topP !== undefined && { topP: args.topP }),
-            // OpenAI reasoning parameters (ignored by Google models)
-            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
-            ...(args.verbosity && { verbosity: args.verbosity }),
-            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
-          });
+        // Determine output type (default to 'questions' for final phase, 'text' otherwise)
+        const outputType =
+          phase.outputType || (i === args.phases.length - 1 ? 'questions' : 'text');
 
-          finalOutput = response.object;
-          totalTokens += response.usage?.totalTokens || 0;
-
-          // Log reasoning token usage if available (OpenAI)
-          // Type assertion needed as completion_tokens_details is OpenAI-specific
-          const reasoningTokens =
-            (response.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
-              ?.completion_tokens_details?.reasoning_tokens || 0;
-
-          logger.info(
-            {
-              configId: args.configId,
-              phase: i + 1,
-              questionCount: response.object.questions.length,
-              tokensUsed: response.usage?.totalTokens || 0,
-              reasoningTokens,
-              ...(reasoningTokens > 0 && {
-                reasoningPercentage: Math.round(
-                  (reasoningTokens / response.usage.totalTokens) * 100
-                ),
-              }),
-            },
-            'Final phase completed'
-          );
-        } else {
-          // Intermediate phase - text output
+        // Execute phase based on output type
+        if (outputType === 'text') {
+          // Text output (Phase 1, 2)
           const { generateText: genText } = await import('ai');
-          // Only include parameters if explicitly set (production omits them for model defaults)
           const response = await genText({
             model,
             prompt,
@@ -259,7 +239,88 @@ export const executeConfig = action({
               outputLength: output.length,
               tokensUsed: response.usage?.totalTokens || 0,
             },
-            'Intermediate phase completed'
+            'Text phase completed'
+          );
+        } else if (outputType === 'questions') {
+          // Questions output (Phase 3, 5)
+          const response = await generateObject({
+            model,
+            schema: questionsSchema,
+            prompt,
+            // Standard parameters (Google + OpenAI)
+            ...(args.temperature !== undefined && { temperature: args.temperature }),
+            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
+            ...(args.topP !== undefined && { topP: args.topP }),
+            // OpenAI reasoning parameters (ignored by Google models)
+            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
+            ...(args.verbosity && { verbosity: args.verbosity }),
+            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
+          });
+
+          totalTokens += response.usage?.totalTokens || 0;
+
+          // Store JSON output in context for next phase
+          if (phase.outputTo) {
+            context[phase.outputTo] = JSON.stringify(response.object);
+          }
+
+          // If this is the final phase, save as finalOutput
+          if (i === args.phases.length - 1) {
+            finalOutput = response.object;
+          }
+
+          // Log reasoning token usage if available (OpenAI)
+          const reasoningTokens =
+            (response.usage as { completion_tokens_details?: { reasoning_tokens?: number } })
+              ?.completion_tokens_details?.reasoning_tokens || 0;
+
+          logger.info(
+            {
+              configId: args.configId,
+              phase: i + 1,
+              questionCount: response.object.questions.length,
+              tokensUsed: response.usage?.totalTokens || 0,
+              reasoningTokens,
+              ...(reasoningTokens > 0 &&
+                response.usage?.totalTokens && {
+                  reasoningPercentage: Math.round(
+                    (reasoningTokens / response.usage.totalTokens) * 100
+                  ),
+                }),
+            },
+            'Questions phase completed'
+          );
+        } else if (outputType === 'errors') {
+          // Error detection output (Phase 4)
+          const response = await generateObject({
+            model,
+            schema: errorsSchema,
+            prompt,
+            // Standard parameters (Google + OpenAI)
+            ...(args.temperature !== undefined && { temperature: args.temperature }),
+            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
+            ...(args.topP !== undefined && { topP: args.topP }),
+            // OpenAI reasoning parameters (ignored by Google models)
+            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
+            ...(args.verbosity && { verbosity: args.verbosity }),
+            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
+          });
+
+          totalTokens += response.usage?.totalTokens || 0;
+
+          // Store JSON output in context for next phase
+          if (phase.outputTo) {
+            context[phase.outputTo] = JSON.stringify(response.object);
+          }
+
+          logger.info(
+            {
+              configId: args.configId,
+              phase: i + 1,
+              errorCount: response.object.errors.length,
+              tokensUsed: response.usage?.totalTokens || 0,
+            },
+            'Error detection phase completed'
           );
         }
       }
