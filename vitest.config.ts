@@ -28,9 +28,9 @@ export default defineConfig({
       //
       // DO NOT lower these thresholds. Only increase as coverage improves.
       thresholds: {
-        lines: 18.9,      // Current: 18.98%, Target: 60%
-        functions: 18.9,  // Current: ~19%, Target: 60%
-        branches: 15.9,   // Current: ~16%, Target: 55%
+        lines: 18.9, // Current: 18.98%, Target: 60%
+        functions: 18.9, // Current: ~19%, Target: 60%
+        branches: 15.9, // Current: ~16%, Target: 55%
         statements: 18.9, // Current: 18.98%, Target: 60%
       },
       include: ['lib/**', 'convex/**', 'hooks/**'],
