@@ -142,8 +142,8 @@ export function UnifiedLabClient() {
     // Execute config(s) in parallel if comparison mode
     try {
       if (comparisonConfig) {
-        // Execute both configs in parallel
-        const [result1, result2] = await Promise.all([
+        // Execute both configs in parallel - use allSettled to handle failures independently
+        const [result1Settled, result2Settled] = await Promise.allSettled([
           executeConfig({
             configId: selectedConfig.id,
             configName: selectedConfig.name,
@@ -184,29 +184,68 @@ export function UnifiedLabClient() {
           }),
         ]);
 
+        // Convert settled results to ExecutionResult, handling failures
+        const result1: ExecutionResult =
+          result1Settled.status === 'fulfilled'
+            ? result1Settled.value
+            : {
+                configId: selectedConfig.id,
+                configName: selectedConfig.name,
+                input: newRun.input,
+                questions: [],
+                rawOutput: null,
+                latency: 0,
+                tokenCount: 0,
+                valid: false,
+                errors: [
+                  result1Settled.reason instanceof Error
+                    ? result1Settled.reason.message
+                    : String(result1Settled.reason),
+                ],
+                executedAt: Date.now(),
+              };
+
+        const result2: ExecutionResult =
+          result2Settled.status === 'fulfilled'
+            ? result2Settled.value
+            : {
+                configId: comparisonConfig.id,
+                configName: comparisonConfig.name,
+                input: newRun.input,
+                questions: [],
+                rawOutput: null,
+                latency: 0,
+                tokenCount: 0,
+                valid: false,
+                errors: [
+                  result2Settled.reason instanceof Error
+                    ? result2Settled.reason.message
+                    : String(result2Settled.reason),
+                ],
+                executedAt: Date.now(),
+              };
+
         // Update run with both results
         setTestRuns((runs) =>
           runs.map((run) =>
             run.id === newRun.id
               ? {
                   ...run,
-                  result: result1 as ExecutionResult,
+                  result: result1,
                   isRunning: false,
-                  comparisonResult: result2 as ExecutionResult,
+                  comparisonResult: result2,
                   comparisonIsRunning: false,
                 }
               : run
           )
         );
 
-        const valid1 = (result1 as ExecutionResult).valid;
-        const valid2 = (result2 as ExecutionResult).valid;
+        const valid1 = result1.valid;
+        const valid2 = result2.valid;
 
         if (valid1 && valid2) {
           toast.success(
-            `Generated ${(result1 as ExecutionResult).questions.length} / ${
-              (result2 as ExecutionResult).questions.length
-            } questions`
+            `Generated ${result1.questions.length} / ${result2.questions.length} questions`
           );
         } else if (!valid1 && !valid2) {
           toast.error('Both configs failed');
