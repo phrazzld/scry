@@ -6,9 +6,9 @@
 
 ---
 
-### [AI] Migrate provider to OpenRouter or Vercel AI SDK
-- support arbitrary set of model compositions for question generation and other ai / llm / generative features
-- sometimes we want gemini-2.5-flash, sometimes we want gpt-5-mini, sometimes we want something else etc
+### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
+- we are consistently using gigabytes of database bandwidth each day
+- this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
 
 ### [BUSINESS] Paywall the Service
 - brainstorm and determine the best pricing model for scry
