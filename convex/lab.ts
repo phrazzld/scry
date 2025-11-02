@@ -103,6 +103,13 @@ export const executeConfig = action({
     testInput: v.string(),
   },
   handler: async (ctx, args) => {
+    // Guard: Prevent execution in production environment
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'Genesis Lab execution is disabled in production. This feature is dev-only for prompt testing and iteration.'
+      );
+    }
+
     const startTime = Date.now();
     const errors: string[] = [];
 
