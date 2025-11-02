@@ -275,6 +275,21 @@ function ConfigEditor({ config, onSave, disabled = false }: ConfigEditorProps) {
   );
   const [phases, setPhases] = useState<PromptPhase[]>(config.phases);
 
+  // Sync form state when config prop changes (e.g., switching tabs)
+  useEffect(() => {
+    setName(config.name);
+    setDescription(config.description || '');
+    setProvider(config.provider);
+    setModel(config.model);
+    setTemperature(config.temperature?.toString() || '');
+    setMaxTokens(
+      config.provider === 'google' && config.maxTokens !== undefined
+        ? config.maxTokens.toString()
+        : ''
+    );
+    setPhases(config.phases);
+  }, [config]);
+
   const handleSave = () => {
     if (!name.trim()) {
       toast.error('Name is required');
