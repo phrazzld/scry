@@ -1,6 +1,6 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-31
+**Last Groomed**: 2025-11-02
 **Analysis Method**: Quality infrastructure audit + platform engineering review
 **Overall Grade**: A- (Strong foundation, quality gates needed refinement)
 
@@ -11,6 +11,157 @@
 ### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
 - we are consistently using gigabytes of database bandwidth each day
 - this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
+
+---
+
+## Test Coverage Improvement Initiative
+
+**Priority**: HIGH
+**Current Coverage**: 18.98% (as of 2025-11-02)
+**Target**: 60%+ (industry standard for production code)
+**Rationale**: Quality gate currently set to 18.9% (just below current). Need incremental improvement to reach 60% target.
+
+### Phase 1: Critical Path Coverage (18.9% → 30%)
+
+**Timeline**: Q1 2025
+**Effort**: 8-12 hours
+**Priority**: HIGH - Error handling and environment detection are critical paths
+
+**Files to test**:
+
+1. **`lib/error-handlers.ts`** (29 lines, 0% coverage)
+   - **Why critical**: Error handling for API calls, user feedback, system reliability
+   - **Test cases**:
+     - Each error type (network, validation, auth, rate limit)
+     - Fallback behavior when handlers fail
+     - Logging and error reporting
+   - **Estimated effort**: 2 hours
+
+2. **`lib/environment-client.ts`** (35 lines, 0% coverage)
+   - **Why critical**: Environment detection (dev/preview/prod), feature flags, debugging
+   - **Test cases**:
+     - All environment combinations (VERCEL_ENV, NODE_ENV)
+     - Edge cases (missing vars, conflicting vars)
+     - SSR vs client-side detection
+   - **Estimated effort**: 2 hours
+
+3. **`lib/deployment-check.ts`** (95 lines, 0% coverage)
+   - **Why medium priority**: Deployment validation, version matching
+   - **Test cases**:
+     - Schema version matching logic
+     - Error detection and reporting
+     - Mock Convex API responses
+   - **Estimated effort**: 3 hours
+
+4. **`lib/env.ts`** (12 lines, 0% coverage)
+   - **Why critical**: Environment variable validation, app initialization
+   - **Test cases**:
+     - Missing required vars
+     - Invalid formats
+     - Default value handling
+   - **Estimated effort**: 1 hour
+
+**Success criteria**:
+- Global coverage ≥30%
+- All critical error paths tested
+- No regressions in existing tests
+
+### Phase 2: User-Facing Logic Coverage (30% → 45%)
+
+**Timeline**: Q2 2025
+**Effort**: 12-16 hours
+**Priority**: MEDIUM - UX quality improvements
+
+**Files to test**:
+
+1. **`lib/haptic.ts`** (60 lines, 0% coverage)
+   - **Why matters**: Haptic feedback on mobile, accessibility
+   - **Test cases**:
+     - Device detection (iOS, Android, desktop)
+     - Fallback when haptics unavailable
+     - User preferences/settings
+   - **Estimated effort**: 3 hours
+
+2. **`lib/layout-mode.ts`** (57 lines, 0% coverage)
+   - **Why matters**: Responsive layout, mobile/desktop UX
+   - **Test cases**:
+     - Breakpoint detection
+     - SSR hydration consistency
+     - Window resize handling
+   - **Estimated effort**: 3 hours
+
+3. **Hooks with <90% coverage**:
+   - `use-active-jobs.ts`, `use-keyboard-shortcuts.ts`
+   - **Test cases**: State changes, side effects, cleanup, race conditions
+   - **Estimated effort**: 6-8 hours
+
+**Success criteria**:
+- Global coverage ≥45%
+- All user-facing logic tested
+- No untested UX features
+
+### Phase 3: Comprehensive Coverage (45% → 60%)
+
+**Timeline**: Q3 2025
+**Effort**: 16-20 hours
+**Priority**: LOW - Nice to have, not critical
+
+**Focus areas**:
+
+1. **Error boundary edge cases** (4 hours)
+   - Component error recovery
+   - Error state UI rendering
+   - Error logging and reporting
+
+2. **Network failure scenarios** (4 hours)
+   - Offline mode handling
+   - Request retry logic
+   - Timeout handling
+
+3. **Race condition handling** (4 hours)
+   - Concurrent mutations
+   - Stale data detection
+   - Optimistic updates
+
+4. **Browser API mocking** (4-6 hours)
+   - localStorage edge cases
+   - navigator API fallbacks
+   - Permission handling
+
+**Success criteria**:
+- Global coverage ≥60%
+- All error paths covered
+- Comprehensive edge case testing
+
+### Measurement & Tracking
+
+**Automated checks** (already in CI):
+- Coverage report generated on every PR
+- Fail if coverage decreases below threshold
+- HTML report available in `coverage/index.html`
+
+**Monthly review** (manual):
+1. Check current coverage: `pnpm test:coverage`
+2. If coverage improved by >5%: Update threshold in `vitest.config.ts`
+3. Celebrate wins, identify blockers
+4. Adjust timeline if needed
+
+**Commands**:
+```bash
+# Run tests with coverage
+pnpm test:coverage
+
+# View HTML report
+open coverage/index.html
+
+# Check current threshold vs actual
+grep "thresholds:" vitest.config.ts
+```
+
+**Accountability**:
+- Monthly coverage review in team standup
+- Update threshold as improvement happens
+- Document wins in CHANGELOG.md
 
 ---
 
