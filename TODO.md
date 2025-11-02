@@ -1,3 +1,162 @@
+# PR #49 Review Feedback - MERGE BLOCKERS
+
+**Source**: CodeRabbit automated review (11 inline + 3 nitpicks + 1 outside-diff)
+**Priority**: Address immediately before merge
+**Total Work**: ~3h
+
+---
+
+## 🔴 CRITICAL (Must Fix to Merge)
+
+### ✅ 1. Fix Responses API JSON Parsing [COMPLETED - b84f042]
+**File**: `convex/lib/responsesApi.ts:107`
+**Status**: Fixed in commit b84f042
+**Solution**: Now prefers `output_json` content type, falls back to `output_text`
+
+---
+
+### ✅ 2. Fix Questions Discarded from Single-Phase Runs [COMPLETED - 205c161]
+**File**: `convex/lab.ts:316-317`
+**Status**: Fixed in commit 205c161
+**Solution**: Defaults `expectsQuestions = true` when `outputType === undefined`
+
+---
+
+### ✅ 3. Add Production Guard to executeConfig [COMPLETED - 6032586]
+**File**: `convex/lab.ts:106-111`
+**Status**: Fixed in commit 6032586
+**Solution**: Guards against production execution with clear error message
+
+---
+
+## 🟠 HIGH PRIORITY (Fix Before Merge)
+
+### 4. Fix Config Editor Form State Sync
+**File**: `app/lab/configs/_components/config-manager-page.tsx:276`
+**Issue**: Form state initialized only on mount. Switching tabs shows stale values → saving corrupts target config.
+**Impact**: Major functional bug - editing corrupts configs
+**Fix**: Add `useEffect` to resync when `config` changes
+
+```typescript
+useEffect(() => {
+  setName(config.name);
+  setDescription(config.description || '');
+  setProvider(config.provider);
+  setModel(config.model);
+  setTemperature(config.temperature?.toString() || '');
+  setMaxTokens(config.provider === 'google' && config.maxTokens !== undefined ? config.maxTokens.toString() : '');
+  setPhases(config.phases);
+}, [config]);
+```
+
+---
+
+### 5. Fix Comparison Mode Error Handling
+**File**: `app/lab/_components/unified-lab-client.tsx:215`
+**Issue**: `Promise.all` rejects on first failure, overwrites both results with same error. Hides successful config results.
+**Impact**: Comparison workflow broken when one config fails
+**Fix**: Use `Promise.allSettled`, handle results independently
+
+```typescript
+const [result1, result2] = await Promise.allSettled([/* ... */]);
+
+// Map each result independently
+const finalResult1 = result1.status === 'fulfilled' ? result1.value : toFailedResult(config1, result1.reason);
+const finalResult2 = result2.status === 'fulfilled' ? result2.value : toFailedResult(config2, result2.reason);
+```
+
+---
+
+### 6. Preserve OpenAI Config Parameters
+**File**: `components/lab/config-editor.tsx:148`
+**Issue**: Editing drops `maxCompletionTokens`, `reasoningEffort`, `verbosity`. Not displayed or rehydrated.
+**Impact**: Any edit loses critical OpenAI parameters
+**Fix**: Round-trip all OpenAI-specific fields
+
+```typescript
+// When saving OpenAI config, merge existing fields
+const newConfig: OpenAIInfraConfig = {
+  ...baseFields,
+  provider: 'openai',
+  // Preserve existing OpenAI params or use form values
+  maxCompletionTokens: config.provider === 'openai' ? config.maxCompletionTokens : undefined,
+  reasoningEffort: config.provider === 'openai' ? config.reasoningEffort : undefined,
+  verbosity: config.provider === 'openai' ? config.verbosity : undefined,
+  temperature: parsedTemp,
+};
+```
+
+---
+
+### 7. Return Text Output from Final Phase
+**File**: `convex/lab.ts:276`
+**Issue**: Text branch never assigns `finalOutput` for terminal phases. Text-only configs return `null`.
+**Impact**: Single-phase Google configs (common) broken
+**Fix**: Assign `finalOutput` when terminal phase is text
+
+```typescript
+if (outputType === 'text') {
+  const output = response.text;
+  if (phase.outputTo) {
+    context[phase.outputTo] = output;
+  }
+
+  // NEW: Surface final text output
+  if (i === args.phases.length - 1) {
+    finalOutput = output;
+  }
+}
+```
+
+---
+
+### 8. Remove Unsupported Anthropic Provider
+**Files**: 3 locations
+- `app/lab/configs/_components/config-manager-page.tsx:375`
+- `components/lab/config-editor.tsx:216`
+- `components/lab/config-management-dialog.tsx:370`
+
+**Issue**: UI offers "Anthropic" but type system only supports `'google' | 'openai'`. Selection falls through to OpenAI → mislabeled config.
+**Fix**: Remove all 3 `<SelectItem value="anthropic">` instances
+
+---
+
+### 9. Lower localStorage Quota Warning
+**File**: `lib/lab-storage.ts:21`
+**Issue**: 8MB default exceeds browser limits (Safari/Firefox ~5MB). Users never warned before failures.
+**Fix**: Change to 4MB
+
+```typescript
+const DEFAULT_QUOTA_WARNING_BYTES = 4 * 1024 * 1024; // 4MB for safer default
+```
+
+---
+
+### 10. Retain Questions When Embeddings Fail
+**File**: `convex/aiGeneration.ts:320-345`
+**Issue**: Failed embedding → question never pushed to array → lost entirely
+**Impact**: Breaks graceful degradation, leaks user content
+**Fix**: Push question without embedding in catch block
+
+```typescript
+if (result.status === 'rejected') {
+  const question = batch[index];
+  logger.warn(/* ... */);
+  questionsWithEmbeddings.push(question); // FIXED: Retain question
+  embeddingFailureCount++;
+}
+```
+
+---
+
+## 📋 FOLLOW-UP (Post-Merge Cleanup)
+
+- [ ] Delete `components/lab/config-manager.tsx.bak` (checked into repo)
+- [ ] Fix markdown linting (code blocks missing language, bare URLs)
+- [ ] Reorder `.env.example` (AI_MODEL before AI_PROVIDER)
+
+---
+
 # Question Generation Architecture
 
 ## Current Status: 1-Phase Learning Science Approach ✅
