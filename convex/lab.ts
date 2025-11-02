@@ -304,8 +304,10 @@ export const executeConfig = action({
 
       // Determine if final phase expects questions output
       const finalPhase = args.phases[args.phases.length - 1];
+      // When outputType is explicit, use it. When undefined, default to 'questions'
+      // for both single-phase (common 1-phase architecture) and multi-phase runs
       const expectsQuestions =
-        finalPhase.outputType === 'questions' || (!finalPhase.outputType && args.phases.length > 1); // Default: expect questions if multi-phase
+        finalPhase.outputType === 'questions' || finalPhase.outputType === undefined;
 
       if (expectsQuestions) {
         // Validate questions output
