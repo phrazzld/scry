@@ -10,14 +10,15 @@
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
+import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 
 import { action } from './_generated/server';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
+import { generateObjectWithResponsesApi } from './lib/responsesApi';
 
 // Logger for this module
 const logger = pino({ name: 'lab' });
@@ -28,7 +29,7 @@ const questionSchema = z.object({
   type: z.enum(['multiple-choice', 'true-false']),
   options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
-  explanation: z.string().optional(),
+  explanation: z.string(), // Required for OpenAI strict mode + learning science principles
 });
 
 const questionsSchema = z.object({
@@ -118,7 +119,9 @@ export const executeConfig = action({
       );
 
       // Initialize provider based on config
-      let model: LanguageModel;
+      let model: LanguageModel | undefined;
+      let openaiClient: OpenAI | undefined;
+
       if (args.provider === 'google') {
         const apiKey = process.env.GOOGLE_AI_API_KEY;
         const keyDiagnostics = getSecretDiagnostics(apiKey);
@@ -152,7 +155,7 @@ export const executeConfig = action({
             keyDiagnostics,
             deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
           },
-          'Using OpenAI provider'
+          'Using OpenAI provider with Responses API'
         );
 
         if (!apiKey || apiKey === '') {
@@ -161,8 +164,7 @@ export const executeConfig = action({
           throw new Error(errorMessage);
         }
 
-        const openai = createOpenAI({ apiKey });
-        model = openai(args.model) as unknown as LanguageModel;
+        openaiClient = new OpenAI({ apiKey });
       } else {
         throw new Error(`Provider '${args.provider}' not supported. Use 'google' or 'openai'.`);
       }
@@ -196,7 +198,10 @@ export const executeConfig = action({
 
         // Execute phase based on output type
         if (outputType === 'text') {
-          // Text output (Phase 1, 2)
+          // Text output (Phase 1, 2) - only supported for Google provider
+          if (!model) {
+            throw new Error('Text output type requires Google provider (model not initialized)');
+          }
           const { generateText: genText } = await import('ai');
           const response = await genText({
             model,
@@ -230,19 +235,32 @@ export const executeConfig = action({
           );
         } else if (outputType === 'questions') {
           // Questions output (Phase 3, 5)
-          const response = await generateObject({
-            model,
-            schema: questionsSchema,
-            prompt,
-            // Standard parameters (Google + OpenAI)
-            ...(args.temperature !== undefined && { temperature: args.temperature }),
-            ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
-            ...(args.topP !== undefined && { topP: args.topP }),
-            // OpenAI reasoning parameters (ignored by Google models)
-            ...(args.reasoningEffort && { reasoning_effort: args.reasoningEffort }),
-            ...(args.verbosity && { verbosity: args.verbosity }),
-            ...(args.maxCompletionTokens && { max_completion_tokens: args.maxCompletionTokens }),
-          });
+          let response;
+
+          if (args.provider === 'openai' && openaiClient) {
+            // Use native Responses API for OpenAI
+            response = await generateObjectWithResponsesApi({
+              client: openaiClient,
+              model: args.model,
+              input: prompt,
+              schema: questionsSchema,
+              schemaName: 'questions',
+              verbosity: args.verbosity,
+              reasoningEffort: args.reasoningEffort,
+            });
+          } else if (args.provider === 'google' && model) {
+            // Use Vercel AI SDK for Google
+            response = await generateObject({
+              model,
+              schema: questionsSchema,
+              prompt,
+              ...(args.temperature !== undefined && { temperature: args.temperature }),
+              ...(args.maxTokens !== undefined && { maxTokens: args.maxTokens }),
+              ...(args.topP !== undefined && { topP: args.topP }),
+            });
+          } else {
+            throw new Error('Provider not initialized correctly');
+          }
 
           totalTokens += response.usage?.totalTokens || 0;
 

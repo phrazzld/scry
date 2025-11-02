@@ -12,9 +12,9 @@
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
+import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 
@@ -22,6 +22,7 @@ import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 import { buildLearningSciencePrompt } from './lib/promptTemplates';
+import { generateObjectWithResponsesApi } from './lib/responsesApi';
 
 // Logger for this module
 const logger = pino({ name: 'aiGeneration' });
@@ -32,7 +33,7 @@ const questionSchema = z.object({
   type: z.enum(['multiple-choice', 'true-false']), // Required - must be exactly one of these values
   options: z.array(z.string()).min(2).max(4),
   correctAnswer: z.string(),
-  explanation: z.string().optional(),
+  explanation: z.string(), // Required for OpenAI strict mode + learning science principles
 });
 
 const questionsSchema = z.object({
@@ -101,7 +102,8 @@ export const processJob = internalAction({
       length: 0,
       fingerprint: null,
     };
-    let model: LanguageModel;
+    let model: LanguageModel | undefined;
+    let openaiClient: OpenAI | undefined;
 
     if (provider === 'google') {
       const apiKey = process.env.GOOGLE_AI_API_KEY;
@@ -151,7 +153,7 @@ export const processJob = internalAction({
           keyDiagnostics,
           deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
         },
-        'Using OpenAI provider with reasoning'
+        'Using OpenAI provider with Responses API'
       );
 
       if (!apiKey || apiKey === '') {
@@ -172,8 +174,7 @@ export const processJob = internalAction({
         });
         throw new Error(errorMessage);
       }
-      const openai = createOpenAI({ apiKey });
-      model = openai(modelName) as unknown as LanguageModel;
+      openaiClient = new OpenAI({ apiKey });
     } else {
       const errorMessage = `Unsupported AI_PROVIDER: ${provider}. Use 'google' or 'openai'.`;
       logger.error({ jobId: args.jobId, provider }, errorMessage);
@@ -222,17 +223,29 @@ export const processJob = internalAction({
       });
 
       const questionPrompt = buildLearningSciencePrompt(job.prompt);
-      const finalResponse = await generateObject({
-        model,
-        schema: questionsSchema,
-        prompt: questionPrompt,
-        // GPT-5, high reasoning, high verbosity for maximum quality
-        ...(provider === 'openai' && {
-          reasoning_effort: 'high',
+
+      let finalResponse;
+      if (provider === 'openai' && openaiClient) {
+        // Use native Responses API for OpenAI
+        finalResponse = await generateObjectWithResponsesApi({
+          client: openaiClient,
+          model: modelName,
+          input: questionPrompt,
+          schema: questionsSchema,
+          schemaName: 'questions',
           verbosity: 'high',
-          max_completion_tokens: 65536,
-        }),
-      });
+          reasoningEffort: 'high',
+        });
+      } else if (provider === 'google' && model) {
+        // Use Vercel AI SDK for Google
+        finalResponse = await generateObject({
+          model,
+          schema: questionsSchema,
+          prompt: questionPrompt,
+        });
+      } else {
+        throw new Error('Provider not initialized correctly');
+      }
 
       const { object } = finalResponse;
 
