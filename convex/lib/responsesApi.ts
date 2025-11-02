@@ -92,17 +92,31 @@ export async function generateObjectWithResponsesApi<T extends z.ZodSchema>(
     throw new Error('No message in Responses API output');
   }
 
-  // Find text content in message
+  // Find JSON or text content in message
   // Type assertion needed because OpenAI SDK doesn't expose detailed Responses API types yet
-  const messageContent = (messageItem as { content?: Array<{ type: string; text?: string }> })
-    .content;
-  const textContent = messageContent?.find((c) => c.type === 'output_text');
-  if (!textContent?.text) {
-    throw new Error('No text output from Responses API');
+  // When using json_schema format, the API returns 'output_json' content type
+  // For compatibility, we fall back to 'output_text' if json is not present
+  const messageContent = (
+    messageItem as {
+      content?: Array<{ type: string; text?: string; json?: unknown }>;
+    }
+  ).content;
+
+  const jsonContent = messageContent?.find((c) => c.type === 'output_json') as
+    | { json?: unknown }
+    | undefined;
+  const textContent = messageContent?.find((c) => c.type === 'output_text') as
+    | { text?: string }
+    | undefined;
+
+  // Prefer json content (from json_schema format), fall back to text content
+  const parsedJson =
+    jsonContent?.json ?? (textContent?.text ? JSON.parse(textContent.text) : undefined);
+  if (parsedJson === undefined) {
+    throw new Error('No structured output from Responses API');
   }
 
-  // Parse JSON and validate against schema
-  const parsedJson = JSON.parse(textContent.text);
+  // Validate against schema
   const validatedObject = schema.parse(parsedJson);
 
   // Extract reasoning tokens if available
