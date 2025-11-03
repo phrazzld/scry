@@ -120,6 +120,11 @@ export function LibraryTabContent(props: LibraryTabContentProps) {
           currentTab={currentTab}
           selectedIds={selectedIds}
           onSelectionChange={onSelectionChange}
+          onArchive={onArchive}
+          onUnarchive={onUnarchive}
+          onDelete={onDelete}
+          onRestore={onRestore}
+          onPermanentDelete={onPermanentDelete}
         />
       </div>
 
