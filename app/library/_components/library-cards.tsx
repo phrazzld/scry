@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Archive, Calendar, Clock, ListChecks, RotateCcw, Target, Trash2 } from 'lucide-react';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,7 +10,6 @@ import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 import { formatDueTime, formatShortRelativeTime } from '@/lib/utils/date-format';
-
 import { ActiveEmptyState, ArchivedEmptyState, TrashEmptyState } from './library-empty-states';
 
 type LibraryView = 'active' | 'archived' | 'trash';
