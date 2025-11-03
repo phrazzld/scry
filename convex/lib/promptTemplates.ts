@@ -107,7 +107,47 @@ Systematically cover all memorizable content:
 - Include endings, conclusions, terminal punctuation if part of what should be learned
 - Balance breadth (covering everything) with depth (testing understanding)
 
-## 8. No Redundancy
+## 8. Contextual Standalone (CRITICAL)
+
+Every question MUST be answerable without knowing what source text it came from.
+Users review mixed subjects (prayers, theology, Bible verses, concepts). Questions
+appearing out of context during review must still make complete sense.
+
+**The Problem:**
+During spaced repetition review, questions from different sources are interleaved.
+A question about St. Michael Prayer might appear between a theology question and
+a Bible verse. If the question doesn't identify its source, the user cannot answer it.
+
+**Anti-Patterns - Missing Context:**
+❌ "After 'be our protection against the wickedness' what comes next?"
+   → User has no idea this is St. Michael Prayer during mixed review
+❌ "What comes after the second line?"
+   → What text is this even referring to?
+❌ "According to the author, what is the main point?"
+   → Which author? Which text?
+
+**Correct - Standalone Questions:**
+✅ "In the St. Michael Prayer, after 'be our protection against the wickedness' what comes next?"
+✅ "In the Nicene Creed, what comes after 'We believe in one God'?"
+✅ "According to Aquinas in Summa Theologica, what is the definition of virtue?"
+✅ "In John 3:16, what does God give to the world?"
+
+**Implementation Rules:**
+1. **Always include source identifier** in the question text itself
+2. **For sequential recall:** "In [TEXT NAME], after [X], what comes next?"
+3. **For conceptual questions:** "According to [SOURCE], ..."
+4. **For prayers/poems/quotes:** Always include the name in every question
+5. **For Bible verses:** Include book/chapter (e.g., "In Romans 8:28...")
+6. **NEVER assume** user remembers source context from previous questions
+7. **Test each question:** If shown alone without any surrounding context, is it clear what it's asking about?
+
+**Why This Matters:**
+- Spaced repetition reviews are ALWAYS mixed-topic by design
+- Questions might not be reviewed for days/weeks after creation
+- The question itself must contain all necessary context
+- Good flashcards are standalone (Anki/SuperMemo fundamental principle)
+
+## 9. No Redundancy
 Each question tests something unique:
 - Avoid asking same fact in slightly different ways
 - Exception: Progressive elaboration (simple → complex) is good; mere repetition is not
