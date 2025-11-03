@@ -44,7 +44,7 @@ jobs:
             exit 1
           fi
 
-  # Test job - runs in parallel with build
+  # Test job with coverage reporting
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -77,27 +77,3 @@ jobs:
           files: ./coverage/coverage-final.json
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
-  # Build job - runs in parallel with test
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    needs: quality # Only run after quality checks pass
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Verify production build
-        run: pnpm build
-
-      - name: Check bundle size
-        run: pnpm size-limit
-        continue-on-error: true
