@@ -146,6 +146,35 @@ This ensures atomicity: Convex functions only deploy if frontend build succeeds,
 - Automatically cleaned up when branch/deployment is deleted
 - Requires Convex Pro ($25/mo)
 
+### CI Environment Variable Propagation
+
+**Problem**: `npx convex deploy --cmd` sets `NEXT_PUBLIC_CONVEX_URL` only for the subprocess, not subsequent CI steps.
+
+**Solution**: Capture deployment URL from CLI output and export to `$GITHUB_ENV`:
+
+```yaml
+- name: Deploy Convex functions
+  run: |
+    # Capture URL from deployment output
+    DEPLOYMENT_URL=$(npx convex deploy --cmd 'pnpm build' 2>&1 | grep -o 'https://[a-z0-9-]*\.convex\.cloud' | head -1)
+
+    # Export for subsequent steps
+    echo "NEXT_PUBLIC_CONVEX_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+  env:
+    CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+- name: Validate deployment health
+  run: ./scripts/check-deployment-health.sh
+  env:
+    NEXT_PUBLIC_CONVEX_URL: ${{ env.NEXT_PUBLIC_CONVEX_URL }}
+```
+
+**Why this works**:
+- Convex CLI outputs deployment URL to stdout/stderr
+- `grep -o` extracts URL using portable POSIX pattern
+- `$GITHUB_ENV` persists variable across steps
+- Health check script receives URL as environment variable
+
 ### Deployment Safeguards
 
 **Pre-Deployment Checklist**:

@@ -96,7 +96,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Deploy Convex functions (preview)
-        run: npx convex deploy --cmd 'pnpm build'
+        run: |
+          # Deploy Convex and capture the deployment URL
+          # Convex CLI outputs the URL in format: https://<deployment-name>.convex.cloud
+          DEPLOYMENT_URL=$(npx convex deploy --cmd 'pnpm build' 2>&1 | grep -o 'https://[a-z0-9-]*\.convex\.cloud' | head -1)
+
+          # Export for subsequent steps
+          echo "NEXT_PUBLIC_CONVEX_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+          echo "✅ Deployed to: $DEPLOYMENT_URL"
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
@@ -105,6 +112,8 @@ jobs:
 
       - name: Validate deployment health
         run: ./scripts/check-deployment-health.sh
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ env.NEXT_PUBLIC_CONVEX_URL }}
 
       - name: Check bundle size
         run: pnpm size-limit
