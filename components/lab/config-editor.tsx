@@ -216,7 +216,6 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
               <SelectContent>
                 <SelectItem value="google">Google</SelectItem>
                 <SelectItem value="openai">OpenAI</SelectItem>
-                <SelectItem value="anthropic">Anthropic</SelectItem>
               </SelectContent>
             </Select>
           </div>
