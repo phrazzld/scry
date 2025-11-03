@@ -16,8 +16,8 @@ const STORAGE_KEYS = {
   RESULTS: 'scry-lab-results',
 } as const;
 
-// localStorage quota warning threshold (8MB for typical 10MB quota)
-const DEFAULT_QUOTA_WARNING_BYTES = 8 * 1024 * 1024;
+// localStorage quota warning threshold (4MB for safer cross-browser compatibility)
+const DEFAULT_QUOTA_WARNING_BYTES = 4 * 1024 * 1024;
 
 /**
  * Save test inputs to localStorage
