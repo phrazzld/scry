@@ -157,3 +157,5 @@ After following this guide:
 - [ ] Preview smoke test passes
 
 **Status**: ⏸️ **ACTION REQUIRED** - Complete Vercel dashboard configuration before proceeding
+
+**Additional Configuration**: See `vercel-deployment-protection.md` for configuring deployment protection to allow preview smoke tests.
