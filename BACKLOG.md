@@ -6,6 +6,8 @@
 
 ---
 
+### [INFRA] Vercel Analytics and Observability
+
 ### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
 - we are consistently using gigabytes of database bandwidth each day
 - this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
@@ -2644,8 +2646,60 @@ Daily cron has no tests. Wrong threshold = data loss or DB bloat. Add contract t
 
 ---
 
-**Last Updated**: 2025-10-20
+## Genesis Lab - Deferred Improvements (2025-11-02)
+
+From PR #49 review feedback - low-priority improvements deferred for post-merge:
+
+### 1. Return text output for final text phases (30m)
+**Issue**: When a Genesis Lab config has a final phase with `outputType: 'text'`, execution completes but returns `rawOutput: null` instead of the generated text.
+
+**Root Cause**: In `convex/lab.ts`, the text output branch stores output in context but doesn't assign to `finalOutput` when it's the terminal phase.
+
+**Impact**: Low - production uses questions output (single-phase learning science architecture). Affects only legacy multi-phase configs with text terminal phases.
+
+**Fix**:
+```typescript
+// In text output branch (convex/lab.ts ~line 230)
+if (i === args.phases.length - 1) {
+  finalOutput = output;
+}
+```
+
+**Related**: PR #49 CodeRabbit Major issue, partially addressed in commit `8d483d3`
+
+---
+
+### 2. Tune localStorage quota warning threshold (15m + user feedback)
+**Current State**: Warning triggers at 4MB (commit `77a91bd`), appropriate for 5MB browser limit.
+
+**Action**: Monitor user feedback for 1-2 weeks post-launch to validate 4MB threshold. Adjust if quota errors reported.
+
+**Why Defer**: Need empirical data on actual Genesis Lab usage patterns (avg result set sizes). Premature optimization without user feedback.
+
+**Related**: PR #49 CodeRabbit Major + Claude minor issue
+
+---
+
+### 3. Standardize NODE_ENV checks across lab routes (5m)
+**Issue**: Inconsistent checks:
+- `/lab` and `/lab/configs`: `process.env.NODE_ENV === 'production'`
+- `/lab/playground`: `process.env.NODE_ENV !== 'development'`
+
+**Impact**: In test/staging environments (`NODE_ENV=test`), Lab/Configs are accessible but Playground is blocked.
+
+**Fix**: Standardize all three routes to `=== 'production'` check.
+
+**Why Defer**: Test/staging environments unlikely for dev-only feature. Cosmetic consistency with no production impact.
+
+**Related**: PR #49 Claude minor issue
+
+---
+
+**Last Updated**: 2025-11-02
 **Next Grooming**: Q1 2026 (or when 3+ critical issues emerge)
+
+**Recent Additions** (2025-11-02):
+- Genesis Lab deferred improvements from PR #49 review (3 items, ~50m total effort)
 
 **Recent Additions** (2025-10-20):
 - Strategic roadmap synthesis: Vector embeddings, deduplication, adaptive generation, content-aware FSRS

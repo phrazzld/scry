@@ -144,10 +144,12 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
         ...baseFields,
         provider: 'openai',
         temperature: tempNum,
-        // Preserve OpenAI-specific fields from existing config if editing
-        maxCompletionTokens: config?.provider === 'openai' ? config.maxCompletionTokens : undefined,
-        reasoningEffort: config?.provider === 'openai' ? config.reasoningEffort : undefined,
-        verbosity: config?.provider === 'openai' ? config.verbosity : undefined,
+        // Preserve OpenAI-specific fields not shown in editor (only when editing OpenAI config)
+        ...(config?.provider === 'openai' && {
+          maxCompletionTokens: config.maxCompletionTokens,
+          reasoningEffort: config.reasoningEffort,
+          verbosity: config.verbosity,
+        }),
       };
       newConfig = openaiConfig;
     }

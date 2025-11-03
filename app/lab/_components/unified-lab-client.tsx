@@ -85,6 +85,20 @@ export function UnifiedLabClient() {
 
   const executeConfig = useAction(api.lab.executeConfig);
 
+  // Helper to create failed ExecutionResult for Promise.allSettled rejections
+  const toFailedResult = (config: InfraConfig, input: string, cause: unknown): ExecutionResult => ({
+    configId: config.id,
+    configName: config.name,
+    input,
+    questions: [],
+    rawOutput: null,
+    latency: 0,
+    tokenCount: 0,
+    valid: false,
+    errors: [cause instanceof Error ? cause.message : String(cause)],
+    executedAt: Date.now(),
+  });
+
   // Load configs on mount
   useEffect(() => {
     let loaded = loadConfigs();
@@ -184,46 +198,16 @@ export function UnifiedLabClient() {
           }),
         ]);
 
-        // Convert settled results to ExecutionResult, handling failures
+        // Convert settled results to ExecutionResult, handling failures independently
         const result1: ExecutionResult =
           result1Settled.status === 'fulfilled'
             ? result1Settled.value
-            : {
-                configId: selectedConfig.id,
-                configName: selectedConfig.name,
-                input: newRun.input,
-                questions: [],
-                rawOutput: null,
-                latency: 0,
-                tokenCount: 0,
-                valid: false,
-                errors: [
-                  result1Settled.reason instanceof Error
-                    ? result1Settled.reason.message
-                    : String(result1Settled.reason),
-                ],
-                executedAt: Date.now(),
-              };
+            : toFailedResult(selectedConfig, newRun.input, result1Settled.reason);
 
         const result2: ExecutionResult =
           result2Settled.status === 'fulfilled'
             ? result2Settled.value
-            : {
-                configId: comparisonConfig.id,
-                configName: comparisonConfig.name,
-                input: newRun.input,
-                questions: [],
-                rawOutput: null,
-                latency: 0,
-                tokenCount: 0,
-                valid: false,
-                errors: [
-                  result2Settled.reason instanceof Error
-                    ? result2Settled.reason.message
-                    : String(result2Settled.reason),
-                ],
-                executedAt: Date.now(),
-              };
+            : toFailedResult(comparisonConfig, newRun.input, result2Settled.reason);
 
         // Update run with both results
         setTestRuns((runs) =>
