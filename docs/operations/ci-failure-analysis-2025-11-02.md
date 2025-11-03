@@ -196,3 +196,101 @@ After merge:
 **Severity**: Medium (blocked CI, but no production impact)
 **Resolution**: Environment variable propagation pattern
 **Preventable**: Yes (with proactive testing of health check step)
+
+---
+
+## UPDATE: Resolution Complete ✅
+
+**Date Resolved**: 2025-11-03
+
+### Deeper Root Cause Analysis
+
+The original fix (environment variable propagation) revealed a **fundamental architectural problem**:
+
+**CI was deploying to PRODUCTION Convex backend on every PR.**
+
+This violated separation of concerns:
+- CI should **validate code quality only** (lint, test, build)
+- Vercel should **handle all deployments** (preview + production)
+
+The `CONVEX_DEPLOY_KEY` GitHub secret contained the **production** key, causing:
+1. Every PR deployed functions to production backend
+2. Health checks failed (functions not in expected location)
+3. Risk of breaking production on unmerged PRs
+
+### Final Solution Implemented
+
+1. **Removed deployment from CI** (`.github/workflows/ci.yml`)
+   - Deleted "Deploy Convex functions (preview)" step
+   - Deleted "Validate deployment health" step
+   - Replaced with simple "Verify production build" (no deployment)
+
+2. **Configured Vercel environment variables**
+   - Added **preview** deploy key to Vercel Preview environment
+   - Verified **production** deploy key in Vercel Production environment
+   - Each environment now uses appropriate key
+
+3. **Updated documentation**
+   - `CLAUDE.md`: Added "CI vs Deployment Separation" section
+   - `docs/operations/vercel-environment-setup.md`: Detailed setup guide
+   - Clarified that Vercel owns all deployment logic
+
+### Architecture Change
+
+**Before** (Broken):
+```
+PR Push → GitHub Actions CI
+          ├─ Quality checks ✓
+          ├─ Tests ✓
+          └─ Deploy to PRODUCTION (using prod key) ❌ WRONG
+```
+
+**After** (Correct):
+```
+PR Push
+├─ GitHub Actions CI (validates only)
+│  ├─ lint, typecheck, audit ✓
+│  ├─ tests + coverage ✓
+│  └─ build verification ✓
+│
+└─ Vercel (deploys)
+   ├─ Uses Preview CONVEX_DEPLOY_KEY
+   ├─ Creates isolated backend: phaedrus-scry-{branch}.convex.cloud
+   └─ Deploys frontend + functions together
+
+Merge to Master → Vercel Production
+   ├─ Uses Production CONVEX_DEPLOY_KEY  
+   ├─ Deploys to: uncommon-axolotl-639.convex.cloud
+   └─ Updates production domains
+```
+
+### Verification
+
+After changes:
+- ✅ CI validates code without deploying
+- ✅ Vercel preview creates isolated Convex backends
+- ✅ Production deployments work unchanged
+- ✅ No risk of PR changes affecting production
+- ✅ Health checks run in preview-smoke-test.yml (after Vercel deployment)
+
+### Lessons Learned
+
+1. **Separation of Concerns**: CI validates, deployment platforms deploy
+2. **Environment Isolation**: Preview and production must use different deploy keys
+3. **Test Impact**: Changes that seem to fix one issue may reveal deeper problems
+4. **Documentation**: Clear architecture documentation prevents similar mistakes
+
+### Related Files
+
+- `.github/workflows/ci.yml` - CI validation only
+- `CLAUDE.md` - Architecture documentation
+- `docs/operations/vercel-environment-setup.md` - Setup guide
+- `.env.local` - Preview deploy key (local reference)
+- `.env.production` - Production deploy key (local reference)
+
+---
+
+**Original Issue**: Environment variable not propagating
+**Actual Issue**: CI deploying to production instead of Vercel handling deployments
+**Final Status**: RESOLVED - Architecture corrected
+**Follow-up**: Configure Vercel environment variables per setup guide

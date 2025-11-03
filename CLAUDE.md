@@ -146,34 +146,42 @@ This ensures atomicity: Convex functions only deploy if frontend build succeeds,
 - Automatically cleaned up when branch/deployment is deleted
 - Requires Convex Pro ($25/mo)
 
-### CI Environment Variable Propagation
+### CI vs Deployment Separation (CRITICAL)
 
-**Problem**: `npx convex deploy --cmd` sets `NEXT_PUBLIC_CONVEX_URL` only for the subprocess, not subsequent CI steps.
+**GitHub Actions CI** (`.github/workflows/ci.yml`):
+- ✅ Quality: lint, typecheck, security audit
+- ✅ Tests: unit tests with coverage
+- ✅ Build: verify `pnpm build` succeeds
+- ❌ NO deployment (Vercel handles this)
 
-**Solution**: Capture deployment URL from CLI output and export to `$GITHUB_ENV`:
+**Vercel Deployments**:
+- **Preview**: Auto-deploys on PR push
+  - Uses `CONVEX_DEPLOY_KEY` (Preview environment)
+  - Creates isolated Convex backend (branch-named)
+  - Runs `./scripts/vercel-build.sh` → `npx convex deploy --cmd 'pnpm build'`
+  - Each PR gets unique: `https://phaedrus-scry-{branch}.convex.cloud`
 
-```yaml
-- name: Deploy Convex functions
-  run: |
-    # Capture URL from deployment output
-    DEPLOYMENT_URL=$(npx convex deploy --cmd 'pnpm build' 2>&1 | grep -o 'https://[a-z0-9-]*\.convex\.cloud' | head -1)
+- **Production**: Auto-deploys on merge to master
+  - Uses `CONVEX_DEPLOY_KEY` (Production environment)
+  - Deploys to: `https://uncommon-axolotl-639.convex.cloud`
+  - Same script: `vercel-build.sh`
 
-    # Export for subsequent steps
-    echo "NEXT_PUBLIC_CONVEX_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
-  env:
-    CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+**Key Insight**: Deploy key TYPE (preview: vs prod:) determines target backend automatically.
 
-- name: Validate deployment health
-  run: ./scripts/check-deployment-health.sh
-  env:
-    NEXT_PUBLIC_CONVEX_URL: ${{ env.NEXT_PUBLIC_CONVEX_URL }}
-```
+### Vercel Environment Variable Setup
 
-**Why this works**:
-- Convex CLI outputs deployment URL to stdout/stderr
-- `grep -o` extracts URL using portable POSIX pattern
-- `$GITHUB_ENV` persists variable across steps
-- Health check script receives URL as environment variable
+**Must be configured in Vercel Dashboard** (Settings → Environment Variables):
+
+| Variable | Preview | Production | Notes |
+|----------|---------|------------|-------|
+| `CONVEX_DEPLOY_KEY` | `preview:phaedrus:scry\|...` | `prod:uncommon-axolotl-639\|...` | **Different keys per environment** |
+| `GOOGLE_AI_API_KEY` | ✓ Same value | ✓ Same value | From Convex Dashboard |
+| `CLERK_SECRET_KEY` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `CLERK_WEBHOOK_SECRET` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `NEXT_PUBLIC_CONVEX_URL` | ❌ **Auto-set by Convex** | ❌ **Auto-set by Convex** | Do not configure manually |
+
+**Setup Guide**: See `docs/operations/vercel-environment-setup.md` for detailed instructions.
 
 ### Deployment Safeguards
 
