@@ -341,6 +341,8 @@ export const processJob = internalAction({
               },
               'Promise rejected during embedding generation'
             );
+            // Retain question without embedding (graceful degradation)
+            questionsWithEmbeddings.push(question);
             embeddingFailureCount++;
           }
         });
