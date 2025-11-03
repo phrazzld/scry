@@ -139,11 +139,15 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
       };
       newConfig = googleConfig;
     } else {
-      // OpenAI config (reasoningEffort/verbosity/maxCompletionTokens not available in this editor yet)
+      // OpenAI config - preserve existing OpenAI-specific parameters
       const openaiConfig: OpenAIInfraConfig = {
         ...baseFields,
         provider: 'openai',
         temperature: tempNum,
+        // Preserve OpenAI-specific fields from existing config if editing
+        maxCompletionTokens: config?.provider === 'openai' ? config.maxCompletionTokens : undefined,
+        reasoningEffort: config?.provider === 'openai' ? config.reasoningEffort : undefined,
+        verbosity: config?.provider === 'openai' ? config.verbosity : undefined,
       };
       newConfig = openaiConfig;
     }
