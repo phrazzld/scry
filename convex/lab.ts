@@ -231,6 +231,11 @@ export const executeConfig = action({
             context[phase.outputTo] = output;
           }
 
+          // If this is the final phase, save as finalOutput
+          if (i === args.phases.length - 1) {
+            finalOutput = output;
+          }
+
           logger.info(
             {
               configId: args.configId,
