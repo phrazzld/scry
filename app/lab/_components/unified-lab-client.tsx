@@ -8,7 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useAction } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import { PlayIcon, PlusIcon, SettingsIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/convex/_generated/api';
-import { buildLearningSciencePrompt, PROD_CONFIG_METADATA } from '@/convex/lib/promptTemplates';
+import { buildLearningSciencePrompt } from '@/convex/lib/promptTemplates';
 import { loadConfigs, saveConfigs } from '@/lib/lab-storage';
 import { cn } from '@/lib/utils';
 import type { ExecutionResult, InfraConfig } from '@/types/lab';
@@ -51,18 +51,26 @@ interface TestRun {
 }
 
 /**
- * Create PROD config (1-phase learning science architecture)
+ * Create PROD config dynamically from runtime environment variables
+ *
+ * This ensures Lab always tests with the exact same configuration
+ * that production uses, preventing test/prod divergence.
  */
-function createProdConfig(): InfraConfig {
+function createProdConfig(runtimeConfig: {
+  provider: 'openai' | 'google';
+  model: string;
+  reasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
+  verbosity: 'low' | 'medium' | 'high';
+}): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
     name: 'PRODUCTION (Learning Science)',
-    description: '1-phase GPT-5 with comprehensive learning science principles',
-    provider: PROD_CONFIG_METADATA.provider,
-    model: PROD_CONFIG_METADATA.model,
-    reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
-    verbosity: PROD_CONFIG_METADATA.verbosity,
+    description: `Current production config: ${runtimeConfig.model} (${runtimeConfig.reasoningEffort} reasoning, ${runtimeConfig.verbosity} verbosity)`,
+    provider: runtimeConfig.provider,
+    model: runtimeConfig.model,
+    reasoningEffort: runtimeConfig.reasoningEffort,
+    verbosity: runtimeConfig.verbosity,
     phases: [
       {
         name: 'Learning Science Question Generation',
@@ -83,6 +91,8 @@ export function UnifiedLabClient() {
   const [testRuns, setTestRuns] = useState<TestRun[]>([]);
   const [configs, setConfigs] = useState<InfraConfig[]>([]);
 
+  // Fetch actual production config from runtime environment
+  const productionConfig = useQuery(api.lib.productionConfig.getProductionConfig);
   const executeConfig = useAction(api.lab.executeConfig);
 
   // Helper to create failed ExecutionResult for Promise.allSettled rejections
@@ -99,21 +109,24 @@ export function UnifiedLabClient() {
     executedAt: Date.now(),
   });
 
-  // Load configs on mount
+  // Load configs when production config is available
   useEffect(() => {
+    if (!productionConfig) return; // Wait for query to resolve
+
     let loaded = loadConfigs();
-    const prodConfig = createProdConfig();
+    const prodConfig = createProdConfig(productionConfig);
     const hasProd = loaded.some((c) => c.isProd);
 
     if (!hasProd) {
       loaded = [prodConfig, ...loaded];
     } else {
+      // Replace old PROD config with fresh runtime config
       loaded = loaded.map((c) => (c.isProd ? prodConfig : c));
     }
 
     setConfigs(loaded);
     saveConfigs(loaded);
-  }, []);
+  }, [productionConfig]);
 
   const selectedConfig = configs.find((c) => c.id === selectedConfigId);
 

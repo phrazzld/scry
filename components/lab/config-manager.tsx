@@ -222,7 +222,7 @@ export function ConfigManager({
                   <div className="space-y-1">
                     <h4 className="text-xs font-medium">Phases:</h4>
                     {config.phases.map((phase, idx) => {
-                      // Get model for this phase (hardcoded for now based on PROD_CONFIG_METADATA)
+                      // Get model for this phase (multi-model configs use different models per phase)
                       const phaseModel =
                         isMultiModelConfig(config) && phase.name.includes('Phase 2')
                           ? 'gpt-5'

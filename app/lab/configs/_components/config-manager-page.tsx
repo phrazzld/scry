@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from 'convex/react';
 import { ArrowLeftIcon, CopyIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,7 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { buildLearningSciencePrompt, PROD_CONFIG_METADATA } from '@/convex/lib/promptTemplates';
+import { api } from '@/convex/_generated/api';
+import { buildLearningSciencePrompt } from '@/convex/lib/promptTemplates';
 import { loadConfigs, saveConfigs } from '@/lib/lab-storage';
 import {
   isValidConfig,
@@ -36,18 +38,23 @@ import {
 } from '@/types/lab';
 
 /**
- * Create PROD config
+ * Create PROD config dynamically from runtime environment variables
  */
-function createProdConfig(): InfraConfig {
+function createProdConfig(runtimeConfig: {
+  provider: 'openai' | 'google';
+  model: string;
+  reasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
+  verbosity: 'low' | 'medium' | 'high';
+}): InfraConfig {
   const now = Date.now();
   return {
     id: 'prod-baseline',
     name: 'PRODUCTION (Learning Science)',
-    description: '1-phase GPT-5 with comprehensive learning science principles',
-    provider: PROD_CONFIG_METADATA.provider,
-    model: PROD_CONFIG_METADATA.model,
-    reasoningEffort: PROD_CONFIG_METADATA.reasoningEffort,
-    verbosity: PROD_CONFIG_METADATA.verbosity,
+    description: `Current production config: ${runtimeConfig.model} (${runtimeConfig.reasoningEffort} reasoning, ${runtimeConfig.verbosity} verbosity)`,
+    provider: runtimeConfig.provider,
+    model: runtimeConfig.model,
+    reasoningEffort: runtimeConfig.reasoningEffort,
+    verbosity: runtimeConfig.verbosity,
     phases: [
       {
         name: 'Learning Science Question Generation',
@@ -65,15 +72,21 @@ export function ConfigManagerPage() {
   const [configs, setConfigs] = useState<InfraConfig[]>([]);
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
 
-  // Load configs on mount
+  // Fetch actual production config from runtime environment
+  const productionConfig = useQuery(api.lib.productionConfig.getProductionConfig);
+
+  // Load configs when production config is available
   useEffect(() => {
+    if (!productionConfig) return; // Wait for query to resolve
+
     let loaded = loadConfigs();
-    const prodConfig = createProdConfig();
+    const prodConfig = createProdConfig(productionConfig);
     const hasProd = loaded.some((c) => c.isProd);
 
     if (!hasProd) {
       loaded = [prodConfig, ...loaded];
     } else {
+      // Replace old PROD config with fresh runtime config
       loaded = loaded.map((c) => (c.isProd ? prodConfig : c));
     }
 
@@ -85,7 +98,7 @@ export function ConfigManagerPage() {
       setSelectedConfigId(loaded[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [productionConfig]);
 
   const selectedConfig = configs.find((c) => c.id === selectedConfigId);
 

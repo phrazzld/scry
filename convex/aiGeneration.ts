@@ -95,6 +95,7 @@ export const processJob = internalAction({
     const provider = process.env.AI_PROVIDER || 'openai';
     const modelName = process.env.AI_MODEL || 'gpt-5-mini';
     const reasoningEffort = process.env.AI_REASONING_EFFORT || 'high';
+    const verbosity = process.env.AI_VERBOSITY || 'medium';
 
     // Declare keyDiagnostics outside conditional blocks for error handler access
     let keyDiagnostics: ReturnType<typeof getSecretDiagnostics> = {
@@ -233,8 +234,8 @@ export const processJob = internalAction({
           input: questionPrompt,
           schema: questionsSchema,
           schemaName: 'questions',
-          verbosity: 'high',
-          reasoningEffort: 'high',
+          verbosity: verbosity as 'low' | 'medium' | 'high',
+          reasoningEffort: reasoningEffort as 'minimal' | 'low' | 'medium' | 'high',
         });
       } else if (provider === 'google' && model) {
         // Use Vercel AI SDK for Google

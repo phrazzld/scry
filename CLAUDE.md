@@ -202,9 +202,10 @@ max_completion_tokens: number
 ```bash
 # Convex Backend (set via: npx convex env set VAR value --prod)
 OPENAI_API_KEY=sk-proj-...              # OpenAI API key
-AI_PROVIDER=openai                       # Provider selection
-AI_MODEL=gpt-5-mini                      # Model name
-AI_REASONING_EFFORT=high                 # Reasoning budget (openai only)
+AI_PROVIDER=openai                       # Provider selection (openai/google)
+AI_MODEL=gpt-5-mini                      # Model name (gpt-5, gpt-5-mini, gemini-2.0-flash-exp)
+AI_REASONING_EFFORT=high                 # Reasoning budget (minimal/low/medium/high) - openai only
+AI_VERBOSITY=medium                      # Output detail (low/medium/high) - openai only
 
 # Kept for rollback
 GOOGLE_AI_API_KEY=AIzaSy...             # Google AI key
@@ -259,27 +260,35 @@ npx convex env list --prod | grep AI_PROVIDER
 ### Genesis Laboratory Testing
 
 **PROD Baseline Config:**
-- Name: "PRODUCTION (OpenAI GPT-5)"
-- Provider: `openai`
-- Model: `gpt-5-mini`
-- Reasoning Effort: `high`
-- Verbosity: `medium`
-- Auto-updated from `convex/lib/promptTemplates.ts:PROD_CONFIG_METADATA`
+- **Source of Truth:** Dynamically loaded from `convex/lib/productionConfig.ts:getProductionConfig()`
+- **Reads from:** Convex environment variables (same vars production uses)
+- **Current values:** See Convex dashboard → Settings → Environment Variables
+  - `AI_PROVIDER` - Provider selection (openai/google)
+  - `AI_MODEL` - Model name (gpt-5-mini, gpt-5, gemini-2.0-flash-exp)
+  - `AI_REASONING_EFFORT` - Reasoning budget (minimal/low/medium/high)
+  - `AI_VERBOSITY` - Output detail (low/medium/high)
+
+**Why Dynamic Config?**
+- **Prevents divergence:** Lab always tests exactly what production uses
+- **No static constants:** Can't drift between code and runtime
+- **Instant updates:** Change env var → both Lab and production update
+- **Impossible to lie:** Testing in Lab = testing actual production behavior
 
 **Comparing Providers:**
 1. Create test input in Genesis Lab (e.g., "Nicene Creed")
-2. PROD config uses OpenAI (baseline)
+2. PROD config shows current production settings (dynamically loaded)
 3. Create custom config with `provider: "google"` (comparison)
 4. Run both configs on same input
 5. Compare: format adherence, context injection, deduplication, reasoning token usage
 
 ### References
 
+- **Production config query:** `convex/lib/productionConfig.ts` - Single source of truth
 - **Type definitions:** `types/lab.ts` - Discriminated unions for provider configs
 - **Executor:** `convex/lab.ts` - Genesis Lab multi-phase executor
 - **Production pipeline:** `convex/aiGeneration.ts` - Background question generation
-- **Prompt templates:** `convex/lib/promptTemplates.ts` - Single source of truth
-- **UI client:** `app/lab/_components/lab-client.tsx` - PROD config creation
+- **Prompt templates:** `convex/lib/promptTemplates.ts` - Learning science prompt
+- **UI clients:** `app/lab/_components/unified-lab-client.tsx`, `app/lab/configs/_components/config-manager-page.tsx`
 
 ## Convex Real-Time (Zero Polling)
 

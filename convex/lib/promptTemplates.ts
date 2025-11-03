@@ -125,32 +125,21 @@ ${userInput}`;
 }
 
 /**
- * Production Configuration Metadata
+ * ARCHITECTURE NOTE: Production Configuration
  *
- * ARCHITECTURE CHANGE (2025-11-01):
- * Moved from 5-phase architecture to 1-phase learning science approach.
+ * Production config is NO LONGER defined here as a static constant.
+ * Instead, it's dynamically read from Convex environment variables at runtime.
  *
- * RATIONALE:
- * - 5-phase architecture caused information fragmentation across phases
- * - Quality issues: grammar errors, duplicates, missing content, unwanted complexity
- * - GPT-5 with high reasoning performs better with comprehensive single prompts
- * - Principle-based guidance (WHAT to achieve) vs procedural prescription (HOW to do it)
+ * See: convex/lib/productionConfig.ts (getProductionConfig query)
  *
- * COST COMPARISON:
- * - 5-phase: ~30K tokens (3K gpt-5, 27K gpt-5-mini), 5 API calls
- * - 1-phase: ~15K tokens (all gpt-5), 1 API call
- * - Cost change: Similar total cost, but better quality and lower latency
+ * This ensures Genesis Lab always tests with the exact same configuration
+ * that production uses, making divergence architecturally impossible.
  *
- * QUALITY IMPROVEMENTS:
- * - No information loss between phases
- * - Model determines optimal strategy per content type
- * - No contradictory instructions across phases
- * - Trusts GPT-5's intelligence over rigid procedures
+ * To view current production config:
+ * - Genesis Lab: Loads dynamically from getProductionConfig()
+ * - Convex Dashboard: Settings → Environment Variables
+ *   - AI_PROVIDER (openai/google)
+ *   - AI_MODEL (gpt-5/gpt-5-mini/gemini-2.0-flash-exp)
+ *   - AI_REASONING_EFFORT (minimal/low/medium/high)
+ *   - AI_VERBOSITY (low/medium/high)
  */
-export const PROD_CONFIG_METADATA = {
-  provider: 'openai' as const,
-  model: 'gpt-5', // Upgraded from gpt-5-mini for better quality
-  reasoningEffort: 'high' as const, // Maximum reasoning for quality
-  verbosity: 'high' as const, // Visibility into model's thinking
-  // Temperature omitted - model chooses optimal value for structured outputs
-} as const;
