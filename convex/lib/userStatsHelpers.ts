@@ -83,7 +83,9 @@ export async function updateStatsCounters(
 
   if (existingStats) {
     // Update existing record
-    await ctx.db.patch(existingStats._id, newStats);
+    // Note: Cannot patch userId (immutable field), so destructure it out
+    const { userId: _userId, ...patchFields } = newStats;
+    await ctx.db.patch(existingStats._id, patchFields);
   } else {
     // Initialize new record (new user case)
     await ctx.db.insert('userStats', newStats);

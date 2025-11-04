@@ -551,6 +551,7 @@ async function removeDifficultyFromQuestionsInternal(
     }
 
     // Helper function to process a batch of questions
+    // Using function declaration for hoisting (called before declaration in loop)
     async function processBatch(questions: typeof paginationResult.page) {
       for (const question of questions) {
         stats.totalProcessed++;
@@ -685,6 +686,7 @@ async function removeTopicFromQuestionsInternal(
     }
 
     // Helper function to process a batch of questions
+    // Using function declaration for hoisting (called before declaration in loop)
     async function processBatch(questions: typeof paginationResult.page) {
       for (const question of questions) {
         stats.totalProcessed++;
@@ -864,6 +866,7 @@ export const initializeUserStats = internalMutation({
       }
 
       // Helper function to process a batch of users
+      // Using function declaration for hoisting (called before declaration in loop)
       async function processBatch(users: typeof paginationResult.page) {
         for (const user of users) {
           stats.totalUsers++;
