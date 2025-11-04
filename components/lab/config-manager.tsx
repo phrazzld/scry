@@ -299,7 +299,7 @@ export function ConfigManager({
                             {phase.outputTo && (
                               <>
                                 <span>•</span>
-                                <span className="text-[10px]">{'{{' + phase.outputTo + '}}'}</span>
+                                <span className="text-[10px]">{`→ {{${phase.outputTo}}}`}</span>
                               </>
                             )}
                           </div>
