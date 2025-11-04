@@ -28,6 +28,7 @@ interface StatDeltas {
   newCount?: number;
   learningCount?: number;
   matureCount?: number; // 'review' state
+  dueNowCount?: number; // Cards where nextReview <= now (time-aware for reactivity)
   nextReviewTime?: number;
 }
 
@@ -74,6 +75,7 @@ export async function updateStatsCounters(
     newCount: Math.max(0, (existingStats?.newCount ?? 0) + (deltas.newCount ?? 0)),
     learningCount: Math.max(0, (existingStats?.learningCount ?? 0) + (deltas.learningCount ?? 0)),
     matureCount: Math.max(0, (existingStats?.matureCount ?? 0) + (deltas.matureCount ?? 0)),
+    dueNowCount: Math.max(0, (existingStats?.dueNowCount ?? 0) + (deltas.dueNowCount ?? 0)),
     nextReviewTime:
       deltas.nextReviewTime !== undefined ? deltas.nextReviewTime : existingStats?.nextReviewTime,
     lastCalculated: Date.now(),

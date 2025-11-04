@@ -180,9 +180,36 @@ export const scheduleReview = mutation({
         ...scheduledFields,
       });
 
-      // Update userStats counters if state changed (incremental bandwidth optimization)
+      // Update userStats counters (incremental bandwidth optimization)
       const newState = scheduledFields.state;
       const deltas = calculateStateTransitionDelta(oldState, newState);
+
+      // Track time-based due count for badge reactivity
+      // New cards (undefined oldNextReview) are always considered "due"
+      const nowMs = Date.now();
+      const newNextReview = scheduledFields.nextReview;
+
+      if (newNextReview !== undefined) {
+        // First review: card transitions from "always due" to scheduled
+        const isDueNow = newNextReview <= nowMs;
+        if (!isDueNow) {
+          // Card scheduled in future, decrement due count
+          if (deltas) {
+            deltas.dueNowCount = (deltas.dueNowCount || 0) - 1;
+          } else {
+            // No state change, but still need to update dueNowCount
+            await updateStatsCounters(ctx, userId, { dueNowCount: -1 });
+            return {
+              success: true,
+              nextReview: scheduledFields.nextReview || null,
+              scheduledDays: scheduledFields.scheduledDays || 0,
+              newState: scheduledFields.state || 'new',
+            };
+          }
+        }
+        // If isDueNow is true (immediate re-review), dueNowCount stays same
+      }
+
       if (deltas) {
         await updateStatsCounters(ctx, userId, deltas);
       }
@@ -207,9 +234,51 @@ export const scheduleReview = mutation({
       ...scheduledFields,
     });
 
-    // Update userStats counters if state changed (incremental bandwidth optimization)
+    // Update userStats counters (incremental bandwidth optimization)
     const newState = scheduledFields.state || question.state;
     const deltas = calculateStateTransitionDelta(oldState, newState);
+
+    // Track time-based due count for badge reactivity
+    // Detect when nextReview crosses the "due now" boundary
+    const oldNextReview = question.nextReview;
+    const newNextReview = scheduledFields.nextReview;
+    const nowMs = Date.now();
+
+    if (oldNextReview !== undefined && newNextReview !== undefined) {
+      const wasDue = oldNextReview <= nowMs;
+      const isDueNow = newNextReview <= nowMs;
+
+      if (wasDue && !isDueNow) {
+        // Card moved from due to not-due (answered correctly, scheduled future)
+        if (deltas) {
+          deltas.dueNowCount = (deltas.dueNowCount || 0) - 1;
+        } else {
+          // No state change, but still need to update dueNowCount
+          await updateStatsCounters(ctx, userId, { dueNowCount: -1 });
+          return {
+            success: true,
+            nextReview: scheduledFields.nextReview || null,
+            scheduledDays: scheduledFields.scheduledDays || 0,
+            newState: scheduledFields.state || question.state || 'new',
+          };
+        }
+      } else if (!wasDue && isDueNow) {
+        // Card moved from not-due to due (rare: manual reschedule or immediate lapse)
+        if (deltas) {
+          deltas.dueNowCount = (deltas.dueNowCount || 0) + 1;
+        } else {
+          await updateStatsCounters(ctx, userId, { dueNowCount: 1 });
+          return {
+            success: true,
+            nextReview: scheduledFields.nextReview || null,
+            scheduledDays: scheduledFields.scheduledDays || 0,
+            newState: scheduledFields.state || question.state || 'new',
+          };
+        }
+      }
+      // If both wasDue and isDue are same, dueNowCount doesn't change
+    }
+
     if (deltas) {
       await updateStatsCounters(ctx, userId, deltas);
     }
@@ -377,9 +446,9 @@ export const getDueCount = query({
   handler: async (ctx) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
-    const now = Date.now();
 
-    // Get cached stats for newCount (time-agnostic - new cards are always "due")
+    // Get cached stats - fully reactive via mutation updates
+    // No time-filtered queries needed: dueNowCount is maintained by scheduleReview
     const stats = await ctx.db
       .query('userStats')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -393,30 +462,11 @@ export const getDueCount = query({
       );
     }
 
+    // Use time-aware cached counters (updated by scheduleReview mutations)
+    // This enables true Convex reactivity: when scheduleReview updates userStats,
+    // this query automatically re-runs via WebSocket (no polling needed)
+    const dueCount = stats?.dueNowCount || 0;
     const newCount = stats?.newCount || 0;
-
-    // Query time-filtered due cards (learning/mature with nextReview <= now)
-    // Optimization: Most cards scheduled in future, time filter reduces set significantly
-    // Bandwidth: ~100-500 cards typical (vs 2,000 in original O(N) approach)
-    const dueCards = await ctx.db
-      .query('questions')
-      .withIndex('by_user_next_review', (q) => q.eq('userId', userId).lte('nextReview', now))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined),
-          // Additional filter: only learning/mature/relearning states
-          // (new cards have no nextReview, filtered by index already)
-          q.or(
-            q.eq(q.field('state'), 'learning'),
-            q.eq(q.field('state'), 'review'),
-            q.eq(q.field('state'), 'relearning')
-          )
-        )
-      )
-      .take(1000); // Cap at 1000 for "1000+" badge
-
-    const dueCount = dueCards.length;
 
     return {
       dueCount,

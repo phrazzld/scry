@@ -22,6 +22,7 @@ export default defineSchema({
     newCount: v.number(), // Cards in 'new' state
     learningCount: v.number(), // Cards in 'learning' state
     matureCount: v.number(), // Cards in 'review' state
+    dueNowCount: v.number(), // Cards where nextReview <= now (time-aware counter for reactivity)
     nextReviewTime: v.optional(v.number()), // Earliest nextReview timestamp across all cards
     lastCalculated: v.number(), // Timestamp of last stats update
   }).index('by_user', ['userId']),
