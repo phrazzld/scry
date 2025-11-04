@@ -1,8 +1,8 @@
 # BACKLOG
 
-**Last Groomed**: 2025-11-03
-**Analysis Method**: Quality infrastructure audit + platform engineering review + PR #50 feedback
-**Overall Grade**: A- (Strong foundation, quality gates needed refinement)
+**Last Groomed**: 2025-11-04
+**Analysis Method**: PR #53 emergency bandwidth optimization + PR #50 quality infrastructure review
+**Overall Grade**: A- (Strong technical foundation, emergency optimizations complete)
 
 ---
 
@@ -58,28 +58,6 @@ if (process.env.NODE_ENV === 'production') {
 
 **Recommendation**: Use existing Dialog component for delete confirmation with Cancel/Delete buttons.
 
-**Implementation**:
-```typescript
-const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-const [configToDelete, setConfigToDelete] = useState<string | null>(null);
-
-const handleDeleteConfig = (id: string) => {
-  setConfigToDelete(id);
-  setDeleteDialogOpen(true);
-};
-
-const confirmDelete = () => {
-  if (configToDelete) {
-    onSave(configs.filter((c) => c.id !== configToDelete));
-    toast.success('Config deleted');
-  }
-  setDeleteDialogOpen(false);
-  setConfigToDelete(null);
-};
-```
-
-Then render `<Dialog>` with Cancel/Delete buttons.
-
 **Effort**: 30 minutes
 **Impact**: LOW - Visual consistency improvement
 **Priority**: POLISH
@@ -127,432 +105,343 @@ Then render `<Dialog>` with Cancel/Delete buttons.
 
 ---
 
-### [INFRA] Vercel Analytics and Observability
+## Bandwidth Optimization Follow-Ups (PR #53)
 
-### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
-- we are consistently using gigabytes of database bandwidth each day
-- this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
+### [PERF] Add time-aware dueNowCount to userStats
+**Priority**: ✅ COMPLETED (commits 16bf73e, d1b18bc, 37e583d)
+**Effort**: 4 hours (completed)
+**Context**: PR #53 Codex P1 feedback
+
+**Problem**: Original hybrid getDueCount fetches 100-500 due cards to count them.
+Initial attempt used state-based counters (learningCount + matureCount) which
+incorrectly counted ALL cards in those states, not just time-filtered due cards.
+
+**Solution**: ✅ Implemented time-aware counter to userStats
+- Schema change: Added `dueNowCount` field (cards where nextReview <= now)
+- Migration: `initializeDueNowCount` backfills for all existing users
+- Update mutations: `scheduleReview` maintains dueNowCount on time boundary crossings
+- Achieved 99.996% bandwidth reduction (35 GB → 1.4 MB)
+
+**Completed Implementation**:
+- `convex/schema.ts`: Added dueNowCount field
+- `convex/spacedRepetition.ts`: scheduleReview tracks time-based transitions
+- `convex/migrations.ts`: initializeDueNowCount migration
+- `convex/lib/userStatsHelpers.ts`: StatDeltas includes dueNowCount
 
 ---
 
-## Test Coverage Improvement Initiative
+### [PERF] Add monitoring metrics for batch size A/B testing
+**Priority**: MEDIUM
+**Effort**: 2 hours
+**Context**: TASK.md Phase 3, Claude review feedback
 
-**Priority**: HIGH
-**Current Coverage**: 18.98% (as of 2025-11-02)
-**Target**: 60%+ (industry standard for production code)
-**Rationale**: Quality gate currently set to 18.9% (just below current). Need incremental improvement to reach 60% target.
+**Goal**: Establish baseline data for validating 25 vs 100 batch size impact on card selection quality
 
-### Phase 1: Critical Path Coverage (18.9% → 30%)
+**Metrics to instrument**:
+- Skip rate: How often user skips/archives card immediately after seeing it
+- Answer quality: Correct/incorrect rate per session
+- Time per card: Average review time (slower = harder/less relevant cards)
+- Completion rate: How often user completes full review session vs abandons
 
-**Timeline**: Q1 2025
-**Effort**: 8-12 hours
-**Priority**: HIGH - Error handling and environment detection are critical paths
+**Implementation**:
+- Add metrics tracking to `useQuizInteractions` hook
+- Log to Convex interactions table with metadata
+- Build dashboard query to visualize trends
 
-**Files to test**:
+**A/B test plan** (TASK.md lines 1065-1095):
+- Test batch sizes: 15 vs 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth vs quality tradeoff
 
-1. **`lib/error-handlers.ts`** (29 lines, 0% coverage)
-   - **Why critical**: Error handling for API calls, user feedback, system reliability
-   - **Test cases**:
-     - Each error type (network, validation, auth, rate limit)
-     - Fallback behavior when handlers fail
-     - Logging and error reporting
-   - **Estimated effort**: 2 hours
+---
 
-2. **`lib/environment-client.ts`** (35 lines, 0% coverage)
-   - **Why critical**: Environment detection (dev/preview/prod), feature flags, debugging
-   - **Test cases**:
-     - All environment combinations (VERCEL_ENV, NODE_ENV)
-     - Edge cases (missing vars, conflicting vars)
-     - SSR vs client-side detection
-   - **Estimated effort**: 2 hours
+### [INFRA] Add userStats health check logging
+**Priority**: ✅ COMPLETED (commit ef2cf7d)
+**Effort**: 15 minutes
+**Context**: Claude review feedback
 
-3. **`lib/deployment-check.ts`** (95 lines, 0% coverage)
-   - **Why medium priority**: Deployment validation, version matching
-   - **Test cases**:
-     - Schema version matching logic
-     - Error detection and reporting
-     - Mock Convex API responses
-   - **Estimated effort**: 3 hours
+**Goal**: Warn when userStats missing for user (indicates drift or reconciliation failure)
 
-4. **`lib/env.ts`** (12 lines, 0% coverage)
-   - **Why critical**: Environment variable validation, app initialization
-   - **Test cases**:
-     - Missing required vars
-     - Invalid formats
-     - Default value handling
-   - **Estimated effort**: 1 hour
-
-**Success criteria**:
-- Global coverage ≥30%
-- All critical error paths tested
-- No regressions in existing tests
-
-### Phase 2: User-Facing Logic Coverage (30% → 45%)
-
-**Timeline**: Q2 2025
-**Effort**: 12-16 hours
-**Priority**: MEDIUM - UX quality improvements
-
-**Files to test**:
-
-1. **`lib/haptic.ts`** (60 lines, 0% coverage)
-   - **Why matters**: Haptic feedback on mobile, accessibility
-   - **Test cases**:
-     - Device detection (iOS, Android, desktop)
-     - Fallback when haptics unavailable
-     - User preferences/settings
-   - **Estimated effort**: 3 hours
-
-2. **`lib/layout-mode.ts`** (57 lines, 0% coverage)
-   - **Why matters**: Responsive layout, mobile/desktop UX
-   - **Test cases**:
-     - Breakpoint detection
-     - SSR hydration consistency
-     - Window resize handling
-   - **Estimated effort**: 3 hours
-
-3. **Hooks with <90% coverage**:
-   - `use-active-jobs.ts`, `use-keyboard-shortcuts.ts`
-   - **Test cases**: State changes, side effects, cleanup, race conditions
-   - **Estimated effort**: 6-8 hours
-
-**Success criteria**:
-- Global coverage ≥45%
-- All user-facing logic tested
-- No untested UX features
-
-### Phase 3: Comprehensive Coverage (45% → 60%)
-
-**Timeline**: Q3 2025
-**Effort**: 16-20 hours
-**Priority**: LOW - Nice to have, not critical
-
-**Focus areas**:
-
-1. **Error boundary edge cases** (4 hours)
-   - Component error recovery
-   - Error state UI rendering
-   - Error logging and reporting
-
-2. **Network failure scenarios** (4 hours)
-   - Offline mode handling
-   - Request retry logic
-   - Timeout handling
-
-3. **Race condition handling** (4 hours)
-   - Concurrent mutations
-   - Stale data detection
-   - Optimistic updates
-
-4. **Browser API mocking** (4-6 hours)
-   - localStorage edge cases
-   - navigator API fallbacks
-   - Permission handling
-
-**Success criteria**:
-- Global coverage ≥60%
-- All error paths covered
-- Comprehensive edge case testing
-
-### Measurement & Tracking
-
-**Automated checks** (already in CI):
-- Coverage report generated on every PR
-- Fail if coverage decreases below threshold
-- HTML report available in `coverage/index.html`
-
-**Monthly review** (manual):
-1. Check current coverage: `pnpm test:coverage`
-2. If coverage improved by >5%: Update threshold in `vitest.config.ts`
-3. Celebrate wins, identify blockers
-4. Adjust timeline if needed
-
-**Commands**:
-```bash
-# Run tests with coverage
-pnpm test:coverage
-
-# View HTML report
-open coverage/index.html
-
-# Check current threshold vs actual
-grep "thresholds:" vitest.config.ts
+**Implementation**:
+```typescript
+// COMPLETED in convex/spacedRepetition.ts:390-396
+if (!stats) {
+  console.warn(
+    'Missing userStats for user',
+    userId,
+    '- returning zeros. This may indicate reconciliation failure.'
+  );
+}
 ```
 
-**Accountability**:
-- Monthly coverage review in team standup
-- Update threshold as improvement happens
-- Document wins in CHANGELOG.md
+---
+
+### [UX] Add hasMore flag for 1000+ badge accuracy
+**Priority**: MEDIUM
+**Effort**: 15 minutes
+**Context**: PR #53 CodeRabbit review feedback
+
+**Problem**: Current `take(1000)` implementation can't distinguish between "exactly 1000 due" and "1000+ due" because `dueCards.length` caps at 1000 even when truncated.
+
+**Impact**: UI shows "1000" when user may have 2,000+ due cards (rare but misleading)
+
+**Solution**: Fetch 1001 cards, detect truncation, expose flag to UI
+```typescript
+// convex/spacedRepetition.ts:419-427
+const dueCards = await ctx.db
+  .query('questions')
+  .withIndex('by_user_next_review', q => q.eq('userId', userId).lte('nextReview', now))
+  .filter(/* ... */)
+  .take(1001); // Fetch 1 extra to detect 1000+ case
+
+const actualCount = dueCards.length;
+const dueCount = Math.min(actualCount, 1000);
+const hasMore = actualCount > 1000;
+
+return {
+  dueCount,
+  newCount,
+  totalReviewable: dueCount + newCount,
+  hasMore, // UI can display "1000+" when true
+};
+```
+
+**Frontend changes**:
+- Update badge component to check `hasMore` flag
+- Display "1000+" when `hasMore === true`
 
 ---
 
-## Quality Gates Enhancements (from 2025-10-31 audit)
+## Post-Emergency Cleanup (PR #53 CodeRabbit Advisory)
 
-### [DEVOPS] Alternative Coverage Reporting Solutions
+### [INFRA] Migration pagination for 1K+ scale
+**Priority**: HIGH (trigger: 500 users in production)
+**Effort**: 30 minutes
+**Context**: PR #53 CodeRabbit review - initializeDueNowCount uses .collect()
 
-**Context**: Codecov recommended in TODO.md, but alternatives exist for different needs.
+**Problem**: `initializeDueNowCount` migration uses `.collect()` on userStats and questions tables. Convex throws at 1024+ records. Could fail with:
+- 1024+ users in production
+- Single user with 1024+ due cards (common during backlog catch-up)
 
-**Options**:
+**Trigger Condition**: When production user count > 500 (50% safety margin)
 
-**1. GitHub Pages Coverage Report** (2h)
-- Deploy HTML coverage report to gh-pages branch after main merges
-- Accessible at `https://username.github.io/scry/coverage`
-- **Pros**: No external dependency, full HTML report always accessible
-- **Cons**: No PR integration, no trend tracking
-- **Use case**: Private repos wanting coverage reports without paid service
+**Solution**: Convert to paginated loops
+```typescript
+// Outer loop: userStats records (100 per batch)
+let userStatsPage = await ctx.db.query('userStats').paginate({
+  numItems: 100,
+  cursor: null,
+});
 
-**2. Self-Hosted Coverage Badge** (2h)
-- Generate badge JSON in CI, store in GitHub Gist
-- Use dynamic-badges-action to create badge from JSON
-- **Pros**: Free, no signup, works for private repos
-- **Cons**: No trend visualization, manual setup
+while (true) {
+  for (const userStats of userStatsPage.page) {
+    // Inner loop: due cards per user (200 per batch)
+    let dueNowCount = 0;
+    let duePage = await ctx.db
+      .query('questions')
+      .withIndex('by_user_next_review', q =>
+        q.eq('userId', userStats.userId).lte('nextReview', now)
+      )
+      .filter(/* ... */)
+      .paginate({ numItems: 200, cursor: null });
 
-**Decision**: Use Codecov (in TODO.md) for superior features. These alternatives documented for teams with different constraints.
+    while (true) {
+      dueNowCount += duePage.page.length;
+      if (duePage.isDone) break;
+      duePage = await ctx.db.query('questions')
+        .withIndex('by_user_next_review', q =>
+          q.eq('userId', userStats.userId).lte('nextReview', now)
+        )
+        .filter(/* ... */)
+        .paginate({ numItems: 200, cursor: duePage.continueCursor });
+    }
 
-**Effort**: 2-4h | **Impact**: LOW - Alternative approaches, not improvements
+    await ctx.db.patch(userStats._id, { dueNowCount });
+  }
 
----
+  if (userStatsPage.isDone) break;
+  userStatsPage = await ctx.db.query('userStats').paginate({
+    numItems: 100,
+    cursor: userStatsPage.continueCursor,
+  });
+}
+```
 
-### [DEVOPS] Advanced Lighthouse CI Features
-
-**Context**: Basic Lighthouse CI in TODO.md. These enhancements add sophistication.
-
-**Features**:
-
-**1. Lighthouse Server (self-hosted dashboard)** (1d)
-- Permanent storage of Lighthouse results
-- Historical trend charts
-- Compare multiple branches
-- Requires: Docker deployment, PostgreSQL database
-- **Value**: Better than temporary-public-storage, but maintenance burden
-
-**2. Budget.json per route** (2h)
-- Different performance budgets for different pages
-- Example: Homepage 85 score, admin dashboard 75 score
-- More granular than global thresholds
-- **Value**: Prevents "admin page is slow so we lower global budget"
-
-**3. Custom Lighthouse plugins** (3-4h)
-- Audit custom metrics (e.g., "time to first question rendered")
-- Requires: Lighthouse plugin development
-- **Value**: App-specific performance metrics
-
-**Decision**: Start with basic Lighthouse CI (TODO.md). Add these if performance monitoring becomes critical to business.
-
-**Effort**: 2-6d | **Impact**: MEDIUM - Enhanced monitoring, not essential
-
----
-
-### [DEVOPS] Deployment Smoke Test Enhancements
-
-**Context**: Basic health endpoint check in TODO.md. These add depth.
-
-**Enhancements**:
-
-**1. E2E smoke tests on preview** (4h)
-- Run subset of Playwright tests against preview URL
-- Example: Test auth flow, question generation, review session
-- **Tradeoff**: Slower PR checks (add 2-3 minutes)
-- **Value**: Catches UI regressions, not just backend health
-
-**2. Visual regression testing** (1d)
-- Capture screenshots of key pages
-- Compare to baseline with Percy or Chromatic
-- **Cost**: Percy $249/mo, Chromatic free tier (5000 snapshots/mo)
-- **Value**: Prevents accidental CSS/layout breakage
-
-**3. Accessibility testing** (2h)
-- Run axe-core against preview deployment
-- Fail if WCAG violations detected
-- **Value**: Automated accessibility compliance
-
-**Decision**: Start with health endpoint (TODO.md). Add E2E smoke tests if preview deployments frequently break in ways health check doesn't catch.
-
-**Effort**: 6-8h total | **Impact**: MEDIUM - Deeper validation
+**Why deferred**: Can't test pagination at current scale (<100 users). Better to implement and test with real 500+ user load.
 
 ---
 
-### [DEVOPS] Migration Safety Enhancements
+### [DATA] Monitor for undefined nextReview drift
+**Priority**: MEDIUM (monitor first, fix if detected)
+**Effort**: 15 minutes if needed
+**Context**: PR #53 CodeRabbit review - edge case defensive handling
 
-**Context**: 3-phase schema removal pattern exists. These add safety.
+**Problem**: Lines 247-280 in `scheduleReview` don't handle transitions where:
+- `oldNextReview === undefined` but `newNextReview !== undefined`
+- `oldNextReview !== undefined` but `newNextReview === undefined`
 
-**Enhancements**:
+**Edge case scenario**: Card has `state` field but missing `nextReview` due to:
+- Migration issue (should be caught by schema validation)
+- Manual database patch (should never happen)
+- Bug in card creation (should be caught by tests)
 
-**1. Migration rollback documentation** (2-3h)
-- Runbook: "How to rollback schema migrations"
-- Templates for inverse transformations
-- Shadow table patterns for reversible changes
-- Backup verification procedures
-- **Reference**: BACKLOG.md already has item for this at line 1217
+**Why monitoring first**: This is defensive code for unproven edge case. Better approach:
+1. Add diagnostic query to detect drift
+2. Monitor in production for 30 days
+3. Only add defensive code if drift > 1%
 
-**2. Pre-migration backup automation** (3h)
-- Convex export before running production migrations
-- Store in S3 or GitHub artifacts
-- Retention: 30 days
-- **Value**: Easy rollback via restore from backup
+**Diagnostic query**:
+```typescript
+export const checkNextReviewIntegrity = internalQuery({
+  handler: async (ctx) => {
+    const cardsWithStateButNoNextReview = await ctx.db
+      .query('questions')
+      .filter(q => q.and(
+        q.neq(q.field('state'), 'new'),
+        q.eq(q.field('nextReview'), undefined)
+      ))
+      .take(100);
 
-**3. Migration dry-run CI check** (2h)
-- PR changes to `convex/migrations.ts` trigger validation
-- Check: Does new migration have `dryRun` parameter?
-- Check: Does diagnostic query exist?
-- **Value**: Catches missing safety patterns before merge
+    return {
+      count: cardsWithStateButNoNextReview.length,
+      samples: cardsWithStateButNoNextReview.slice(0, 5),
+    };
+  },
+});
+```
 
-**Decision**: Document rollback patterns (high value, low effort). Automate backup/dry-run checks if migrations become frequent (>1/week).
-
-**Effort**: 7-8h total | **Impact**: MEDIUM - Safety net for risky operations
-
----
-
-### [SECURITY] Advanced Secret Scanning
-
-**Context**: Gitleaks in TODO.md security workflow. These add depth.
-
-**Enhancements**:
-
-**1. TruffleHog for git history scanning** (1h)
-- Scans entire git history for secrets (not just current HEAD)
-- Detects secrets in old commits
-- **Value**: Catches secrets committed then removed
-- **Note**: One-time scan valuable, ongoing use overlaps with Gitleaks
-
-**2. Secret rotation automation** (1d)
-- Scheduled workflow to rotate API keys
-- Integrations: Clerk, Google AI, Convex deploy keys
-- **Value**: Security best practice, reduces blast radius
-- **Complexity**: HIGH - each service has different rotation API
-
-**3. Secret scanning for dependencies** (2h)
-- Scan node_modules for hardcoded secrets
-- Use: npm-audit-ci with custom rules
-- **Value**: Detects compromised dependencies with embedded keys
-
-**Decision**: Gitleaks (TODO.md) covers 90% of use cases. TruffleHog worth one-time scan. Rotation automation deferred until security team established.
-
-**Effort**: 4-5h one-time + 1d automation | **Impact**: LOW-MEDIUM - Marginal security gains
+**Decision criteria**: Implement defensive code only if diagnostic query detects > 10 affected cards
 
 ---
 
-### [TESTING] Advanced Test Coverage Features
+### [TEST] Add edge case test for batch size reduction
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: PR #53 CodeRabbit review feedback
 
-**Context**: Basic coverage thresholds in TODO.md. These add sophistication.
+**Context**: Batch size reduction (100→25 for `getNextReview`) assumes FSRS `by_user_next_review` index ordering captures most urgent cards. Edge cases to validate:
 
-**Enhancements**:
+- Cards with manually set `nextReview` dates
+- Stale retrievability values when switching schedulers
+- Scenarios with >25 due cards where card #26+ has better retrievability than cards #1-5
 
-**1. Mutation testing with Stryker** (1d setup + ongoing)
-- Tests your tests by mutating code
-- Example: Change `>` to `>=`, do tests catch it?
-- **Cost**: 10x slower than normal tests (hours not seconds)
-- **Value**: Identifies weak tests that always pass
-- **Decision**: Valuable for critical paths (FSRS algorithm, auth logic)
+**Test implementation** (`convex/spacedRepetition.test.ts`):
+```typescript
+describe('getNextReview batch size edge cases', () => {
+  it('should select highest-priority card from 50+ due cards', async () => {
+    // 1. Create 50 due cards with varying retrievability scores
+    // 2. Set card #30 to have lowest retrievability (highest urgency)
+    // 3. Invoke getNextReview() with batch size 25
+    // 4. Assert: Returns card #30 (priority calculation compensates for index ordering)
+  });
+});
+```
 
-**2. Coverage diff enforcement** (2h)
-- Fail PR if coverage decreases by >1%
-- Prevents "death by a thousand cuts" degradation
-- **Value**: Maintains coverage momentum
-- **Note**: Codecov has this built-in
+**Monitoring additions** (post-deployment validation):
+- Skip rate: How often user archives/skips card immediately
+- Completion rate: Full session completion vs abandonment
+- Time per card: Average review time (slower = harder/less relevant)
 
-**3. Branch coverage heatmap** (4h)
-- Visual report showing which code branches are covered
-- Color-coded: green (covered), yellow (partial), red (uncovered)
-- **Value**: Better than line coverage for finding gaps
-- **Note**: Vitest v8 coverage includes branch coverage
-
-**Decision**: Codecov (TODO.md) provides diff enforcement. Stryker valuable for FSRS algorithm validation. Heatmap already exists in HTML coverage report.
-
-**Effort**: 1d Stryker setup | **Impact**: MEDIUM - Deeper test quality insights
-
----
-
-### [RELEASE] Advanced Changelog Features
-
-**Context**: Basic Changesets in TODO.md. These add polish.
-
-**Enhancements**:
-
-**1. Changelog categories** (1h)
-- Group changes: Features, Fixes, Security, Performance
-- Use changeset frontmatter to categorize
-- **Value**: More readable changelog
-- **Note**: Changesets supports this via custom changelog generator
-
-**2. Breaking change warnings** (1h)
-- Highlight breaking changes prominently
-- Auto-generate migration guide snippets
-- **Value**: Prevents surprise breaking changes for users
-
-**3. GitHub Release notes auto-generation** (30m)
-- Post-release: Create GitHub release with changelog
-- Attach build artifacts
-- **Value**: One-stop release communication
-
-**Decision**: Start with basic Changesets (TODO.md). Add categories if changelog becomes hard to read (>10 changes/release).
-
-**Effort**: 2-3h | **Impact**: LOW - Polish, not functionality
+**A/B test plan** (if quality concerns arise):
+- Test batch sizes: 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth cost vs card selection quality
 
 ---
 
-### [DEVOPS] Git Hook Enhancements (Lefthook)
+### [DOCS] Document deleted analytics functions restoration
+**Priority**: LOW
+**Effort**: 5 minutes
+**Context**: Claude review feedback
 
-**Context**: Basic Lefthook migration in TODO.md. These add power-user features.
+**Goal**: Make it easy to restore analytics functions when dashboard features are prioritized
 
-**Enhancements**:
+**Implementation**: Add to CLAUDE.md
+```markdown
+## Removed Analytics Functions (Nov 2025, PR #53)
 
-**1. Commit message validation** (30m)
-- Enforce conventional commits: `feat:`, `fix:`, `docs:`
-- Block commits with vague messages
-- **Value**: Better git history, enables semantic-release
-- **Tradeoff**: Friction for quick commits
+**Functions removed**: getUserStreak, updateUserStreak, getRetentionRate, getRecallSpeedImprovement (246 LOC)
 
-**2. Pre-push Convex function validation** (1h)
-- Run `npx convex typecheck` before pushing
-- Catches Convex function errors locally
-- **Value**: Prevents CI failures from Convex type errors
+**Reason**: Unbounded queries causing bandwidth crisis, never used in UI
 
-**3. Selective hook execution** (30m)
-- Environment variable to skip hooks: `SKIP_HOOKS=1 git commit`
-- Per-hook skipping: `SKIP_FORMAT=1 git commit`
-- **Value**: Escape hatch for emergencies
+**Restoration**:
+```bash
+# View original implementation
+git show 3322953~1:convex/spacedRepetition.ts | sed -n '/getUserStreak/,/^}/p'
 
-**Decision**: Basic Lefthook (TODO.md) sufficient. Add commit message validation if team adopts semantic versioning.
+# Restore specific function
+git show 3322953~1:convex/spacedRepetition.ts > /tmp/old_spacedRepetition.ts
+# Copy function from /tmp/old_spacedRepetition.ts
+```
 
-**Effort**: 2h | **Impact**: LOW - Nice-to-have conveniences
-
----
-
-### [MONITORING] Performance Tracking Enhancements
-
-**Context**: Bundle size limits in TODO.md. These add runtime monitoring.
-
-**Enhancements**:
-
-**1. Real User Monitoring (RUM)** (1d)
-- Vercel Analytics already installed (`@vercel/analytics`)
-- Add custom metrics: Time to first question, review session latency
-- **Value**: Production performance insights (Lighthouse = lab, RUM = real)
-
-**2. Core Web Vitals tracking** (2h)
-- Track LCP, FID, CLS in production
-- Alert if metrics degrade
-- **Value**: Correlate performance with user engagement
-- **Note**: Vercel Speed Insights already tracks this
-
-**3. Bundle analysis automation** (1h)
-- Generate bundle analysis report on every build
-- Upload to Vercel or S3
-- Compare bundle composition over time
-- **Value**: Identify what's growing bundle size
-
-**Decision**: Vercel Analytics + Speed Insights already installed. Leverage existing instrumentation before adding custom metrics.
-
-**Effort**: 4-5h | **Impact**: LOW - Already have monitoring foundation
+**When to rebuild**: When dashboard analytics are prioritized, rebuild with bounded queries:
+- Use `.take(limit)` instead of `.collect()`
+- Cache results in separate analytics table
+- Update incrementally on mutations
+```
 
 ---
 
-## Earlier Backlog Items (Pre-2025-10-31)
+### [TEST] Add getDueCount integration test
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: Claude review feedback
 
-### [AI] Migrate provider to OpenRouter or Vercel AI SDK
-- support arbitrary set of model compositions for question generation and other ai / llm / generative features
-- sometimes we want gemini-2.5-flash, sometimes we want gpt-5-mini, sometimes we want something else etc
+**Goal**: Increase confidence in hybrid getDueCount accuracy
+
+**Implementation** (`tests/api-contract.test.ts`):
+```typescript
+describe('getDueCount accuracy', () => {
+  it('should match manual count from questions table', async () => {
+    // 1. Create test user with known card states
+    // 2. Query getDueCount (hybrid cache + time-filter)
+    // 3. Query questions table manually (actual time-filtered count)
+    // 4. Assert: getDueCount === manual count (±5% tolerance)
+  });
+
+  it('should handle archived and deleted cards correctly', async () => {
+    // Verify archived cards not counted as due
+  });
+
+  it('should return time-filtered due cards only', async () => {
+    // Verify future-scheduled cards not counted
+  });
+});
+```
+
+---
+
+### [PERF] Optimize userStats reconciliation (fetch all users)
+**Priority**: LOW (only needed at 1,000+ users)
+**Effort**: 30 minutes
+**Context**: Claude review feedback
+
+**Problem**: `reconcileUserStats` fetches ALL users to sample 100 (inefficient at 10k+ users)
+
+**Current** (`convex/userStats.ts:52-53`):
+```typescript
+const allUsers = await ctx.db.query('users').collect(); // Fetches 10,000 users to sample 100
+const sampled = sample(allUsers, sampleSize);
+```
+
+**Fix**: Use `.take()` with random offset
+```typescript
+// Generate random offset
+const totalUsers = await ctx.db.query('users').count(); // O(1) metadata lookup
+const randomOffset = Math.floor(Math.random() * Math.max(0, totalUsers - sampleSize));
+
+// Fetch only sampled users
+const sampled = await ctx.db
+  .query('users')
+  .skip(randomOffset)
+  .take(sampleSize);
+```
+
+**Bandwidth impact**: Minimal (runs once per day, only matters at 10k+ users)
+
+---
+
+### [INFRA] Vercel Analytics and Observability
 
 ### [BUSINESS] Paywall the Service
 - brainstorm and determine the best pricing model for scry
@@ -3252,140 +3141,3 @@ if (i === args.phases.length - 1) {
 - Knowledge graph visualization
 - Prompt engineering improvements
 - Quality feedback loop system
-
----
-
-## DevOps Pipeline Improvements (from 2025-11-01 Vercel Build Fix)
-
-**Context**: While fixing double deployment bug and removing impossible CI validation, identified several optional improvements for future consideration.
-
-### [DEVOPS] Unified Health Check Endpoint
-
-**Current State**: Health validation split across two mechanisms:
-- `scripts/check-deployment-health.sh`: Validates Convex functions exist, schema version matches
-- `app/api/health/route.ts` + `convex/health.ts`: Validates env vars, API connectivity, backend availability
-
-**Proposal**: Consolidate into single comprehensive health endpoint
-
-**Benefits**:
-- Single source of truth for deployment health
-- Consistent validation logic across local/CI/production
-- Easier to test and maintain
-- Better module depth (deep functionality behind simple HTTP interface)
-
-**Implementation**:
-- Move check-deployment-health.sh logic into `convex/health.ts`
-- Enhance `/api/health` to return detailed subsystem status (functions, schema, env vars, API connectivity)
-- Add optional `?verbose=true` parameter for detailed diagnostics
-- Update CI to call health endpoint instead of bash script
-
-**Effort**: 3-4h | **Impact**: MEDIUM - Simplifies validation architecture
-
----
-
-### [DEVOPS] Vercel GitHub Action Migration
-
-**Current State**: Custom `vercel-build.sh` script handles deployment orchestration
-
-**Proposal**: Replace with official Vercel GitHub Action
-
-**Benefits**:
-- Better integration with GitHub (deployment statuses, environment tracking)
-- Automatic preview URL comments on PRs
-- Simpler configuration (declarative YAML vs bash scripting)
-- Official support from Vercel team
-
-**Tradeoffs**:
-- Less control over deployment flow
-- Requires VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets
-- May need project linking setup
-
-**Implementation**:
-- Add `.vercel/project.json` with org/project IDs
-- Create `.github/workflows/deploy.yml` using `amondnet/vercel-action@v25`
-- Configure secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
-- Test preview and production deployments
-- Archive vercel-build.sh
-
-**Effort**: 4-6h | **Impact**: LOW - Current script works fine, this is optimization
-
----
-
-### [DEVOPS] Enhanced Preview Deployment Smoke Tests
-
-**Current State**: `preview-smoke-test.yml` waits for deployment and checks basic availability
-
-**Proposal**: Call `/api/health` endpoint with comprehensive validation
-
-**Benefits**:
-- Catches env var misconfigurations before manual QA
-- Validates Convex backend connectivity (preview deployments use isolated backends)
-- Tests actual functionality, not just "site is up"
-
-**Implementation**:
-- Add step to preview-smoke-test.yml: `curl $PREVIEW_URL/api/health | jq .status`
-- Fail check if status != "healthy"
-- Display health check recommendations on failure
-- Add retry logic (backend might take few seconds to fully initialize)
-
-**Effort**: 1-2h | **Impact**: MEDIUM - Early detection of preview deployment issues
-
-**Decision**: High value, low effort. Consider implementing soon.
-
----
-
-### [DOCS] Convex Deploy Key Types Documentation
-
-**Context**: Confusion about production vs admin vs preview deploy keys and their permissions
-
-**Proposal**: Add comprehensive guide to `docs/convex-deploy-keys.md`
-
-**Content**:
-- Table of deploy key types with permissions matrix
-- When to use each key type
-- Security implications (why admin keys shouldn't be in CI)
-- How to generate and rotate keys
-- Troubleshooting common auth errors
-
-**Benefits**:
-- Prevents repeated confusion about "why can't CI read env vars?"
-- Documents security model (production keys intentionally limited)
-- Reference for onboarding new developers
-
-**Effort**: 2h | **Impact**: LOW - Nice-to-have, not urgent
-
----
-
-### [REFACTOR] Build Script Simplification
-
-**Current State**: Multiple build scripts for different contexts (build, build:prod, build:local)
-
-**Alternative Approach**: Single script with environment detection
-
-```json
-{
-  "scripts": {
-    "build": "node scripts/smart-build.js"
-  }
-}
-```
-
-Where `smart-build.js`:
-- Detects context (Vercel CI, local, other)
-- Runs appropriate build sequence
-- Provides clear output explaining what it's doing
-
-**Tradeoffs**:
-- Simpler package.json (one command)
-- More complex logic (Node script vs declarative scripts)
-- Harder to understand what happens without reading script
-
-**Verdict**: ❌ Not recommended. Multiple explicit scripts have better clarity than implicit smart detection. Current approach follows principle of "make it obvious, not clever."
-
-**Effort**: N/A - Rejected | **Impact**: N/A
-
----
-
-**Last Updated**: 2025-11-01
-**Related TODO**: TODO.md "Fix Vercel Build Failures & CI Validation"
-

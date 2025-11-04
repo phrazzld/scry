@@ -551,6 +551,7 @@ async function removeDifficultyFromQuestionsInternal(
     }
 
     // Helper function to process a batch of questions
+    // Using function declaration for hoisting (called before declaration in loop)
     async function processBatch(questions: typeof paginationResult.page) {
       for (const question of questions) {
         stats.totalProcessed++;
@@ -685,6 +686,7 @@ async function removeTopicFromQuestionsInternal(
     }
 
     // Helper function to process a batch of questions
+    // Using function declaration for hoisting (called before declaration in loop)
     async function processBatch(questions: typeof paginationResult.page) {
       for (const question of questions) {
         stats.totalProcessed++;
@@ -864,6 +866,7 @@ export const initializeUserStats = internalMutation({
       }
 
       // Helper function to process a batch of users
+      // Using function declaration for hoisting (called before declaration in loop)
       async function processBatch(users: typeof paginationResult.page) {
         for (const user of users) {
           stats.totalUsers++;
@@ -919,6 +922,7 @@ export const initializeUserStats = internalMutation({
                 newCount,
                 learningCount,
                 matureCount,
+                dueNowCount: 0, // Will be backfilled by initializeDueNowCount migration
                 nextReviewTime: earliestNextReview,
                 lastCalculated: Date.now(),
               });
@@ -1000,5 +1004,155 @@ export const initializeUserStats = internalMutation({
         message: `Migration failed: ${error.message}`,
       };
     }
+  },
+});
+
+/**
+ * Initialize dueNowCount field in userStats for badge reactivity
+ *
+ * Background: Time-filtered reactive queries don't work in Convex. When a card's nextReview
+ * changes from "due now" to "future", Convex doesn't detect this affects queries filtering
+ * on that index. Solution: Maintain time-aware counter updated by mutations.
+ *
+ * This migration backfills dueNowCount for all existing users by counting cards where
+ * nextReview <= now (at migration time).
+ */
+export const initializeDueNowCount = internalMutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const now = Date.now();
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'initializeDueNowCount',
+    });
+
+    migrationLogger.info('Starting dueNowCount initialization migration', {
+      event: 'migration.due-now-count.start',
+      dryRun,
+    });
+
+    const stats = {
+      totalUsers: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+    };
+
+    const failures: Array<{ recordId: string; error: string }> = [];
+
+    try {
+      // Get all userStats records
+      const allStats = await ctx.db.query('userStats').collect();
+      stats.totalUsers = allStats.length;
+
+      migrationLogger.info(`Found ${stats.totalUsers} userStats records to process`);
+
+      for (const userStats of allStats) {
+        try {
+          // Count cards where nextReview <= now for this user
+          const dueCards = await ctx.db
+            .query('questions')
+            .withIndex('by_user_next_review', (q) =>
+              q.eq('userId', userStats.userId).lte('nextReview', now)
+            )
+            .filter((q) =>
+              q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+            )
+            .collect();
+
+          const dueNowCount = dueCards.length;
+
+          if (!dryRun) {
+            await ctx.db.patch(userStats._id, { dueNowCount });
+          }
+
+          stats.updated++;
+
+          if (stats.updated % 10 === 0) {
+            migrationLogger.info(
+              `Migration progress: ${stats.updated}/${stats.totalUsers} users processed`
+            );
+          }
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          failures.push({
+            recordId: userStats._id,
+            error: error.message,
+          });
+          stats.errors++;
+        }
+      }
+
+      migrationLogger.info('Migration completed', {
+        event: 'migration.due-now-count.complete',
+        dryRun,
+        stats,
+      });
+
+      const status =
+        failures.length === 0
+          ? ('completed' as const)
+          : failures.length === stats.totalUsers
+            ? ('failed' as const)
+            : ('partial' as const);
+
+      return {
+        status,
+        dryRun,
+        stats,
+        failures: failures.length > 0 ? failures : undefined,
+        message: dryRun
+          ? `Dry run: Would update ${stats.updated} users`
+          : status === 'completed'
+            ? `Successfully initialized dueNowCount for ${stats.updated} users`
+            : status === 'partial'
+              ? `Partially completed: ${stats.updated} succeeded, ${stats.errors} failed`
+              : `Migration failed: All ${stats.errors} attempts failed`,
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      migrationLogger.error('Migration failed', {
+        event: 'migration.due-now-count.error',
+        error: error.message,
+        stack: error.stack,
+        stats,
+      });
+
+      return {
+        status: 'failed' as const,
+        dryRun,
+        stats,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
+        message: `Migration failed: ${error.message}`,
+      };
+    }
+  },
+});
+
+/**
+ * Diagnostic query to check dueNowCount migration status
+ */
+export const checkDueNowCountMigration = query({
+  args: {},
+  handler: async (ctx) => {
+    // No auth required - this is an admin diagnostic query
+    const stats = await ctx.db.query('userStats').collect();
+    const missing = stats.filter((s) => s.dueNowCount === undefined).length;
+
+    return {
+      total: stats.length,
+      missing,
+      migrated: stats.length - missing,
+      complete: missing === 0,
+    };
   },
 });
