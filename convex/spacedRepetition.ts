@@ -465,13 +465,17 @@ export const getDueCount = query({
     // Use time-aware cached counters (updated by scheduleReview mutations)
     // This enables true Convex reactivity: when scheduleReview updates userStats,
     // this query automatically re-runs via WebSocket (no polling needed)
-    const dueCount = stats?.dueNowCount || 0;
+    const dueNowCount = stats?.dueNowCount || 0;
     const newCount = stats?.newCount || 0;
 
+    // New cards are always due, so dueNowCount already includes them.
+    // Subtract them out to keep dueCount aligned with "review" cards only.
+    const reviewDueCount = Math.max(dueNowCount - newCount, 0);
+
     return {
-      dueCount,
+      dueCount: reviewDueCount,
       newCount,
-      totalReviewable: dueCount + newCount,
+      totalReviewable: reviewDueCount + newCount,
     };
   },
 });

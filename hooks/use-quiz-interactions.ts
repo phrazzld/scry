@@ -7,7 +7,7 @@ import { api } from '@/convex/_generated/api';
 import { TOAST_DURATION } from '@/lib/constants/ui';
 
 export function useQuizInteractions() {
-  const recordInteraction = useMutation(api.questionsInteractions.recordInteraction);
+  const scheduleReview = useMutation(api.spacedRepetition.scheduleReview);
   const { isSignedIn } = useUser();
 
   const trackAnswer = useCallback(
@@ -21,7 +21,7 @@ export function useQuizInteractions() {
       if (!isSignedIn || !questionId) return null;
 
       try {
-        const result = await recordInteraction({
+        const result = await scheduleReview({
           questionId,
           userAnswer,
           isCorrect,
@@ -47,7 +47,7 @@ export function useQuizInteractions() {
         return null;
       }
     },
-    [recordInteraction, isSignedIn]
+    [scheduleReview, isSignedIn]
   );
 
   return { trackAnswer };
