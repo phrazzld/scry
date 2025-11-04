@@ -6,8 +6,6 @@
 
 ---
 
-### [INFRA] Vercel Analytics and Observability
-
 ### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
 - we are consistently using gigabytes of database bandwidth each day
 - this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
