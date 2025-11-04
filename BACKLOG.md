@@ -1,16 +1,195 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-20
-**Analysis Method**: Strategic roadmap synthesis + 7-perspective specialized audit
+**Last Groomed**: 2025-11-04
+**Analysis Method**: Strategic roadmap synthesis + 7-perspective specialized audit + PR #53 review feedback
 **Overall Grade**: A- (Excellent technical foundation, strategic intelligence layer needed)
 
 ---
 
-### [INFRA] Vercel Analytics and Observability
+## Bandwidth Optimization Follow-Ups (PR #53)
 
-### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
-- we are consistently using gigabytes of database bandwidth each day
-- this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
+### [PERF] Add time-aware dueNowCount to userStats
+**Priority**: HIGH (if hybrid approach doesn't achieve <7 GB/month)
+**Effort**: 4 hours
+**Context**: PR #53 Codex P1 feedback
+
+**Problem**: Current hybrid getDueCount fetches 100-500 due cards to count them.
+Original attempt used state-based counters (learningCount + matureCount) which
+incorrectly counted ALL cards in those states, not just time-filtered due cards.
+
+**Solution**: Add time-aware counter to userStats
+- Schema change: Add `dueNowCount` field (cards where nextReview <= now)
+- Migration: Backfill dueNowCount for all existing users
+- Update mutations: scheduleReview, create, delete to maintain dueNowCount
+- Restore 99.996% bandwidth reduction (35 GB → 1.4 MB)
+
+**Trigger Condition**: If hybrid approach results in >7 GB/month total bandwidth
+
+**Implementation**:
+```typescript
+// 1. Schema (convex/schema.ts)
+userStats: defineTable({
+  // ... existing fields
+  dueNowCount: v.number(), // NEW: time-filtered count
+  lastDueCountUpdate: v.number(), // Timestamp for staleness detection
+})
+
+// 2. Mutation updates (convex/spacedRepetition.ts, questionsCrud.ts)
+// On scheduleReview: If nextReview changed from future→now or now→future, update dueNowCount
+// On create: If card is new (always due), increment dueNowCount
+// On delete/archive: If card was due, decrement dueNowCount
+
+// 3. getDueCount query
+return {
+  dueCount: stats.dueNowCount || 0,
+  newCount: stats.newCount || 0,
+  totalReviewable: (stats.dueNowCount || 0) + (stats.newCount || 0),
+};
+```
+
+---
+
+### [PERF] Add monitoring metrics for batch size A/B testing
+**Priority**: MEDIUM
+**Effort**: 2 hours
+**Context**: TASK.md Phase 3, Claude review feedback
+
+**Goal**: Establish baseline data for validating 25 vs 100 batch size impact on card selection quality
+
+**Metrics to instrument**:
+- Skip rate: How often user skips/archives card immediately after seeing it
+- Answer quality: Correct/incorrect rate per session
+- Time per card: Average review time (slower = harder/less relevant cards)
+- Completion rate: How often user completes full review session vs abandons
+
+**Implementation**:
+- Add metrics tracking to `useQuizInteractions` hook
+- Log to Convex interactions table with metadata
+- Build dashboard query to visualize trends
+
+**A/B test plan** (TASK.md lines 1065-1095):
+- Test batch sizes: 15 vs 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth vs quality tradeoff
+
+---
+
+### [INFRA] Add userStats health check logging
+**Priority**: LOW
+**Effort**: 15 minutes
+**Context**: Claude review feedback
+
+**Goal**: Warn when userStats missing for user (indicates drift or reconciliation failure)
+
+**Implementation**:
+```typescript
+// In getDueCount (convex/spacedRepetition.ts)
+const stats = await ctx.db
+  .query('userStats')
+  .withIndex('by_user', (q) => q.eq('userId', userId))
+  .first();
+
+if (!stats) {
+  console.warn('Missing userStats for user', userId, '- returning zeros. This may indicate reconciliation failure.');
+  // TODO: Trigger reconciliation or alert
+}
+```
+
+---
+
+### [DOCS] Document deleted analytics functions restoration
+**Priority**: LOW
+**Effort**: 5 minutes
+**Context**: Claude review feedback
+
+**Goal**: Make it easy to restore analytics functions when dashboard features are prioritized
+
+**Implementation**: Add to CLAUDE.md
+```markdown
+## Removed Analytics Functions (Nov 2025, PR #53)
+
+**Functions removed**: getUserStreak, updateUserStreak, getRetentionRate, getRecallSpeedImprovement (246 LOC)
+
+**Reason**: Unbounded queries causing bandwidth crisis, never used in UI
+
+**Restoration**:
+```bash
+# View original implementation
+git show 3322953~1:convex/spacedRepetition.ts | sed -n '/getUserStreak/,/^}/p'
+
+# Restore specific function
+git show 3322953~1:convex/spacedRepetition.ts > /tmp/old_spacedRepetition.ts
+# Copy function from /tmp/old_spacedRepetition.ts
+```
+
+**When to rebuild**: When dashboard analytics are prioritized, rebuild with bounded queries:
+- Use `.take(limit)` instead of `.collect()`
+- Cache results in separate analytics table
+- Update incrementally on mutations
+```
+
+---
+
+### [TEST] Add getDueCount integration test
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: Claude review feedback
+
+**Goal**: Increase confidence in hybrid getDueCount accuracy
+
+**Implementation** (`tests/api-contract.test.ts`):
+```typescript
+describe('getDueCount accuracy', () => {
+  it('should match manual count from questions table', async () => {
+    // 1. Create test user with known card states
+    // 2. Query getDueCount (hybrid cache + time-filter)
+    // 3. Query questions table manually (actual time-filtered count)
+    // 4. Assert: getDueCount === manual count (±5% tolerance)
+  });
+
+  it('should handle archived and deleted cards correctly', async () => {
+    // Verify archived cards not counted as due
+  });
+
+  it('should return time-filtered due cards only', async () => {
+    // Verify future-scheduled cards not counted
+  });
+});
+```
+
+---
+
+### [PERF] Optimize userStats reconciliation (fetch all users)
+**Priority**: LOW (only needed at 1,000+ users)
+**Effort**: 30 minutes
+**Context**: Claude review feedback
+
+**Problem**: `reconcileUserStats` fetches ALL users to sample 100 (inefficient at 10k+ users)
+
+**Current** (`convex/userStats.ts:52-53`):
+```typescript
+const allUsers = await ctx.db.query('users').collect(); // Fetches 10,000 users to sample 100
+const sampled = sample(allUsers, sampleSize);
+```
+
+**Fix**: Use `.take()` with random offset
+```typescript
+// Generate random offset
+const totalUsers = await ctx.db.query('users').count(); // O(1) metadata lookup
+const randomOffset = Math.floor(Math.random() * Math.max(0, totalUsers - sampleSize));
+
+// Fetch only sampled users
+const sampled = await ctx.db
+  .query('users')
+  .skip(randomOffset)
+  .take(sampleSize);
+```
+
+**Bandwidth impact**: Minimal (runs once per day, only matters at 10k+ users)
+
+---
+
+### [INFRA] Vercel Analytics and Observability
 
 ### [BUSINESS] Paywall the Service
 - brainstorm and determine the best pricing model for scry

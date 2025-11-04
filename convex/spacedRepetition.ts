@@ -360,9 +360,16 @@ export const getNextReview = query({
  * - dueCount: Questions past their optimal review time
  * - totalReviewable: The truth about what needs review
  *
- * Bandwidth optimization: O(1) query using cached userStats table (~200 bytes)
- * instead of fetching 2,000 full documents (5 MB). Reduces bandwidth by 99.996%.
- * Stats are updated incrementally on every card state change (see userStatsHelpers.ts).
+ * Bandwidth optimization: Hybrid approach for correctness + efficiency
+ * - New cards: Use cached newCount from userStats (time-agnostic, always due)
+ * - Due cards: Query time-filtered learning/mature cards (nextReview <= now)
+ * - Impact: 75-95% bandwidth reduction (vs 99.996% with pure cache)
+ * - Rationale: userStats counters are state-based, NOT time-aware
+ *
+ * Note: Originally attempted pure O(1) cache lookup, but Codex review (PR #53)
+ * correctly identified that learningCount + matureCount counts ALL cards in those
+ * states, not just cards where nextReview <= now. This hybrid approach maintains
+ * API correctness while achieving significant bandwidth savings.
  */
 export const getDueCount = query({
   args: {
@@ -372,27 +379,38 @@ export const getDueCount = query({
   handler: async (ctx, _args) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
+    const now = Date.now();
 
-    // Query cached stats (single ~200 byte document vs 2,000 × 2.5 KB documents)
+    // Get cached stats for newCount (time-agnostic - new cards are always "due")
     const stats = await ctx.db
       .query('userStats')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .first();
 
-    // Return default counts if no stats record exists (new user case)
-    if (!stats) {
-      return {
-        dueCount: 0,
-        newCount: 0,
-        totalReviewable: 0,
-      };
-    }
+    const newCount = stats?.newCount || 0;
 
-    // Calculate due count from cached state counters
-    // learningCount + matureCount = cards that have been reviewed and have nextReview
-    // Note: This matches the UI's concept of "cards due" (scheduled reviews)
-    const dueCount = (stats.learningCount || 0) + (stats.matureCount || 0);
-    const newCount = stats.newCount || 0;
+    // Query time-filtered due cards (learning/mature with nextReview <= now)
+    // Optimization: Most cards scheduled in future, time filter reduces set significantly
+    // Bandwidth: ~100-500 cards typical (vs 2,000 in original O(N) approach)
+    const dueCards = await ctx.db
+      .query('questions')
+      .withIndex('by_user_next_review', (q) => q.eq('userId', userId).lte('nextReview', now))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined),
+          // Additional filter: only learning/mature/relearning states
+          // (new cards have no nextReview, filtered by index already)
+          q.or(
+            q.eq(q.field('state'), 'learning'),
+            q.eq(q.field('state'), 'review'),
+            q.eq(q.field('state'), 'relearning')
+          )
+        )
+      )
+      .take(1000); // Cap at 1000 for "1000+" badge
+
+    const dueCount = dueCards.length;
 
     return {
       dueCount,
