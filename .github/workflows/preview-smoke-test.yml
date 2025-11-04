@@ -25,10 +25,10 @@ jobs:
           echo "Health check response: $response"
 
           # Verify status is "healthy"
-          status=$(echo $response | jq -r '.status')
+          status=$(echo "$response" | jq -r '.status')
           if [ "$status" != "healthy" ]; then
             echo "ERROR: Preview deployment unhealthy: $status"
-            echo $response | jq '.recommendations'
+            echo "$response" | jq '.recommendations'
             exit 1
           fi
 
