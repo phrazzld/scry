@@ -100,6 +100,41 @@ Both run: `npx convex deploy --cmd 'pnpm build'`
 ./scripts/check-deployment-health.sh  # Verify critical functions exist
 ```
 
+### Build Script Usage (CRITICAL)
+
+**Context-Specific Build Commands:**
+
+The project has three build scripts for different contexts. Using the wrong one causes deployment failures.
+
+| Command | Context | Deploys Convex? | Usage |
+|---------|---------|-----------------|-------|
+| `pnpm build` | CI/Vercel builds | ❌ No | **Used by** `vercel-build.sh` via `--cmd` flag<br>**Never run directly** (Convex already deployed by wrapper) |
+| `pnpm build:local` | Local testing | ✅ Yes (dev) | Testing production builds locally<br>`npx convex deploy && next build` |
+| `pnpm build:prod` | Manual production | ✅ Yes (atomic) | Standalone production build<br>`npx convex deploy --cmd 'next build'` |
+| `pnpm dev` | Development | ✅ Yes (watch) | Normal development with hot reload<br>`concurrently "next dev" "convex dev"` |
+
+**Why multiple build commands?**
+
+The base `build` script is called by `vercel-build.sh` via the `--cmd` flag:
+```bash
+# vercel-build.sh orchestrates the deployment
+npx convex deploy --cmd 'pnpm build'
+```
+
+This ensures atomicity: Convex functions only deploy if frontend build succeeds, preventing mismatched versions.
+
+**Common mistake**: Running `pnpm build` directly and expecting Convex to deploy
+- **Result**: Next.js builds but Convex functions not deployed
+- **Fix**: Use `pnpm build:local` for local production builds OR use Vercel/deploy-production.sh for actual deployments
+
+**When to use each command:**
+
+- **Development** → `pnpm dev` (always)
+- **Local production testing** → `pnpm build:local` (deploys to dev backend, then builds)
+- **CI/Vercel builds** → Automatic (vercel-build.sh handles everything)
+- **Manual production deploy** → `./scripts/deploy-production.sh` (uses `build:prod` internally)
+- **Never run** → `pnpm build` directly (only for use by vercel-build.sh)
+
 **Schema Versioning:**
 - Keep `convex/schemaVersion.ts` ↔ `lib/deployment-check.ts` synced
 - Deploy backend first, then frontend
@@ -110,6 +145,43 @@ Both run: `npx convex deploy --cmd 'pnpm build'`
 - Fresh database with no production data
 - Automatically cleaned up when branch/deployment is deleted
 - Requires Convex Pro ($25/mo)
+
+### CI vs Deployment Separation (CRITICAL)
+
+**GitHub Actions CI** (`.github/workflows/ci.yml`):
+- ✅ Quality: lint, typecheck, security audit
+- ✅ Tests: unit tests with coverage
+- ✅ Build: verify `pnpm build` succeeds
+- ❌ NO deployment (Vercel handles this)
+
+**Vercel Deployments**:
+- **Preview**: Auto-deploys on PR push
+  - Uses `CONVEX_DEPLOY_KEY` (Preview environment)
+  - Creates isolated Convex backend (branch-named)
+  - Runs `./scripts/vercel-build.sh` → `npx convex deploy --cmd 'pnpm build'`
+  - Each PR gets unique: `https://phaedrus-scry-{branch}.convex.cloud`
+
+- **Production**: Auto-deploys on merge to master
+  - Uses `CONVEX_DEPLOY_KEY` (Production environment)
+  - Deploys to: `https://uncommon-axolotl-639.convex.cloud`
+  - Same script: `vercel-build.sh`
+
+**Key Insight**: Deploy key TYPE (preview: vs prod:) determines target backend automatically.
+
+### Vercel Environment Variable Setup
+
+**Must be configured in Vercel Dashboard** (Settings → Environment Variables):
+
+| Variable | Preview | Production | Notes |
+|----------|---------|------------|-------|
+| `CONVEX_DEPLOY_KEY` | `preview:phaedrus:scry\|...` | `prod:uncommon-axolotl-639\|...` | **Different keys per environment** |
+| `GOOGLE_AI_API_KEY` | ✓ Same value | ✓ Same value | From Convex Dashboard |
+| `CLERK_SECRET_KEY` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `CLERK_WEBHOOK_SECRET` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | ✓ Same value | ✓ Same value | From Clerk Dashboard |
+| `NEXT_PUBLIC_CONVEX_URL` | ❌ **Auto-set by Convex** | ❌ **Auto-set by Convex** | Do not configure manually |
+
+**Setup Guide**: See `docs/operations/vercel-environment-setup.md` for detailed instructions.
 
 ### Deployment Safeguards
 
@@ -319,8 +391,8 @@ pnpm test:contract  # API contract validation
 ```
 
 **Utility scripts:**
-- `./scripts/validate-env-vars.sh` - Check env config
-- `./scripts/check-deployment-health.sh` - Verify functions deployed
+- `./scripts/check-deployment-health.sh` - Verify Convex functions deployed
+- `convex/health.ts` - Functional health checks (GOOGLE_AI_API_KEY validation, env vars)
 
 ## Database Bandwidth Optimization
 

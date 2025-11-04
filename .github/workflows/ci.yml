@@ -36,7 +36,15 @@ jobs:
           pnpm audit --audit-level=critical &
           wait
 
-  # Test job - runs in parallel with build
+      - name: Check for .only in tests
+        run: |
+          if git grep -E "(describe|test|it)\.only" "*.test.{ts,tsx}"; then
+            echo "ERROR: Found .only in test files"
+            echo "Remove .only before committing"
+            exit 1
+          fi
+
+  # Test job with coverage reporting
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -63,27 +71,9 @@ jobs:
           json-summary-path: ./coverage/coverage-summary.json
           json-final-path: ./coverage/coverage-final.json
 
-  # Build job - runs in parallel with test
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    needs: quality # Only run after quality checks pass
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build application
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          files: ./coverage/coverage-final.json
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false

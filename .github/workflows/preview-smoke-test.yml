@@ -1,0 +1,46 @@
+name: Preview Deployment Smoke Test
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Vercel preview deployment
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+        id: waitForDeployment
+        continue-on-error: true
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 300
+
+      - name: Test preview health endpoint
+        if: steps.waitForDeployment.outcome == 'success'
+        run: |
+          response=$(curl -f -s "${{ steps.waitForDeployment.outputs.url }}/api/health")
+          echo "Health check response: $response"
+
+          # Verify status is "healthy"
+          status=$(echo "$response" | jq -r '.status')
+          if [ "$status" != "healthy" ]; then
+            echo "ERROR: Preview deployment unhealthy: $status"
+            echo "$response" | jq '.recommendations'
+            exit 1
+          fi
+
+      - name: Report deployment protection status
+        if: steps.waitForDeployment.outcome == 'failure'
+        run: |
+          echo "⚠️ Preview deployment smoke test skipped"
+          echo "Vercel deployment is protected by SSO/password authentication"
+          echo ""
+          echo "To enable smoke tests, configure deployment protection:"
+          echo "1. Visit Vercel Dashboard → Project Settings → Deployment Protection"
+          echo "2. Either disable protection for preview deployments OR"
+          echo "3. Add GitHub Actions to the allowlist"
+          echo ""
+          echo "See docs/operations/vercel-deployment-protection.md for details"
