@@ -372,11 +372,9 @@ export const getNextReview = query({
  * API correctness while achieving significant bandwidth savings.
  */
 export const getDueCount = query({
-  args: {
-    _refreshTimestamp: v.optional(v.number()), // For periodic refresh
-  },
+  args: {},
 
-  handler: async (ctx, _args) => {
+  handler: async (ctx) => {
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
     const now = Date.now();
