@@ -387,6 +387,14 @@ export const getDueCount = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .first();
 
+    if (!stats) {
+      console.warn(
+        'Missing userStats for user',
+        userId,
+        '- returning zeros. This may indicate reconciliation failure.'
+      );
+    }
+
     const newCount = stats?.newCount || 0;
 
     // Query time-filtered due cards (learning/mature with nextReview <= now)
