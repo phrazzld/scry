@@ -50,6 +50,83 @@ if (process.env.NODE_ENV === 'production') {
 
 ---
 
+### [UX] Replace Native confirm() Dialogs with Styled Components
+
+**Context**: `components/lab/config-management-dialog.tsx:109-114` uses native browser `confirm()` for delete confirmation.
+
+**Issue**: Doesn't match visual style of rest of application, can't be styled or customized.
+
+**Recommendation**: Use existing Dialog component for delete confirmation with Cancel/Delete buttons.
+
+**Implementation**:
+```typescript
+const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+const [configToDelete, setConfigToDelete] = useState<string | null>(null);
+
+const handleDeleteConfig = (id: string) => {
+  setConfigToDelete(id);
+  setDeleteDialogOpen(true);
+};
+
+const confirmDelete = () => {
+  if (configToDelete) {
+    onSave(configs.filter((c) => c.id !== configToDelete));
+    toast.success('Config deleted');
+  }
+  setDeleteDialogOpen(false);
+  setConfigToDelete(null);
+};
+```
+
+Then render `<Dialog>` with Cancel/Delete buttons.
+
+**Effort**: 30 minutes
+**Impact**: LOW - Visual consistency improvement
+**Priority**: POLISH
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
+### [PRODUCT] Add Phase Reordering to Config Management
+
+**Context**: `components/lab/config-management-dialog.tsx:382-451` only allows adding/removing phases from end.
+
+**Use Case**: Complex multi-phase pipelines (3+ phases) benefit from reordering capability.
+
+**Recommendation**: Add drag-and-drop or up/down arrows to reorder phases.
+
+**Implementation Options**:
+1. **Drag-and-drop** (dnd-kit or react-beautiful-dnd) - Better UX, more complex
+2. **Up/Down arrows** - Simpler to implement, clear functionality
+
+**Effort**: 2-3 hours (drag-and-drop) OR 1 hour (up/down arrows)
+**Impact**: MEDIUM - Improved UX for advanced users
+**Priority**: FUTURE ENHANCEMENT
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
+### [DEVOPS] Pin Trivy Action to Specific Version
+
+**Context**: `.github/workflows/security.yml:27-40` uses `aquasecurity/trivy-action@master`.
+
+**Issue**: Using `@master` can lead to unexpected breaking changes in CI workflow.
+
+**Recommendation**: Pin to specific version for reproducibility and stability.
+
+**Fix**:
+```diff
+- uses: aquasecurity/trivy-action@master
++ uses: aquasecurity/trivy-action@0.28.0  # Check latest at https://github.com/aquasecurity/trivy-action/releases
+```
+
+**Effort**: 5 minutes
+**Impact**: LOW - CI stability improvement
+**Priority**: POLISH
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
 ### [INFRA] Vercel Analytics and Observability
 
 ### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
