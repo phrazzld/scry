@@ -3,7 +3,7 @@
     "collect": {
       "numberOfRuns": 3,
       "startServerCommand": "pnpm start",
-      "startServerReadyPattern": "Ready",
+      "startServerReadyPattern": "ready on",
       "url": ["http://localhost:3000", "http://localhost:3000/quiz-mode"]
     },
     "assert": {
