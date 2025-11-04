@@ -185,7 +185,7 @@ if (!stats) {
 
 **Impact**: UI shows "1000" when user may have 2,000+ due cards (rare but misleading)
 
-**Solution**: Fetch 1001 cards, detect truncation, expose flag to UI
+**Solution**: Fetch 1001 cards, detect truncation, expose flag to UI. Or, honestly, just fetch 101 cards, detect truncation, expose flag to UI -- and show "100+" when we have more than 100 cards due. that's plenty of info for a learner.
 ```typescript
 // convex/spacedRepetition.ts:419-427
 const dueCards = await ctx.db
