@@ -75,7 +75,7 @@ return {
 ---
 
 ### [INFRA] Add userStats health check logging
-**Priority**: LOW
+**Priority**: ✅ COMPLETED (commit ef2cf7d)
 **Effort**: 15 minutes
 **Context**: Claude review feedback
 
@@ -83,17 +83,86 @@ return {
 
 **Implementation**:
 ```typescript
-// In getDueCount (convex/spacedRepetition.ts)
-const stats = await ctx.db
-  .query('userStats')
-  .withIndex('by_user', (q) => q.eq('userId', userId))
-  .first();
-
+// COMPLETED in convex/spacedRepetition.ts:390-396
 if (!stats) {
-  console.warn('Missing userStats for user', userId, '- returning zeros. This may indicate reconciliation failure.');
-  // TODO: Trigger reconciliation or alert
+  console.warn(
+    'Missing userStats for user',
+    userId,
+    '- returning zeros. This may indicate reconciliation failure.'
+  );
 }
 ```
+
+---
+
+### [UX] Add hasMore flag for 1000+ badge accuracy
+**Priority**: MEDIUM
+**Effort**: 15 minutes
+**Context**: PR #53 CodeRabbit review feedback
+
+**Problem**: Current `take(1000)` implementation can't distinguish between "exactly 1000 due" and "1000+ due" because `dueCards.length` caps at 1000 even when truncated.
+
+**Impact**: UI shows "1000" when user may have 2,000+ due cards (rare but misleading)
+
+**Solution**: Fetch 1001 cards, detect truncation, expose flag to UI
+```typescript
+// convex/spacedRepetition.ts:419-427
+const dueCards = await ctx.db
+  .query('questions')
+  .withIndex('by_user_next_review', q => q.eq('userId', userId).lte('nextReview', now))
+  .filter(/* ... */)
+  .take(1001); // Fetch 1 extra to detect 1000+ case
+
+const actualCount = dueCards.length;
+const dueCount = Math.min(actualCount, 1000);
+const hasMore = actualCount > 1000;
+
+return {
+  dueCount,
+  newCount,
+  totalReviewable: dueCount + newCount,
+  hasMore, // UI can display "1000+" when true
+};
+```
+
+**Frontend changes**:
+- Update badge component to check `hasMore` flag
+- Display "1000+" when `hasMore === true`
+
+---
+
+### [TEST] Add edge case test for batch size reduction
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: PR #53 CodeRabbit review feedback
+
+**Context**: Batch size reduction (100→25 for `getNextReview`) assumes FSRS `by_user_next_review` index ordering captures most urgent cards. Edge cases to validate:
+
+- Cards with manually set `nextReview` dates
+- Stale retrievability values when switching schedulers
+- Scenarios with >25 due cards where card #26+ has better retrievability than cards #1-5
+
+**Test implementation** (`convex/spacedRepetition.test.ts`):
+```typescript
+describe('getNextReview batch size edge cases', () => {
+  it('should select highest-priority card from 50+ due cards', async () => {
+    // 1. Create 50 due cards with varying retrievability scores
+    // 2. Set card #30 to have lowest retrievability (highest urgency)
+    // 3. Invoke getNextReview() with batch size 25
+    // 4. Assert: Returns card #30 (priority calculation compensates for index ordering)
+  });
+});
+```
+
+**Monitoring additions** (post-deployment validation):
+- Skip rate: How often user archives/skips card immediately
+- Completion rate: Full session completion vs abandonment
+- Time per card: Average review time (slower = harder/less relevant)
+
+**A/B test plan** (if quality concerns arise):
+- Test batch sizes: 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth cost vs card selection quality
 
 ---
 
