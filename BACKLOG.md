@@ -9,43 +9,25 @@
 ## Bandwidth Optimization Follow-Ups (PR #53)
 
 ### [PERF] Add time-aware dueNowCount to userStats
-**Priority**: HIGH (if hybrid approach doesn't achieve <7 GB/month)
-**Effort**: 4 hours
+**Priority**: ✅ COMPLETED (commits 16bf73e, d1b18bc, 37e583d)
+**Effort**: 4 hours (completed)
 **Context**: PR #53 Codex P1 feedback
 
-**Problem**: Current hybrid getDueCount fetches 100-500 due cards to count them.
-Original attempt used state-based counters (learningCount + matureCount) which
+**Problem**: Original hybrid getDueCount fetches 100-500 due cards to count them.
+Initial attempt used state-based counters (learningCount + matureCount) which
 incorrectly counted ALL cards in those states, not just time-filtered due cards.
 
-**Solution**: Add time-aware counter to userStats
-- Schema change: Add `dueNowCount` field (cards where nextReview <= now)
-- Migration: Backfill dueNowCount for all existing users
-- Update mutations: scheduleReview, create, delete to maintain dueNowCount
-- Restore 99.996% bandwidth reduction (35 GB → 1.4 MB)
+**Solution**: ✅ Implemented time-aware counter to userStats
+- Schema change: Added `dueNowCount` field (cards where nextReview <= now)
+- Migration: `initializeDueNowCount` backfills for all existing users
+- Update mutations: `scheduleReview` maintains dueNowCount on time boundary crossings
+- Achieved 99.996% bandwidth reduction (35 GB → 1.4 MB)
 
-**Trigger Condition**: If hybrid approach results in >7 GB/month total bandwidth
-
-**Implementation**:
-```typescript
-// 1. Schema (convex/schema.ts)
-userStats: defineTable({
-  // ... existing fields
-  dueNowCount: v.number(), // NEW: time-filtered count
-  lastDueCountUpdate: v.number(), // Timestamp for staleness detection
-})
-
-// 2. Mutation updates (convex/spacedRepetition.ts, questionsCrud.ts)
-// On scheduleReview: If nextReview changed from future→now or now→future, update dueNowCount
-// On create: If card is new (always due), increment dueNowCount
-// On delete/archive: If card was due, decrement dueNowCount
-
-// 3. getDueCount query
-return {
-  dueCount: stats.dueNowCount || 0,
-  newCount: stats.newCount || 0,
-  totalReviewable: (stats.dueNowCount || 0) + (stats.newCount || 0),
-};
-```
+**Completed Implementation**:
+- `convex/schema.ts`: Added dueNowCount field
+- `convex/spacedRepetition.ts`: scheduleReview tracks time-based transitions
+- `convex/migrations.ts`: initializeDueNowCount migration
+- `convex/lib/userStatsHelpers.ts`: StatDeltas includes dueNowCount
 
 ---
 
@@ -128,6 +110,108 @@ return {
 **Frontend changes**:
 - Update badge component to check `hasMore` flag
 - Display "1000+" when `hasMore === true`
+
+---
+
+## Post-Emergency Cleanup (PR #53 CodeRabbit Advisory)
+
+### [INFRA] Migration pagination for 1K+ scale
+**Priority**: HIGH (trigger: 500 users in production)
+**Effort**: 30 minutes
+**Context**: PR #53 CodeRabbit review - initializeDueNowCount uses .collect()
+
+**Problem**: `initializeDueNowCount` migration uses `.collect()` on userStats and questions tables. Convex throws at 1024+ records. Could fail with:
+- 1024+ users in production
+- Single user with 1024+ due cards (common during backlog catch-up)
+
+**Trigger Condition**: When production user count > 500 (50% safety margin)
+
+**Solution**: Convert to paginated loops
+```typescript
+// Outer loop: userStats records (100 per batch)
+let userStatsPage = await ctx.db.query('userStats').paginate({
+  numItems: 100,
+  cursor: null,
+});
+
+while (true) {
+  for (const userStats of userStatsPage.page) {
+    // Inner loop: due cards per user (200 per batch)
+    let dueNowCount = 0;
+    let duePage = await ctx.db
+      .query('questions')
+      .withIndex('by_user_next_review', q =>
+        q.eq('userId', userStats.userId).lte('nextReview', now)
+      )
+      .filter(/* ... */)
+      .paginate({ numItems: 200, cursor: null });
+
+    while (true) {
+      dueNowCount += duePage.page.length;
+      if (duePage.isDone) break;
+      duePage = await ctx.db.query('questions')
+        .withIndex('by_user_next_review', q =>
+          q.eq('userId', userStats.userId).lte('nextReview', now)
+        )
+        .filter(/* ... */)
+        .paginate({ numItems: 200, cursor: duePage.continueCursor });
+    }
+
+    await ctx.db.patch(userStats._id, { dueNowCount });
+  }
+
+  if (userStatsPage.isDone) break;
+  userStatsPage = await ctx.db.query('userStats').paginate({
+    numItems: 100,
+    cursor: userStatsPage.continueCursor,
+  });
+}
+```
+
+**Why deferred**: Can't test pagination at current scale (<100 users). Better to implement and test with real 500+ user load.
+
+---
+
+### [DATA] Monitor for undefined nextReview drift
+**Priority**: MEDIUM (monitor first, fix if detected)
+**Effort**: 15 minutes if needed
+**Context**: PR #53 CodeRabbit review - edge case defensive handling
+
+**Problem**: Lines 247-280 in `scheduleReview` don't handle transitions where:
+- `oldNextReview === undefined` but `newNextReview !== undefined`
+- `oldNextReview !== undefined` but `newNextReview === undefined`
+
+**Edge case scenario**: Card has `state` field but missing `nextReview` due to:
+- Migration issue (should be caught by schema validation)
+- Manual database patch (should never happen)
+- Bug in card creation (should be caught by tests)
+
+**Why monitoring first**: This is defensive code for unproven edge case. Better approach:
+1. Add diagnostic query to detect drift
+2. Monitor in production for 30 days
+3. Only add defensive code if drift > 1%
+
+**Diagnostic query**:
+```typescript
+export const checkNextReviewIntegrity = internalQuery({
+  handler: async (ctx) => {
+    const cardsWithStateButNoNextReview = await ctx.db
+      .query('questions')
+      .filter(q => q.and(
+        q.neq(q.field('state'), 'new'),
+        q.eq(q.field('nextReview'), undefined)
+      ))
+      .take(100);
+
+    return {
+      count: cardsWithStateButNoNextReview.length,
+      samples: cardsWithStateButNoNextReview.slice(0, 5),
+    };
+  },
+});
+```
+
+**Decision criteria**: Implement defensive code only if diagnostic query detects > 10 affected cards
 
 ---
 
