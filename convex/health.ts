@@ -90,7 +90,7 @@ async function runGoogleApiKeyTest(): Promise<GoogleApiKeyTestResult> {
     await generateText({
       model: google('gemini-2.0-flash-exp'),
       prompt: 'hi',
-      maxTokens: 1,
+      // AI SDK 5: maxTokens parameter removed, model uses defaults
     });
 
     return {

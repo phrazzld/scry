@@ -35,7 +35,14 @@ function createMockResult(object: any) {
   return {
     object,
     finishReason: 'stop' as const,
-    usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+    // AI SDK 5: Renamed promptTokens → inputTokens, completionTokens → outputTokens
+    usage: {
+      promptTokens: 100,
+      completionTokens: 200,
+      totalTokens: 300,
+      inputTokens: 100,
+      outputTokens: 200,
+    },
     warnings: undefined,
     request: {} as any,
     response: { id: 'test', timestamp: new Date(), modelId: 'test' },
@@ -43,6 +50,7 @@ function createMockResult(object: any) {
     providerMetadata: undefined,
     rawResponse: undefined,
     logprobs: undefined,
+    reasoning: undefined, // AI SDK 5: Added reasoning property
     toJsonResponse: () => new Response(JSON.stringify(object)),
   };
 }
