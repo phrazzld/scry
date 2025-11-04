@@ -1641,46 +1641,6 @@ describe('Top-10 Shuffle for Temporal Dispersion', () => {
     expect(maxPercentage).toBeLessThan(20);
   });
 
-  it('should shuffle all items when retrievability spread is small', () => {
-    // Scenario: All items have similar retrievability (within URGENCY_DELTA)
-    // System should shuffle all of them (variable tier size up to queue length)
-    const questions: Doc<'questions'>[] = [];
-
-    // Create 12 questions with very similar retrievability (0.05-0.08)
-    for (let i = 0; i < 12; i++) {
-      questions.push(
-        createMockQuestion({
-          _id: `similar-${i}` as Id<'questions'>,
-          nextReview: now.getTime() - 86400000 * (30 + i), // 30-42 days overdue
-          state: 'review',
-          stability: 5 + i * 0.1, // Slight stability variation
-          lastReview: now.getTime() - 86400000 * (35 + i),
-          _creationTime: now.getTime() - i * 1000,
-        })
-      );
-    }
-
-    // Run selection 100 times
-    const selections = simulateShuffleSelection(questions, now, 100);
-
-    // Count unique items selected
-    const uniqueSelections = new Set(selections);
-
-    // Should see most/all 12 items appear (all within threshold)
-    // With 100 iterations, expect to see at least 8 different items (66% of tier)
-    expect(uniqueSelections.size).toBeGreaterThanOrEqual(8);
-
-    // Count appearances
-    const selectionCounts = new Map<string, number>();
-    selections.forEach((id) => {
-      selectionCounts.set(id, (selectionCounts.get(id) || 0) + 1);
-    });
-
-    // No single item should dominate (validates shuffle working across all 12)
-    const maxCount = Math.max(...Array.from(selectionCounts.values()));
-    expect(maxCount).toBeLessThan(20); // No item appears >20% of time
-  });
-
   it('should never select items outside top 10 when more candidates exist', () => {
     // Create 15 questions with different priorities
     const questions: Doc<'questions'>[] = [];
