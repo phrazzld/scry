@@ -84,7 +84,7 @@
   Time: 1h
   ```
 
-- [ ] **Create React hook for event tracking**
+- [x] **Create React hook for event tracking**
   ```
   Files:
     - hooks/use-track-event.ts (create)
