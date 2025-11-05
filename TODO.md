@@ -10,7 +10,13 @@
 
 ### Phase 1: Core Infrastructure (Week 1)
 
-- [ ] **Install and configure Sentry SDK**
+- [x] **Install and configure Sentry SDK**
+  ```
+  Work Log:
+  - Added shared redaction-aware Sentry configuration module consumed by all runtimes.
+  - Generated client/server/edge bootstrap files and wired Next.js to upload source maps via plugin.
+  - Updated environment template with new Sentry keys; linted to confirm integration compiles.
+  ```
   ```
   Files:
     - package.json (add @sentry/nextjs dependency)
