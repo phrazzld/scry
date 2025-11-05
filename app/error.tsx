@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
+import * as Sentry from '@sentry/nextjs';
 
 import { Button } from '@/components/ui/button';
 import { systemLogger } from '@/lib/logger';
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
+    Sentry.captureException(error);
     systemLogger.error(
       {
         event: 'app.unhandled-error',

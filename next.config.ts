@@ -17,6 +17,14 @@ const sentryWebpackPluginOptions = {
   release: process.env.SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA,
   telemetry: false,
   dryRun: !isSentryUploadEnabled,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  disableLogger: true,
+  automaticVercelMonitors: true,
+};
+
+const sentryNextConfigOptions = {
+  silent: !process.env.CI,
 };
 
 const nextConfig: NextConfig = {
@@ -195,6 +203,8 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackPluginOptions, {
-  silent: true,
-});
+export default withSentryConfig(
+  withBundleAnalyzer(nextConfig),
+  sentryWebpackPluginOptions,
+  sentryNextConfigOptions
+);
