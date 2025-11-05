@@ -1,8 +1,90 @@
 # BACKLOG
 
-**Last Groomed**: 2025-11-04
-**Analysis Method**: PR #53 emergency bandwidth optimization + PR #50 quality infrastructure review
-**Overall Grade**: A- (Strong technical foundation, emergency optimizations complete)
+**Last Groomed**: 2025-11-05
+**Analysis Method**: PR #53 emergency bandwidth optimization + PR #50 quality infrastructure review + GPT_5_PRO_ANALYSIS (2025-11-05 follow-up)
+**Overall Grade**: B (High leverage groundwork identified, must execute before pushing growth)
+
+---
+
+## Critical: Scalability, Performance, and Stability
+
+### [SCALABILITY][P0] Ship Approach A bandwidth hardening with telemetry
+
+**Context**: TASK.md and BANDWIDTH_CRISIS_ANALYSIS.md require Approach A (cache-backed counters, bounded slices) to keep Convex bandwidth under 50 GB/month.
+
+**Current State**:
+- codebase now maintains `dueNowCount` counters (`convex/spacedRepetition.ts`), but we do not measure call volume, payload size, or cost post-deploy.
+- PR #50 TODO list (guard rails, prompt regression checks) was removed, so verification tasks drifted.
+- No automated alerting on regression; Convex dashboard must be checked manually.
+
+**Actions**:
+- Add a scheduled Convex job (hourly) that records per-function bandwidth, call counts, and payload size for `spacedRepetition.getDueCount`, `spacedRepetition.getNextReview`, and `scheduleReview` (write to new `diagnostics.bandwidthSnapshots` table capped via TTL).
+- Extend `scripts/check-deployment-health.sh` to assert the snapshot job is running and print last 24h metrics; fail CI/CD if missing.
+- Document Approach A success criteria (≤5 GB/month dev usage, ≤0.25 MB avg payload) and gate production deploys on those metrics.
+- Recreate the removed PR-50 critical checklist inside BACKLOG so enforcement items stay visible until done (prompt template guard, lab prod guard validation, config editor regression tests).
+
+**Impact**: Prevents runaway billing, gives confidence to market Scry, and shortens incident response time.
+**Effort**: ~1.5 days (job + storage + CI wiring + documentation)
+**Priority**: P0
+
+### [SCALABILITY][P0] Replace `.collect()` in runtime code paths with pagination
+
+**Context**: Multiple runtime queries still call `.collect()` (rate limits, quiz stats, clerk cleanup). These explode above ~1,024 records and reintroduce the bandwidth crisis at modest scale.
+
+**Current State**:
+- `convex/rateLimit.ts`, `convex/questionsLibrary.ts:getQuizInteractionStats`, `convex/clerk.ts:deleteUser` fetch entire collections per request.
+- Backfill migration (`convex/migrations.ts:1048+`) and diagnostics rely on `.collect()`; acceptable, but the runtime surfaces must be hardened.
+
+**Actions**:
+- Introduce paginated helpers (`paginateAll`) with early exit, and refactor runtime functions to stream batches (100–200 docs at a time).
+- Add Vitest regression tests using fixtures with >1,100 documents to prove no crash.
+- Capture new best-practice note in `docs/guides/convex-bandwidth.md` so future code avoids `.collect()`.
+
+**Impact**: Keeps per-call bandwidth bounded and prevents Convex hard limits from halting login, generation, or analytics when user count grows.
+**Effort**: 1 day (refactor + tests + docs)
+**Priority**: P0
+
+### [RELIABILITY][P0] Post-deploy validation for cost, drift, and lab safety
+
+**Context**: GPT_5_PRO_ANALYSIS.md and TASK.md both flag deployment uncertainty and missing drift detection alerts.
+
+**Current State**:
+- No automated post-deploy smoke test for lab actions, prompt schema regressions, or userStats drift.
+- Reconciliation job emits logs but no alert thresholds; dueNowCount migration still uses `.collect()`.
+
+**Actions**:
+- Add CI job (`pnpm test:postdeploy`) that runs: lab executeConfig dry run (dev vs prod guard), sample `buildQuestionPromptFromIntent`, and FSRS scheduling scenarios against seeded data.
+- Extend `reconcileUserStats` to paginate, emit metrics (checked, drifted, corrected) into diagnostics, and raise an alert (Slack/webhook) if drift >1% or dueNowCount undefined count >0.
+- Define deploy checklist entry requiring review of the diagnostics snapshot and lab guard test before marketing pushes.
+
+**Impact**: Locks in safety net so regressions don’t silently produce runaway Convex bills or broken onboarding.
+**Effort**: ~1.5 days (tests + telemetry + alert wiring)
+**Priority**: P0
+
+### [SCALABILITY][P1] Define triggers and readiness work for Approach B (materialized queue)
+
+**Context**: TASK.md specifies a staged rollout (Approach A → Approach B when metrics demand).
+
+**Actions**:
+- Document concrete trigger thresholds: post-Approach-A bandwidth >50 GB/month, active users >100, or review queue latency p95 >500 ms.
+- Prototype Approach B queue maintenance behind a feature flag and capture migration plan (schema, invariants, rollback).
+- Add load-test harness to model 1,000 users so we can justify flipping the flag quickly when triggers fire.
+
+**Impact**: Ensures we can scale without emergency rewrites and gives investors confidence during sales motions.
+**Effort**: 2–3 days prep work (doc + prototype + load tests)
+**Priority**: P1
+
+### [PERF][P1] Client-side caching / SWR guardrails for high-churn queries
+
+**Context**: `useNextReview` and `useDueCount` refetch on every mutation; short-term caching can halve Convex reads without sacrificing correctness.
+
+**Actions**:
+- Wrap Convex hooks with stale-while-revalidate (30s) on the client, backed by optimistic updates already emitted by mutations.
+- Add smoke tests ensuring counts stay accurate when tab sits idle >30s.
+
+**Impact**: 30–50% Convex read reduction in active sessions, further lowering costs.
+**Effort**: 0.5 day
+**Priority**: P1
 
 ---
 
