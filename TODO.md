@@ -224,7 +224,7 @@
   Time: 1h
   ```
 
-- [ ] **Add question CRUD event tracking**
+- [~] **Add question CRUD event tracking**
   ```
   Files:
     - convex/questionsCrud.ts (modify - add to mutations)
