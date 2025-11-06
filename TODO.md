@@ -155,7 +155,7 @@
 
 ### Phase 2: Event Tracking Integration (Week 1-2)
 
-- [ ] **Add quiz generation event tracking**
+- [x] **Add quiz generation event tracking**
   ```
   Files:
     - convex/aiGeneration.ts:processJob (modify - lines 86-200)
