@@ -8,6 +8,7 @@ import { useDataHash } from '@/hooks/use-data-hash';
 import { useSimplePoll } from '@/hooks/use-simple-poll';
 import { LOADING_TIMEOUT_MS, POLLING_INTERVAL_MS } from '@/lib/constants/timing';
 import type { SimpleQuestion } from '@/types/questions';
+import { useTrackEvent } from '@/hooks/use-track-event';
 
 // State machine definition
 interface ReviewModeState {
@@ -104,13 +105,22 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
   }
 }
 
+function generateSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `review-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /**
  * Custom hook that encapsulates all review flow business logic
  * Separates data fetching, state management, and event handling from presentation
  *
  * @returns Object containing review state and handlers
- */
+*/
 export function useReviewFlow() {
+  const trackEvent = useTrackEvent();
   // Single state machine instead of 6 separate state variables
   const [state, dispatch] = useReducer(reviewReducer, initialState);
 
@@ -119,6 +129,9 @@ export function useReviewFlow() {
 
   // Use ref for loading timeout
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionStartRef = useRef<number | null>(null);
+  const questionsReviewedRef = useRef(0);
 
   // Query - use simple polling for time-sensitive review queries
   const { data: nextReview } = useSimplePoll(
@@ -129,6 +142,61 @@ export function useReviewFlow() {
 
   // Check if data has actually changed to prevent unnecessary renders
   const { hasChanged: dataHasChanged } = useDataHash(nextReview);
+
+  const resetSessionMetrics = useCallback(() => {
+    sessionIdRef.current = null;
+    sessionStartRef.current = null;
+    questionsReviewedRef.current = 0;
+  }, []);
+
+  const startSession = useCallback(() => {
+    if (sessionIdRef.current) {
+      return;
+    }
+
+    const sessionId = generateSessionId();
+    sessionIdRef.current = sessionId;
+    sessionStartRef.current = Date.now();
+    questionsReviewedRef.current = 0;
+
+    trackEvent('Review Session Started', {
+      sessionId,
+      questionsReviewed: 0,
+      durationMs: 0,
+    });
+  }, [trackEvent]);
+
+  const completeSession = useCallback(() => {
+    if (!sessionIdRef.current || sessionStartRef.current === null) {
+      return;
+    }
+
+    const durationMs = Date.now() - sessionStartRef.current;
+
+    trackEvent('Review Session Completed', {
+      sessionId: sessionIdRef.current,
+      questionsReviewed: questionsReviewedRef.current,
+      durationMs,
+    });
+
+    resetSessionMetrics();
+  }, [resetSessionMetrics, trackEvent]);
+
+  const abandonSession = useCallback(() => {
+    if (!sessionIdRef.current || sessionStartRef.current === null) {
+      return;
+    }
+
+    const durationMs = Date.now() - sessionStartRef.current;
+
+    trackEvent('Review Session Abandoned', {
+      sessionId: sessionIdRef.current,
+      questionsReviewed: questionsReviewedRef.current,
+      durationMs,
+    });
+
+    resetSessionMetrics();
+  }, [resetSessionMetrics, trackEvent]);
 
   // Set up loading timeout (5 seconds)
   // Triggers for both initial loading and optimistic transitions
@@ -212,6 +280,8 @@ export function useReviewFlow() {
           },
         });
 
+        startSession();
+
         // Update last question ID even if it's the same (immediate re-review case)
         // This ensures UI resets properly when incorrect answers trigger immediate review
         lastQuestionIdRef.current = nextReview.question._id;
@@ -243,6 +313,8 @@ export function useReviewFlow() {
             },
           });
 
+          startSession();
+
           // Note: lastQuestionIdRef stays unchanged, so this is still detected
           // as "same question" on next poll (important for deduplication)
         } else {
@@ -253,15 +325,30 @@ export function useReviewFlow() {
         }
       }
     }
-  }, [nextReview, state.lockId, state.phase, state.isTransitioning, dataHasChanged]);
+  }, [nextReview, state.lockId, state.phase, state.isTransitioning, dataHasChanged, startSession]);
 
   // Memoized handler for review completion
   const handleReviewComplete = useCallback(async () => {
+    questionsReviewedRef.current += 1;
     // Release lock and reset state for clean transition to next question
     dispatch({ type: 'REVIEW_COMPLETE' });
     // Intentional loading state provides visual feedback during transitions,
     // especially important for FSRS immediate re-review of incorrect answers
   }, []);
+
+  useEffect(() => {
+    if (state.phase === 'empty') {
+      completeSession();
+    } else if (state.phase === 'error') {
+      abandonSession();
+    }
+  }, [state.phase, abandonSession, completeSession]);
+
+  useEffect(() => {
+    return () => {
+      abandonSession();
+    };
+  }, [abandonSession]);
 
   // Return stable object with all necessary data and handlers
   return {
