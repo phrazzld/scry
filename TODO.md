@@ -117,7 +117,7 @@
   Time: 45min
   ```
 
-- [ ] **Enhance error boundary with Sentry reporting**
+- [x] **Enhance error boundary with Sentry reporting**
   ```
   Files:
     - components/convex-error-boundary.tsx (modify)
