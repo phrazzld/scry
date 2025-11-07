@@ -1,14 +1,529 @@
 # BACKLOG
 
-**Last Groomed**: 2025-10-20
-**Analysis Method**: Strategic roadmap synthesis + 7-perspective specialized audit
-**Overall Grade**: A- (Excellent technical foundation, strategic intelligence layer needed)
+**Last Groomed**: 2025-11-05
+**Analysis Method**: PR #53 emergency bandwidth optimization + PR #50 quality infrastructure review + GPT_5_PRO_ANALYSIS (2025-11-05 follow-up)
+**Overall Grade**: B (High leverage groundwork identified, must execute before pushing growth)
 
 ---
 
-### [INFRA] Optimize ConvexDB database bandwidth -- or Migrate off ConvexDB
-- we are consistently using gigabytes of database bandwidth each day
-- this is either a gross misuse of convex that we need to fix (considering this is just me doing development and testing) or it means we need a different database solution
+## Critical: Scalability, Performance, and Stability
+
+### [SCALABILITY][P0] Ship Approach A bandwidth hardening with telemetry
+
+**Context**: TASK.md and BANDWIDTH_CRISIS_ANALYSIS.md require Approach A (cache-backed counters, bounded slices) to keep Convex bandwidth under 50 GB/month.
+
+**Current State**:
+- codebase now maintains `dueNowCount` counters (`convex/spacedRepetition.ts`), but we do not measure call volume, payload size, or cost post-deploy.
+- PR #50 TODO list (guard rails, prompt regression checks) was removed, so verification tasks drifted.
+- No automated alerting on regression; Convex dashboard must be checked manually.
+
+**Actions**:
+- Add a scheduled Convex job (hourly) that records per-function bandwidth, call counts, and payload size for `spacedRepetition.getDueCount`, `spacedRepetition.getNextReview`, and `scheduleReview` (write to new `diagnostics.bandwidthSnapshots` table capped via TTL).
+- Extend `scripts/check-deployment-health.sh` to assert the snapshot job is running and print last 24h metrics; fail CI/CD if missing.
+- Document Approach A success criteria (≤5 GB/month dev usage, ≤0.25 MB avg payload) and gate production deploys on those metrics.
+- Recreate the removed PR-50 critical checklist inside BACKLOG so enforcement items stay visible until done (prompt template guard, lab prod guard validation, config editor regression tests).
+
+**Impact**: Prevents runaway billing, gives confidence to market Scry, and shortens incident response time.
+**Effort**: ~1.5 days (job + storage + CI wiring + documentation)
+**Priority**: P0
+
+### [SCALABILITY][P0] Replace `.collect()` in runtime code paths with pagination
+
+**Context**: Multiple runtime queries still call `.collect()` (rate limits, quiz stats, clerk cleanup). These explode above ~1,024 records and reintroduce the bandwidth crisis at modest scale.
+
+**Current State**:
+- `convex/rateLimit.ts`, `convex/questionsLibrary.ts:getQuizInteractionStats`, `convex/clerk.ts:deleteUser` fetch entire collections per request.
+- Backfill migration (`convex/migrations.ts:1048+`) and diagnostics rely on `.collect()`; acceptable, but the runtime surfaces must be hardened.
+
+**Actions**:
+- Introduce paginated helpers (`paginateAll`) with early exit, and refactor runtime functions to stream batches (100–200 docs at a time).
+- Add Vitest regression tests using fixtures with >1,100 documents to prove no crash.
+- Capture new best-practice note in `docs/guides/convex-bandwidth.md` so future code avoids `.collect()`.
+
+**Impact**: Keeps per-call bandwidth bounded and prevents Convex hard limits from halting login, generation, or analytics when user count grows.
+**Effort**: 1 day (refactor + tests + docs)
+**Priority**: P0
+
+### [RELIABILITY][P0] Post-deploy validation for cost, drift, and lab safety
+
+**Context**: GPT_5_PRO_ANALYSIS.md and TASK.md both flag deployment uncertainty and missing drift detection alerts.
+
+**Current State**:
+- No automated post-deploy smoke test for lab actions, prompt schema regressions, or userStats drift.
+- Reconciliation job emits logs but no alert thresholds; dueNowCount migration still uses `.collect()`.
+
+**Actions**:
+- Add CI job (`pnpm test:postdeploy`) that runs: lab executeConfig dry run (dev vs prod guard), sample `buildQuestionPromptFromIntent`, and FSRS scheduling scenarios against seeded data.
+- Extend `reconcileUserStats` to paginate, emit metrics (checked, drifted, corrected) into diagnostics, and raise an alert (Slack/webhook) if drift >1% or dueNowCount undefined count >0.
+- Define deploy checklist entry requiring review of the diagnostics snapshot and lab guard test before marketing pushes.
+
+**Impact**: Locks in safety net so regressions don’t silently produce runaway Convex bills or broken onboarding.
+**Effort**: ~1.5 days (tests + telemetry + alert wiring)
+**Priority**: P0
+
+### [SCALABILITY][P1] Define triggers and readiness work for Approach B (materialized queue)
+
+**Context**: TASK.md specifies a staged rollout (Approach A → Approach B when metrics demand).
+
+**Actions**:
+- Document concrete trigger thresholds: post-Approach-A bandwidth >50 GB/month, active users >100, or review queue latency p95 >500 ms.
+- Prototype Approach B queue maintenance behind a feature flag and capture migration plan (schema, invariants, rollback).
+- Add load-test harness to model 1,000 users so we can justify flipping the flag quickly when triggers fire.
+
+**Impact**: Ensures we can scale without emergency rewrites and gives investors confidence during sales motions.
+**Effort**: 2–3 days prep work (doc + prototype + load tests)
+**Priority**: P1
+
+### [PERF][P1] Client-side caching / SWR guardrails for high-churn queries
+
+**Context**: `useNextReview` and `useDueCount` refetch on every mutation; short-term caching can halve Convex reads without sacrificing correctness.
+
+**Actions**:
+- Wrap Convex hooks with stale-while-revalidate (30s) on the client, backed by optimistic updates already emitted by mutations.
+- Add smoke tests ensuring counts stay accurate when tab sits idle >30s.
+
+**Impact**: 30–50% Convex read reduction in active sessions, further lowering costs.
+**Effort**: 0.5 day
+**Priority**: P1
+
+---
+
+## Follow-up Items from PR #50 Review
+
+### [CODE QUALITY] Standardize Production Guard Pattern for Lab Routes
+
+**Context**: Lab routes currently use inconsistent production environment guards.
+
+**Current State**:
+- `app/lab/playground/page.tsx` - Uses `redirect('/')` (preferred)
+- `app/lab/configs/page.tsx` - Uses "Not Available in Production" message
+- `app/lab/shared/page.tsx` - Uses "Not Available in Production" message
+
+**Recommendation**: Standardize all lab routes to use `redirect('/')` pattern for security and UX consistency.
+
+```typescript
+// Preferred pattern for all lab routes
+if (process.env.NODE_ENV === 'production') {
+  redirect('/');
+}
+```
+
+**Files to update**:
+- `app/lab/configs/page.tsx`
+- `app/lab/shared/page.tsx`
+
+**Effort**: 10 minutes
+**Impact**: LOW - Cosmetic consistency, minor security improvement
+**Priority**: POLISH
+
+---
+
+### [SECURITY] Redact Deployment Identifiers in Public Documentation
+
+**Context**: `.github/PHASE3_COMPLETE.md:5` exposes production deployment identifier `prod:uncommon-axolotl-639`.
+
+**Risk**: Low (identifier alone isn't sensitive, but security best practice is to redact)
+
+**Recommendation**: Redact to `prod:***-***-***` or remove identifier entirely from completion documentation.
+
+**Effort**: 2 minutes
+**Impact**: LOW - Security hygiene
+**Priority**: POLISH
+
+---
+
+### [UX] Replace Native confirm() Dialogs with Styled Components
+
+**Context**: `components/lab/config-management-dialog.tsx:109-114` uses native browser `confirm()` for delete confirmation.
+
+**Issue**: Doesn't match visual style of rest of application, can't be styled or customized.
+
+**Recommendation**: Use existing Dialog component for delete confirmation with Cancel/Delete buttons.
+
+**Effort**: 30 minutes
+**Impact**: LOW - Visual consistency improvement
+**Priority**: POLISH
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
+### [PRODUCT] Add Phase Reordering to Config Management
+
+**Context**: `components/lab/config-management-dialog.tsx:382-451` only allows adding/removing phases from end.
+
+**Use Case**: Complex multi-phase pipelines (3+ phases) benefit from reordering capability.
+
+**Recommendation**: Add drag-and-drop or up/down arrows to reorder phases.
+
+**Implementation Options**:
+1. **Drag-and-drop** (dnd-kit or react-beautiful-dnd) - Better UX, more complex
+2. **Up/Down arrows** - Simpler to implement, clear functionality
+
+**Effort**: 2-3 hours (drag-and-drop) OR 1 hour (up/down arrows)
+**Impact**: MEDIUM - Improved UX for advanced users
+**Priority**: FUTURE ENHANCEMENT
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
+### [DEVOPS] Pin Trivy Action to Specific Version
+
+**Context**: `.github/workflows/security.yml:27-40` uses `aquasecurity/trivy-action@master`.
+
+**Issue**: Using `@master` can lead to unexpected breaking changes in CI workflow.
+
+**Recommendation**: Pin to specific version for reproducibility and stability.
+
+**Fix**:
+```diff
+- uses: aquasecurity/trivy-action@master
++ uses: aquasecurity/trivy-action@0.28.0  # Check latest at https://github.com/aquasecurity/trivy-action/releases
+```
+
+**Effort**: 5 minutes
+**Impact**: LOW - CI stability improvement
+**Priority**: POLISH
+**Source**: CodeRabbit review comment on PR #50
+
+---
+
+## Bandwidth Optimization Follow-Ups (PR #53)
+
+### [PERF] Add time-aware dueNowCount to userStats
+**Priority**: ✅ COMPLETED (commits 16bf73e, d1b18bc, 37e583d)
+**Effort**: 4 hours (completed)
+**Context**: PR #53 Codex P1 feedback
+
+**Problem**: Original hybrid getDueCount fetches 100-500 due cards to count them.
+Initial attempt used state-based counters (learningCount + matureCount) which
+incorrectly counted ALL cards in those states, not just time-filtered due cards.
+
+**Solution**: ✅ Implemented time-aware counter to userStats
+- Schema change: Added `dueNowCount` field (cards where nextReview <= now)
+- Migration: `initializeDueNowCount` backfills for all existing users
+- Update mutations: `scheduleReview` maintains dueNowCount on time boundary crossings
+- Achieved 99.996% bandwidth reduction (35 GB → 1.4 MB)
+
+**Completed Implementation**:
+- `convex/schema.ts`: Added dueNowCount field
+- `convex/spacedRepetition.ts`: scheduleReview tracks time-based transitions
+- `convex/migrations.ts`: initializeDueNowCount migration
+- `convex/lib/userStatsHelpers.ts`: StatDeltas includes dueNowCount
+
+---
+
+### [PERF] Add monitoring metrics for batch size A/B testing
+**Priority**: MEDIUM
+**Effort**: 2 hours
+**Context**: TASK.md Phase 3, Claude review feedback
+
+**Goal**: Establish baseline data for validating 25 vs 100 batch size impact on card selection quality
+
+**Metrics to instrument**:
+- Skip rate: How often user skips/archives card immediately after seeing it
+- Answer quality: Correct/incorrect rate per session
+- Time per card: Average review time (slower = harder/less relevant cards)
+- Completion rate: How often user completes full review session vs abandons
+
+**Implementation**:
+- Add metrics tracking to `useQuizInteractions` hook
+- Log to Convex interactions table with metadata
+- Build dashboard query to visualize trends
+
+**A/B test plan** (TASK.md lines 1065-1095):
+- Test batch sizes: 15 vs 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth vs quality tradeoff
+
+---
+
+### [INFRA] Add userStats health check logging
+**Priority**: ✅ COMPLETED (commit ef2cf7d)
+**Effort**: 15 minutes
+**Context**: Claude review feedback
+
+**Goal**: Warn when userStats missing for user (indicates drift or reconciliation failure)
+
+**Implementation**:
+```typescript
+// COMPLETED in convex/spacedRepetition.ts:390-396
+if (!stats) {
+  console.warn(
+    'Missing userStats for user',
+    userId,
+    '- returning zeros. This may indicate reconciliation failure.'
+  );
+}
+```
+
+---
+
+### [UX] Add hasMore flag for 1000+ badge accuracy
+**Priority**: MEDIUM
+**Effort**: 15 minutes
+**Context**: PR #53 CodeRabbit review feedback
+
+**Problem**: Current `take(1000)` implementation can't distinguish between "exactly 1000 due" and "1000+ due" because `dueCards.length` caps at 1000 even when truncated.
+
+**Impact**: UI shows "1000" when user may have 2,000+ due cards (rare but misleading)
+
+**Solution**: Fetch 1001 cards, detect truncation, expose flag to UI. Or, honestly, just fetch 101 cards, detect truncation, expose flag to UI -- and show "100+" when we have more than 100 cards due. that's plenty of info for a learner.
+```typescript
+// convex/spacedRepetition.ts:419-427
+const dueCards = await ctx.db
+  .query('questions')
+  .withIndex('by_user_next_review', q => q.eq('userId', userId).lte('nextReview', now))
+  .filter(/* ... */)
+  .take(1001); // Fetch 1 extra to detect 1000+ case
+
+const actualCount = dueCards.length;
+const dueCount = Math.min(actualCount, 1000);
+const hasMore = actualCount > 1000;
+
+return {
+  dueCount,
+  newCount,
+  totalReviewable: dueCount + newCount,
+  hasMore, // UI can display "1000+" when true
+};
+```
+
+**Frontend changes**:
+- Update badge component to check `hasMore` flag
+- Display "1000+" when `hasMore === true`
+
+---
+
+## Post-Emergency Cleanup (PR #53 CodeRabbit Advisory)
+
+### [INFRA] Migration pagination for 1K+ scale
+**Priority**: HIGH (trigger: 500 users in production)
+**Effort**: 30 minutes
+**Context**: PR #53 CodeRabbit review - initializeDueNowCount uses .collect()
+
+**Problem**: `initializeDueNowCount` migration uses `.collect()` on userStats and questions tables. Convex throws at 1024+ records. Could fail with:
+- 1024+ users in production
+- Single user with 1024+ due cards (common during backlog catch-up)
+
+**Trigger Condition**: When production user count > 500 (50% safety margin)
+
+**Solution**: Convert to paginated loops
+```typescript
+// Outer loop: userStats records (100 per batch)
+let userStatsPage = await ctx.db.query('userStats').paginate({
+  numItems: 100,
+  cursor: null,
+});
+
+while (true) {
+  for (const userStats of userStatsPage.page) {
+    // Inner loop: due cards per user (200 per batch)
+    let dueNowCount = 0;
+    let duePage = await ctx.db
+      .query('questions')
+      .withIndex('by_user_next_review', q =>
+        q.eq('userId', userStats.userId).lte('nextReview', now)
+      )
+      .filter(/* ... */)
+      .paginate({ numItems: 200, cursor: null });
+
+    while (true) {
+      dueNowCount += duePage.page.length;
+      if (duePage.isDone) break;
+      duePage = await ctx.db.query('questions')
+        .withIndex('by_user_next_review', q =>
+          q.eq('userId', userStats.userId).lte('nextReview', now)
+        )
+        .filter(/* ... */)
+        .paginate({ numItems: 200, cursor: duePage.continueCursor });
+    }
+
+    await ctx.db.patch(userStats._id, { dueNowCount });
+  }
+
+  if (userStatsPage.isDone) break;
+  userStatsPage = await ctx.db.query('userStats').paginate({
+    numItems: 100,
+    cursor: userStatsPage.continueCursor,
+  });
+}
+```
+
+**Why deferred**: Can't test pagination at current scale (<100 users). Better to implement and test with real 500+ user load.
+
+---
+
+### [DATA] Monitor for undefined nextReview drift
+**Priority**: MEDIUM (monitor first, fix if detected)
+**Effort**: 15 minutes if needed
+**Context**: PR #53 CodeRabbit review - edge case defensive handling
+
+**Problem**: Lines 247-280 in `scheduleReview` don't handle transitions where:
+- `oldNextReview === undefined` but `newNextReview !== undefined`
+- `oldNextReview !== undefined` but `newNextReview === undefined`
+
+**Edge case scenario**: Card has `state` field but missing `nextReview` due to:
+- Migration issue (should be caught by schema validation)
+- Manual database patch (should never happen)
+- Bug in card creation (should be caught by tests)
+
+**Why monitoring first**: This is defensive code for unproven edge case. Better approach:
+1. Add diagnostic query to detect drift
+2. Monitor in production for 30 days
+3. Only add defensive code if drift > 1%
+
+**Diagnostic query**:
+```typescript
+export const checkNextReviewIntegrity = internalQuery({
+  handler: async (ctx) => {
+    const cardsWithStateButNoNextReview = await ctx.db
+      .query('questions')
+      .filter(q => q.and(
+        q.neq(q.field('state'), 'new'),
+        q.eq(q.field('nextReview'), undefined)
+      ))
+      .take(100);
+
+    return {
+      count: cardsWithStateButNoNextReview.length,
+      samples: cardsWithStateButNoNextReview.slice(0, 5),
+    };
+  },
+});
+```
+
+**Decision criteria**: Implement defensive code only if diagnostic query detects > 10 affected cards
+
+---
+
+### [TEST] Add edge case test for batch size reduction
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: PR #53 CodeRabbit review feedback
+
+**Context**: Batch size reduction (100→25 for `getNextReview`) assumes FSRS `by_user_next_review` index ordering captures most urgent cards. Edge cases to validate:
+
+- Cards with manually set `nextReview` dates
+- Stale retrievability values when switching schedulers
+- Scenarios with >25 due cards where card #26+ has better retrievability than cards #1-5
+
+**Test implementation** (`convex/spacedRepetition.test.ts`):
+```typescript
+describe('getNextReview batch size edge cases', () => {
+  it('should select highest-priority card from 50+ due cards', async () => {
+    // 1. Create 50 due cards with varying retrievability scores
+    // 2. Set card #30 to have lowest retrievability (highest urgency)
+    // 3. Invoke getNextReview() with batch size 25
+    // 4. Assert: Returns card #30 (priority calculation compensates for index ordering)
+  });
+});
+```
+
+**Monitoring additions** (post-deployment validation):
+- Skip rate: How often user archives/skips card immediately
+- Completion rate: Full session completion vs abandonment
+- Time per card: Average review time (slower = harder/less relevant)
+
+**A/B test plan** (if quality concerns arise):
+- Test batch sizes: 20 vs 25 vs 30
+- Measure: 7 days per variant
+- Decision matrix: Bandwidth cost vs card selection quality
+
+---
+
+### [DOCS] Document deleted analytics functions restoration
+**Priority**: LOW
+**Effort**: 5 minutes
+**Context**: Claude review feedback
+
+**Goal**: Make it easy to restore analytics functions when dashboard features are prioritized
+
+**Implementation**: Add to CLAUDE.md
+```markdown
+## Removed Analytics Functions (Nov 2025, PR #53)
+
+**Functions removed**: getUserStreak, updateUserStreak, getRetentionRate, getRecallSpeedImprovement (246 LOC)
+
+**Reason**: Unbounded queries causing bandwidth crisis, never used in UI
+
+**Restoration**:
+```bash
+# View original implementation
+git show 3322953~1:convex/spacedRepetition.ts | sed -n '/getUserStreak/,/^}/p'
+
+# Restore specific function
+git show 3322953~1:convex/spacedRepetition.ts > /tmp/old_spacedRepetition.ts
+# Copy function from /tmp/old_spacedRepetition.ts
+```
+
+**When to rebuild**: When dashboard analytics are prioritized, rebuild with bounded queries:
+- Use `.take(limit)` instead of `.collect()`
+- Cache results in separate analytics table
+- Update incrementally on mutations
+```
+
+---
+
+### [TEST] Add getDueCount integration test
+**Priority**: LOW
+**Effort**: 1 hour
+**Context**: Claude review feedback
+
+**Goal**: Increase confidence in hybrid getDueCount accuracy
+
+**Implementation** (`tests/api-contract.test.ts`):
+```typescript
+describe('getDueCount accuracy', () => {
+  it('should match manual count from questions table', async () => {
+    // 1. Create test user with known card states
+    // 2. Query getDueCount (hybrid cache + time-filter)
+    // 3. Query questions table manually (actual time-filtered count)
+    // 4. Assert: getDueCount === manual count (±5% tolerance)
+  });
+
+  it('should handle archived and deleted cards correctly', async () => {
+    // Verify archived cards not counted as due
+  });
+
+  it('should return time-filtered due cards only', async () => {
+    // Verify future-scheduled cards not counted
+  });
+});
+```
+
+---
+
+### [PERF] Optimize userStats reconciliation (fetch all users)
+**Priority**: LOW (only needed at 1,000+ users)
+**Effort**: 30 minutes
+**Context**: Claude review feedback
+
+**Problem**: `reconcileUserStats` fetches ALL users to sample 100 (inefficient at 10k+ users)
+
+**Current** (`convex/userStats.ts:52-53`):
+```typescript
+const allUsers = await ctx.db.query('users').collect(); // Fetches 10,000 users to sample 100
+const sampled = sample(allUsers, sampleSize);
+```
+
+**Fix**: Use `.take()` with random offset
+```typescript
+// Generate random offset
+const totalUsers = await ctx.db.query('users').count(); // O(1) metadata lookup
+const randomOffset = Math.floor(Math.random() * Math.max(0, totalUsers - sampleSize));
+
+// Fetch only sampled users
+const sampled = await ctx.db
+  .query('users')
+  .skip(randomOffset)
+  .take(sampleSize);
+```
+
+**Bandwidth impact**: Minimal (runs once per day, only matters at 10k+ users)
+
+---
+
+### [INFRA] Vercel Analytics and Observability
 
 ### [BUSINESS] Paywall the Service
 - brainstorm and determine the best pricing model for scry

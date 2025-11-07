@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { ArrowRight, Calendar, Clock, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-
 import { EditQuestionModal } from '@/components/edit-question-modal';
 import { PageContainer } from '@/components/page-container';
 import { QuestionHistory } from '@/components/question-history';
@@ -53,13 +52,8 @@ export function ReviewFlow() {
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
-  // Periodic refresh key for due count (updates every 60s to catch time-based card scheduling)
-  const [refreshKey, setRefreshKey] = useState(Date.now());
-
-  // Query for current due count with periodic refresh
-  const dueCountData = useQuery(api.spacedRepetition.getDueCount, {
-    _refreshTimestamp: refreshKey,
-  });
+  // Query for current due count - reactive via Convex WebSockets
+  const dueCountData = useQuery(api.spacedRepetition.getDueCount);
 
   // Cache the last known due count to prevent flicker during refetch
   const [cachedDueCount, setCachedDueCount] = useState(0);
@@ -100,15 +94,6 @@ export function ReviewFlow() {
       setQuestionStartTime(Date.now());
     }
   }, [questionId, isTransitioning]);
-
-  // Refresh due count every 60s to catch cards becoming due from time passing
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefreshKey(Date.now());
-    }, 60000); // 60 seconds
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {

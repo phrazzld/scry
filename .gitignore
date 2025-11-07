@@ -80,3 +80,6 @@ test-results-summary.md
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# ESLint cache
+.eslintcache

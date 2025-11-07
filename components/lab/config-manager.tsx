@@ -16,7 +16,6 @@ import {
   Trash2Icon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
 import { ConfigEditor } from '@/components/lab/config-editor';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -299,7 +298,7 @@ export function ConfigManager({
                             {phase.outputTo && (
                               <>
                                 <span>•</span>
-                                <span className="text-[10px]">{'{{' + phase.outputTo + '}}'}</span>
+                                <span className="text-[10px]">{`→ {{${phase.outputTo}}}`}</span>
                               </>
                             )}
                           </div>

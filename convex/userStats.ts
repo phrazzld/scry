@@ -156,6 +156,7 @@ export const reconcileUserStats = internalMutation({
             await ctx.db.insert('userStats', {
               userId: user._id,
               ...actualStats,
+              dueNowCount: 0, // Initialize to 0, will be updated by review mutations
               lastCalculated: Date.now(),
             });
 
