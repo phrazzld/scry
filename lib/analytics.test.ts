@@ -109,8 +109,7 @@ describe('analytics wrapper', () => {
     vi.stubEnv('VERCEL_ENV', 'production');
 
     const originalWindow = globalThis.window;
-    // @ts-expect-error - simulate server runtime
-    delete globalThis.window;
+    delete (globalThis as any).window;
 
     try {
       vi.resetModules();
