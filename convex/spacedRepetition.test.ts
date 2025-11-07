@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import type { Doc, Id } from './_generated/dataModel';
 import { getRetrievability } from './fsrs';
 import { calculateFreshnessDecay, calculateRetrievabilityScore } from './spacedRepetition';

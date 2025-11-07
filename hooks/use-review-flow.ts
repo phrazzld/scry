@@ -5,9 +5,9 @@ import { api } from '@/convex/_generated/api';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 import { useDataHash } from '@/hooks/use-data-hash';
 import { useSimplePoll } from '@/hooks/use-simple-poll';
+import { useTrackEvent } from '@/hooks/use-track-event';
 import { LOADING_TIMEOUT_MS, POLLING_INTERVAL_MS } from '@/lib/constants/timing';
 import type { SimpleQuestion } from '@/types/questions';
-import { useTrackEvent } from '@/hooks/use-track-event';
 
 // State machine definition
 interface ReviewModeState {
@@ -117,7 +117,7 @@ function generateSessionId(): string {
  * Separates data fetching, state management, and event handling from presentation
  *
  * @returns Object containing review state and handlers
-*/
+ */
 export function useReviewFlow() {
   const trackEvent = useTrackEvent();
   // Single state machine instead of 6 separate state variables
