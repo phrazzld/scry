@@ -1,12 +1,10 @@
+import React from 'react';
 import { useUser } from '@clerk/nextjs';
 import { render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-
-import { ConvexErrorBoundary } from './convex-error-boundary';
-
 import { clearUserContext, reportError, setUserContext } from '@/lib/analytics';
+import { ConvexErrorBoundary } from './convex-error-boundary';
 
 vi.mock('@clerk/nextjs', () => ({
   useUser: vi.fn(),

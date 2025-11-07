@@ -2,10 +2,8 @@ import { useUser } from '@clerk/nextjs';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-
-import { useTrackEvent } from './use-track-event';
-
 import { clearUserContext, setUserContext, trackEvent } from '@/lib/analytics';
+import { useTrackEvent } from './use-track-event';
 
 vi.mock('@clerk/nextjs', () => ({
   useUser: vi.fn(),
