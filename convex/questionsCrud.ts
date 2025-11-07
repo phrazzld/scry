@@ -69,7 +69,7 @@ export const saveGeneratedQuestions = mutation({
 
     trackEvent('Question Created', {
       userId: String(userId),
-      questionId: questionIds.length === 1 ? String(questionIds[0]) : undefined,
+      questionId: questionIds.length === 1 ? String(questionIds[0]) : 'batch',
       source: 'ai',
       questionCount: questionIds.length,
     });
@@ -137,7 +137,7 @@ export const saveBatch = internalMutation({
 
     trackEvent('Question Created', {
       userId: String(args.userId),
-      questionId: questionIds.length === 1 ? String(questionIds[0]) : undefined,
+      questionId: questionIds.length === 1 ? String(questionIds[0]) : 'batch',
       source: 'ai',
       questionCount: questionIds.length,
     });

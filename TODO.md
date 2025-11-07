@@ -224,7 +224,7 @@
   Time: 1h
   ```
 
-- [~] **Add question CRUD event tracking**
+- [x] **Add question CRUD event tracking**
   ```
   Files:
     - convex/questionsCrud.ts (modify - add to mutations)
@@ -263,7 +263,12 @@
 
 ### Phase 3: Configuration & Testing (Week 2)
 
-- [ ] **Configure Sentry email alerts**
+**Status:** Documentation complete, manual configuration pending
+**Completed:** Event schema docs, CLAUDE.md updates, test error route, deployment checklist, observability runbook
+**Pending (Manual):** Sentry/Vercel dashboard configuration (see docs/deployment-checklist.md)
+**Optional:** E2E tests (can be added later)
+
+- [ ] **Configure Sentry email alerts** (MANUAL - See docs/deployment-checklist.md)
   ```
   Files: N/A (Sentry dashboard configuration)
 
@@ -289,7 +294,7 @@
   Time: 30min
   ```
 
-- [ ] **Configure Vercel uptime checks**
+- [ ] **Configure Vercel uptime checks** (MANUAL - See docs/deployment-checklist.md)
   ```
   Files: N/A (Vercel dashboard configuration)
 
@@ -315,7 +320,15 @@
   Time: 20min
   ```
 
-- [ ] **Create event schema documentation**
+- [x] **Create event schema documentation**
+  ```
+  Work Log:
+  - Created comprehensive docs/analytics-events.md documenting all 9 tracked events
+  - Includes event schema, properties, trigger locations, example payloads
+  - Documents TypeScript type safety patterns and PII redaction
+  - Includes implementation examples for frontend (React) and backend (Convex)
+  - Added troubleshooting guide and dashboard access information
+  ```
   ```
   Files:
     - docs/analytics-events.md (create)
@@ -345,7 +358,15 @@
   Time: 45min
   ```
 
-- [ ] **Add analytics patterns to CLAUDE.md**
+- [x] **Add analytics patterns to CLAUDE.md**
+  ```
+  Work Log:
+  - Added comprehensive "Analytics & Observability" section to CLAUDE.md
+  - Documented event tracking patterns for React and Convex
+  - Included error reporting examples (automatic and manual)
+  - Added dashboard links and troubleshooting guides
+  - Documented cost monitoring and PII protection
+  ```
   ```
   Files:
     - CLAUDE.md (modify - add Analytics & Observability section)
@@ -417,6 +438,42 @@
 
   Time: 1h
   ```
+
+### Phase 3: Additional Deliverables (Completed)
+
+Beyond the original plan, the following production-readiness artifacts were created:
+
+- [x] **Production Deployment Checklist** (`docs/deployment-checklist.md`)
+  - Pre-deployment environment configuration steps
+  - Sentry and Vercel dashboard configuration guides
+  - Testing and verification procedures
+  - Post-deployment monitoring checklist
+  - Rollback procedures and troubleshooting
+
+- [x] **Observability Runbook** (`docs/observability-runbook.md`)
+  - Daily/weekly monitoring routines
+  - Error triage process with severity levels
+  - Alert response playbooks for each alert type
+  - Incident response procedures
+  - Performance monitoring guides
+  - Cost management and quota monitoring
+  - On-call rotation responsibilities
+
+- [x] **Test Error Route** (`app/test-error/page.tsx`)
+  - Dev/preview-only route for testing Sentry integration
+  - Three test scenarios: sync errors, async errors, PII redaction
+  - Verification steps and expected behavior
+  - Blocked in production for security
+
+- [x] **Enhanced Environment Documentation** (`.env.example`)
+  - Critical production requirements highlighted
+  - Source map upload configuration explained
+  - Sample rate tuning guidance
+  - Troubleshooting common issues
+
+- [x] **Analytics URL Filtering** (`app/layout.tsx`)
+  - beforeSend filter for sensitive URLs
+  - Prevents tracking of webhook endpoints, tokens in URLs, test routes
 
 ## Design Iteration Checkpoints
 

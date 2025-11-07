@@ -463,7 +463,7 @@ export const processJob = internalAction({
       const durationMs = Date.now() - startTime;
       trackEvent('Quiz Generation Failed', {
         jobId: args.jobId,
-        userId: job ? String(job.userId) : undefined,
+        userId: job ? String(job.userId) : 'unknown',
         provider,
         errorType: code,
         durationMs,

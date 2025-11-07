@@ -10,21 +10,19 @@ const withBundleAnalyzer = bundleAnalyzer({
 const isSentryUploadEnabled =
   !!process.env.SENTRY_AUTH_TOKEN && !!process.env.SENTRY_ORG && !!process.env.SENTRY_PROJECT;
 
-const sentryWebpackPluginOptions = {
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  release: process.env.SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA,
-  telemetry: false,
-  dryRun: !isSentryUploadEnabled,
-  widenClientFileUpload: true,
-  tunnelRoute: "/monitoring",
-  disableLogger: true,
-  automaticVercelMonitors: true,
-};
-
 const sentryNextConfigOptions = {
   silent: !process.env.CI,
+  // Hide source maps from generated client bundles (security)
+  hideSourceMaps: true,
+  // Tree-shake Sentry logger statements in production (reduces bundle size)
+  disableLogger: true,
+  // Webpack plugin options for source maps upload
+  sourcemaps: {
+    disable: !isSentryUploadEnabled,
+  },
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  automaticVercelMonitors: true,
 };
 
 const nextConfig: NextConfig = {
@@ -205,6 +203,5 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(
   withBundleAnalyzer(nextConfig),
-  sentryWebpackPluginOptions,
   sentryNextConfigOptions
 );

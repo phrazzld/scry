@@ -322,6 +322,200 @@ pnpm test:contract  # API contract validation
 - `./scripts/validate-env-vars.sh` - Check env config
 - `./scripts/check-deployment-health.sh` - Verify functions deployed
 
+## Analytics & Observability
+
+**Architecture:** Vercel Analytics (user behavior) + Sentry (error tracking)
+**Cost:** $0/month (Sentry free tier 5k errors/month, Analytics included in Vercel)
+
+### Setup (2025 Best Practice)
+
+**⭐ Sentry Vercel Integration (Recommended):**
+- Install: https://vercel.com/integrations/sentry
+- Auto-creates: `SENTRY_AUTH_TOKEN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`
+- Benefits: Eliminates release ID mismatch, automatic source map uploads, zero manual token management
+- Status: Uses modern config options (`hideSourceMaps`, `disableLogger`, `automaticVercelMonitors`)
+
+**Session Replay (Configured):**
+- Defaults: 0% routine sessions, 100% of error sessions
+- Optional: Set `SENTRY_REPLAYS_SESSION_SAMPLE_RATE=0.05` for 5% routine replay capture
+- Captures user interactions before errors for debugging
+
+**Next.js Configuration:**
+- Source maps: Hidden in production (`hideSourceMaps: true`)
+- Logger: Tree-shaken in bundles (`disableLogger: true`)
+- Cron monitoring: Auto-tracked via `automaticVercelMonitors: true`
+
+### Event Tracking
+
+**Frontend (React):**
+```typescript
+import { useTrackEvent } from '@/hooks/use-track-event';
+
+function MyComponent() {
+  const track = useTrackEvent(); // Auto-includes user context from Clerk
+
+  track('Quiz Generation Started', {
+    jobId: 'k17abc',
+    questionCount: 10,
+    provider: 'openai'
+  });
+}
+```
+
+**Backend (Convex):**
+```typescript
+import { trackEvent } from '../lib/analytics';
+
+export const myMutation = mutation({
+  handler: async (ctx, args) => {
+    trackEvent('Question Created', {
+      questionId: result._id,
+      userId: ctx.auth.userId,
+      source: 'ai'
+    });
+  }
+});
+```
+
+**Event Schema:** All events documented in `docs/analytics-events.md`
+**Type Safety:** TypeScript autocomplete for event names + properties via discriminated unions
+
+### Error Reporting
+
+**Automatic capture:**
+- All unhandled React errors via `ConvexErrorBoundary`
+- All Next.js API/middleware errors via instrumentation.ts
+- Source maps uploaded automatically (readable stack traces)
+
+**Manual capture:**
+```typescript
+import { reportError } from '@/lib/analytics';
+
+try {
+  await riskyOperation();
+} catch (error) {
+  reportError(error, {
+    context: 'payment-processing',
+    userId: user.id
+  });
+  throw error;
+}
+```
+
+**PII Protection:** Automatic redaction of emails, auth tokens, sensitive headers
+
+### Dashboard Links
+
+**Sentry:** https://sentry.io/organizations/[your-org]/projects/scry/
+- View: Errors, stack traces, user context
+- Alerts: Configured for new error types + high error rate
+- Retention: 90 days (free tier)
+
+**Vercel Analytics:** https://vercel.com/[your-team]/scry/analytics
+- View: Custom events, Web Vitals (CLS/LCP/FCP/FID/TTFB)
+- Retention: 13 months
+
+### Production Monitoring
+
+**Daily checks:**
+1. Sentry dashboard for new error types (should be ~0-5 errors/day normally)
+2. Check Sentry quota usage (Settings → Subscription, stay under 166 errors/day)
+3. Vercel Analytics for traffic anomalies
+
+**Alert configuration:**
+- Email on new error types in production
+- Email on error rate >10/hour
+- Email on crash-free sessions <98%
+
+### Troubleshooting
+
+**Errors not appearing in Sentry:**
+- Verify `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN` set in Vercel env vars
+- Check `SENTRY_AUTH_TOKEN` configured (required for source maps)
+- Ensure `NEXT_PUBLIC_DISABLE_SENTRY !== 'true'`
+- Wait ~30 seconds for events to appear
+
+**Minified stack traces (unreadable):**
+- Vercel Integration not installed or source maps not uploading
+- If manual setup: Missing `SENTRY_AUTH_TOKEN` or token lacks required scopes
+- Solution: Install Vercel Integration (recommended) or verify auth token
+- Check Sentry → Settings → Source Maps for recent uploads
+
+**Events not in Vercel Analytics:**
+- Only production/preview environments send events (dev is disabled)
+- Wait 5-10 minutes for dashboard to update
+- Check `NEXT_PUBLIC_DISABLE_ANALYTICS !== 'true'`
+
+**High Sentry quota usage:**
+- Lower `SENTRY_TRACES_SAMPLE_RATE` from 0.1 to 0.05 (5%)
+- Add ignore rules in Sentry dashboard for noisy non-critical errors
+- Review if upgrade needed ($26/mo Team = 50k errors/month)
+
+**Sensitive data in logs:**
+- All emails auto-redacted to `[EMAIL_REDACTED]`
+- Sensitive headers (auth, cookies, API keys) automatically filtered
+- If leak detected, add pattern to `lib/analytics.ts` sanitization
+
+### Alert Configuration (CLI-Based)
+
+**Script-based alert setup** (recommended over manual dashboard clicking):
+
+```bash
+# 1. Create Sentry API token (one time)
+# Visit: https://sentry.io/settings/account/api/auth-tokens/
+# Scopes: project:write, alerts:write
+# Add to .env.local: SENTRY_API_TOKEN=sntrys_xxx
+
+# 2. Run alert configuration script
+./scripts/configure-sentry-alerts.sh
+
+# Output:
+# ✅ Created: Production: New Error Type (ID: 123)
+# ⚠️  Note: Metric alerts require manual UI configuration
+```
+
+**What the script configures:**
+- ✅ **Issue Alert:** New error types in production (email notification, 30min throttle)
+- ⚠️  **Metric Alerts:** High error rate + Release health (manual UI setup recommended)
+
+**Manual metric alert setup** (Sentry UI required):
+1. Navigate to: Sentry → Alerts → Create Alert
+2. **High Error Rate:**
+   - Type: "Number of Errors"
+   - Threshold: > 10 events in 1 hour
+   - Environment: production
+   - Action: Email notification
+3. **Release Health:**
+   - Type: "Crash Free Sessions"
+   - Threshold: < 98% in 1 hour
+   - Environment: production
+   - Action: Email notification
+
+**List configured alerts:**
+```bash
+# Via sentry-cli
+pnpm exec sentry-cli alerts list -o misty-step -p scry
+
+# Via API
+curl "https://sentry.io/api/0/projects/misty-step/scry/rules/" \
+  -H "Authorization: Bearer $SENTRY_API_TOKEN"
+```
+
+### Cost Monitoring
+
+**Sentry Free Tier:** 5,000 errors/month = ~166 errors/day
+- Check usage: Sentry → Settings → Subscription
+- Approaching limit? Lower sample rates or add ignore rules
+
+**Vercel Analytics:** Included in current plan, no additional cost
+
+### References
+
+- Event schema: `docs/analytics-events.md`
+- Operational runbook: `docs/observability-runbook.md`
+- Implementation: `lib/analytics.ts`, `lib/sentry.ts`
+- Testing: Visit `/test-error` in preview (dev only, triggers test error)
+
 ## Database Bandwidth Optimization
 
 **Context:** Convex Starter plan = 1 GB/month. Anki-scale collections (10k+ cards) were hitting 640 MB/day.

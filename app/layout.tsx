@@ -3,9 +3,9 @@ import { Geist, Geist_Mono } from 'next/font/google';
 
 import './globals.css';
 
-import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
+import { AnalyticsWrapper } from '@/components/analytics-wrapper';
 import { ConditionalNavbar } from '@/components/conditional-navbar';
 import { DeploymentVersionGuard } from '@/components/deployment-version-guard';
 import { Footer } from '@/components/footer';
@@ -63,7 +63,7 @@ export default function RootLayout({
                     <Footer />
                   </div>
                   <Toaster />
-                  <Analytics />
+                  <AnalyticsWrapper />
                   <SpeedInsights />
                 </CurrentQuestionProvider>
               </DeploymentVersionGuard>

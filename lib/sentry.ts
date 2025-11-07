@@ -1,4 +1,4 @@
-import type { Breadcrumb, Event, EventHint } from "@sentry/types";
+import type { Breadcrumb, Event, EventHint } from "@sentry/nextjs";
 
 // Centralized Sentry options with aggressive PII scrubbing shared across runtimes.
 
@@ -104,7 +104,7 @@ export function sanitizeEvent(event: Event, _hint?: EventHint): Event {
   }
 
   if (event.request) {
-    event.request.headers = sanitizeHeaders(event.request.headers);
+    event.request.headers = sanitizeHeaders(event.request.headers) as Record<string, string> | undefined;
     event.request.query_string =
       typeof event.request.query_string === "string"
         ? sanitizeString(event.request.query_string)
@@ -129,7 +129,7 @@ export function sanitizeEvent(event: Event, _hint?: EventHint): Event {
   return event;
 }
 
-export function sanitizeBreadcrumb(breadcrumb: Breadcrumb | null): Breadcrumb | null {
+export function sanitizeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   if (!breadcrumb) {
     return breadcrumb;
   }
@@ -171,12 +171,19 @@ function resolveDsn(target: SentryTarget): string | undefined {
 }
 
 function resolveEnvironment(): string | undefined {
-  return (
-    process.env.SENTRY_ENVIRONMENT ||
-    process.env.VERCEL_ENV ||
-    process.env.NEXT_PUBLIC_VERCEL_ENV ||
-    process.env.NODE_ENV
-  );
+  // Explicit override takes precedence
+  if (process.env.SENTRY_ENVIRONMENT) {
+    return process.env.SENTRY_ENVIRONMENT;
+  }
+
+  // Map Vercel environments to clean names (no "vercel-" prefix)
+  // This gives us "production" and "preview" instead of "vercel-production"
+  const vercelEnv = process.env.VERCEL_ENV || process.env.NEXT_PUBLIC_VERCEL_ENV;
+  if (vercelEnv === 'production') return 'production';
+  if (vercelEnv === 'preview') return 'preview';
+  if (vercelEnv === 'development') return 'development';
+
+  return process.env.NODE_ENV;
 }
 
 function resolveRelease(): string | undefined {
@@ -204,7 +211,7 @@ export function createSentryOptions(target: SentryTarget): SentryInitOptions {
     tracesSampleRate,
     sendDefaultPii: false,
     beforeSend: (event: Event, hint?: EventHint) => sanitizeEvent(event, hint),
-    beforeBreadcrumb: (breadcrumb) => sanitizeBreadcrumb(breadcrumb),
+    beforeBreadcrumb: (breadcrumb: Breadcrumb) => sanitizeBreadcrumb(breadcrumb),
   };
 
   if (target === "client") {
