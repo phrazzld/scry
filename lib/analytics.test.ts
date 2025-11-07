@@ -18,32 +18,18 @@ vi.mock('@sentry/nextjs', () => ({
   setUser: setUserMock,
 }));
 
-const originalEnv = { ...process.env };
-
-function restoreEnv() {
-  for (const key of Object.keys(process.env)) {
-    if (!(key in originalEnv)) {
-      delete process.env[key];
-    }
-  }
-
-  for (const [key, value] of Object.entries(originalEnv)) {
-    process.env[key] = value;
-  }
-}
-
 describe('analytics wrapper', () => {
   beforeEach(() => {
     clientTrackMock.mockReset();
     serverTrackMock.mockReset();
     captureExceptionMock.mockReset();
     setUserMock.mockReset();
-    restoreEnv();
+    vi.unstubAllEnvs();
   });
 
   it('skips tracking in development environment by default', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.VERCEL_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('VERCEL_ENV', 'development');
 
     vi.resetModules();
     const { trackEvent } = await import('./analytics');
@@ -54,8 +40,8 @@ describe('analytics wrapper', () => {
   });
 
   it('tracks events in production environment and merges user metadata', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.VERCEL_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
 
     vi.resetModules();
     const { setUserContext, trackEvent } = await import('./analytics');
@@ -88,8 +74,8 @@ describe('analytics wrapper', () => {
   });
 
   it('allows enabling analytics explicitly in development', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.VERCEL_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('VERCEL_ENV', 'development');
     process.env.NEXT_PUBLIC_ENABLE_ANALYTICS = 'true';
 
     vi.resetModules();
@@ -101,8 +87,8 @@ describe('analytics wrapper', () => {
   });
 
   it('does not throw when the analytics SDK throws', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.VERCEL_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
 
     clientTrackMock.mockImplementation(() => {
       throw new Error('sdk failure');
@@ -119,8 +105,8 @@ describe('analytics wrapper', () => {
   });
 
   it('uses server-side analytics when window is unavailable', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.VERCEL_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
 
     const originalWindow = globalThis.window;
     // @ts-expect-error - simulate server runtime
@@ -146,8 +132,8 @@ describe('analytics wrapper', () => {
   });
 
   it('reports errors to Sentry when enabled', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.VERCEL_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
     process.env.SENTRY_DSN = 'https://example.ingest.sentry.io/123';
 
     vi.resetModules();
@@ -170,7 +156,7 @@ describe('analytics wrapper', () => {
   });
 
   it('skips Sentry reporting when disabled', async () => {
-    process.env.NODE_ENV = 'test';
+    vi.stubEnv('NODE_ENV', 'test');
     delete process.env.SENTRY_DSN;
     delete process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -183,8 +169,8 @@ describe('analytics wrapper', () => {
   });
 
   it('clears user context', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.VERCEL_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('VERCEL_ENV', 'production');
 
     vi.resetModules();
     const { setUserContext, clearUserContext } = await import('./analytics');

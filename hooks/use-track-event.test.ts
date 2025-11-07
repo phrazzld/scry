@@ -1,6 +1,7 @@
 import { useUser } from '@clerk/nextjs';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { useTrackEvent } from './use-track-event';
 
@@ -17,7 +18,7 @@ vi.mock('@/lib/analytics', () => ({
 }));
 
 describe('useTrackEvent', () => {
-  const mockUseUser = useUser as unknown as vi.Mock;
+  const mockUseUser = useUser as unknown as Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();

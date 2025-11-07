@@ -2,6 +2,7 @@ import { useUser } from '@clerk/nextjs';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 import { ConvexErrorBoundary } from './convex-error-boundary';
 
@@ -18,7 +19,7 @@ vi.mock('@/lib/analytics', () => ({
 }));
 
 describe('ConvexErrorBoundary', () => {
-  const mockUseUser = useUser as unknown as vi.Mock;
+  const mockUseUser = useUser as unknown as Mock;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -41,7 +42,7 @@ describe('ConvexErrorBoundary', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  function Thrower() {
+  function Thrower(): null {
     throw new Error('Boom!');
   }
 
