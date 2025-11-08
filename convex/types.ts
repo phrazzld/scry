@@ -19,6 +19,7 @@ export type User = {
   name?: string;
   emailVerified?: boolean;
   image?: string;
+  createdAt?: number;
 };
 
 /**

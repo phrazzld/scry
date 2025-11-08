@@ -55,12 +55,14 @@ export const syncUser = internalMutation({
     }
 
     // Create new user
+    const timestamp = Date.now();
     const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,
       image: imageUrl,
       emailVerified: emailVerified ? Date.now() : undefined,
+      createdAt: timestamp,
     });
 
     return newUserId;
@@ -207,12 +209,14 @@ export const ensureUser = mutation({
       throw new Error('Clerk identity is missing an email address');
     }
 
+    const timestamp = Date.now();
     const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,
       image: imageUrl,
       emailVerified,
+      createdAt: timestamp,
     });
 
     return newUserId;

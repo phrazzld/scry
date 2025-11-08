@@ -10,9 +10,11 @@ export default defineSchema({
     image: v.optional(v.string()),
     currentStreak: v.optional(v.number()), // Consecutive days with >0 reviews
     lastStreakDate: v.optional(v.number()), // Last date streak was calculated
+    createdAt: v.optional(v.number()), // TODO: make required after migration seeds all rows
   })
     .index('by_email', ['email'])
-    .index('by_clerk_id', ['clerkId']),
+    .index('by_clerk_id', ['clerkId'])
+    .index('by_creation_time', ['createdAt']),
 
   // Cached card statistics per user (O(1) reads vs O(N) collection scans)
   // Updated incrementally on card state transitions for bandwidth optimization

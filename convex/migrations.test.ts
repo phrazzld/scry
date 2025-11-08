@@ -37,6 +37,13 @@ interface DifficultyRemovalStats {
   errors: number;
 }
 
+interface UserCreatedAtBackfillStats {
+  totalProcessed: number;
+  updated: number;
+  alreadyHadCreatedAt: number;
+  errors: number;
+}
+
 /**
  * Helper to create mock questions with or without difficulty field
  */
@@ -58,6 +65,18 @@ function createMockQuestion(
   };
 
   return hasDifficulty ? { ...baseQuestion, difficulty: 'medium' } : baseQuestion;
+}
+
+function createMockUser(id: string, hasCreatedAt: boolean = false): Doc<'users'> {
+  const baseUser: Doc<'users'> = {
+    _id: id as Id<'users'>,
+    _creationTime: Date.now(),
+    email: `${id}@example.com`,
+    clerkId: undefined,
+    name: 'Test',
+  };
+
+  return hasCreatedAt ? { ...baseUser, createdAt: baseUser._creationTime } : baseUser;
 }
 
 /**
@@ -137,6 +156,52 @@ function simulateDifficultyRemoval(
         : status === 'partial'
           ? `Partially completed: ${stats.updated} succeeded, ${failures.length} failed`
           : `Migration failed: All ${failures.length} attempts failed`,
+  };
+}
+
+function simulateUserCreatedAtBackfill(
+  users: Doc<'users'>[],
+  options: { batchSize?: number; dryRun?: boolean } = {}
+): MigrationResult<UserCreatedAtBackfillStats> {
+  const batchSize = options.batchSize || 200;
+  const dryRun = options.dryRun || false;
+
+  const stats: UserCreatedAtBackfillStats = {
+    totalProcessed: 0,
+    updated: 0,
+    alreadyHadCreatedAt: 0,
+    errors: 0,
+  };
+
+  let cursor = 0;
+  while (cursor < users.length) {
+    const batch = users.slice(cursor, cursor + batchSize);
+
+    for (const user of batch) {
+      stats.totalProcessed++;
+
+      if (user.createdAt !== undefined) {
+        stats.alreadyHadCreatedAt++;
+        continue;
+      }
+
+      if (!dryRun) {
+        user.createdAt = user._creationTime;
+      }
+
+      stats.updated++;
+    }
+
+    cursor += batchSize;
+  }
+
+  return {
+    status: 'completed',
+    dryRun,
+    stats,
+    message: dryRun
+      ? `Dry run: Would update ${stats.updated} users`
+      : `Successfully updated ${stats.updated} users`,
   };
 }
 
@@ -373,6 +438,55 @@ describe('Migration Infrastructure', () => {
         });
         expect(failed.message).toContain('Migration failed');
       });
+    });
+  });
+
+  describe('User createdAt backfill migration', () => {
+    it('should set createdAt for users missing the field', () => {
+      const users = Array.from({ length: 5 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 2 });
+
+      expect(result.status).toBe('completed');
+      expect(result.dryRun).toBe(false);
+      expect(result.stats.updated).toBe(5);
+      expect(result.stats.alreadyHadCreatedAt).toBe(0);
+      expect(users.every((user) => user.createdAt === user._creationTime)).toBe(true);
+    });
+
+    it('should ignore users that already have createdAt populated', () => {
+      const users = [
+        createMockUser('existing-1', true),
+        createMockUser('existing-2', true),
+        createMockUser('new-1', false),
+      ];
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 10 });
+
+      expect(result.stats.totalProcessed).toBe(3);
+      expect(result.stats.updated).toBe(1);
+      expect(result.stats.alreadyHadCreatedAt).toBe(2);
+      expect(users[2].createdAt).toBeDefined();
+    });
+
+    it('should process large datasets across multiple batches', () => {
+      const users = Array.from({ length: 450 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 100 });
+
+      expect(result.stats.totalProcessed).toBe(450);
+      expect(result.stats.updated).toBe(450);
+      expect(result.stats.alreadyHadCreatedAt).toBe(0);
+    });
+
+    it('should honor dry-run mode without mutating data', () => {
+      const users = Array.from({ length: 3 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { dryRun: true });
+
+      expect(result.dryRun).toBe(true);
+      expect(result.stats.updated).toBe(3);
+      expect(users.every((user) => user.createdAt === undefined)).toBe(true);
     });
   });
 
