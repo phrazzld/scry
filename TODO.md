@@ -33,7 +33,7 @@
   Estimate: 1h
   ```
 
-- [ ] Denormalize sessionId for interactions + index
+- [x] Denormalize sessionId for interactions + index
   ```
   Files: convex/schema.ts, convex/questionsInteractions.ts, convex/migrations.ts, convex/migrations.test.ts, convex/questionsInteractions.test.ts
   Goal: promote `context.sessionId` to a top-level optional `sessionId` plus `interactions.by_user_session` index so quiz analytics can query a session without scanning an entire history.

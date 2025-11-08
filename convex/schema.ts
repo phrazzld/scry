@@ -93,6 +93,7 @@ export default defineSchema({
     userAnswer: v.string(),
     isCorrect: v.boolean(),
     attemptedAt: v.number(),
+    sessionId: v.optional(v.string()),
     timeSpent: v.optional(v.number()), // milliseconds
     context: v.optional(
       v.object({
@@ -102,6 +103,7 @@ export default defineSchema({
     ),
   })
     .index('by_user', ['userId', 'attemptedAt'])
+    .index('by_user_session', ['userId', 'sessionId', 'attemptedAt'])
     .index('by_question', ['questionId', 'attemptedAt'])
     .index('by_user_question', ['userId', 'questionId']),
 

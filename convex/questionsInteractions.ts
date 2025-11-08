@@ -47,6 +47,7 @@ export const recordInteraction = mutation({
       userAnswer: args.userAnswer,
       isCorrect: args.isCorrect,
       attemptedAt: Date.now(),
+      sessionId: args.sessionId,
       timeSpent: args.timeSpent,
       context: args.sessionId ? { sessionId: args.sessionId } : undefined,
     });

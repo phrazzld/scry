@@ -44,6 +44,13 @@ interface UserCreatedAtBackfillStats {
   errors: number;
 }
 
+interface InteractionSessionBackfillStats {
+  totalProcessed: number;
+  updated: number;
+  missingSessionContext: number;
+  errors: number;
+}
+
 /**
  * Helper to create mock questions with or without difficulty field
  */
@@ -202,6 +209,77 @@ function simulateUserCreatedAtBackfill(
     message: dryRun
       ? `Dry run: Would update ${stats.updated} users`
       : `Successfully updated ${stats.updated} users`,
+  };
+}
+
+function createMockInteraction(
+  id: string,
+  args: {
+    contextSessionId?: string;
+    sessionId?: string;
+  } = {}
+): Doc<'interactions'> {
+  return {
+    _id: id as Id<'interactions'>,
+    _creationTime: Date.now(),
+    userId: 'user123' as Id<'users'>,
+    questionId: 'question123' as Id<'questions'>,
+    userAnswer: 'A',
+    isCorrect: true,
+    attemptedAt: Date.now(),
+    context: args.contextSessionId ? { sessionId: args.contextSessionId } : undefined,
+    sessionId: args.sessionId,
+  } as Doc<'interactions'>;
+}
+
+function simulateInteractionSessionBackfill(
+  interactions: Array<Doc<'interactions'>>,
+  options: { batchSize?: number; dryRun?: boolean } = {}
+): MigrationResult<InteractionSessionBackfillStats> {
+  const batchSize = options.batchSize || 200;
+  const dryRun = options.dryRun || false;
+
+  const stats: InteractionSessionBackfillStats = {
+    totalProcessed: 0,
+    updated: 0,
+    missingSessionContext: 0,
+    errors: 0,
+  };
+
+  for (let i = 0; i < interactions.length; i += batchSize) {
+    const batch = interactions.slice(i, i + batchSize);
+
+    for (const interaction of batch) {
+      stats.totalProcessed++;
+
+      if (interaction.sessionId) {
+        continue;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = interaction as any;
+      const contextSessionId = data?.context?.sessionId;
+
+      if (!contextSessionId) {
+        stats.missingSessionContext++;
+        continue;
+      }
+
+      if (!dryRun) {
+        interaction.sessionId = contextSessionId;
+      }
+
+      stats.updated++;
+    }
+  }
+
+  return {
+    status: 'completed',
+    dryRun,
+    stats,
+    message: dryRun
+      ? `Dry run: Would update ${stats.updated} interactions`
+      : `Successfully updated ${stats.updated} interactions`,
   };
 }
 
@@ -513,6 +591,44 @@ describe('Migration Infrastructure', () => {
 
         expect(result.status).toBe(expected);
       }
+    });
+  });
+
+  describe('Interaction sessionId backfill', () => {
+    it('backfills sessionId when context contains sessionId', () => {
+      const interactions = [
+        createMockInteraction('i1', { contextSessionId: 'session-1' }),
+        createMockInteraction('i2', { sessionId: 'session-existing' }),
+      ];
+
+      const result = simulateInteractionSessionBackfill(interactions, { batchSize: 1 });
+
+      expect(result.stats.updated).toBe(1);
+      expect(result.stats.missingSessionContext).toBe(0);
+      expect(interactions[0].sessionId).toBe('session-1');
+      expect(interactions[1].sessionId).toBe('session-existing');
+    });
+
+    it('skips interactions without context sessionId', () => {
+      const interactions = [
+        createMockInteraction('i1', {}),
+        createMockInteraction('i2', { contextSessionId: undefined }),
+      ];
+
+      const result = simulateInteractionSessionBackfill(interactions);
+
+      expect(result.stats.updated).toBe(0);
+      expect(result.stats.missingSessionContext).toBe(2);
+    });
+
+    it('respects dry-run mode without mutating documents', () => {
+      const interactions = [createMockInteraction('i1', { contextSessionId: 'session-1' })];
+
+      const result = simulateInteractionSessionBackfill(interactions, { dryRun: true });
+
+      expect(result.dryRun).toBe(true);
+      expect(result.stats.updated).toBe(1);
+      expect(interactions[0].sessionId).toBeUndefined();
     });
   });
 

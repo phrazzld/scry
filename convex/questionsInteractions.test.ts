@@ -1,0 +1,71 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { requireUserFromClerk } from './clerk';
+import { recordInteraction } from './questionsInteractions';
+import { getScheduler } from './scheduling';
+
+vi.mock('./clerk', () => ({
+  requireUserFromClerk: vi.fn(),
+}));
+
+vi.mock('./scheduling', () => ({
+  getScheduler: vi.fn(),
+}));
+
+const mockRequireUserFromClerk = vi.mocked(requireUserFromClerk);
+const mockGetScheduler = vi.mocked(getScheduler);
+
+describe('recordInteraction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockRequireUserFromClerk.mockResolvedValue({
+      _id: 'user_1' as const,
+    });
+
+    mockGetScheduler.mockReturnValue({
+      initializeCard: vi.fn().mockReturnValue({
+        state: 'new',
+      }),
+      scheduleNextReview: vi.fn().mockReturnValue({
+        dbFields: {
+          nextReview: Date.now() + 1000,
+          scheduledDays: 1,
+          state: 'learning',
+        },
+      }),
+    } as any);
+  });
+
+  it('persists sessionId for recorded interactions', async () => {
+    const insertSpy = vi.fn();
+    const ctx = createMockCtx(insertSpy);
+
+    await recordInteraction.handler(ctx as any, {
+      questionId: 'question_1' as any,
+      userAnswer: 'A',
+      isCorrect: true,
+      sessionId: 'session-123',
+    });
+
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+    const inserted = insertSpy.mock.calls[0][1];
+    expect(inserted.sessionId).toBe('session-123');
+    expect(inserted.context).toEqual({ sessionId: 'session-123' });
+  });
+});
+
+function createMockCtx(insertSpy: ReturnType<typeof vi.fn>) {
+  return {
+    db: {
+      get: vi.fn().mockResolvedValue({
+        _id: 'question_1',
+        userId: 'user_1',
+        attemptCount: 0,
+        correctCount: 0,
+      }),
+      insert: insertSpy,
+      patch: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+}
