@@ -54,7 +54,7 @@
   Estimate: 1h
   ```
 
-- [ ] Batch clerk.deleteUser question cleanup
+- [x] Batch clerk.deleteUser question cleanup
   ```
   Files: convex/clerk.ts, convex/clerk.test.ts
   Goal: replace `.collect()` with paginated batches (100–200 docs) when soft-deleting a user’s questions so cleanup cost stays O(limit) even for 10k-card accounts.

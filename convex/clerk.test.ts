@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ensureUser } from './clerk';
+import { deleteUser, ensureUser } from './clerk';
 
 describe('clerk.ensureUser', () => {
   beforeEach(() => {
@@ -49,3 +49,81 @@ describe('clerk.ensureUser', () => {
     expect(firstSpy).toHaveBeenCalled();
   });
 });
+
+describe('clerk.deleteUser', () => {
+  it('soft deletes questions in paginated batches', async () => {
+    const questionCount = 1_200;
+    const ctx = createDeleteCtx(questionCount);
+
+    await deleteUser.handler(ctx as any, { clerkId: 'clerk_user' });
+
+    expect(ctx.db.patch).toHaveBeenCalledTimes(questionCount);
+    const deletedAtValues = ctx.db.patch.mock.calls.map(([, update]) => update.deletedAt);
+    expect(new Set(deletedAtValues).size).toBe(1); // single timestamp reused
+    expect(ctx.db.query).toHaveBeenCalledWith('questions');
+  });
+});
+
+function createDeleteCtx(questionCount: number) {
+  const userDoc = { _id: 'user_1' };
+
+  const questions = Array.from({ length: questionCount }, (_, i) => ({
+    _id: `question_${i}`,
+    userId: 'user_1',
+    question: 'Q',
+  }));
+
+  const questionQuery = new MockQuestionQuery(questions);
+
+  const querySpy = vi.fn((table: string) => {
+    if (table === 'users') {
+      return {
+        withIndex: () => ({
+          first: () => Promise.resolve(userDoc),
+        }),
+      };
+    }
+
+    if (table === 'questions') {
+      return questionQuery;
+    }
+
+    throw new Error(`Unexpected table ${table}`);
+  });
+
+  const patchSpy = vi.fn().mockResolvedValue(undefined);
+
+  return {
+    db: {
+      query: querySpy,
+      patch: patchSpy,
+    },
+  } as any;
+}
+
+class MockQuestionQuery {
+  private readonly rows;
+
+  constructor(rows: Array<{ _id: string }>) {
+    this.rows = rows;
+  }
+
+  withIndex() {
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  async paginate({ numItems, cursor }: { numItems: number; cursor: string | null }) {
+    const start = cursor ? parseInt(cursor, 10) : 0;
+    const page = this.rows.slice(start, start + numItems);
+    const nextIndex = start + page.length;
+    return {
+      page,
+      continueCursor: nextIndex < this.rows.length ? String(nextIndex) : null,
+      isDone: nextIndex >= this.rows.length,
+    };
+  }
+}
