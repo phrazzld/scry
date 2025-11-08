@@ -86,8 +86,10 @@ export interface AnalyticsEventDefinitions {
 
 export type AnalyticsEventName = keyof AnalyticsEventDefinitions;
 
-export type AnalyticsEventProperties<Name extends AnalyticsEventName> =
-  Partial<AnalyticsEventDefinitions[Name]> & Record<string, AnalyticsEventProperty>;
+export type AnalyticsEventProperties<Name extends AnalyticsEventName> = Partial<
+  AnalyticsEventDefinitions[Name]
+> &
+  Record<string, AnalyticsEventProperty>;
 
 type AnalyticsUserMetadata = Record<string, string>;
 
@@ -101,6 +103,14 @@ let clientTrackPromise: Promise<ClientTrack | null> | null = null;
 let sentryPromise: Promise<SentryModule | null> | null = null;
 let currentUserContext: AnalyticsUserContext | null = null;
 
+/**
+ * Detect if we're running in Convex environment
+ * Convex sets CONVEX_CLOUD_URL environment variable
+ */
+function isConvexEnvironment(): boolean {
+  return process.env.CONVEX_CLOUD_URL !== undefined;
+}
+
 function isDevelopmentLikeEnvironment(): boolean {
   const nodeEnv = process.env.NODE_ENV;
   if (nodeEnv === 'development' || nodeEnv === 'test') {
@@ -112,11 +122,17 @@ function isDevelopmentLikeEnvironment(): boolean {
 }
 
 function isAnalyticsEnabled(): boolean {
-  if (process.env.NEXT_PUBLIC_DISABLE_ANALYTICS === 'true' || process.env.DISABLE_ANALYTICS === 'true') {
+  if (
+    process.env.NEXT_PUBLIC_DISABLE_ANALYTICS === 'true' ||
+    process.env.DISABLE_ANALYTICS === 'true'
+  ) {
     return false;
   }
 
-  if (process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' || process.env.ENABLE_ANALYTICS === 'true') {
+  if (
+    process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' ||
+    process.env.ENABLE_ANALYTICS === 'true'
+  ) {
     return true;
   }
 
@@ -203,12 +219,19 @@ function withUserContext(properties: Record<string, AnalyticsEventProperty>) {
 }
 
 function loadServerTrack(): Promise<ServerTrack | null> {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' || isConvexEnvironment()) {
     return Promise.resolve(null);
   }
 
   if (!serverTrackPromise) {
-    serverTrackPromise = import('@vercel/analytics/server')
+    // In test mode, use literal import for vitest mocking
+    // In production, use string concatenation to hide from Convex bundler
+    const isTest = process.env.NODE_ENV === 'test';
+    const importPromise = isTest
+      ? import('@vercel/analytics/server')
+      : import(/* webpackIgnore: true */ ('@vercel' + '/' + 'analytics/server') as '@vercel/analytics/server');
+
+    serverTrackPromise = importPromise
       .then((module) => module.track)
       .catch((error) => {
         if (process.env.NODE_ENV !== 'production') {
@@ -222,12 +245,19 @@ function loadServerTrack(): Promise<ServerTrack | null> {
 }
 
 function loadClientTrack(): Promise<ClientTrack | null> {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || isConvexEnvironment()) {
     return Promise.resolve(null);
   }
 
   if (!clientTrackPromise) {
-    clientTrackPromise = import('@vercel/analytics')
+    // In test mode, use literal import for vitest mocking
+    // In production, use string concatenation to hide from Convex bundler
+    const isTest = process.env.NODE_ENV === 'test';
+    const importPromise = isTest
+      ? import('@vercel/analytics')
+      : import(/* webpackIgnore: true */ ('@vercel' + '/' + 'analytics') as '@vercel/analytics');
+
+    clientTrackPromise = importPromise
       .then((module) => module.track)
       .catch((error) => {
         if (process.env.NODE_ENV !== 'production') {
@@ -241,8 +271,19 @@ function loadClientTrack(): Promise<ClientTrack | null> {
 }
 
 function loadSentry(): Promise<SentryModule | null> {
+  if (isConvexEnvironment()) {
+    return Promise.resolve(null);
+  }
+
   if (!sentryPromise) {
-    sentryPromise = import('@sentry/nextjs')
+    // In test mode, use literal import for vitest mocking
+    // In production, use string concatenation to hide from Convex bundler
+    const isTest = process.env.NODE_ENV === 'test';
+    const importPromise = isTest
+      ? import('@sentry/nextjs')
+      : import(/* webpackIgnore: true */ ('@sentry' + '/' + 'nextjs') as '@sentry/nextjs');
+
+    sentryPromise = importPromise
       .then((module) => module)
       .catch((error) => {
         if (process.env.NODE_ENV !== 'production') {
