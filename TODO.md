@@ -23,7 +23,7 @@
   Estimate: 1.5h
   ```
 
-- [ ] Bound rateLimit queries to maxAttempts window
+- [x] Bound rateLimit queries to maxAttempts window
   ```
   Files: convex/rateLimit.ts, convex/rateLimit.test.ts
   Goal: funnel every rate-limit query/cleanup through `.take()`/`.paginate()` helpers capped at `maxAttempts + buffer`, eliminating table-wide `.collect()` calls.

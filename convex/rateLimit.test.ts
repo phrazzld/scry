@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  checkEmailRateLimit,
+  cleanupExpiredRateLimits,
+  RATE_LIMITS,
+  recordRateLimitAttempt,
+  __test as rateLimitTestConstants,
+} from './rateLimit';
 
 /**
  * Edge case tests for rate limiting boundary calculations
@@ -299,3 +307,269 @@ describe('Rate Limit Boundary Calculations', () => {
     });
   });
 });
+
+describe('Rate limit bandwidth guards', () => {
+  const NOW = new Date('2025-11-08T12:00:00Z').getTime();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('caps email rate limit reads even with 1,200 attempts', async () => {
+    const attempts = createRateLimitEntries({
+      identifier: 'user@example.com',
+      count: 1_200,
+      startTimestamp: NOW - 5000,
+      intervalMs: 1,
+    });
+
+    const ctx = createRateLimitCtx(attempts);
+    const result = await checkEmailRateLimit(ctx as any, 'user@example.com', 'magicLink');
+
+    expect(result.allowed).toBe(false);
+    expect(ctx.db.metrics.maxBatchRead).toBeLessThanOrEqual(
+      rateLimitTestConstants.MAX_RATE_LIMIT_READS
+    );
+  });
+
+  it('cleans identifier history in batches when recording attempts', async () => {
+    const maxWindowMs = Math.max(...Object.values(RATE_LIMITS).map((limit) => limit.windowMs));
+    const veryOld = NOW - maxWindowMs * 4;
+    const attempts = createRateLimitEntries({
+      identifier: 'ip-1',
+      count: 1_100,
+      startTimestamp: veryOld,
+      intervalMs: 10,
+    });
+
+    const ctx = createRateLimitCtx(attempts);
+    await recordRateLimitAttempt(ctx as any, 'ip-1', 'default');
+
+    expect(ctx.db.metrics.maxBatchRead).toBeLessThanOrEqual(
+      rateLimitTestConstants.CLEANUP_DELETE_BATCH_SIZE
+    );
+    expect(ctx.db.tables.rateLimits.filter((row) => row.identifier === 'ip-1').length).toBe(1);
+  });
+
+  it('global cleanup deletes expired entries in capped batches', async () => {
+    const maxWindowMs = Math.max(...Object.values(RATE_LIMITS).map((limit) => limit.windowMs));
+    const veryOld = NOW - maxWindowMs * 4;
+    const fresh = NOW - 1000;
+    const attempts = [
+      ...createRateLimitEntries({ identifier: 'ip-2', count: 900, startTimestamp: veryOld }),
+      ...createRateLimitEntries({ identifier: 'ip-3', count: 50, startTimestamp: fresh }),
+    ];
+
+    const ctx = createRateLimitCtx(attempts);
+    const result = await cleanupExpiredRateLimits.handler(ctx as any, {} as any);
+
+    expect(result.deletedCount).toBe(900);
+    expect(ctx.db.metrics.maxBatchRead).toBeLessThanOrEqual(
+      rateLimitTestConstants.CLEANUP_DELETE_BATCH_SIZE
+    );
+    expect(ctx.db.tables.rateLimits.length).toBe(50);
+  });
+});
+
+type RateLimitRow = {
+  _id: string;
+  _creationTime: number;
+  identifier: string;
+  operation: string;
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+};
+
+type RateLimitCtx = {
+  db: MockRateLimitDb;
+};
+
+function createRateLimitCtx(rows: RateLimitRow[]): RateLimitCtx {
+  return {
+    db: new MockRateLimitDb(rows),
+  };
+}
+
+function createRateLimitEntries(params: {
+  identifier: string;
+  count: number;
+  startTimestamp: number;
+  intervalMs?: number;
+}): RateLimitRow[] {
+  const { identifier, count, startTimestamp, intervalMs = 5 } = params;
+  return Array.from({ length: count }, (_, i) => {
+    const timestamp = startTimestamp + i * intervalMs;
+    return {
+      _id: `${identifier}_${i}`,
+      _creationTime: timestamp,
+      identifier,
+      operation: 'default',
+      timestamp,
+    } satisfies RateLimitRow;
+  });
+}
+
+class MockRateLimitDb {
+  tables: { rateLimits: RateLimitRow[] };
+  metrics: { totalReads: number; maxBatchRead: number };
+
+  constructor(rows: RateLimitRow[]) {
+    this.tables = { rateLimits: [...rows] };
+    this.metrics = { totalReads: 0, maxBatchRead: 0 };
+  }
+
+  query(table: string) {
+    const rows = (this.tables as Record<string, RateLimitRow[]>)[table] || [];
+    return new MockQuery(table, rows, this.metrics);
+  }
+
+  async insert(table: string, doc: Omit<RateLimitRow, '_id'> & Partial<RateLimitRow>) {
+    const rows = (this.tables as Record<string, RateLimitRow[]>)[table];
+    const newDoc: RateLimitRow = {
+      _id: doc._id || `${table}_${rows.length + 1}`,
+      _creationTime: doc.timestamp ?? Date.now(),
+      identifier: doc.identifier as string,
+      operation: doc.operation as string,
+      timestamp: doc.timestamp as number,
+      metadata: doc.metadata,
+    };
+    rows.push(newDoc);
+    return newDoc._id;
+  }
+
+  async delete(id: string) {
+    this.tables.rateLimits = this.tables.rateLimits.filter((row) => row._id !== id);
+  }
+}
+
+type Predicate<T> = (doc: T) => boolean;
+
+class MockQuery<T extends RateLimitRow> {
+  private readonly table: string;
+  private readonly rows: T[];
+  private readonly metrics: { totalReads: number; maxBatchRead: number };
+  private readonly predicates: Predicate<T>[];
+  private readonly orderDirection: 'asc' | 'desc' | null;
+
+  constructor(
+    table: string,
+    rows: T[],
+    metrics: { totalReads: number; maxBatchRead: number },
+    predicates: Predicate<T>[] = [],
+    orderDirection: 'asc' | 'desc' | null = null
+  ) {
+    this.table = table;
+    this.rows = rows;
+    this.metrics = metrics;
+    this.predicates = predicates;
+    this.orderDirection = orderDirection;
+  }
+
+  withIndex(_name: string, builder?: (q: any) => any) {
+    if (!builder) {
+      return new MockQuery(this.table, this.rows, this.metrics, this.predicates, this.orderDirection);
+    }
+    const expr = createExprBuilder<T>();
+    builder(expr);
+    return new MockQuery(
+      this.table,
+      this.rows,
+      this.metrics,
+      [...this.predicates, expr.build()],
+      this.orderDirection
+    );
+  }
+
+  filter(builder: (q: any) => any) {
+    const expr = createExprBuilder<T>();
+    builder(expr);
+    return new MockQuery(
+      this.table,
+      this.rows,
+      this.metrics,
+      [...this.predicates, expr.build()],
+      this.orderDirection
+    );
+  }
+
+  order(direction: 'asc' | 'desc') {
+    return new MockQuery(this.table, this.rows, this.metrics, this.predicates, direction);
+  }
+
+  async take(limit: number) {
+    const data = this.buildResult();
+    const page = data.slice(0, limit);
+    this.recordRead(page.length);
+    return page;
+  }
+
+  async paginate({ numItems, cursor }: { numItems: number; cursor: string | null }) {
+    const data = this.buildResult();
+    const start = cursor ? JSON.parse(cursor).index : 0;
+    const page = data.slice(start, start + numItems);
+    this.recordRead(page.length);
+    const nextIndex = start + page.length;
+    return {
+      page,
+      continueCursor: nextIndex < data.length ? JSON.stringify({ index: nextIndex }) : null,
+      isDone: nextIndex >= data.length,
+    };
+  }
+
+  private buildResult() {
+    let result = [...this.rows];
+    for (const predicate of this.predicates) {
+      result = result.filter((row) => predicate(row));
+    }
+    if (this.orderDirection) {
+      result.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+      if (this.orderDirection === 'desc') {
+        result.reverse();
+      }
+    }
+    return result;
+  }
+
+  private recordRead(count: number) {
+    this.metrics.totalReads += count;
+    this.metrics.maxBatchRead = Math.max(this.metrics.maxBatchRead, count);
+  }
+}
+
+function createExprBuilder<T extends RateLimitRow>() {
+  const predicates: Predicate<T>[] = [];
+
+  const resolve = (operand: unknown, doc: T) => {
+    if (typeof operand === 'function') {
+      return (operand as (doc: T) => unknown)(doc);
+    }
+    if (typeof operand === 'string' && operand in doc) {
+      return doc[operand as keyof T];
+    }
+    return operand;
+  };
+
+  const builder = {
+    field: (name: keyof T | string) => (doc: T) => doc[name as keyof T],
+    eq: (a: unknown, b: unknown) => {
+      predicates.push((doc) => resolve(a, doc) === resolve(b, doc));
+      return builder;
+    },
+    lt: (a: unknown, b: unknown) => {
+      predicates.push((doc) => (resolve(a, doc) as number) < (resolve(b, doc) as number));
+      return builder;
+    },
+    gt: (a: unknown, b: unknown) => {
+      predicates.push((doc) => (resolve(a, doc) as number) > (resolve(b, doc) as number));
+      return builder;
+    },
+    build: () => (doc: T) => predicates.every((predicate) => predicate(doc)),
+  } as const;
+
+  return builder;
+}
