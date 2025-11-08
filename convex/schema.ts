@@ -323,7 +323,12 @@ export default defineSchema({
   // Reclustering Jobs: Track IQC background processing
   reclusterJobs: defineTable({
     userId: v.id('users'),
-    status: v.union(v.literal('queued'), v.literal('running'), v.literal('done'), v.literal('failed')),
+    status: v.union(
+      v.literal('queued'),
+      v.literal('running'),
+      v.literal('done'),
+      v.literal('failed')
+    ),
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
     stats: v.optional(v.any()), // Job statistics (concepts processed, proposals created, etc.)
