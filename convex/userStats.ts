@@ -5,9 +5,13 @@
  * Handles drift detection and automatic correction.
  */
 
+import type { Doc, Id } from './_generated/dataModel';
 import { v } from 'convex/values';
 import { internalMutation } from './_generated/server';
 import { createLogger } from './lib/logger';
+
+const QUESTION_BATCH_SIZE = 200;
+const USER_SAMPLE_FALLBACK_LIMIT = 200;
 
 /**
  * Reconcile userStats for drift detection and auto-correction
@@ -41,6 +45,7 @@ export const reconcileUserStats = internalMutation({
     });
 
     const stats = {
+      usersSampled: 0,
       usersChecked: 0,
       driftDetected: 0,
       corrected: 0,
@@ -48,20 +53,16 @@ export const reconcileUserStats = internalMutation({
     };
 
     try {
-      // Get all users and sample randomly
-      const allUsers = await ctx.db.query('users').collect();
+      const sampledUsers = await sampleUsersForReconciliation(ctx, sampleSize);
 
-      if (allUsers.length === 0) {
+      if (sampledUsers.length === 0) {
         logger.info('No users to reconcile');
         return { stats, message: 'No users found' };
       }
 
-      // Sample random users (or all if fewer than sampleSize)
-      const sampled = allUsers
-        .sort(() => Math.random() - 0.5)
-        .slice(0, Math.min(sampleSize, allUsers.length));
+      stats.usersSampled = sampledUsers.length;
 
-      for (const user of sampled) {
+      for (const user of sampledUsers) {
         stats.usersChecked++;
 
         try {
@@ -71,41 +72,8 @@ export const reconcileUserStats = internalMutation({
             .withIndex('by_user', (q) => q.eq('userId', user._id))
             .first();
 
-          // Recalculate stats from source
-          const questions = await ctx.db
-            .query('questions')
-            .withIndex('by_user', (q) => q.eq('userId', user._id))
-            .filter((q) => q.eq(q.field('deletedAt'), undefined))
-            .collect();
-
-          let newCount = 0;
-          let learningCount = 0;
-          let matureCount = 0;
-          let earliestNextReview: number | undefined = undefined;
-
-          for (const question of questions) {
-            if (!question.state || question.state === 'new') {
-              newCount++;
-            } else if (question.state === 'learning' || question.state === 'relearning') {
-              learningCount++;
-            } else if (question.state === 'review') {
-              matureCount++;
-            }
-
-            if (question.nextReview) {
-              if (!earliestNextReview || question.nextReview < earliestNextReview) {
-                earliestNextReview = question.nextReview;
-              }
-            }
-          }
-
-          const actualStats = {
-            totalCards: questions.length,
-            newCount,
-            learningCount,
-            matureCount,
-            nextReviewTime: earliestNextReview,
-          };
+          // Recalculate stats via paginated question scan
+          const actualStats = await recalculateUserStatsFromQuestions(ctx, user._id);
 
           // Check for drift
           if (cachedStats) {
@@ -206,3 +174,165 @@ export const reconcileUserStats = internalMutation({
     }
   },
 });
+
+type QuestionStats = {
+  totalCards: number;
+  newCount: number;
+  learningCount: number;
+  matureCount: number;
+  nextReviewTime?: number;
+};
+
+function getUserCreatedAt(user: Doc<'users'>): number {
+  return user.createdAt ?? user._creationTime ?? Date.now();
+}
+
+async function sampleUsersForReconciliation(
+  ctx: Parameters<typeof reconcileUserStats.handler>[0],
+  sampleSize: number,
+  randomFn: () => number = Math.random
+): Promise<Array<Doc<'users'>>> {
+  if (sampleSize <= 0) {
+    return [];
+  }
+
+  const firstUser = await ctx.db
+    .query('users')
+    .withIndex('by_creation_time')
+    .order('asc')
+    .first();
+
+  if (!firstUser) {
+    return [];
+  }
+
+  const lastUser = await ctx.db
+    .query('users')
+    .withIndex('by_creation_time')
+    .order('desc')
+    .first();
+
+  if (!lastUser) {
+    return [firstUser];
+  }
+
+  const minTimestamp = getUserCreatedAt(firstUser);
+  const maxTimestamp = getUserCreatedAt(lastUser);
+  const range = Math.max(1, maxTimestamp - minTimestamp + 1);
+  const randomOffset = Math.floor(randomFn() * range);
+  const pivot = minTimestamp + randomOffset;
+
+  const sampled: Array<Doc<'users'>> = [];
+  const seen = new Set<string>();
+
+  const forwardChunk = await ctx.db
+    .query('users')
+    .withIndex('by_creation_time', (q) => q.gte('createdAt', pivot))
+    .order('asc')
+    .take(sampleSize);
+  appendUsers(sampled, forwardChunk, seen, sampleSize);
+
+  if (sampled.length < sampleSize) {
+    const wrapChunk = await ctx.db
+      .query('users')
+      .withIndex('by_creation_time', (q) => q.lt('createdAt', pivot))
+      .order('asc')
+      .take(sampleSize - sampled.length);
+    appendUsers(sampled, wrapChunk, seen, sampleSize);
+  }
+
+  if (sampled.length < sampleSize) {
+    const fallbackChunk = await ctx.db
+      .query('users')
+      .withIndex('by_creation_time')
+      .order('asc')
+      .take(Math.min(USER_SAMPLE_FALLBACK_LIMIT, sampleSize - sampled.length));
+    appendUsers(sampled, fallbackChunk, seen, sampleSize);
+  }
+
+  if (sampled.length === 0) {
+    return [firstUser];
+  }
+
+  return sampled.slice(0, sampleSize);
+}
+
+function appendUsers(
+  target: Array<Doc<'users'>>,
+  source: Array<Doc<'users'>>,
+  seen: Set<string>,
+  max: number
+) {
+  for (const doc of source) {
+    if (seen.has(doc._id)) {
+      continue;
+    }
+    target.push(doc);
+    seen.add(doc._id);
+    if (target.length >= max) {
+      break;
+    }
+  }
+}
+
+async function recalculateUserStatsFromQuestions(
+  ctx: Parameters<typeof reconcileUserStats.handler>[0],
+  userId: Id<'users'>
+): Promise<QuestionStats> {
+  const accumulator: QuestionStats = {
+    totalCards: 0,
+    newCount: 0,
+    learningCount: 0,
+    matureCount: 0,
+    nextReviewTime: undefined,
+  };
+
+  const questionQuery = ctx.db
+    .query('questions')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .filter((q) => q.eq(q.field('deletedAt'), undefined))
+    .order('asc');
+
+  let paginationResult = await questionQuery.paginate({ numItems: QUESTION_BATCH_SIZE, cursor: null });
+  applyQuestionsToAccumulator(paginationResult.page, accumulator);
+
+  while (!paginationResult.isDone) {
+    paginationResult = await questionQuery.paginate({
+      numItems: QUESTION_BATCH_SIZE,
+      cursor: paginationResult.continueCursor,
+    });
+    applyQuestionsToAccumulator(paginationResult.page, accumulator);
+  }
+
+  return accumulator;
+}
+
+function applyQuestionsToAccumulator(questions: Array<Doc<'questions'>>, accumulator: QuestionStats) {
+  for (const question of questions) {
+    accumulator.totalCards++;
+
+    if (!question.state || question.state === 'new') {
+      accumulator.newCount++;
+    } else if (question.state === 'learning' || question.state === 'relearning') {
+      accumulator.learningCount++;
+    } else if (question.state === 'review') {
+      accumulator.matureCount++;
+    }
+
+    if (question.nextReview) {
+      if (
+        accumulator.nextReviewTime === undefined ||
+        question.nextReview < accumulator.nextReviewTime
+      ) {
+        accumulator.nextReviewTime = question.nextReview;
+      }
+    }
+  }
+}
+
+export const __test = {
+  sampleUsersForReconciliation,
+  recalculateUserStatsFromQuestions,
+  applyQuestionsToAccumulator,
+  QUESTION_BATCH_SIZE,
+};

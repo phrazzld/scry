@@ -12,7 +12,7 @@
   Estimate: 1.25h
   ```
 
-- [ ] Refactor reconcileUserStats sampling/pagination
+- [x] Refactor reconcileUserStats sampling/pagination
   depends: Seed users.by_creation_time sampling index
   ```
   Files: convex/userStats.ts, convex/lib/logger.ts (metrics hook), convex/userStats.reconcile.test.ts
