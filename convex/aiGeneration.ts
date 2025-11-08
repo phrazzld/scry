@@ -17,11 +17,10 @@ import { v } from 'convex/values';
 import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
-
-import { trackEvent } from './lib/analytics';
 import { internal } from './_generated/api';
-import { internalAction } from './_generated/server';
 import type { Doc } from './_generated/dataModel';
+import { internalAction } from './_generated/server';
+import { trackEvent } from './lib/analytics';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 import { buildLearningSciencePrompt } from './lib/promptTemplates';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';

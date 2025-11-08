@@ -8,7 +8,6 @@
  * This ensures either all operations succeed or all fail - no partial states.
  */
 import { v } from 'convex/values';
-
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { trackEvent } from './lib/analytics';

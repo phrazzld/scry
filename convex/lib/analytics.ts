@@ -9,7 +9,11 @@
  * Convex HTTP actions or other mechanisms, but for now we just no-op.
  */
 
-import type { AnalyticsEventDefinitions, AnalyticsEventName, AnalyticsEventProperties } from '../../lib/analytics';
+import type {
+  AnalyticsEventDefinitions,
+  AnalyticsEventName,
+  AnalyticsEventProperties,
+} from '../../lib/analytics';
 
 /**
  * Track an analytics event (no-op in Convex)
