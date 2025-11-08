@@ -43,7 +43,7 @@
   Estimate: 1.25h
   ```
 
-- [ ] Stream getQuizInteractionStats via session index
+- [x] Stream getQuizInteractionStats via session index
   depends: Denormalize sessionId for interactions + index
   ```
   Files: convex/questionsLibrary.ts, convex/questionsLibrary.test.ts
