@@ -80,7 +80,7 @@
   Estimated Time: 30 minutes
   ```
 
-- [ ] Refactor `convex/lab.ts` to use centralized provider initialization
+- [x] Refactor `convex/lab.ts` to use centralized provider initialization
   ```
   Files: MODIFY convex/lab.ts lines 128-177
   Approach: Replace initialization block with call to initializeProvider()
