@@ -1155,3 +1155,295 @@ export const checkDueNowCountMigration = query({
     };
   },
 });
+
+/**
+ * Statistics for concepts seeding migration
+ */
+type ConceptsSeedingStats = {
+  totalQuestions: number;
+  conceptsCreated: number;
+  phrasingsCreated: number;
+  questionsLinked: number;
+  alreadyLinked: number;
+  errors: number;
+};
+
+/**
+ * Default batch size for concepts seeding migration
+ * Process 500 questions at a time (each creates 1 concept + 1 phrasing)
+ */
+const DEFAULT_CONCEPTS_SEEDING_BATCH_SIZE = 500;
+
+/**
+ * Diagnostic query to check concepts seeding migration status
+ *
+ * Returns counts of:
+ * - Total questions in database
+ * - Questions already linked to concepts
+ * - Questions needing migration (no conceptId)
+ */
+export const checkConceptsSeedingStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'checkConceptsSeedingStatus',
+    });
+
+    migrationLogger.info('Checking concepts seeding migration status');
+
+    // Count all questions
+    const allQuestions = await ctx.db.query('questions').collect();
+    const totalQuestions = allQuestions.length;
+
+    // Count questions with conceptId (using runtime property check)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const questionsWithConceptId = allQuestions.filter((q) => 'conceptId' in (q as any));
+    const linked = questionsWithConceptId.length;
+
+    // Count concepts and phrasings
+    const concepts = await ctx.db.query('concepts').collect();
+    const phrasings = await ctx.db.query('phrasings').collect();
+
+    const needsMigration = totalQuestions - linked;
+
+    return {
+      totalQuestions,
+      linked,
+      needsMigration,
+      conceptsExist: concepts.length,
+      phrasingsExist: phrasings.length,
+      complete: needsMigration === 0,
+      // Sanity checks
+      countsMatch: concepts.length === phrasings.length && phrasings.length === linked,
+    };
+  },
+});
+
+/**
+ * Seed v0 concepts + phrasings from legacy questions
+ *
+ * Migration strategy:
+ * 1. For each question without conceptId:
+ *    - Create 1 concept with FSRS state copied from question
+ *    - Create 1 phrasing with question content
+ *    - Backfill question.conceptId to link them
+ *
+ * This creates a 1:1:1 mapping (question → concept → phrasing) as the foundation
+ * for future reclustering that will merge duplicate concepts.
+ *
+ * Idempotent: Skips questions that already have conceptId
+ * Batched: Processes questions in chunks to avoid memory issues
+ * Rerunnable: Safe to run multiple times (won't create duplicates)
+ *
+ * Usage:
+ * ```typescript
+ * // Dry run first to see what would be done
+ * await convex.mutation(api.migrations.seedConceptsFromQuestions, { dryRun: true });
+ *
+ * // Production run
+ * await convex.mutation(api.migrations.seedConceptsFromQuestions, {});
+ * ```
+ */
+export const seedConceptsFromQuestions = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<ConceptsSeedingStats>> => {
+    const batchSize = args.batchSize || DEFAULT_CONCEPTS_SEEDING_BATCH_SIZE;
+    const dryRun = args.dryRun || false;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'seedConceptsFromQuestions',
+    });
+
+    const stats: ConceptsSeedingStats = {
+      totalQuestions: 0,
+      conceptsCreated: 0,
+      phrasingsCreated: 0,
+      questionsLinked: 0,
+      alreadyLinked: 0,
+      errors: 0,
+    };
+
+    const failures: Array<{ recordId: string; error: string }> = [];
+
+    try {
+      migrationLogger.info('Starting concepts seeding migration', {
+        event: 'migration.concepts-seeding.start',
+        batchSize,
+        dryRun,
+      });
+
+      // Process all questions using cursor-based pagination
+      let paginationResult = await ctx.db.query('questions').paginate({
+        numItems: batchSize,
+        cursor: null,
+      });
+
+      // Process first batch
+      await processBatch(paginationResult.page);
+
+      // Continue processing remaining batches
+      while (!paginationResult.isDone) {
+        paginationResult = await ctx.db.query('questions').paginate({
+          numItems: batchSize,
+          cursor: paginationResult.continueCursor,
+        });
+
+        await processBatch(paginationResult.page);
+      }
+
+      // Helper function to process a batch of questions
+      async function processBatch(questions: typeof paginationResult.page) {
+        for (const question of questions) {
+          stats.totalQuestions++;
+
+          try {
+            // Check if question already has conceptId (runtime property check)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const questionData = question as any;
+
+            if ('conceptId' in questionData && questionData.conceptId) {
+              stats.alreadyLinked++;
+              continue;
+            }
+
+            if (!dryRun) {
+              // Extract FSRS state from question (initialize if not present)
+              const now = Date.now();
+              const fsrsState = {
+                stability: question.stability || 0,
+                difficulty: question.fsrsDifficulty || 5,
+                lastReview: question.lastReview,
+                nextReview: question.nextReview || now,
+                elapsedDays: question.elapsedDays,
+                retrievability: undefined, // Not stored in legacy questions
+              };
+
+              // Create concept with question text as title
+              const conceptId = await ctx.db.insert('concepts', {
+                userId: question.userId,
+                title: question.question.substring(0, 200), // Truncate long questions for title
+                description: question.explanation,
+                fsrs: fsrsState,
+                phrasingCount: 1, // Will have exactly 1 phrasing
+                embedding: question.embedding,
+                embeddingGeneratedAt: question.embeddingGeneratedAt,
+                createdAt: question.generatedAt || now,
+              });
+
+              stats.conceptsCreated++;
+
+              // Create phrasing with full question content
+              await ctx.db.insert('phrasings', {
+                userId: question.userId,
+                conceptId: conceptId,
+                question: question.question,
+                explanation: question.explanation,
+                type: question.type,
+                options: question.options,
+                correctAnswer: question.correctAnswer,
+                attemptCount: question.attemptCount,
+                correctCount: question.correctCount,
+                lastAttemptedAt: question.lastAttemptedAt,
+                createdAt: question.generatedAt || now,
+                embedding: question.embedding,
+                embeddingGeneratedAt: question.embeddingGeneratedAt,
+              });
+
+              stats.phrasingsCreated++;
+
+              // Backfill question.conceptId
+              await ctx.db.patch(question._id, {
+                conceptId: conceptId,
+              });
+
+              stats.questionsLinked++;
+            } else {
+              // Dry run: just count what would be created
+              stats.conceptsCreated++;
+              stats.phrasingsCreated++;
+              stats.questionsLinked++;
+            }
+
+            // Log progress every 100 records
+            if (stats.questionsLinked % PROGRESS_LOG_INTERVAL === 0) {
+              migrationLogger.info(`Migration progress: ${stats.questionsLinked} questions migrated`);
+            }
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            failures.push({
+              recordId: question._id,
+              error: error.message,
+            });
+            stats.errors++;
+          }
+        }
+
+        // Log batch completion
+        migrationLogger.info('Batch completed', {
+          event: dryRun ? 'migration.concepts-seeding.batch.dry-run' : 'migration.concepts-seeding.batch',
+          batchSize: questions.length,
+          totalQuestions: stats.totalQuestions,
+          conceptsCreated: stats.conceptsCreated,
+          phrasingsCreated: stats.phrasingsCreated,
+          questionsLinked: stats.questionsLinked,
+          alreadyLinked: stats.alreadyLinked,
+        });
+      }
+
+      migrationLogger.info('Migration completed', {
+        event: 'migration.concepts-seeding.complete',
+        dryRun,
+        stats,
+      });
+
+      // Determine migration status
+      const status =
+        failures.length === 0
+          ? ('completed' as const)
+          : failures.length === stats.totalQuestions
+            ? ('failed' as const)
+            : ('partial' as const);
+
+      return {
+        status,
+        dryRun,
+        stats,
+        failures: failures.length > 0 ? failures : undefined,
+        message: dryRun
+          ? `Dry run: Would create ${stats.conceptsCreated} concepts + ${stats.phrasingsCreated} phrasings, link ${stats.questionsLinked} questions (${stats.alreadyLinked} already linked)`
+          : status === 'completed'
+            ? `Successfully created ${stats.conceptsCreated} concepts + ${stats.phrasingsCreated} phrasings, linked ${stats.questionsLinked} questions`
+            : status === 'partial'
+              ? `Partially completed: ${stats.questionsLinked} succeeded, ${stats.errors} failed`
+              : `Migration failed: All ${stats.errors} attempts failed`,
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      migrationLogger.error('Migration failed', {
+        event: 'migration.concepts-seeding.error',
+        error: error.message,
+        stack: error.stack,
+        stats,
+      });
+
+      return {
+        status: 'failed' as const,
+        dryRun,
+        stats,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
+        message: `Migration failed: ${error.message}`,
+      };
+    }
+  },
+});

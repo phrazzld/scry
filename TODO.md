@@ -49,7 +49,7 @@
   Estimate: 1.5h
   ```
 
-- [ ] Seed v0 concepts + phrasings from legacy questions
+- [~] Seed v0 concepts + phrasings from legacy questions
   ```
   Files: convex/migrations.ts, convex/migrations.test.ts, convex/questionsBulk.ts, scripts/run-migration.sh
   Goal: Allocate concept per question, copy FSRS fields to concept.fsrs, write phrasing rows, backfill questions.conceptId via chunked migration with diagnostics.

@@ -440,3 +440,289 @@ describe('Migration Infrastructure', () => {
     });
   });
 });
+
+// ============================================================================
+// Concepts Seeding Migration Tests
+// ============================================================================
+
+interface ConceptsSeedingStats {
+  totalQuestions: number;
+  conceptsCreated: number;
+  phrasingsCreated: number;
+  questionsLinked: number;
+  alreadyLinked: number;
+  errors: number;
+}
+
+/**
+ * Helper to create mock question without conceptId
+ */
+function createQuestionWithoutConcept(id: string): Doc<'questions'> {
+  return {
+    _id: id as Id<'questions'>,
+    _creationTime: Date.now(),
+    userId: 'user123' as Id<'users'>,
+    question: `Test question ${id}`,
+    type: 'multiple-choice',
+    options: ['A', 'B', 'C', 'D'],
+    correctAnswer: 'A',
+    generatedAt: Date.now(),
+    attemptCount: 5,
+    correctCount: 3,
+    stability: 2.5,
+    fsrsDifficulty: 6.2,
+    nextReview: Date.now() + 86400000,
+  };
+}
+
+/**
+ * Helper to create mock question WITH conceptId
+ */
+function createQuestionWithConcept(id: string, conceptId: string): Doc<'questions'> & { conceptId: Id<'concepts'> } {
+  return {
+    ...createQuestionWithoutConcept(id),
+    conceptId: conceptId as Id<'concepts'>,
+  };
+}
+
+/**
+ * Simulates the concepts seeding migration logic
+ */
+function simulateConceptsSeeding(
+  questions: Array<Doc<'questions'> | (Doc<'questions'> & { conceptId: Id<'concepts'> })>,
+  options: {
+    batchSize?: number;
+    dryRun?: boolean;
+    simulateErrors?: Set<string>;
+  } = {}
+): MigrationResult<ConceptsSeedingStats> {
+  const batchSize = options.batchSize || 500;
+  const dryRun = options.dryRun || false;
+  const simulateErrors = options.simulateErrors || new Set<string>();
+
+  const stats: ConceptsSeedingStats = {
+    totalQuestions: 0,
+    conceptsCreated: 0,
+    phrasingsCreated: 0,
+    questionsLinked: 0,
+    alreadyLinked: 0,
+    errors: 0,
+  };
+
+  const failures: Array<{ recordId: string; error: string }> = [];
+
+  // Simulate cursor-based pagination
+  let currentIndex = 0;
+  while (currentIndex < questions.length) {
+    const batch = questions.slice(currentIndex, currentIndex + batchSize);
+
+    for (const question of batch) {
+      stats.totalQuestions++;
+
+      // Simulate error for specific questions
+      if (simulateErrors.has(question._id)) {
+        failures.push({
+          recordId: question._id,
+          error: 'Simulated migration error',
+        });
+        stats.errors++;
+        continue;
+      }
+
+      // Check if question already has conceptId (runtime property check)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const questionData = question as any;
+
+      if ('conceptId' in questionData && questionData.conceptId) {
+        stats.alreadyLinked++;
+        continue;
+      }
+
+      if (!dryRun) {
+        // Would create concept, phrasing, and link question
+        stats.conceptsCreated++;
+        stats.phrasingsCreated++;
+        stats.questionsLinked++;
+      } else {
+        // Dry run: just count what would be created
+        stats.conceptsCreated++;
+        stats.phrasingsCreated++;
+        stats.questionsLinked++;
+      }
+    }
+
+    currentIndex += batchSize;
+  }
+
+  // Determine migration status
+  const status =
+    failures.length === 0
+      ? ('completed' as const)
+      : failures.length === stats.totalQuestions
+        ? ('failed' as const)
+        : ('partial' as const);
+
+  return {
+    status,
+    dryRun,
+    stats,
+    failures: failures.length > 0 ? failures : undefined,
+    message: dryRun
+      ? `Dry run: Would create ${stats.conceptsCreated} concepts + ${stats.phrasingsCreated} phrasings, link ${stats.questionsLinked} questions (${stats.alreadyLinked} already linked)`
+      : status === 'completed'
+        ? `Successfully created ${stats.conceptsCreated} concepts + ${stats.phrasingsCreated} phrasings, linked ${stats.questionsLinked} questions`
+        : status === 'partial'
+          ? `Partially completed: ${stats.questionsLinked} succeeded, ${stats.errors} failed`
+          : `Migration failed: All ${stats.errors} attempts failed`,
+  };
+}
+
+describe('Concepts Seeding Migration', () => {
+  describe('Dry Run Mode', () => {
+    it('should count questions that would be migrated', () => {
+      const questions = Array.from({ length: 10 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions, { dryRun: true });
+
+      expect(result.status).toBe('completed');
+      expect(result.dryRun).toBe(true);
+      expect(result.stats.totalQuestions).toBe(10);
+      expect(result.stats.conceptsCreated).toBe(10);
+      expect(result.stats.phrasingsCreated).toBe(10);
+      expect(result.stats.questionsLinked).toBe(10);
+      expect(result.stats.alreadyLinked).toBe(0);
+    });
+
+    it('should skip questions that already have conceptId', () => {
+      const questions = [
+        createQuestionWithoutConcept('q1'),
+        createQuestionWithConcept('q2', 'concept1'),
+        createQuestionWithoutConcept('q3'),
+        createQuestionWithConcept('q4', 'concept2'),
+      ];
+
+      const result = simulateConceptsSeeding(questions, { dryRun: true });
+
+      expect(result.stats.totalQuestions).toBe(4);
+      expect(result.stats.conceptsCreated).toBe(2); // Only q1 and q3
+      expect(result.stats.phrasingsCreated).toBe(2);
+      expect(result.stats.questionsLinked).toBe(2);
+      expect(result.stats.alreadyLinked).toBe(2); // q2 and q4
+    });
+  });
+
+  describe('Idempotency', () => {
+    it('should be idempotent when run twice on same data', () => {
+      const questions = Array.from({ length: 5 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      // First run
+      const firstRun = simulateConceptsSeeding(questions);
+      expect(firstRun.stats.conceptsCreated).toBe(5);
+
+      // Simulate questions now have conceptId after first run
+      const questionsWithConcepts = questions.map((q) => createQuestionWithConcept(q._id, `concept-${q._id}`));
+
+      // Second run should skip all
+      const secondRun = simulateConceptsSeeding(questionsWithConcepts);
+      expect(secondRun.stats.conceptsCreated).toBe(0);
+      expect(secondRun.stats.alreadyLinked).toBe(5);
+    });
+  });
+
+  describe('Batch Processing', () => {
+    it('should process questions in batches of 500', () => {
+      const questions = Array.from({ length: 1500 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions, { batchSize: 500 });
+
+      expect(result.stats.totalQuestions).toBe(1500);
+      expect(result.stats.conceptsCreated).toBe(1500);
+      expect(result.stats.phrasingsCreated).toBe(1500);
+      expect(result.stats.questionsLinked).toBe(1500);
+    });
+
+    it('should handle non-even batch divisions', () => {
+      const questions = Array.from({ length: 1234 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions, { batchSize: 500 });
+
+      expect(result.stats.totalQuestions).toBe(1234);
+      expect(result.stats.conceptsCreated).toBe(1234);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should track failures and continue processing', () => {
+      const questions = Array.from({ length: 10 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions, {
+        simulateErrors: new Set(['q2', 'q5', 'q8']),
+      });
+
+      expect(result.status).toBe('partial');
+      expect(result.stats.totalQuestions).toBe(10);
+      expect(result.stats.conceptsCreated).toBe(7); // 10 - 3 errors
+      expect(result.stats.errors).toBe(3);
+      expect(result.failures).toHaveLength(3);
+    });
+
+    it('should return failed status when all records fail', () => {
+      const questions = Array.from({ length: 5 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions, {
+        simulateErrors: new Set(questions.map((q) => q._id)),
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.stats.errors).toBe(5);
+      expect(result.stats.conceptsCreated).toBe(0);
+    });
+  });
+
+  describe('Counts Validation', () => {
+    it('should create exactly 1:1:1 mapping (question:concept:phrasing)', () => {
+      const questions = Array.from({ length: 100 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+
+      const result = simulateConceptsSeeding(questions);
+
+      // Verify 1:1:1 mapping
+      expect(result.stats.conceptsCreated).toBe(result.stats.phrasingsCreated);
+      expect(result.stats.phrasingsCreated).toBe(result.stats.questionsLinked);
+      expect(result.stats.questionsLinked).toBe(100);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle empty question set', () => {
+      const result = simulateConceptsSeeding([]);
+
+      expect(result.status).toBe('completed');
+      expect(result.stats.totalQuestions).toBe(0);
+      expect(result.stats.conceptsCreated).toBe(0);
+    });
+
+    it('should handle single question', () => {
+      const questions = [createQuestionWithoutConcept('q1')];
+
+      const result = simulateConceptsSeeding(questions);
+
+      expect(result.status).toBe('completed');
+      expect(result.stats.totalQuestions).toBe(1);
+      expect(result.stats.conceptsCreated).toBe(1);
+      expect(result.stats.phrasingsCreated).toBe(1);
+      expect(result.stats.questionsLinked).toBe(1);
+    });
+
+    it('should handle all questions already linked', () => {
+      const questions = Array.from({ length: 10 }, (_, i) =>
+        createQuestionWithConcept(`q${i}`, `concept${i}`)
+      );
+
+      const result = simulateConceptsSeeding(questions);
+
+      expect(result.stats.totalQuestions).toBe(10);
+      expect(result.stats.alreadyLinked).toBe(10);
+      expect(result.stats.conceptsCreated).toBe(0);
+    });
+  });
+});
