@@ -2,8 +2,18 @@
 
 ## Phase 0 — Schema & Data Safety
 
-- [~] Boot concepts/phrasings schema + typegen
+- [x] Boot concepts/phrasings schema + typegen
   ```
+  Work Log:
+  - Added 4 new tables to schema: concepts, phrasings, reclusterJobs, actionCards
+  - Added optional conceptId field to questions table (Phase 1 migration strategy)
+  - Created types/concepts.ts with ConceptDoc, PhrasingDoc, FsrsState, IqcScores
+  - Updated types/questions.ts to include conceptId and re-export concept types
+  - Bumped schema version 2.2.0 → 2.3.0 in both schemaVersion.ts and deployment-check.ts
+  - Regenerated Convex types successfully (9 new indexes added)
+  - All tests pass (499/499), lint clean, no conceptId leakage beyond intended locations
+  - Commits: f6aadd8 (feat), d47c286 (prettier formatting)
+
   Files: convex/schema.ts:34-200, convex/schemaVersion.ts:1-33, lib/deployment-check.ts:20-85, types/questions.ts:1-55, types/concepts.ts (new), convex/_generated/api.ts (auto), convex/_generated/dataModel.d.ts (auto)
   Pattern: Mirror the questions defineTable signature + vector/search indexes in convex/schema.ts:34-86 and the schema version sync pattern used last in SCHEMA_VERSION/lib/deployment-check.ts.
 
