@@ -235,9 +235,21 @@ This ensures atomicity: Convex functions only deploy if frontend build succeeds,
 - Google provider kept configured for instant rollback if needed
 
 **Implementation Pattern:**
-- **No provider factory** - inline conditionals in `convex/lab.ts` and `convex/aiGeneration.ts`
-- **Discriminated unions** - TypeScript type safety via `GoogleInfraConfig | OpenAIInfraConfig`
-- **Minimal abstraction** - only abstract when 3+ concrete examples exist (Carmack's rule)
+- **Shared initializer** – `convex/lib/aiProviders.ts` exports `initializeProvider()` which encapsulates env reads, diagnostics, and Google/OpenAI client creation. Both `convex/aiGeneration.ts` and `convex/lab.ts` import this helper so provider selection lives in one place.
+- **ProviderClient contract** – Callers receive `{ provider, model?, openaiClient?, diagnostics }`, hiding SDK-specific plumbing while keeping explicit dependencies.
+- **Contract tests** – `convex/lib/aiProviders.test.ts` mocks each SDK to verify happy-path initialization, missing key failures, and unsupported provider guards.
+
+```ts
+// ProviderClient interface
+interface ProviderClient {
+  provider: 'google' | 'openai';
+  model?: LanguageModel;           // Present for Google (Vercel AI SDK models)
+  openaiClient?: OpenAI;           // Present for OpenAI Responses API usage
+  diagnostics: SecretDiagnostics;  // Sanitized metadata for logging
+}
+```
+
+> When adding Anthropic or other providers, extend `initializeProvider()` and its tests; downstream modules stay untouched if the ProviderClient surface remains stable.
 
 ### OpenAI Reasoning Models
 
