@@ -64,7 +64,7 @@
   Estimate: 0.75h
   ```
 
-- [ ] Add >1,100-doc regression suite for bandwidth-sensitive paths
+- [x] Add >1,100-doc regression suite for bandwidth-sensitive paths
   depends: Refactor reconcileUserStats sampling/pagination; Bound rateLimit queries to maxAttempts window; Stream getQuizInteractionStats via session index; Batch clerk.deleteUser question cleanup
   ```
   Files: convex/bandwidth-regressions.test.ts, lib/test-utils/largeFixtures.ts
