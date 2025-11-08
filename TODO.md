@@ -53,7 +53,7 @@
   Estimated Time: 45 minutes
   ```
 
-- [ ] Refactor `convex/aiGeneration.ts` to use centralized provider initialization
+- [x] Refactor `convex/aiGeneration.ts` to use centralized provider initialization
   ```
   Files: MODIFY convex/aiGeneration.ts lines 96-191
   Approach: Replace initialization block with call to initializeProvider()
