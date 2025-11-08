@@ -103,6 +103,26 @@ export default defineSchema({
     .index('by_question', ['questionId', 'attemptedAt'])
     .index('by_user_question', ['userId', 'questionId']),
 
+  // Vector embeddings for semantic search (separated from questions for bandwidth optimization)
+  // Stores 768-dimensional embeddings from Google text-embedding-004
+  // Each embedding is ~6.1 KB - keeping separate prevents fetching on non-search queries
+  questionEmbeddings: defineTable({
+    questionId: v.id('questions'), // Foreign key to questions table
+    userId: v.id('users'), // DUPLICATE from questions - immutable, security-critical
+    embedding: v.array(v.float64()), // 768-dimensional vector (6.1 KB)
+    embeddingGeneratedAt: v.number(), // Timestamp when embedding was generated
+  })
+    .index('by_question', ['questionId'])
+    .index('by_user', ['userId'])
+    // Vector index for semantic search
+    // filterFields: userId only (post-filter deletedAt/archivedAt like current implementation)
+    // Convex limitation: vector search doesn't support AND conditions for complex filters
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
+      dimensions: 768, // Google text-embedding-004
+      filterFields: ['userId'], // Only userId - post-filter view state in memory
+    }),
+
   /**
    * @deprecated This table is deprecated and should not be used.
    *

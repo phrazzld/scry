@@ -127,6 +127,19 @@ export const saveBatch = internalMutation({
       )
     );
 
+    // PHASE 1 DUAL-WRITE: Save embeddings to questionEmbeddings table
+    // This ensures new questions have embeddings in both tables during migration
+    const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+    await Promise.all(
+      args.questions.map((q, index) => {
+        // Only save if embedding was provided
+        if (q.embedding) {
+          return upsertEmbeddingForQuestion(ctx, questionIds[index], args.userId, q.embedding);
+        }
+        return Promise.resolve();
+      })
+    );
+
     // Update userStats with new question counts (incremental bandwidth optimization)
     // All new questions start in 'new' state
     await updateStatsCounters(ctx, args.userId, {
@@ -222,7 +235,7 @@ export const updateQuestion = mutation({
     // If text changes, the stored embedding becomes stale and will NEVER be updated because
     // the daily backfill cron (syncMissingEmbeddings) only processes embedding === undefined.
     //
-    // Solution: Clear embedding when text changes so the daily cron regenerates it within 24hrs.
+    // Solution: Delete embedding when text changes so the daily cron regenerates it within 24hrs.
     // This is better than permanent staleness. During the delay, the question will be missing from
     // vector search but still appears in text search (keyword matching).
     //
@@ -230,6 +243,12 @@ export const updateQuestion = mutation({
     // use question + explanation text, not answer options.
     const textChanged = args.question !== undefined || args.explanation !== undefined;
     if (textChanged) {
+      // Delete from new questionEmbeddings table
+      const { deleteEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+      await deleteEmbeddingForQuestion(ctx, args.questionId);
+
+      // BACKWARD COMPATIBILITY: Also clear in questions table (Phase 1)
+      // This will be removed in Phase 3 after migration completes
       updateFields.embedding = undefined;
       updateFields.embeddingGeneratedAt = undefined;
     }

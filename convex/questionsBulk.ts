@@ -231,6 +231,10 @@ export const permanentlyDelete = mutation({
     // Atomic validation via shared helper (also fetches questions for stats)
     const questions = await validateBulkOwnership(ctx, userId, args.questionIds);
 
+    // Delete associated embeddings from questionEmbeddings table
+    const { deleteEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+    await Promise.all(args.questionIds.map((id) => deleteEmbeddingForQuestion(ctx, id)));
+
     // All validations passed - execute deletions in parallel
     await Promise.all(args.questionIds.map((id) => ctx.db.delete(id)));
 

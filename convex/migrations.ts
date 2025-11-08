@@ -1155,3 +1155,203 @@ export const checkDueNowCountMigration = query({
     };
   },
 });
+
+/**
+ * Statistics for embeddings migration
+ */
+type EmbeddingsMigrationStats = {
+  totalProcessed: number;
+  migrated: number;
+  skipped: number;
+  errors: number;
+};
+
+/**
+ * Migration: Move embeddings from questions table to questionEmbeddings table
+ *
+ * **Phase 1 of 3-phase migration pattern:**
+ * - Copies existing embeddings from questions.embedding to questionEmbeddings table
+ * - Dual-writes during transition period (both tables populated)
+ * - Phase 2: Remove embedding fields from questions schema after migration completes
+ * - Phase 3: Remove backward compatibility dual-write code
+ *
+ * **Migration strategy:**
+ * 1. Iterate through all questions that have embeddings
+ * 2. Create corresponding record in questionEmbeddings table
+ * 3. Preserve embedding vector and generation timestamp
+ * 4. Duplicate userId for security filtering in vector search
+ *
+ * **Safety features:**
+ * - Dry-run mode to preview changes
+ * - Batch processing with progress logging
+ * - Idempotent (safe to re-run)
+ * - Validates embedding dimensions (768)
+ * - Skips questions without embeddings
+ *
+ * @param dryRun - If true, only simulate the migration without making changes
+ * @param batchSize - Number of questions to process per batch (default 100)
+ */
+export const migrateEmbeddingsToSeparateTable = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<EmbeddingsMigrationStats>> => {
+    const dryRun = args.dryRun ?? false;
+    const batchSize = args.batchSize ?? 100;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'migrateEmbeddingsToSeparateTable',
+    });
+
+    migrationLogger.info('Migration started', {
+      dryRun,
+      batchSize,
+    });
+
+    const stats: EmbeddingsMigrationStats = {
+      totalProcessed: 0,
+      migrated: 0,
+      skipped: 0,
+      errors: 0,
+    };
+
+    // Fetch all questions (we'll process in batches)
+    // Using runtime property check (not TypeScript type check) per migration best practices
+    const allQuestions = await ctx.db.query('questions').collect();
+
+    migrationLogger.info('Fetched questions for migration', {
+      total: allQuestions.length,
+    });
+
+    // Process in batches
+    for (let i = 0; i < allQuestions.length; i += batchSize) {
+      const batch = allQuestions.slice(i, i + batchSize);
+
+      for (const question of batch) {
+        stats.totalProcessed++;
+
+        // Runtime property check (not TypeScript type erasure)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const hasEmbedding =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          'embedding' in (question as any) && (question as any).embedding !== undefined;
+
+        if (!hasEmbedding) {
+          stats.skipped++;
+          continue;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const embedding = (question as any).embedding as number[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const embeddingGeneratedAt = (question as any).embeddingGeneratedAt as number | undefined;
+
+        // Validate embedding dimensions
+        if (embedding.length !== 768) {
+          migrationLogger.warn('Invalid embedding dimensions', {
+            questionId: question._id,
+            dimensions: embedding.length,
+            expected: 768,
+          });
+          stats.errors++;
+          continue;
+        }
+
+        // Check if embedding already exists in new table
+        const existingEmbedding = await ctx.db
+          .query('questionEmbeddings')
+          .withIndex('by_question', (q) => q.eq('questionId', question._id))
+          .first();
+
+        if (existingEmbedding) {
+          stats.skipped++;
+          continue;
+        }
+
+        if (!dryRun) {
+          try {
+            // Create embedding record in new table
+            await ctx.db.insert('questionEmbeddings', {
+              questionId: question._id,
+              userId: question.userId,
+              embedding,
+              embeddingGeneratedAt: embeddingGeneratedAt ?? Date.now(),
+            });
+
+            stats.migrated++;
+          } catch (error) {
+            migrationLogger.error('Failed to migrate embedding', {
+              questionId: question._id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            stats.errors++;
+          }
+        } else {
+          stats.migrated++;
+        }
+
+        // Log progress every 100 records
+        if (stats.totalProcessed % PROGRESS_LOG_INTERVAL === 0) {
+          migrationLogger.info('Migration progress', {
+            ...stats,
+            percentComplete: ((stats.totalProcessed / allQuestions.length) * 100).toFixed(1),
+          });
+        }
+      }
+    }
+
+    const message = dryRun
+      ? `Dry run completed: Would migrate ${stats.migrated} embeddings (${stats.skipped} skipped, ${stats.errors} errors)`
+      : `Migration completed: Migrated ${stats.migrated} embeddings (${stats.skipped} skipped, ${stats.errors} errors)`;
+
+    migrationLogger.info('Migration finished', {
+      ...stats,
+      message,
+      dryRun,
+    });
+
+    return {
+      status: stats.errors > 0 ? 'partial' : 'completed',
+      dryRun,
+      stats,
+      message,
+    };
+  },
+});
+
+/**
+ * Diagnostic query to check embeddings migration status
+ *
+ * Returns count of questions with embeddings that still need to be migrated.
+ * After migration completes, this should return { remaining: 0 }.
+ */
+export const migrateEmbeddingsToSeparateTableDiagnostic = query({
+  args: {},
+  handler: async (ctx) => {
+    // Count questions with embeddings
+    const questionsWithEmbeddings = await ctx.db
+      .query('questions')
+      .collect()
+      .then((questions) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        questions.filter((q) => 'embedding' in (q as any) && (q as any).embedding !== undefined)
+      );
+
+    // Count embeddings in new table
+    const embeddingsInNewTable = await ctx.db.query('questionEmbeddings').collect();
+
+    // Count questions with embeddings but NOT in new table
+    const needsMigration = questionsWithEmbeddings.filter(
+      (q) => !embeddingsInNewTable.some((e) => e.questionId === q._id)
+    );
+
+    return {
+      questionsWithEmbeddings: questionsWithEmbeddings.length,
+      embeddingsInNewTable: embeddingsInNewTable.length,
+      remaining: needsMigration.length,
+      complete: needsMigration.length === 0,
+    };
+  },
+});

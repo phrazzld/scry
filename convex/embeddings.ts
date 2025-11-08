@@ -20,7 +20,6 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { embed } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
-
 import { internal } from './_generated/api';
 import { Id } from './_generated/dataModel';
 import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
@@ -263,25 +262,46 @@ export const searchQuestions = action({
     };
 
     // Perform vector search with userId-only filter (view filtering happens post-fetch)
+    // Now searches questionEmbeddings table instead of questions table
     // Note: Vector search filters don't support AND conditions, so we filter by view state below
-    const rawVectorResults = queryEmbedding
-      ? await ctx.vectorSearch('questions', 'by_embedding', {
+    const rawEmbeddingResults = queryEmbedding
+      ? await ctx.vectorSearch('questionEmbeddings', 'by_embedding', {
           vector: queryEmbedding,
           limit: limit * 2, // Get extra results for merging with text search
-          filter: buildFilter,
+          filter: buildFilter, // Filters by userId only
         })
       : [];
 
     // Post-filter vector results by view state
-    // Vector search returns partial documents, so we need full docs to check deletedAt/archivedAt
+    // Vector search returns embedding records, so we need to:
+    // 1. Extract questionIds from embedding records
+    // 2. Fetch full question documents
+    // 3. Filter by view state
+    // 4. Re-attach similarity scores
     let vectorResults: SearchResult[];
-    if (rawVectorResults.length > 0) {
-      // Fetch full documents to access deletedAt and archivedAt fields
-      const questionIds = rawVectorResults.map((r) => r._id);
-      const fullDocs = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
+    if (rawEmbeddingResults.length > 0) {
+      // Fetch embedding records to get questionIds
+      const embeddingIds = rawEmbeddingResults.map((r) => r._id);
+      const embeddings = await ctx.runQuery(internal.embeddings.getEmbeddingsByIds, {
+        embeddingIds,
+      });
 
-      // Create score map for quick lookup (preserve vector similarity scores)
-      const scoreMap = new Map(rawVectorResults.map((r) => [r._id.toString(), r._score]));
+      // Extract questionIds and create score map (questionId → similarity score)
+      const questionIds = embeddings
+        .filter((e: (typeof embeddings)[number]): e is NonNullable<typeof e> => e !== null)
+        .map((e: NonNullable<(typeof embeddings)[number]>) => e.questionId);
+
+      const scoreMap = new Map(
+        rawEmbeddingResults
+          .map((r, i) => {
+            const embedding = embeddings[i];
+            return embedding ? ([embedding.questionId, r._score] as const) : null;
+          })
+          .filter((entry): entry is [string, number] => entry !== null)
+      );
+
+      // Fetch full question documents
+      const fullDocs = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
 
       // Apply view state filtering (active/archived/trash)
       const filteredDocs = filterResultsByView(fullDocs as SearchResult[], view);
@@ -417,6 +437,7 @@ function mergeSearchResults(
  * Get questions without embeddings for backfill sync
  *
  * Internal query used by daily sync cron to identify questions that need embeddings.
+ * Now checks separate questionEmbeddings table instead of questions.embedding field.
  * Limits results to prevent overwhelming the sync process.
  *
  * @param limit - Maximum questions to return (default 100 for daily sync)
@@ -429,21 +450,34 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
   handler: async (ctx, args) => {
     const limit = args.limit ?? 100;
 
-    // Query questions where embedding is undefined
-    // Only active questions (not deleted or archived) to avoid wasting API calls
-    const questions = await ctx.db
+    // Get all active questions (not deleted or archived)
+    // Fetch extra to account for filtering out questions that already have embeddings
+    const allActiveQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user_active')
       .filter((q) =>
-        q.and(
-          q.eq(q.field('embedding'), undefined),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
-        )
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
-      .take(limit);
+      .take(limit * 2); // Fetch 2x to ensure we get enough after filtering
 
-    return questions;
+    // Get question IDs that already have embeddings in the new table
+    const questionIdsWithEmbeddings = new Set<string>();
+    for (const question of allActiveQuestions) {
+      const embedding = await ctx.db
+        .query('questionEmbeddings')
+        .withIndex('by_question', (q) => q.eq('questionId', question._id))
+        .first();
+      if (embedding) {
+        questionIdsWithEmbeddings.add(question._id);
+      }
+    }
+
+    // Filter to questions without embeddings
+    const questionsWithoutEmbeddings = allActiveQuestions
+      .filter((q) => !questionIdsWithEmbeddings.has(q._id))
+      .slice(0, limit);
+
+    return questionsWithoutEmbeddings;
   },
 });
 
@@ -451,6 +485,7 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
  * Count questions without embeddings
  *
  * Used for monitoring and progress tracking of backfill sync.
+ * Now checks separate questionEmbeddings table.
  *
  * @returns Count of questions missing embeddings
  */
@@ -461,20 +496,29 @@ export const countQuestionsWithoutEmbeddings = internalQuery({
     // If count exceeds limit, return "limit+" to indicate "at least this many"
     const SAMPLE_LIMIT = 1000;
 
+    // Get all active questions
     const questions = await ctx.db
       .query('questions')
       .withIndex('by_user_active')
       .filter((q) =>
-        q.and(
-          q.eq(q.field('embedding'), undefined),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
-        )
+        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
       .take(SAMPLE_LIMIT);
 
+    // Check which ones have embeddings in the new table
+    let countWithoutEmbeddings = 0;
+    for (const question of questions) {
+      const embedding = await ctx.db
+        .query('questionEmbeddings')
+        .withIndex('by_question', (q) => q.eq('questionId', question._id))
+        .first();
+      if (!embedding) {
+        countWithoutEmbeddings++;
+      }
+    }
+
     return {
-      count: questions.length,
+      count: countWithoutEmbeddings,
       isApproximate: questions.length === SAMPLE_LIMIT,
     };
   },
@@ -499,9 +543,27 @@ export const getQuestionForEmbedding = internalQuery({
 });
 
 /**
+ * Get embeddings by IDs
+ *
+ * Internal query used by search action to fetch embedding records.
+ *
+ * @param embeddingIds - Array of embedding IDs to fetch
+ * @returns Array of embedding documents (nulls if not found)
+ */
+export const getEmbeddingsByIds = internalQuery({
+  args: {
+    embeddingIds: v.array(v.id('questionEmbeddings')),
+  },
+  handler: async (ctx, args) => {
+    return await Promise.all(args.embeddingIds.map((id) => ctx.db.get(id)));
+  },
+});
+
+/**
  * Save embedding to a question
  *
  * Internal mutation used by sync to update questions with generated embeddings.
+ * Now uses separate questionEmbeddings table for bandwidth optimization.
  *
  * @param questionId - ID of question to update
  * @param embedding - 768-dimensional embedding vector
@@ -514,6 +576,18 @@ export const saveEmbedding = internalMutation({
     embeddingGeneratedAt: v.number(),
   },
   handler: async (ctx, args) => {
+    // Get question to extract userId (needed for questionEmbeddings table)
+    const question = await ctx.db.get(args.questionId);
+    if (!question) {
+      throw new Error(`Question not found: ${args.questionId}`);
+    }
+
+    // Use helper to upsert embedding in separate table
+    const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+    await upsertEmbeddingForQuestion(ctx, args.questionId, question.userId, args.embedding);
+
+    // BACKWARD COMPATIBILITY: Also save to questions table (Phase 1 - dual write)
+    // This will be removed in Phase 3 after migration completes
     await ctx.db.patch(args.questionId, {
       embedding: args.embedding,
       embeddingGeneratedAt: args.embeddingGeneratedAt,
