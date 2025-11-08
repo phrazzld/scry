@@ -39,6 +39,7 @@
 - Introduce paginated helpers (`paginateAll`) with early exit, and refactor runtime functions to stream batches (100–200 docs at a time).
 - Add Vitest regression tests using fixtures with >1,100 documents to prove no crash.
 - Capture new best-practice note in `docs/guides/convex-bandwidth.md` so future code avoids `.collect()`.
+  - Status: ✅ Guide available at `docs/guides/convex-bandwidth.md` (linked from README); keep it updated as new patterns ship.
 
 **Impact**: Keeps per-call bandwidth bounded and prevents Convex hard limits from halting login, generation, or analytics when user count grows.
 **Effort**: 1 day (refactor + tests + docs)

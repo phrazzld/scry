@@ -75,7 +75,7 @@
   Estimate: 1.5h
   ```
 
-- [ ] Document Convex bandwidth guardrails
+- [~] Document Convex bandwidth guardrails
   depends: Refactor reconcileUserStats sampling/pagination; Bound rateLimit queries to maxAttempts window; Stream getQuizInteractionStats via session index; Batch clerk.deleteUser question cleanup
   ```
   Files: docs/guides/convex-bandwidth.md, README.md (link), BACKLOG.md (cross-link)
