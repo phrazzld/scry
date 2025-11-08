@@ -528,29 +528,9 @@ try {
 - Sensitive headers (auth, cookies, API keys) automatically filtered
 - If leak detected, add pattern to `lib/analytics.ts` sanitization
 
-### Alert Configuration (CLI-Based)
+### Alert Configuration (Manual Setup via Sentry UI)
 
-**Script-based alert setup** (recommended over manual dashboard clicking):
-
-```bash
-# 1. Create Sentry API token (one time)
-# Visit: https://sentry.io/settings/account/api/auth-tokens/
-# Scopes: project:write, alerts:write
-# Add to .env.local: SENTRY_API_TOKEN=sntrys_xxx
-
-# 2. Run alert configuration script
-./scripts/configure-sentry-alerts.sh
-
-# Output:
-# ✅ Created: Production: New Error Type (ID: 123)
-# ⚠️  Note: Metric alerts require manual UI configuration
-```
-
-**What the script configures:**
-- ✅ **Issue Alert:** New error types in production (email notification, 30min throttle)
-- ⚠️  **Metric Alerts:** High error rate + Release health (manual UI setup recommended)
-
-**Manual metric alert setup** (Sentry UI required):
+**Configure alerts manually in Sentry dashboard:**
 1. Navigate to: Sentry → Alerts → Create Alert
 2. **High Error Rate:**
    - Type: "Number of Errors"

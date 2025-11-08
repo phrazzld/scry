@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { AnalyticsWrapper } from '@/components/analytics-wrapper';
 import { ConditionalNavbar } from '@/components/conditional-navbar';
+import { ConvexErrorBoundary } from '@/components/convex-error-boundary';
 import { DeploymentVersionGuard } from '@/components/deployment-version-guard';
 import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -54,19 +55,21 @@ export default function RootLayout({
         >
           <ConfirmationProvider>
             <ClerkConvexProvider>
-              <DeploymentVersionGuard>
-                <CurrentQuestionProvider>
-                  <div className={getLayoutClassName()}>
-                    <ConditionalNavbar />
-                    {needsNavbarSpacer() && <div className="h-16" />}
-                    <main>{children}</main>
-                    <Footer />
-                  </div>
-                  <Toaster />
-                  <AnalyticsWrapper />
-                  <SpeedInsights />
-                </CurrentQuestionProvider>
-              </DeploymentVersionGuard>
+              <ConvexErrorBoundary>
+                <DeploymentVersionGuard>
+                  <CurrentQuestionProvider>
+                    <div className={getLayoutClassName()}>
+                      <ConditionalNavbar />
+                      {needsNavbarSpacer() && <div className="h-16" />}
+                      <main>{children}</main>
+                      <Footer />
+                    </div>
+                    <Toaster />
+                    <AnalyticsWrapper />
+                    <SpeedInsights />
+                  </CurrentQuestionProvider>
+                </DeploymentVersionGuard>
+              </ConvexErrorBoundary>
             </ClerkConvexProvider>
           </ConfirmationProvider>
         </ThemeProvider>
