@@ -53,6 +53,8 @@ describe('analytics wrapper', () => {
       details: 'Contact learner@example.com if issues arise',
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     expect(clientTrackMock).toHaveBeenCalledTimes(1);
     expect(clientTrackMock).toHaveBeenCalledWith(
       'Quiz Generation Started',
@@ -82,6 +84,8 @@ describe('analytics wrapper', () => {
     const { trackEvent } = await import('./analytics');
 
     trackEvent('Quiz Generation Started', { jobId: 'job-123' });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(clientTrackMock).toHaveBeenCalledTimes(1);
   });
@@ -145,6 +149,8 @@ describe('analytics wrapper', () => {
       nested: { attempts: 2 },
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     expect(captureExceptionMock).toHaveBeenCalledTimes(1);
     expect(captureExceptionMock).toHaveBeenCalledWith(error, {
       extra: {
@@ -176,6 +182,8 @@ describe('analytics wrapper', () => {
 
     setUserContext('user-123', { plan: 'pro' });
     clearUserContext();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(setUserMock).toHaveBeenLastCalledWith(null);
   });

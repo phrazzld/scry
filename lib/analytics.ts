@@ -1,5 +1,9 @@
-import * as Sentry from '@sentry/nextjs';
-import { track as trackClient } from '@vercel/analytics';
+/**
+ * Analytics wrapper with Convex compatibility
+ *
+ * This module uses dynamic imports to avoid bundling Next.js-specific dependencies
+ * (Sentry, Vercel Analytics) when running in Convex's JavaScript environment.
+ */
 
 import { getDeploymentEnvironment } from './environment';
 import { shouldEnableSentry } from './sentry';
@@ -10,6 +14,8 @@ const EMAIL_REDACTED = '[EMAIL_REDACTED]';
 const USER_METADATA_PREFIX = 'user.';
 
 type ServerTrack = typeof import('@vercel/analytics/server').track;
+type ClientTrack = typeof import('@vercel/analytics').track;
+type SentryModule = typeof import('@sentry/nextjs');
 
 export type AnalyticsEventProperty = string | number | boolean;
 
@@ -91,6 +97,8 @@ interface AnalyticsUserContext {
 }
 
 let serverTrackPromise: Promise<ServerTrack | null> | null = null;
+let clientTrackPromise: Promise<ClientTrack | null> | null = null;
+let sentryPromise: Promise<SentryModule | null> | null = null;
 let currentUserContext: AnalyticsUserContext | null = null;
 
 function isDevelopmentLikeEnvironment(): boolean {
@@ -213,6 +221,40 @@ function loadServerTrack(): Promise<ServerTrack | null> {
   return serverTrackPromise;
 }
 
+function loadClientTrack(): Promise<ClientTrack | null> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve(null);
+  }
+
+  if (!clientTrackPromise) {
+    clientTrackPromise = import('@vercel/analytics')
+      .then((module) => module.track)
+      .catch((error) => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[analytics] Failed to load client analytics module', error);
+        }
+        return null;
+      });
+  }
+
+  return clientTrackPromise;
+}
+
+function loadSentry(): Promise<SentryModule | null> {
+  if (!sentryPromise) {
+    sentryPromise = import('@sentry/nextjs')
+      .then((module) => module)
+      .catch((error) => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[analytics] Failed to load Sentry module', error);
+        }
+        return null;
+      });
+  }
+
+  return sentryPromise;
+}
+
 function sanitizeContextValue(value: unknown, seen: WeakSet<object>): unknown {
   if (value === undefined) {
     return undefined;
@@ -290,13 +332,19 @@ export function trackEvent<Name extends AnalyticsEventName>(
   const sanitized = withUserContext(sanitizeEventProperties(properties));
 
   if (typeof window !== 'undefined') {
-    try {
-      trackClient(name, sanitized);
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('[analytics] Failed to track client event', error);
-      }
-    }
+    void loadClientTrack()
+      .then((track) => {
+        if (!track) {
+          return;
+        }
+
+        return track(name, sanitized);
+      })
+      .catch((error) => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[analytics] Failed to track client event', error);
+        }
+      });
     return;
   }
 
@@ -326,13 +374,19 @@ export function reportError(error: Error, context?: Record<string, unknown>): vo
 
   const sanitizedContext = sanitizeErrorContext(context);
 
-  try {
-    Sentry.captureException(error, sanitizedContext ? { extra: sanitizedContext } : undefined);
-  } catch (captureError) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[analytics] Failed to report error to Sentry', captureError);
-    }
-  }
+  void loadSentry()
+    .then((Sentry) => {
+      if (!Sentry) {
+        return;
+      }
+
+      Sentry.captureException(error, sanitizedContext ? { extra: sanitizedContext } : undefined);
+    })
+    .catch((captureError) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[analytics] Failed to report error to Sentry', captureError);
+      }
+    });
 }
 
 export function setUserContext(userId: string, metadata: AnalyticsUserMetadata = {}): void {
@@ -352,23 +406,35 @@ export function setUserContext(userId: string, metadata: AnalyticsUserMetadata =
     sentryUser[`meta_${key}`] = value;
   }
 
-  try {
-    Sentry.setUser(sentryUser);
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[analytics] Failed to set Sentry user context', error);
-    }
-  }
+  void loadSentry()
+    .then((Sentry) => {
+      if (!Sentry) {
+        return;
+      }
+
+      Sentry.setUser(sentryUser);
+    })
+    .catch((error) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[analytics] Failed to set Sentry user context', error);
+      }
+    });
 }
 
 export function clearUserContext(): void {
   currentUserContext = null;
 
-  try {
-    Sentry.setUser(null);
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[analytics] Failed to clear Sentry user context', error);
-    }
-  }
+  void loadSentry()
+    .then((Sentry) => {
+      if (!Sentry) {
+        return;
+      }
+
+      Sentry.setUser(null);
+    })
+    .catch((error) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[analytics] Failed to clear Sentry user context', error);
+      }
+    });
 }
