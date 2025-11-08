@@ -49,8 +49,18 @@
   Estimate: 1.5h
   ```
 
-- [~] Seed v0 concepts + phrasings from legacy questions
+- [x] Seed v0 concepts + phrasings from legacy questions
   ```
+  Work Log:
+  - Implemented seedConceptsFromQuestions internalMutation
+  - Creates 1:1:1 mapping (question → concept → phrasing) preserving FSRS state
+  - Added checkConceptsSeedingStatus diagnostic query for migration progress
+  - Batched processing (500 questions/batch) with cursor-based pagination
+  - Idempotent: runtime property checks skip already-linked questions
+  - Test coverage: 11 new tests (dry-run, idempotency, batching, errors, edge cases)
+  - All 510 tests pass, lint clean
+  - Commits: 8132ee7 (feat), 0eab779 (prettier)
+
   Files: convex/migrations.ts, convex/migrations.test.ts, convex/questionsBulk.ts, scripts/run-migration.sh
   Goal: Allocate concept per question, copy FSRS fields to concept.fsrs, write phrasing rows, backfill questions.conceptId via chunked migration with diagnostics.
   Acceptance:
