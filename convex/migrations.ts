@@ -1371,7 +1371,9 @@ export const seedConceptsFromQuestions = internalMutation({
 
             // Log progress every 100 records
             if (stats.questionsLinked % PROGRESS_LOG_INTERVAL === 0) {
-              migrationLogger.info(`Migration progress: ${stats.questionsLinked} questions migrated`);
+              migrationLogger.info(
+                `Migration progress: ${stats.questionsLinked} questions migrated`
+              );
             }
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
@@ -1385,7 +1387,9 @@ export const seedConceptsFromQuestions = internalMutation({
 
         // Log batch completion
         migrationLogger.info('Batch completed', {
-          event: dryRun ? 'migration.concepts-seeding.batch.dry-run' : 'migration.concepts-seeding.batch',
+          event: dryRun
+            ? 'migration.concepts-seeding.batch.dry-run'
+            : 'migration.concepts-seeding.batch',
           batchSize: questions.length,
           totalQuestions: stats.totalQuestions,
           conceptsCreated: stats.conceptsCreated,

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import type { Doc, Id } from './_generated/dataModel';
 
 /**
@@ -478,7 +477,10 @@ function createQuestionWithoutConcept(id: string): Doc<'questions'> {
 /**
  * Helper to create mock question WITH conceptId
  */
-function createQuestionWithConcept(id: string, conceptId: string): Doc<'questions'> & { conceptId: Id<'concepts'> } {
+function createQuestionWithConcept(
+  id: string,
+  conceptId: string
+): Doc<'questions'> & { conceptId: Id<'concepts'> } {
   return {
     ...createQuestionWithoutConcept(id),
     conceptId: conceptId as Id<'concepts'>,
@@ -530,7 +532,7 @@ function simulateConceptsSeeding(
       }
 
       // Check if question already has conceptId (runtime property check)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const questionData = question as any;
 
       if ('conceptId' in questionData && questionData.conceptId) {
@@ -620,7 +622,9 @@ describe('Concepts Seeding Migration', () => {
       expect(firstRun.stats.conceptsCreated).toBe(5);
 
       // Simulate questions now have conceptId after first run
-      const questionsWithConcepts = questions.map((q) => createQuestionWithConcept(q._id, `concept-${q._id}`));
+      const questionsWithConcepts = questions.map((q) =>
+        createQuestionWithConcept(q._id, `concept-${q._id}`)
+      );
 
       // Second run should skip all
       const secondRun = simulateConceptsSeeding(questionsWithConcepts);
@@ -631,7 +635,9 @@ describe('Concepts Seeding Migration', () => {
 
   describe('Batch Processing', () => {
     it('should process questions in batches of 500', () => {
-      const questions = Array.from({ length: 1500 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+      const questions = Array.from({ length: 1500 }, (_, i) =>
+        createQuestionWithoutConcept(`q${i}`)
+      );
 
       const result = simulateConceptsSeeding(questions, { batchSize: 500 });
 
@@ -642,7 +648,9 @@ describe('Concepts Seeding Migration', () => {
     });
 
     it('should handle non-even batch divisions', () => {
-      const questions = Array.from({ length: 1234 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+      const questions = Array.from({ length: 1234 }, (_, i) =>
+        createQuestionWithoutConcept(`q${i}`)
+      );
 
       const result = simulateConceptsSeeding(questions, { batchSize: 500 });
 
@@ -681,7 +689,9 @@ describe('Concepts Seeding Migration', () => {
 
   describe('Counts Validation', () => {
     it('should create exactly 1:1:1 mapping (question:concept:phrasing)', () => {
-      const questions = Array.from({ length: 100 }, (_, i) => createQuestionWithoutConcept(`q${i}`));
+      const questions = Array.from({ length: 100 }, (_, i) =>
+        createQuestionWithoutConcept(`q${i}`)
+      );
 
       const result = simulateConceptsSeeding(questions);
 
