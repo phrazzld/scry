@@ -18,7 +18,7 @@ import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 
-import { trackEvent } from '../lib/analytics';
+import { trackEvent } from './lib/analytics';
 import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
 import type { Doc } from './_generated/dataModel';

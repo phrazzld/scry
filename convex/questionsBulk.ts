@@ -11,7 +11,7 @@ import { v } from 'convex/values';
 
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { trackEvent } from '../lib/analytics';
+import { trackEvent } from './lib/analytics';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { validateBulkOwnership } from './lib/validation';
 

@@ -229,7 +229,11 @@ function loadServerTrack(): Promise<ServerTrack | null> {
     const isTest = process.env.NODE_ENV === 'test';
     const importPromise = isTest
       ? import('@vercel/analytics/server')
-      : import(/* webpackIgnore: true */ ('@vercel' + '/' + 'analytics/server') as '@vercel/analytics/server');
+      : import(
+          /* webpackIgnore: true */ ('@vercel' +
+            '/' +
+            'analytics/server') as '@vercel/analytics/server'
+        );
 
     serverTrackPromise = importPromise
       .then((module) => module.track)
