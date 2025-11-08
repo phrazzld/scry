@@ -162,14 +162,17 @@
 
 ## Acceptance Criteria
 
-- [ ] `convex/lib/aiProviders.ts` exists and exports `initializeProvider()` function
-- [ ] Both `aiGeneration.ts` and `lab.ts` use shared module (no inline provider logic)
-- [ ] Net reduction: ~200 lines of duplicated code eliminated
-- [ ] All existing tests pass (aiGeneration.test.ts)
-- [ ] New contract tests prove identical behavior
-- [ ] Adding Anthropic provider requires changes in 1 location only (aiProviders.ts)
-- [ ] pnpm dev works, generation jobs complete successfully
-- [ ] Genesis Lab executes configs without errors
+- [x] `convex/lib/aiProviders.ts` exists and exports `initializeProvider()` function
+- [x] Both `aiGeneration.ts` and `lab.ts` use shared module (no inline provider logic)
+- [x] Net reduction: ~200 lines of duplicated code eliminated
+- [~] All existing tests pass (aiGeneration.test.ts)
+  - Blocked: `pnpm test convex/aiGeneration.test.ts` fails because `vitest` command is missing (node_modules not installed in this workspace). Need `pnpm install` before rerunning.
+- [x] New contract tests prove identical behavior
+- [x] Adding Anthropic provider requires changes in 1 location only (aiProviders.ts)
+- [~] pnpm dev works, generation jobs complete successfully
+  - Blocked: `pnpm dev` fails because `next` and `convex` CLIs are not installed (node_modules missing). Need `pnpm install` before validating end-to-end job flow.
+- [~] Genesis Lab executes configs without errors
+  - Blocked: Requires running `pnpm dev` and exercising `/lab`, but dev server can’t start until dependencies are installed (see above).
 
 ## Notes
 
