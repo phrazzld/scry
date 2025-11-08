@@ -4,17 +4,8 @@
   "singleQuote": true,
   "tabWidth": 2,
   "printWidth": 100,
-  "plugins": [
-    "@ianvs/prettier-plugin-sort-imports",
-    "prettier-plugin-ember-template-tag"
-  ],
-  "importOrder": [
-    "^react$",
-    "^next",
-    "<THIRD_PARTY_MODULES>",
-    "^@/",
-    "^[./]"
-  ],
+  "plugins": ["@ianvs/prettier-plugin-sort-imports", "prettier-plugin-ember-template-tag"],
+  "importOrder": ["^react$", "^next", "<THIRD_PARTY_MODULES>", "^@/", "^[./]"],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true
 }

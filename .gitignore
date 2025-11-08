@@ -78,5 +78,8 @@ components/review.old.tsx
 test-results-summary.md
 .next/analyze
 
+# Sentry Config File
+.env.sentry-build-plugin
+
 # ESLint cache
 .eslintcache

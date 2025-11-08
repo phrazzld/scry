@@ -17,9 +17,10 @@ import { v } from 'convex/values';
 import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
-
 import { internal } from './_generated/api';
+import type { Doc } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
+import { trackEvent } from './lib/analytics';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 import { buildLearningSciencePrompt } from './lib/promptTemplates';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';
@@ -89,6 +90,7 @@ export const processJob = internalAction({
   },
   handler: async (ctx, args) => {
     const startTime = Date.now();
+    let job: Doc<'generationJobs'> | null = null;
 
     // Initialize AI provider from environment configuration
     // Defaults to OpenAI for production, but can be overridden via env vars
@@ -198,7 +200,7 @@ export const processJob = internalAction({
       });
 
       // Fetch job details
-      const job = await ctx.runQuery(internal.generationJobs.getJobByIdInternal, {
+      job = await ctx.runQuery(internal.generationJobs.getJobByIdInternal, {
         jobId: args.jobId,
       });
 
@@ -217,6 +219,12 @@ export const processJob = internalAction({
 
       // Single Phase: Learning Science Question Generation
       logger.info({ jobId: args.jobId }, 'Generating questions with learning science principles');
+
+      trackEvent('Quiz Generation Started', {
+        jobId: args.jobId,
+        userId: String(job.userId),
+        provider,
+      });
 
       await ctx.runMutation(internal.generationJobs.updateProgress, {
         jobId: args.jobId,
@@ -404,6 +412,14 @@ export const processJob = internalAction({
         },
         'Job completed successfully'
       );
+
+      trackEvent('Quiz Generation Completed', {
+        jobId: args.jobId,
+        userId: String(job.userId),
+        provider,
+        questionCount: allQuestionIds.length,
+        durationMs,
+      });
     } catch (error) {
       const err = error as Error;
       const { code, retryable } = classifyError(err);
@@ -441,6 +457,15 @@ export const processJob = internalAction({
         errorMessage: userMessage,
         errorCode: code,
         retryable,
+      });
+
+      const durationMs = Date.now() - startTime;
+      trackEvent('Quiz Generation Failed', {
+        jobId: args.jobId,
+        userId: job ? String(job.userId) : 'unknown',
+        provider,
+        errorType: code,
+        durationMs,
       });
 
       // Re-throw to signal failure

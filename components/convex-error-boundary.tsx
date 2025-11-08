@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { clearUserContext, reportError, setUserContext } from '@/lib/analytics';
 
 interface Props {
   children: React.ReactNode;
@@ -15,8 +17,17 @@ interface State {
   error: Error | null;
 }
 
-export class ConvexErrorBoundary extends React.Component<Props, State> {
-  constructor(props: Props) {
+interface AnalyticsUser {
+  id: string;
+  metadata: Record<string, string>;
+}
+
+interface BoundaryProps extends Props {
+  analyticsUser: AnalyticsUser | null;
+}
+
+class ConvexErrorBoundaryInner extends React.Component<BoundaryProps, State> {
+  constructor(props: BoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -26,14 +37,19 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo) {
-    // Error boundary will handle the error display in UI
-    // The error state is already captured via getDerivedStateFromError
-    // In development, the error details will be shown in the UI (see render method)
-    // Optionally, you could send error to an error tracking service here:
-    // if (process.env.NODE_ENV === 'production') {
-    //   errorTrackingService.logError(error, errorInfo);
-    // }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    const { analyticsUser } = this.props;
+
+    if (analyticsUser) {
+      setUserContext(analyticsUser.id, analyticsUser.metadata);
+    } else {
+      clearUserContext();
+    }
+
+    reportError(error, {
+      boundary: 'convex-error-boundary',
+      componentStack: errorInfo.componentStack,
+    });
   }
 
   handleReset = () => {
@@ -100,3 +116,47 @@ export class ConvexErrorBoundary extends React.Component<Props, State> {
     return this.props.children;
   }
 }
+
+function createAnalyticsUser(user: ReturnType<typeof useUser>['user']): AnalyticsUser | null {
+  if (!user?.id) {
+    return null;
+  }
+
+  const metadata: Record<string, string> = {};
+
+  const email = user.primaryEmailAddress?.emailAddress;
+  if (email) {
+    metadata.email = email;
+  }
+
+  if (user.fullName) {
+    metadata.name = user.fullName;
+  }
+
+  if (user.username) {
+    metadata.username = user.username;
+  }
+
+  return {
+    id: user.id,
+    metadata,
+  };
+}
+
+export function ConvexErrorBoundary({ children }: Props) {
+  const { isSignedIn, user } = useUser();
+
+  const analyticsUser = useMemo(() => {
+    if (!isSignedIn) {
+      return null;
+    }
+
+    return createAnalyticsUser(user);
+  }, [isSignedIn, user]);
+
+  return (
+    <ConvexErrorBoundaryInner analyticsUser={analyticsUser}>{children}</ConvexErrorBoundaryInner>
+  );
+}
+
+export { ConvexErrorBoundaryInner as ConvexErrorBoundaryImpl };

@@ -8,9 +8,9 @@
  * This ensures either all operations succeed or all fail - no partial states.
  */
 import { v } from 'convex/values';
-
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { trackEvent } from './lib/analytics';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { validateBulkOwnership } from './lib/validation';
 
@@ -42,6 +42,12 @@ export const archiveQuestions = mutation({
       )
     );
 
+    trackEvent('Question Archived', {
+      userId: String(userId),
+      questionCount: args.questionIds.length,
+      source: 'manual',
+    });
+
     return { archived: args.questionIds.length };
   },
 });
@@ -72,6 +78,12 @@ export const unarchiveQuestions = mutation({
         })
       )
     );
+
+    trackEvent('Question Restored', {
+      userId: String(userId),
+      questionCount: args.questionIds.length,
+      source: 'manual',
+    });
 
     return { unarchived: args.questionIds.length };
   },
@@ -127,6 +139,12 @@ export const bulkDelete = mutation({
       newCount: -newDecrement,
       learningCount: -learningDecrement,
       matureCount: -matureDecrement,
+    });
+
+    trackEvent('Question Deleted', {
+      userId: String(userId),
+      questionCount: args.questionIds.length,
+      source: 'manual',
     });
 
     return { deleted: args.questionIds.length };
@@ -186,6 +204,12 @@ export const restoreQuestions = mutation({
       matureCount: matureIncrement,
     });
 
+    trackEvent('Question Restored', {
+      userId: String(userId),
+      questionCount: args.questionIds.length,
+      source: 'manual',
+    });
+
     return { restored: args.questionIds.length };
   },
 });
@@ -240,6 +264,12 @@ export const permanentlyDelete = mutation({
         matureCount: -matureDecrement,
       });
     }
+
+    trackEvent('Question Deleted', {
+      userId: String(userId),
+      questionCount: args.questionIds.length,
+      source: 'manual',
+    });
 
     return { permanentlyDeleted: args.questionIds.length };
   },

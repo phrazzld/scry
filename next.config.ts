@@ -1,10 +1,29 @@
-import type { NextConfig } from 'next';
-import bundleAnalyzer from '@next/bundle-analyzer';
+import { withSentryConfig } from "@sentry/nextjs";
+import type { NextConfig } from "next";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 // Bundle analyzer setup
 const withBundleAnalyzer = bundleAnalyzer({
-  enabled: process.env.ANALYZE === 'true',
+  enabled: process.env.ANALYZE === "true",
 });
+
+const isSentryUploadEnabled =
+  !!process.env.SENTRY_AUTH_TOKEN && !!process.env.SENTRY_ORG && !!process.env.SENTRY_PROJECT;
+
+const sentryNextConfigOptions = {
+  silent: !process.env.CI,
+  // Hide source maps from generated client bundles (security)
+  hideSourceMaps: true,
+  // Tree-shake Sentry logger statements in production (reduces bundle size)
+  disableLogger: true,
+  // Webpack plugin options for source maps upload
+  sourcemaps: {
+    disable: !isSentryUploadEnabled,
+  },
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  automaticVercelMonitors: true,
+};
 
 const nextConfig: NextConfig = {
   // Enable static asset optimization
@@ -33,29 +52,29 @@ const nextConfig: NextConfig = {
           // Separate chunk for UI components
           ui: {
             test: /[\\/]node_modules[\\/](@radix-ui|lucide-react)[\\/]/,
-            name: 'ui-vendor',
-            chunks: 'all',
+            name: "ui-vendor",
+            chunks: "all",
             priority: 20,
           },
           // Separate chunk for React and core libraries
           react: {
             test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-            name: 'react-vendor',
-            chunks: 'all',
+            name: "react-vendor",
+            chunks: "all",
             priority: 30,
           },
           // AI and form libraries
           ai: {
             test: /[\\/]node_modules[\\/](ai|@openrouter|zod|react-hook-form)[\\/]/,
-            name: 'ai-vendor',
-            chunks: 'all',
+            name: "ai-vendor",
+            chunks: "all",
             priority: 15,
           },
           // Default vendor chunk for everything else
           vendor: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'vendor',
-            chunks: 'all',
+            name: "vendor",
+            chunks: "all",
             priority: 10,
           },
         },
@@ -69,43 +88,43 @@ const nextConfig: NextConfig = {
   async headers() {
     // Determine Clerk domains based on environment
     const clerkDomains =
-      process.env.VERCEL_ENV === 'production'
-        ? 'https://clerk.scry.study https://rapid-jawfish-0.clerk.accounts.dev'
-        : 'https://rapid-jawfish-0.clerk.accounts.dev';
+      process.env.VERCEL_ENV === "production"
+        ? "https://clerk.scry.study https://rapid-jawfish-0.clerk.accounts.dev"
+        : "https://rapid-jawfish-0.clerk.accounts.dev";
 
     return [
       {
         // Apply security headers to all routes
-        source: '/(.*)',
+        source: "/(.*)",
         headers: [
           // Enforce HTTPS and prevent downgrade attacks
           {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains; preload",
           },
           // Prevent MIME type sniffing
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           // Prevent clickjacking attacks
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           // Control referrer information
           {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
           },
           // Prevent XSS attacks (browser's built-in protection)
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
           },
           // Control resource loading and prevent XSS
           {
-            key: 'Content-Security-Policy',
+            key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
               `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://cdn.vercel-insights.com https://va.vercel-scripts.com ${clerkDomains} https://challenges.cloudflare.com`,
@@ -114,56 +133,56 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: https: https://img.clerk.com",
               "font-src 'self' data: https://fonts.gstatic.com",
               `connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://vercel.live https://cdn.vercel-insights.com https://va.vercel-scripts.com https://*.convex.cloud wss://*.convex.cloud ${clerkDomains} https://clerk-telemetry.com`,
-              `frame-src ${process.env.VERCEL_ENV === 'production' ? 'https://challenges.cloudflare.com' : "'self' https://vercel.live https://challenges.cloudflare.com"}`,
+              `frame-src ${process.env.VERCEL_ENV === "production" ? "https://challenges.cloudflare.com" : "'self' https://vercel.live https://challenges.cloudflare.com"}`,
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
               "frame-ancestors 'none'",
-              'upgrade-insecure-requests',
-            ].join('; '),
+              "upgrade-insecure-requests",
+            ].join("; "),
           },
           // Permissions policy for browser features
           {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
           },
         ],
       },
       {
         // Apply caching headers to quiz assets
-        source: '/quiz-assets/:path*',
+        source: "/quiz-assets/:path*",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, stale-while-revalidate=86400',
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
           },
           {
-            key: 'Content-Type',
-            value: 'application/json',
+            key: "Content-Type",
+            value: "application/json",
           },
           // Add CORS headers for CDN usage
           {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
+            key: "Access-Control-Allow-Origin",
+            value: "*",
           },
           {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, HEAD, OPTIONS',
+            key: "Access-Control-Allow-Methods",
+            value: "GET, HEAD, OPTIONS",
           },
         ],
       },
       {
         // Optimize the asset index specifically
-        source: '/quiz-assets/index.json',
+        source: "/quiz-assets/index.json",
         headers: [
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=300, stale-while-revalidate=3600', // Shorter cache for index
+            key: "Cache-Control",
+            value: "public, max-age=300, stale-while-revalidate=3600", // Shorter cache for index
           },
           {
-            key: 'Content-Type',
-            value: 'application/json',
+            key: "Content-Type",
+            value: "application/json",
           },
         ],
       },
@@ -175,11 +194,14 @@ const nextConfig: NextConfig = {
     return [
       // Allow for future CDN integration
       {
-        source: '/cdn/quiz-assets/:path*',
-        destination: '/quiz-assets/:path*',
+        source: "/cdn/quiz-assets/:path*",
+        destination: "/quiz-assets/:path*",
       },
     ];
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+export default withSentryConfig(
+  withBundleAnalyzer(nextConfig),
+  sentryNextConfigOptions
+);

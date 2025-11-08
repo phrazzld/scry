@@ -35,7 +35,6 @@
  */
 
 import { v } from 'convex/values';
-
 import { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';

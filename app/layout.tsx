@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-
 import './globals.css';
-
-import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-
+import { AnalyticsWrapper } from '@/components/analytics-wrapper';
 import { ConditionalNavbar } from '@/components/conditional-navbar';
+import { ConvexErrorBoundary } from '@/components/convex-error-boundary';
 import { DeploymentVersionGuard } from '@/components/deployment-version-guard';
 import { Footer } from '@/components/footer';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -15,7 +13,6 @@ import { CurrentQuestionProvider } from '@/contexts/current-question-context';
 import { ConfirmationProvider } from '@/hooks/use-confirmation';
 import { validateEnv } from '@/lib/env';
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode';
-
 import { ClerkConvexProvider } from './clerk-provider';
 
 // Validate environment variables at build/dev time
@@ -54,19 +51,21 @@ export default function RootLayout({
         >
           <ConfirmationProvider>
             <ClerkConvexProvider>
-              <DeploymentVersionGuard>
-                <CurrentQuestionProvider>
-                  <div className={getLayoutClassName()}>
-                    <ConditionalNavbar />
-                    {needsNavbarSpacer() && <div className="h-16" />}
-                    <main>{children}</main>
-                    <Footer />
-                  </div>
-                  <Toaster />
-                  <Analytics />
-                  <SpeedInsights />
-                </CurrentQuestionProvider>
-              </DeploymentVersionGuard>
+              <ConvexErrorBoundary>
+                <DeploymentVersionGuard>
+                  <CurrentQuestionProvider>
+                    <div className={getLayoutClassName()}>
+                      <ConditionalNavbar />
+                      {needsNavbarSpacer() && <div className="h-16" />}
+                      <main>{children}</main>
+                      <Footer />
+                    </div>
+                    <Toaster />
+                    <AnalyticsWrapper />
+                    <SpeedInsights />
+                  </CurrentQuestionProvider>
+                </DeploymentVersionGuard>
+              </ConvexErrorBoundary>
             </ClerkConvexProvider>
           </ConfirmationProvider>
         </ThemeProvider>

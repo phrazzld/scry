@@ -8,10 +8,10 @@
  * Note: Bulk operations (archive, bulkDelete, restore, etc.) are in questionsBulk.ts
  */
 import { v } from 'convex/values';
-
-import { Id } from './_generated/dataModel';
+import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { trackEvent } from './lib/analytics';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { getScheduler } from './scheduling';
 
@@ -64,6 +64,13 @@ export const saveGeneratedQuestions = mutation({
     await updateStatsCounters(ctx, userId, {
       totalCards: questionIds.length,
       newCount: questionIds.length,
+    });
+
+    trackEvent('Question Created', {
+      userId: String(userId),
+      questionId: questionIds.length === 1 ? String(questionIds[0]) : 'batch',
+      source: 'ai',
+      questionCount: questionIds.length,
     });
 
     return { questionIds, count: questionIds.length };
@@ -125,6 +132,13 @@ export const saveBatch = internalMutation({
     await updateStatsCounters(ctx, args.userId, {
       totalCards: questionIds.length,
       newCount: questionIds.length,
+    });
+
+    trackEvent('Question Created', {
+      userId: String(args.userId),
+      questionId: questionIds.length === 1 ? String(questionIds[0]) : 'batch',
+      source: 'ai',
+      questionCount: questionIds.length,
     });
 
     return questionIds;
@@ -226,6 +240,12 @@ export const updateQuestion = mutation({
       updatedAt: Date.now(),
     });
 
+    trackEvent('Question Updated', {
+      userId: String(userId),
+      questionId: String(args.questionId),
+      source: 'manual',
+    });
+
     return {
       success: true,
       questionId: args.questionId,
@@ -266,6 +286,12 @@ export const softDeleteQuestion = mutation({
       deletedAt: Date.now(),
     });
 
+    trackEvent('Question Deleted', {
+      userId: String(userId),
+      questionId: String(args.questionId),
+      source: 'manual',
+    });
+
     return {
       success: true,
       questionId: args.questionId,
@@ -304,6 +330,12 @@ export const restoreQuestion = mutation({
     await ctx.db.patch(args.questionId, {
       deletedAt: undefined,
       updatedAt: Date.now(),
+    });
+
+    trackEvent('Question Restored', {
+      userId: String(userId),
+      questionId: String(args.questionId),
+      source: 'manual',
     });
 
     return {
