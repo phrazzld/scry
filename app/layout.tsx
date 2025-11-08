@@ -1,10 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-
 import './globals.css';
-
 import { SpeedInsights } from '@vercel/speed-insights/react';
-
 import { AnalyticsWrapper } from '@/components/analytics-wrapper';
 import { ConditionalNavbar } from '@/components/conditional-navbar';
 import { ConvexErrorBoundary } from '@/components/convex-error-boundary';
@@ -16,7 +13,6 @@ import { CurrentQuestionProvider } from '@/contexts/current-question-context';
 import { ConfirmationProvider } from '@/hooks/use-confirmation';
 import { validateEnv } from '@/lib/env';
 import { getLayoutClassName, needsNavbarSpacer } from '@/lib/layout-mode';
-
 import { ClerkConvexProvider } from './clerk-provider';
 
 // Validate environment variables at build/dev time
