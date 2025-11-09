@@ -1235,7 +1235,7 @@ export const migrateEmbeddingsToSeparateTable = mutation({
         stats.totalProcessed++;
 
         // Runtime property check (not TypeScript type erasure)
-         
+
         const hasEmbedding =
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           'embedding' in (question as any) && (question as any).embedding !== undefined;
