@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Id } from './_generated/dataModel';
 import { requireUserFromClerk } from './clerk';
 import { recordInteraction } from './questionsInteractions';
 import { getScheduler } from './scheduling';
@@ -19,8 +20,10 @@ describe('recordInteraction', () => {
     vi.clearAllMocks();
 
     mockRequireUserFromClerk.mockResolvedValue({
-      _id: 'user_1' as const,
-    });
+      _id: 'user_1' as Id<'users'>,
+      _creationTime: Date.now(),
+      email: 'test@example.com',
+    } as any);
 
     mockGetScheduler.mockReturnValue({
       initializeCard: vi.fn().mockReturnValue({
@@ -40,6 +43,7 @@ describe('recordInteraction', () => {
     const insertSpy = vi.fn();
     const ctx = createMockCtx(insertSpy);
 
+// @ts-expect-error - Accessing private _handler for testing
     await recordInteraction._handler(ctx as any, {
       questionId: 'question_1' as any,
       userAnswer: 'A',

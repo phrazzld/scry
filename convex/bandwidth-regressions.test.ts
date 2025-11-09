@@ -18,6 +18,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       const questions = generateQuestions({ userId: users[0]._id, count: 1_200 });
       const ctx = createUserStatsCtx(users, questions);
 
+// @ts-expect-error - Accessing private _handler for testing
       const result = await reconcileUserStats._handler(ctx as any, {
         sampleSize: 100,
         driftThreshold: 0,
@@ -72,6 +73,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       });
       const ctx = createInteractionsCtx('user_stream', interactions);
 
+// @ts-expect-error - Accessing private _handler for testing
       const stats = await getQuizInteractionStats._handler(ctx as any, {
         sessionId: 'session-stream',
       });
@@ -87,6 +89,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       const questions = generateQuestions({ userId: 'user_delete' as Id<'users'>, count: 1_200 });
       const ctx = createDeleteCtx(questions);
 
+// @ts-expect-error - Accessing private _handler for testing
       await deleteUser._handler(ctx as any, { clerkId: 'clerk_delete' });
 
       expect(ctx.db.patch).toHaveBeenCalledTimes(questions.length);

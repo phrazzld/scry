@@ -37,6 +37,7 @@ describe('userStats reconciliation helpers', () => {
 
     const ctx = createMockCtx({ users, questions, userStats });
 
+// @ts-expect-error - Accessing private _handler for testing
     const result = await reconcileUserStats._handler(ctx as any, {
       sampleSize: 1,
       driftThreshold: 0,
