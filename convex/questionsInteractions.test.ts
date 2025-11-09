@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { requireUserFromClerk } from './clerk';
 import { recordInteraction } from './questionsInteractions';
 import { getScheduler } from './scheduling';
@@ -41,7 +40,7 @@ describe('recordInteraction', () => {
     const insertSpy = vi.fn();
     const ctx = createMockCtx(insertSpy);
 
-    await recordInteraction.handler(ctx as any, {
+    await recordInteraction._handler(ctx as any, {
       questionId: 'question_1' as any,
       userAnswer: 'A',
       isCorrect: true,

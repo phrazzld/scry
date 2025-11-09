@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { deleteUser, ensureUser } from './clerk';
 
 describe('clerk.ensureUser', () => {
@@ -36,7 +35,7 @@ describe('clerk.ensureUser', () => {
       },
     } as any;
 
-    await ensureUser.handler(ctx, {});
+    await ensureUser._handler(ctx, {});
 
     expect(insertSpy).toHaveBeenCalledTimes(1);
     const [, insertedDoc] = insertSpy.mock.calls[0];
@@ -55,7 +54,7 @@ describe('clerk.deleteUser', () => {
     const questionCount = 1_200;
     const ctx = createDeleteCtx(questionCount);
 
-    await deleteUser.handler(ctx as any, { clerkId: 'clerk_user' });
+    await deleteUser._handler(ctx as any, { clerkId: 'clerk_user' });
 
     expect(ctx.db.patch).toHaveBeenCalledTimes(questionCount);
     const deletedAtValues = ctx.db.patch.mock.calls.map(([, update]) => update.deletedAt);

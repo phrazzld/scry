@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { requireUserFromClerk } from './clerk';
 import { __quizStatsTest, getQuizInteractionStats } from './questionsLibrary';
 
@@ -25,10 +24,14 @@ describe('getQuizInteractionStats', () => {
   });
 
   it('aggregates stats for session using new index pagination', async () => {
-    const interactions = createInteractions({ count: 250, sessionId: 'session-a', userId: 'user_1' });
+    const interactions = createInteractions({
+      count: 250,
+      sessionId: 'session-a',
+      userId: 'user_1',
+    });
     const ctx = createMockCtx(interactions);
 
-    const result = await getQuizInteractionStats.handler(ctx as any, { sessionId: 'session-a' });
+    const result = await getQuizInteractionStats._handler(ctx as any, { sessionId: 'session-a' });
 
     expect(result.totalInteractions).toBe(250);
     expect(result.correctInteractions).toBe(125);
@@ -38,10 +41,14 @@ describe('getQuizInteractionStats', () => {
 
   it('caps stats at MAX_SESSION_INTERACTIONS and reports truncation', async () => {
     const limit = __quizStatsTest.MAX_SESSION_INTERACTIONS;
-    const interactions = createInteractions({ count: limit + 200, sessionId: 'session-cap', userId: 'user_1' });
+    const interactions = createInteractions({
+      count: limit + 200,
+      sessionId: 'session-cap',
+      userId: 'user_1',
+    });
     const ctx = createMockCtx(interactions);
 
-    const result = await getQuizInteractionStats.handler(ctx as any, { sessionId: 'session-cap' });
+    const result = await getQuizInteractionStats._handler(ctx as any, { sessionId: 'session-cap' });
 
     expect(result.totalInteractions).toBe(limit);
     expect(result.isTruncated).toBe(true);
@@ -53,7 +60,11 @@ function closeHalf(n: number) {
   return Math.floor(n / 2);
 }
 
-function createInteractions(params: { count: number; sessionId: string; userId: string }): InteractionRow[] {
+function createInteractions(params: {
+  count: number;
+  sessionId: string;
+  userId: string;
+}): InteractionRow[] {
   const { count, sessionId, userId } = params;
   return Array.from({ length: count }, (_, i) => ({
     _id: `interaction_${i}`,
@@ -95,7 +106,11 @@ class MockQuery {
   private readonly predicates: Predicate[];
   private readonly orderDirection: OrderDirection;
 
-  constructor(rows: InteractionRow[], predicates: Predicate[] = [], orderDirection: OrderDirection = null) {
+  constructor(
+    rows: InteractionRow[],
+    predicates: Predicate[] = [],
+    orderDirection: OrderDirection = null
+  ) {
     this.rows = rows;
     this.predicates = predicates;
     this.orderDirection = orderDirection;
@@ -108,7 +123,11 @@ class MockQuery {
 
     const indexBuilder = new IndexBuilder();
     builder(indexBuilder);
-    return new MockQuery(this.rows, [...this.predicates, indexBuilder.build()], this.orderDirection);
+    return new MockQuery(
+      this.rows,
+      [...this.predicates, indexBuilder.build()],
+      this.orderDirection
+    );
   }
 
   order(direction: 'asc' | 'desc') {
@@ -132,7 +151,7 @@ class MockQuery {
     for (const predicate of this.predicates) {
       result = result.filter(predicate);
     }
-    result.sort((a, b) => (a.attemptedAt - b.attemptedAt));
+    result.sort((a, b) => a.attemptedAt - b.attemptedAt);
     if (this.orderDirection === 'desc') {
       result.reverse();
     }

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import type { Doc, Id } from './_generated/dataModel';
 import { __test, reconcileUserStats } from './userStats';
 
@@ -38,7 +37,7 @@ describe('userStats reconciliation helpers', () => {
 
     const ctx = createMockCtx({ users, questions, userStats });
 
-    const result = await reconcileUserStats.handler(ctx as any, {
+    const result = await reconcileUserStats._handler(ctx as any, {
       sampleSize: 1,
       driftThreshold: 0,
     });
@@ -244,14 +243,18 @@ function createExprBuilder<T extends Record<string, unknown>>() {
     field: (name: keyof T | string) => (doc: T) => doc[name as keyof T],
     eq: (a: unknown, b: unknown) => (doc: T) => resolve(a, doc) === resolve(b, doc),
     neq: (a: unknown, b: unknown) => (doc: T) => resolve(a, doc) !== resolve(b, doc),
-    lt: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) < (resolve(b, doc) as number),
-    lte: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) <= (resolve(b, doc) as number),
-    gt: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) > (resolve(b, doc) as number),
-    gte: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) >= (resolve(b, doc) as number),
-    and: (
-      ...exprs: Array<(doc: T) => boolean>
-    ) =>
-      (doc: T) => exprs.every((expr) => expr(doc)),
+    lt: (a: unknown, b: unknown) => (doc: T) =>
+      (resolve(a, doc) as number) < (resolve(b, doc) as number),
+    lte: (a: unknown, b: unknown) => (doc: T) =>
+      (resolve(a, doc) as number) <= (resolve(b, doc) as number),
+    gt: (a: unknown, b: unknown) => (doc: T) =>
+      (resolve(a, doc) as number) > (resolve(b, doc) as number),
+    gte: (a: unknown, b: unknown) => (doc: T) =>
+      (resolve(a, doc) as number) >= (resolve(b, doc) as number),
+    and:
+      (...exprs: Array<(doc: T) => boolean>) =>
+      (doc: T) =>
+        exprs.every((expr) => expr(doc)),
   } as const;
 
   return builder;

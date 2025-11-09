@@ -1,21 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-
-import { __test as userStatsTest, reconcileUserStats } from './userStats';
-import {
-  __test as rateLimitTest,
-  checkEmailRateLimit,
-  recordRateLimitAttempt,
-} from './rateLimit';
-import { __quizStatsTest, getQuizInteractionStats } from './questionsLibrary';
-import { deleteUser } from './clerk';
-
-import type { Doc, Id } from './_generated/dataModel';
 import {
   generateInteractions,
   generateQuestions,
   generateRateLimitEntries,
   generateUsers,
 } from '@/lib/test-utils/largeFixtures';
+import type { Doc, Id } from './_generated/dataModel';
+import { deleteUser } from './clerk';
+import { __quizStatsTest, getQuizInteractionStats } from './questionsLibrary';
+import { checkEmailRateLimit, __test as rateLimitTest, recordRateLimitAttempt } from './rateLimit';
+import { reconcileUserStats, __test as userStatsTest } from './userStats';
 
 describe('Bandwidth regressions (>1,100 docs)', () => {
   describe('userStats reconciliation', () => {
@@ -24,7 +18,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       const questions = generateQuestions({ userId: users[0]._id, count: 1_200 });
       const ctx = createUserStatsCtx(users, questions);
 
-      const result = await reconcileUserStats.handler(ctx as any, {
+      const result = await reconcileUserStats._handler(ctx as any, {
         sampleSize: 100,
         driftThreshold: 0,
       });
@@ -63,9 +57,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       const ctx = createRateLimitCtx(entries);
 
       await recordRateLimitAttempt(ctx as any, 'ip-123', 'default');
-      expect(ctx.metrics.maxBatchRead).toBeLessThanOrEqual(
-        rateLimitTest.CLEANUP_DELETE_BATCH_SIZE
-      );
+      expect(ctx.metrics.maxBatchRead).toBeLessThanOrEqual(rateLimitTest.CLEANUP_DELETE_BATCH_SIZE);
       expect(ctx.flags.collectCalled).toBe(false);
       expect(ctx.db.tables.rateLimits.length).toBe(1);
     });
@@ -80,7 +72,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       });
       const ctx = createInteractionsCtx('user_stream', interactions);
 
-      const stats = await getQuizInteractionStats.handler(ctx as any, {
+      const stats = await getQuizInteractionStats._handler(ctx as any, {
         sessionId: 'session-stream',
       });
 
@@ -95,7 +87,7 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
       const questions = generateQuestions({ userId: 'user_delete' as Id<'users'>, count: 1_200 });
       const ctx = createDeleteCtx(questions);
 
-      await deleteUser.handler(ctx as any, { clerkId: 'clerk_delete' });
+      await deleteUser._handler(ctx as any, { clerkId: 'clerk_delete' });
 
       expect(ctx.db.patch).toHaveBeenCalledTimes(questions.length);
       expect(ctx.metrics.maxBatchRead).toBeLessThanOrEqual(200);
@@ -108,25 +100,35 @@ describe('Bandwidth regressions (>1,100 docs)', () => {
 // Shared helpers
 
 function createExprBuilder<T extends Record<string, unknown>>() {
-  const resolve = (operand: unknown, doc: T) => {
-    if (typeof operand === 'function') {
-      return (operand as (doc: T) => unknown)(doc);
-    }
-    if (typeof operand === 'string' && operand in doc) {
-      return doc[operand as keyof T];
-    }
-    return operand;
+  const predicates: Array<(doc: T) => boolean> = [];
+
+  const builder = {
+    eq(field: keyof T | string, value: unknown) {
+      predicates.push((doc) => doc[field as keyof T] === value);
+      return builder;
+    },
+    gt(field: keyof T | string, value: unknown) {
+      predicates.push((doc) => (doc[field as keyof T] as number) > (value as number));
+      return builder;
+    },
+    gte(field: keyof T | string, value: unknown) {
+      predicates.push((doc) => (doc[field as keyof T] as number) >= (value as number));
+      return builder;
+    },
+    lt(field: keyof T | string, value: unknown) {
+      predicates.push((doc) => (doc[field as keyof T] as number) < (value as number));
+      return builder;
+    },
+    lte(field: keyof T | string, value: unknown) {
+      predicates.push((doc) => (doc[field as keyof T] as number) <= (value as number));
+      return builder;
+    },
+    _getPredicate() {
+      return (doc: T) => predicates.every((p) => p(doc));
+    },
   };
 
-  return {
-    field: (name: keyof T | string) => (doc: T) => doc[name as keyof T],
-    eq: (a: unknown, b: unknown) => (doc: T) => resolve(a, doc) === resolve(b, doc),
-    gt: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) > (resolve(b, doc) as number),
-    gte: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) >= (resolve(b, doc) as number),
-    lt: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) < (resolve(b, doc) as number),
-    lte: (a: unknown, b: unknown) => (doc: T) => (resolve(a, doc) as number) <= (resolve(b, doc) as number),
-    and: (...exprs: Array<(doc: T) => boolean>) => (doc: T) => exprs.every((expr) => expr(doc)),
-  } as const;
+  return builder;
 }
 
 class GenericQuery<T extends Record<string, unknown>> {
@@ -149,15 +151,28 @@ class GenericQuery<T extends Record<string, unknown>> {
     this.flags = flags;
   }
 
-  withIndex(_name: string, builder?: (expr: ReturnType<typeof createExprBuilder<T>>) => (doc: T) => boolean) {
+  withIndex(
+    _name: string,
+    builder?: (
+      expr: ReturnType<typeof createExprBuilder<T>>
+    ) => ReturnType<typeof createExprBuilder<T>>
+  ) {
     if (builder) {
-      this.predicates.push(builder(createExprBuilder()));
+      const exprBuilder = createExprBuilder<T>();
+      builder(exprBuilder);
+      this.predicates.push(exprBuilder._getPredicate());
     }
     return this;
   }
 
-  filter(builder: (expr: ReturnType<typeof createExprBuilder<T>>) => (doc: T) => boolean) {
-    this.predicates.push(builder(createExprBuilder()));
+  filter(
+    builder: (
+      expr: ReturnType<typeof createExprBuilder<T>>
+    ) => ReturnType<typeof createExprBuilder<T>>
+  ) {
+    const exprBuilder = createExprBuilder<T>();
+    builder(exprBuilder);
+    this.predicates.push(exprBuilder._getPredicate());
     return this;
   }
 
@@ -264,10 +279,14 @@ function createUserStatsCtx(users: Array<Doc<'users'>>, questions: Array<Doc<'qu
     patch: vi.fn(),
   };
 
-  return { db, metrics: metrics as Required<Pick<MetricsRecorder, 'userReads' | 'questionReads'>>, flags };
+  return {
+    db,
+    metrics: metrics as Required<Pick<MetricsRecorder, 'userReads' | 'questionReads'>>,
+    flags,
+  };
 }
 
-function wrapMetrics(metrics: MetricsRecorder, flags: { collectCalled: boolean }) {
+function wrapMetrics(metrics: MetricsRecorder, _flags: { collectCalled: boolean }) {
   return {
     record(table: string, count: number) {
       metrics.record(table, count);
@@ -307,7 +326,11 @@ function createRateLimitCtx(entries: Array<Doc<'rateLimits'>>) {
     },
   };
 
-  return { db, metrics: metrics as Required<Pick<MetricsRecorder, 'totalReads' | 'maxBatchRead'>>, flags };
+  return {
+    db,
+    metrics: metrics as Required<Pick<MetricsRecorder, 'totalReads' | 'maxBatchRead'>>,
+    flags,
+  };
 }
 
 // ---------------------------------------------------------------------
@@ -319,14 +342,35 @@ function createInteractionsCtx(userId: string, interactions: Array<Doc<'interact
     record: () => {},
   } as MetricsRecorder;
 
+  const mockUser = {
+    _id: userId as Id<'users'>,
+    _creationTime: Date.now(),
+    email: 'test@example.com',
+    clerkId: 'clerk_test_user',
+    createdAt: Date.now(),
+  };
+
   const db = {
     query: (table: string) => {
-      if (table !== 'interactions') throw new Error(`Unknown table ${table}`);
-      return new GenericQuery(table, interactions, wrapMetrics(metrics, flags), flags);
+      if (table === 'interactions') {
+        return new GenericQuery(table, interactions, wrapMetrics(metrics, flags), flags);
+      }
+      if (table === 'users') {
+        return new GenericQuery(table, [mockUser], wrapMetrics(metrics, flags), flags);
+      }
+      throw new Error(`Unknown table ${table}`);
     },
   };
 
-  return { db, flags };
+  const auth = {
+    getUserIdentity: vi.fn().mockResolvedValue({
+      subject: 'clerk_test_user',
+      email: 'test@example.com',
+      name: 'Test User',
+    }),
+  };
+
+  return { db, auth, flags };
 }
 
 // ---------------------------------------------------------------------
@@ -341,7 +385,12 @@ function createDeleteCtx(questions: Array<Doc<'questions'>>) {
     },
   };
 
-  const questionQuery = new GenericQuery('questions', questions, wrapMetrics(metrics, flags), flags);
+  const questionQuery = new GenericQuery(
+    'questions',
+    questions,
+    wrapMetrics(metrics, flags),
+    flags
+  );
 
   const db = {
     metrics,

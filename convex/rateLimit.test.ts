@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import {
   checkEmailRateLimit,
   cleanupExpiredRateLimits,
   RATE_LIMITS,
-  recordRateLimitAttempt,
   __test as rateLimitTestConstants,
+  recordRateLimitAttempt,
 } from './rateLimit';
 
 /**
@@ -366,7 +365,7 @@ describe('Rate limit bandwidth guards', () => {
     ];
 
     const ctx = createRateLimitCtx(attempts);
-    const result = await cleanupExpiredRateLimits.handler(ctx as any, {} as any);
+    const result = await cleanupExpiredRateLimits._handler(ctx as any, {} as any);
 
     expect(result.deletedCount).toBe(900);
     expect(ctx.db.metrics.maxBatchRead).toBeLessThanOrEqual(
@@ -472,7 +471,13 @@ class MockQuery<T extends RateLimitRow> {
 
   withIndex(_name: string, builder?: (q: any) => any) {
     if (!builder) {
-      return new MockQuery(this.table, this.rows, this.metrics, this.predicates, this.orderDirection);
+      return new MockQuery(
+        this.table,
+        this.rows,
+        this.metrics,
+        this.predicates,
+        this.orderDirection
+      );
     }
     const expr = createExprBuilder<T>();
     builder(expr);
