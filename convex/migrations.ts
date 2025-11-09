@@ -1161,7 +1161,8 @@ export const checkDueNowCountMigration = query({
  */
 type EmbeddingsMigrationStats = {
   totalProcessed: number;
-  migrated: number;
+  migrated: number; // Copied to questionEmbeddings
+  cleaned: number; // Removed from questions table
   skipped: number;
   errors: number;
 };
@@ -1213,6 +1214,7 @@ export const migrateEmbeddingsToSeparateTable = mutation({
     const stats: EmbeddingsMigrationStats = {
       totalProcessed: 0,
       migrated: 0,
+      cleaned: 0,
       skipped: 0,
       errors: 0,
     };
@@ -1233,7 +1235,7 @@ export const migrateEmbeddingsToSeparateTable = mutation({
         stats.totalProcessed++;
 
         // Runtime property check (not TypeScript type erasure)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const hasEmbedding =
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           'embedding' in (question as any) && (question as any).embedding !== undefined;
@@ -1265,31 +1267,42 @@ export const migrateEmbeddingsToSeparateTable = mutation({
           .withIndex('by_question', (q) => q.eq('questionId', question._id))
           .first();
 
-        if (existingEmbedding) {
-          stats.skipped++;
-          continue;
-        }
-
         if (!dryRun) {
           try {
-            // Create embedding record in new table
-            await ctx.db.insert('questionEmbeddings', {
-              questionId: question._id,
-              userId: question.userId,
-              embedding,
-              embeddingGeneratedAt: embeddingGeneratedAt ?? Date.now(),
-            });
+            // Only create if doesn't exist in new table
+            if (!existingEmbedding) {
+              await ctx.db.insert('questionEmbeddings', {
+                questionId: question._id,
+                userId: question.userId,
+                embedding,
+                embeddingGeneratedAt: embeddingGeneratedAt ?? Date.now(),
+              });
+              stats.migrated++;
+            } else {
+              stats.skipped++;
+            }
 
-            stats.migrated++;
+            // Always cleanup from questions table (even if already in new table)
+            await ctx.db.patch(question._id, {
+              embedding: undefined,
+              embeddingGeneratedAt: undefined,
+            });
+            stats.cleaned++;
           } catch (error) {
-            migrationLogger.error('Failed to migrate embedding', {
+            migrationLogger.error('Failed to migrate/cleanup embedding', {
               questionId: question._id,
               error: error instanceof Error ? error.message : String(error),
             });
             stats.errors++;
           }
         } else {
-          stats.migrated++;
+          // Dry run: count what would happen
+          if (!existingEmbedding) {
+            stats.migrated++;
+          } else {
+            stats.skipped++;
+          }
+          stats.cleaned++;
         }
 
         // Log progress every 100 records
@@ -1303,8 +1316,8 @@ export const migrateEmbeddingsToSeparateTable = mutation({
     }
 
     const message = dryRun
-      ? `Dry run completed: Would migrate ${stats.migrated} embeddings (${stats.skipped} skipped, ${stats.errors} errors)`
-      : `Migration completed: Migrated ${stats.migrated} embeddings (${stats.skipped} skipped, ${stats.errors} errors)`;
+      ? `Dry run completed: Would migrate ${stats.migrated} embeddings and clean ${stats.cleaned} from questions table (${stats.skipped} skipped, ${stats.errors} errors)`
+      : `Migration completed: Migrated ${stats.migrated} embeddings and cleaned ${stats.cleaned} from questions table (${stats.skipped} skipped, ${stats.errors} errors)`;
 
     migrationLogger.info('Migration finished', {
       ...stats,

@@ -120,15 +120,11 @@ export const saveBatch = internalMutation({
           correctCount: 0,
           // Initialize FSRS fields with proper defaults
           ...fsrsFields,
-          // Include embedding fields if provided (graceful degradation)
-          ...(q.embedding && { embedding: q.embedding }),
-          ...(q.embeddingGeneratedAt && { embeddingGeneratedAt: q.embeddingGeneratedAt }),
         })
       )
     );
 
-    // PHASE 1 DUAL-WRITE: Save embeddings to questionEmbeddings table
-    // This ensures new questions have embeddings in both tables during migration
+    // Save embeddings to questionEmbeddings table (separate for bandwidth optimization)
     const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
     await Promise.all(
       args.questions.map((q, index) => {
@@ -243,14 +239,9 @@ export const updateQuestion = mutation({
     // use question + explanation text, not answer options.
     const textChanged = args.question !== undefined || args.explanation !== undefined;
     if (textChanged) {
-      // Delete from new questionEmbeddings table
+      // Delete from questionEmbeddings table when text changes
       const { deleteEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
       await deleteEmbeddingForQuestion(ctx, args.questionId);
-
-      // BACKWARD COMPATIBILITY: Also clear in questions table (Phase 1)
-      // This will be removed in Phase 3 after migration completes
-      updateFields.embedding = undefined;
-      updateFields.embeddingGeneratedAt = undefined;
     }
 
     // 6. Update with timestamp

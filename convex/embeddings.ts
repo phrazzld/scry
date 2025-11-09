@@ -582,16 +582,9 @@ export const saveEmbedding = internalMutation({
       throw new Error(`Question not found: ${args.questionId}`);
     }
 
-    // Use helper to upsert embedding in separate table
+    // Save embedding to separate questionEmbeddings table
     const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
     await upsertEmbeddingForQuestion(ctx, args.questionId, question.userId, args.embedding);
-
-    // BACKWARD COMPATIBILITY: Also save to questions table (Phase 1 - dual write)
-    // This will be removed in Phase 3 after migration completes
-    await ctx.db.patch(args.questionId, {
-      embedding: args.embedding,
-      embeddingGeneratedAt: args.embeddingGeneratedAt,
-    });
   },
 });
 
