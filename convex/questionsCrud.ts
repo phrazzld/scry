@@ -128,14 +128,26 @@ export const saveBatch = internalMutation({
     // Skip import if no embeddings present (common case)
     if (args.questions.some((q) => q.embedding)) {
       const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+      const embeddingsToPersist = args.questions
+        .map((q, index) => ({
+          questionId: questionIds[index],
+          embedding: q.embedding,
+          embeddingGeneratedAt: q.embeddingGeneratedAt,
+        }))
+        .filter(
+          (
+            entry
+          ): entry is {
+            questionId: Id<'questions'>;
+            embedding: number[];
+            embeddingGeneratedAt?: number;
+          } => entry.embedding !== undefined
+        );
+
       await Promise.all(
-        args.questions.map((q, index) => {
-          // Only save if embedding was provided
-          if (q.embedding) {
-            return upsertEmbeddingForQuestion(ctx, questionIds[index], args.userId, q.embedding);
-          }
-          return Promise.resolve();
-        })
+        embeddingsToPersist.map(({ questionId, embedding, embeddingGeneratedAt }) =>
+          upsertEmbeddingForQuestion(ctx, questionId, args.userId, embedding, embeddingGeneratedAt)
+        )
       );
     }
 
@@ -245,6 +257,8 @@ export const updateQuestion = mutation({
       // Delete from questionEmbeddings table when text changes
       const { deleteEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
       await deleteEmbeddingForQuestion(ctx, args.questionId);
+      updateFields.embedding = undefined;
+      updateFields.embeddingGeneratedAt = undefined;
     }
 
     // 6. Update with timestamp

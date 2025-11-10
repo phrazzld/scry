@@ -3,6 +3,7 @@ import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { createLogger } from './lib/logger';
+import { upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
 
 /**
  * Default batch size for quiz results migration
@@ -1278,12 +1279,13 @@ export const migrateEmbeddingsToSeparateTable = internalMutation({
           try {
             // Only create if doesn't exist in new table
             if (!existingEmbedding) {
-              await ctx.db.insert('questionEmbeddings', {
-                questionId: question._id,
-                userId: question.userId,
+              await upsertEmbeddingForQuestion(
+                ctx,
+                question._id,
+                question.userId,
                 embedding,
-                embeddingGeneratedAt: embeddingGeneratedAt ?? Date.now(),
-              });
+                embeddingGeneratedAt ?? Date.now()
+              );
               stats.migrated++;
             } else {
               stats.skipped++;

@@ -21,8 +21,14 @@ import { embed } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { internal } from './_generated/api';
-import { Id } from './_generated/dataModel';
-import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
+import type { Doc, Id } from './_generated/dataModel';
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+} from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
 // Logger for this module
@@ -449,28 +455,32 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 100;
+    const questionIdsWithEmbeddings = await collectQuestionIdsWithEmbeddings(ctx);
+    const questionsWithoutEmbeddings: Doc<'questions'>[] = [];
+    let cursor: string | null = null;
 
-    // Batch fetch ALL embeddings in a single query to build a Set of question IDs
-    // This is more efficient than N+1 queries per question
-    const allEmbeddings = await ctx.db.query('questionEmbeddings').collect();
-    const questionIdsWithEmbeddings = new Set(allEmbeddings.map((e) => e.questionId));
+    while (questionsWithoutEmbeddings.length < limit) {
+      const page = await activeQuestionsQuery(ctx).paginate({
+        cursor,
+        numItems: getActiveQuestionPageSize(limit),
+      });
 
-    // Get all active questions (not deleted or archived)
-    // CRITICAL: Must use .collect() to iterate through ALL questions
-    // Cannot use .take(limit * 2) as that only checks first N questions
-    // Once those have embeddings, the function would return empty forever
-    const allActiveQuestions = await ctx.db
-      .query('questions')
-      .withIndex('by_user_active')
-      .filter((q) =>
-        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
-      )
-      .collect();
+      for (const question of page.page) {
+        if (!questionIdsWithEmbeddings.has(question._id)) {
+          questionsWithoutEmbeddings.push(question);
 
-    // Filter to questions without embeddings and take only the requested limit
-    const questionsWithoutEmbeddings = allActiveQuestions
-      .filter((q) => !questionIdsWithEmbeddings.has(q._id))
-      .slice(0, limit);
+          if (questionsWithoutEmbeddings.length === limit) {
+            break;
+          }
+        }
+      }
+
+      if (page.isDone || questionsWithoutEmbeddings.length === limit) {
+        break;
+      }
+
+      cursor = page.continueCursor ?? null;
+    }
 
     return questionsWithoutEmbeddings;
   },
@@ -487,28 +497,32 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
 export const countQuestionsWithoutEmbeddings = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Batch fetch ALL embeddings in a single query to build a Set of question IDs
-    const allEmbeddings = await ctx.db.query('questionEmbeddings').collect();
-    const questionIdsWithEmbeddings = new Set(allEmbeddings.map((e) => e.questionId));
+    const questionIdsWithEmbeddings = await collectQuestionIdsWithEmbeddings(ctx);
+    let cursor: string | null = null;
+    let countWithoutEmbeddings = 0;
 
-    // Get all active questions (not deleted or archived)
-    // Use .collect() to get accurate count across all questions
-    const questions = await ctx.db
-      .query('questions')
-      .withIndex('by_user_active')
-      .filter((q) =>
-        q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
-      )
-      .collect();
+    while (true) {
+      const page = await activeQuestionsQuery(ctx).paginate({
+        cursor,
+        numItems: MAX_ACTIVE_QUESTION_PAGE_SIZE,
+      });
 
-    // Count questions without embeddings
-    const countWithoutEmbeddings = questions.filter(
-      (q) => !questionIdsWithEmbeddings.has(q._id)
-    ).length;
+      for (const question of page.page) {
+        if (!questionIdsWithEmbeddings.has(question._id)) {
+          countWithoutEmbeddings += 1;
+        }
+      }
+
+      if (page.isDone) {
+        break;
+      }
+
+      cursor = page.continueCursor ?? null;
+    }
 
     return {
       count: countWithoutEmbeddings,
-      isApproximate: false, // Now always exact since we use .collect()
+      isApproximate: false,
     };
   },
 });
@@ -582,6 +596,32 @@ export const saveEmbedding = internalMutation({
     );
   },
 });
+
+const MIN_ACTIVE_QUESTION_PAGE_SIZE = 100;
+const MAX_ACTIVE_QUESTION_PAGE_SIZE = 500;
+
+type QueryLikeCtx = Pick<QueryCtx, 'db'>;
+
+function getActiveQuestionPageSize(limit: number): number {
+  return Math.min(
+    MAX_ACTIVE_QUESTION_PAGE_SIZE,
+    Math.max(limit * 2, MIN_ACTIVE_QUESTION_PAGE_SIZE)
+  );
+}
+
+function activeQuestionsQuery(ctx: QueryLikeCtx) {
+  return ctx.db
+    .query('questions')
+    .withIndex('by_user_active')
+    .filter((q) => q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined)));
+}
+
+async function collectQuestionIdsWithEmbeddings(
+  ctx: QueryLikeCtx
+): Promise<Set<Id<'questions'>>> {
+  const embeddings = await ctx.db.query('questionEmbeddings').collect();
+  return new Set(embeddings.map((embedding) => embedding.questionId));
+}
 
 /**
  * Sync missing embeddings (daily cron)
