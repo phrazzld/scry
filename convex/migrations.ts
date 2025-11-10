@@ -2,8 +2,8 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { createLogger } from './lib/logger';
 import { upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
+import { createLogger } from './lib/logger';
 
 /**
  * Default batch size for quiz results migration

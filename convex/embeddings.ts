@@ -613,12 +613,12 @@ function activeQuestionsQuery(ctx: QueryLikeCtx) {
   return ctx.db
     .query('questions')
     .withIndex('by_user_active')
-    .filter((q) => q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined)));
+    .filter((q) =>
+      q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+    );
 }
 
-async function collectQuestionIdsWithEmbeddings(
-  ctx: QueryLikeCtx
-): Promise<Set<Id<'questions'>>> {
+async function collectQuestionIdsWithEmbeddings(ctx: QueryLikeCtx): Promise<Set<Id<'questions'>>> {
   const embeddings = await ctx.db.query('questionEmbeddings').collect();
   return new Set(embeddings.map((embedding) => embedding.questionId));
 }
