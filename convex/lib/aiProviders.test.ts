@@ -18,10 +18,10 @@ vi.mock('openai', () => ({
 const mockCreateGoogleGenerativeAI = vi.mocked(createGoogleGenerativeAI);
 const mockOpenAIConstructor = vi.mocked(OpenAI);
 
-const createLogger = (): Pick<Logger, 'info' | 'error'> => ({
+const createLogger = (): Logger => ({
   info: vi.fn(),
   error: vi.fn(),
-});
+} as unknown as Logger);
 
 const originalEnv = { ...process.env };
 
@@ -37,7 +37,7 @@ describe('initializeProvider', () => {
   it('initializes Google provider with diagnostics and logging context', async () => {
     process.env.GOOGLE_AI_API_KEY = 'google-key';
     const mockModel = { id: 'gemini-pro' } as any;
-    mockCreateGoogleGenerativeAI.mockReturnValue(() => mockModel);
+    mockCreateGoogleGenerativeAI.mockReturnValue((() => mockModel) as any);
     const logger = createLogger();
 
     const result = await initializeProvider('google', 'gemini-pro', {
