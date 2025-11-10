@@ -35,7 +35,7 @@ describe('clerk.ensureUser', () => {
       },
     } as any;
 
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     await ensureUser._handler(ctx, {});
 
     expect(insertSpy).toHaveBeenCalledTimes(1);
@@ -55,11 +55,13 @@ describe('clerk.deleteUser', () => {
     const questionCount = 1_200;
     const ctx = createDeleteCtx(questionCount);
 
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     await deleteUser._handler(ctx as any, { clerkId: 'clerk_user' });
 
     expect(ctx.db.patch).toHaveBeenCalledTimes(questionCount);
-    const deletedAtValues = ctx.db.patch.mock.calls.map(([, update]: [unknown, { deletedAt?: number }]) => update.deletedAt);
+    const deletedAtValues = ctx.db.patch.mock.calls.map(
+      ([, update]: [unknown, { deletedAt?: number }]) => update.deletedAt
+    );
     expect(new Set(deletedAtValues).size).toBe(1); // single timestamp reused
     expect(ctx.db.query).toHaveBeenCalledWith('questions');
   });

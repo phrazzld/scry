@@ -1,6 +1,5 @@
-import { GenericMutationCtx } from 'convex/server';
+import { GenericDatabaseReader, GenericDatabaseWriter, GenericMutationCtx } from 'convex/server';
 import { v } from 'convex/values';
-
 import type { Doc } from './_generated/dataModel';
 import { DataModel } from './_generated/dataModel';
 import { internalMutation, mutation, query } from './_generated/server';
@@ -8,7 +7,8 @@ import { internalMutation, mutation, query } from './_generated/server';
 const MAX_RATE_LIMIT_READS = 100; // Hard cap per query to avoid unbounded bandwidth
 const CLEANUP_DELETE_BATCH_SIZE = 100;
 
-type DbContext = Pick<GenericMutationCtx<DataModel>, 'db'>;
+type DbContext = { db: GenericDatabaseReader<DataModel> };
+type DbWriteContext = { db: GenericDatabaseWriter<DataModel> };
 type RateLimitDoc = Doc<'rateLimits'>;
 
 /**
@@ -256,7 +256,7 @@ async function loadRecentAttempts(
 }
 
 async function deleteOldAttemptsForIdentifier(
-  ctx: DbContext,
+  ctx: DbWriteContext,
   identifier: string,
   threshold: number
 ): Promise<number> {
@@ -282,14 +282,17 @@ async function deleteOldAttemptsForIdentifier(
   return deleted;
 }
 
-async function deleteExpiredEntries(ctx: DbContext, threshold: number): Promise<number> {
+async function deleteExpiredEntries(ctx: DbWriteContext, threshold: number): Promise<number> {
   const queryBuilder = ctx.db
     .query('rateLimits')
     .filter((q) => q.lt(q.field('timestamp'), threshold))
     .order('asc');
 
   let deleted = 0;
-  let pagination = await queryBuilder.paginate({ numItems: CLEANUP_DELETE_BATCH_SIZE, cursor: null });
+  let pagination = await queryBuilder.paginate({
+    numItems: CLEANUP_DELETE_BATCH_SIZE,
+    cursor: null,
+  });
   await deleteBatch(pagination.page);
 
   while (!pagination.isDone) {

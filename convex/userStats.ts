@@ -5,8 +5,9 @@
  * Handles drift detection and automatic correction.
  */
 
-import type { Doc, Id } from './_generated/dataModel';
 import { v } from 'convex/values';
+import type { Doc, Id } from './_generated/dataModel';
+import type { MutationCtx } from './_generated/server';
 import { internalMutation } from './_generated/server';
 import { createLogger } from './lib/logger';
 
@@ -188,7 +189,7 @@ function getUserCreatedAt(user: Doc<'users'>): number {
 }
 
 async function sampleUsersForReconciliation(
-  ctx: Parameters<typeof reconcileUserStats.handler>[0],
+  ctx: MutationCtx,
   sampleSize: number,
   randomFn: () => number = Math.random
 ): Promise<Array<Doc<'users'>>> {
@@ -196,21 +197,13 @@ async function sampleUsersForReconciliation(
     return [];
   }
 
-  const firstUser = await ctx.db
-    .query('users')
-    .withIndex('by_creation_time')
-    .order('asc')
-    .first();
+  const firstUser = await ctx.db.query('users').withIndex('by_creation_time').order('asc').first();
 
   if (!firstUser) {
     return [];
   }
 
-  const lastUser = await ctx.db
-    .query('users')
-    .withIndex('by_creation_time')
-    .order('desc')
-    .first();
+  const lastUser = await ctx.db.query('users').withIndex('by_creation_time').order('desc').first();
 
   if (!lastUser) {
     return [firstUser];
@@ -227,7 +220,8 @@ async function sampleUsersForReconciliation(
 
   const forwardChunk = await ctx.db
     .query('users')
-    .withIndex('by_creation_time', (q) => q.gte('createdAt', pivot))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex('by_creation_time', (q: any) => q.gte('createdAt', pivot))
     .order('asc')
     .take(sampleSize);
   appendUsers(sampled, forwardChunk, seen, sampleSize);
@@ -235,7 +229,8 @@ async function sampleUsersForReconciliation(
   if (sampled.length < sampleSize) {
     const wrapChunk = await ctx.db
       .query('users')
-      .withIndex('by_creation_time', (q) => q.lt('createdAt', pivot))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .withIndex('by_creation_time', (q: any) => q.lt('createdAt', pivot))
       .order('asc')
       .take(sampleSize - sampled.length);
     appendUsers(sampled, wrapChunk, seen, sampleSize);
@@ -276,7 +271,7 @@ function appendUsers(
 }
 
 async function recalculateUserStatsFromQuestions(
-  ctx: Parameters<typeof reconcileUserStats.handler>[0],
+  ctx: MutationCtx,
   userId: Id<'users'>
 ): Promise<QuestionStats> {
   const accumulator: QuestionStats = {
@@ -289,11 +284,16 @@ async function recalculateUserStatsFromQuestions(
 
   const questionQuery = ctx.db
     .query('questions')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
-    .filter((q) => q.eq(q.field('deletedAt'), undefined))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .withIndex('by_user', (q: any) => q.eq('userId', userId))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((q: any) => q.eq(q.field('deletedAt'), undefined))
     .order('asc');
 
-  let paginationResult = await questionQuery.paginate({ numItems: QUESTION_BATCH_SIZE, cursor: null });
+  let paginationResult = await questionQuery.paginate({
+    numItems: QUESTION_BATCH_SIZE,
+    cursor: null,
+  });
   applyQuestionsToAccumulator(paginationResult.page, accumulator);
 
   while (!paginationResult.isDone) {
@@ -307,7 +307,10 @@ async function recalculateUserStatsFromQuestions(
   return accumulator;
 }
 
-function applyQuestionsToAccumulator(questions: Array<Doc<'questions'>>, accumulator: QuestionStats) {
+function applyQuestionsToAccumulator(
+  questions: Array<Doc<'questions'>>,
+  accumulator: QuestionStats
+) {
   for (const question of questions) {
     accumulator.totalCards++;
 

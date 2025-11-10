@@ -365,7 +365,7 @@ describe('Rate limit bandwidth guards', () => {
     ];
 
     const ctx = createRateLimitCtx(attempts);
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     const result = await cleanupExpiredRateLimits._handler(ctx as any, {} as any);
 
     expect(result.deletedCount).toBe(900);

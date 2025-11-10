@@ -31,7 +31,7 @@ describe('getQuizInteractionStats', () => {
     });
     const ctx = createMockCtx(interactions);
 
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     const result = await getQuizInteractionStats._handler(ctx as any, { sessionId: 'session-a' });
 
     expect(result.totalInteractions).toBe(250);
@@ -49,7 +49,7 @@ describe('getQuizInteractionStats', () => {
     });
     const ctx = createMockCtx(interactions);
 
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     const result = await getQuizInteractionStats._handler(ctx as any, { sessionId: 'session-cap' });
 
     expect(result.totalInteractions).toBe(limit);

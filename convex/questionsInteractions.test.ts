@@ -43,7 +43,7 @@ describe('recordInteraction', () => {
     const insertSpy = vi.fn();
     const ctx = createMockCtx(insertSpy);
 
-// @ts-expect-error - Accessing private _handler for testing
+    // @ts-expect-error - Accessing private _handler for testing
     await recordInteraction._handler(ctx as any, {
       questionId: 'question_1' as any,
       userAnswer: 'A',
