@@ -1,11 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Logger } from 'pino';
-
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import OpenAI from 'openai';
-
-import { getSecretDiagnostics } from './envDiagnostics';
+import type { Logger } from 'pino';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initializeProvider } from './aiProviders';
+import { getSecretDiagnostics } from './envDiagnostics';
 
 vi.mock('@ai-sdk/google', () => ({
   createGoogleGenerativeAI: vi.fn(),
@@ -18,10 +16,11 @@ vi.mock('openai', () => ({
 const mockCreateGoogleGenerativeAI = vi.mocked(createGoogleGenerativeAI);
 const mockOpenAIConstructor = vi.mocked(OpenAI);
 
-const createLogger = (): Logger => ({
-  info: vi.fn(),
-  error: vi.fn(),
-} as unknown as Logger);
+const createLogger = (): Logger =>
+  ({
+    info: vi.fn(),
+    error: vi.fn(),
+  }) as unknown as Logger;
 
 const originalEnv = { ...process.env };
 
