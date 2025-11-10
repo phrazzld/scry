@@ -16,6 +16,9 @@ import { v } from 'convex/values';
 import { internalQuery, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 
+const MAX_SESSION_INTERACTIONS = 1500;
+const SESSION_STATS_PAGE_SIZE = 200;
+
 /**
  * Get questions for library view with filtering by state
  *
@@ -162,23 +165,49 @@ export const getQuizInteractionStats = query({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    // Get all interactions for this session
-    const interactions = await ctx.db
+    const queryBuilder = ctx.db
       .query('interactions')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .filter((q) => q.eq(q.field('context.sessionId'), args.sessionId))
-      .collect();
+      .withIndex('by_user_session', (q) => q.eq('userId', userId).eq('sessionId', args.sessionId))
+      .order('asc');
 
-    // Calculate stats
-    const totalInteractions = interactions.length;
-    const correctInteractions = interactions.filter((i) => i.isCorrect).length;
-    const uniqueQuestions = new Set(interactions.map((i) => i.questionId)).size;
+    const uniqueQuestionIds = new Set<string>();
+    let totalInteractions = 0;
+    let correctInteractions = 0;
+    let cursor: string | null = null;
+    let isTruncated = false;
+
+    do {
+      const page = await queryBuilder.paginate({
+        numItems: SESSION_STATS_PAGE_SIZE,
+        cursor,
+      });
+
+      for (const interaction of page.page) {
+        if (totalInteractions >= MAX_SESSION_INTERACTIONS) {
+          isTruncated = true;
+          break;
+        }
+
+        totalInteractions++;
+        if (interaction.isCorrect) {
+          correctInteractions++;
+        }
+        uniqueQuestionIds.add(`${interaction.questionId}`);
+      }
+
+      if (isTruncated || page.isDone) {
+        break;
+      }
+
+      cursor = page.continueCursor;
+    } while (cursor);
 
     return {
       totalInteractions,
       correctInteractions,
-      uniqueQuestions,
+      uniqueQuestions: uniqueQuestionIds.size,
       accuracy: totalInteractions > 0 ? correctInteractions / totalInteractions : 0,
+      isTruncated,
     };
   },
 });
@@ -253,3 +282,8 @@ export const textSearchQuestions = internalQuery({
     return await searchQuery.take(limit);
   },
 });
+
+export const __quizStatsTest = {
+  MAX_SESSION_INTERACTIONS,
+  SESSION_STATS_PAGE_SIZE,
+};

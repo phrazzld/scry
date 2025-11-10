@@ -3,6 +3,8 @@ import { v } from 'convex/values';
 import type { Doc } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, QueryCtx } from './_generated/server';
 
+const QUESTION_DELETE_BATCH_SIZE = 200;
+
 /**
  * Internal mutation to sync a user from Clerk to our database.
  * This should only be called from Clerk webhooks or other internal functions.
@@ -55,12 +57,14 @@ export const syncUser = internalMutation({
     }
 
     // Create new user
+    const timestamp = Date.now();
     const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,
       image: imageUrl,
       emailVerified: emailVerified ? Date.now() : undefined,
+      createdAt: timestamp,
     });
 
     return newUserId;
@@ -87,20 +91,39 @@ export const deleteUser = internalMutation({
       return;
     }
 
-    // Soft delete user's questions
-    const questions = await ctx.db
+    const now = Date.now();
+
+    const questionQuery = ctx.db
       .query('questions')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
-      .collect();
+      .order('asc');
 
-    const now = Date.now();
-    await Promise.all(questions.map((question) => ctx.db.patch(question._id, { deletedAt: now })));
+    let page = await questionQuery.paginate({ numItems: QUESTION_DELETE_BATCH_SIZE, cursor: null });
+    await softDeleteQuestions(ctx, page.page, now);
+
+    while (!page.isDone) {
+      page = await questionQuery.paginate({
+        numItems: QUESTION_DELETE_BATCH_SIZE,
+        cursor: page.continueCursor,
+      });
+      await softDeleteQuestions(ctx, page.page, now);
+    }
 
     // Note: We keep the user record for audit purposes
     // If you want to fully delete, uncomment:
     // await ctx.db.delete(user._id);
   },
 });
+
+async function softDeleteQuestions(
+  ctx: MutationCtx,
+  questions: Array<Doc<'questions'>>,
+  timestamp: number
+) {
+  for (const question of questions) {
+    await ctx.db.patch(question._id, { deletedAt: timestamp });
+  }
+}
 
 /**
  * Helper to get user from Clerk identity in Convex context.
@@ -207,12 +230,14 @@ export const ensureUser = mutation({
       throw new Error('Clerk identity is missing an email address');
     }
 
+    const timestamp = Date.now();
     const newUserId = await ctx.db.insert('users', {
       clerkId,
       email,
       name,
       image: imageUrl,
       emailVerified,
+      createdAt: timestamp,
     });
 
     return newUserId;

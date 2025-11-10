@@ -1,7 +1,6 @@
 import { Rating, State } from 'ts-fsrs';
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import type { Doc, Id } from './_generated/dataModel';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 import {
   calculateRatingFromCorrectness,
   cardToDb,
@@ -10,7 +9,7 @@ import {
   initializeCard,
   isDue,
   scheduleNextReview,
-} from './fsrs';
+} from '@/convex/fsrs';
 
 describe('FSRS Automatic Rating Calculation', () => {
   describe('calculateRatingFromCorrectness', () => {

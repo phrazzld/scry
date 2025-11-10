@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
-import type { Doc, Id } from './_generated/dataModel';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 /**
  * Unit tests for migration logic in migrations.ts
@@ -37,6 +36,20 @@ interface DifficultyRemovalStats {
   errors: number;
 }
 
+interface UserCreatedAtBackfillStats {
+  totalProcessed: number;
+  updated: number;
+  alreadyHadCreatedAt: number;
+  errors: number;
+}
+
+interface InteractionSessionBackfillStats {
+  totalProcessed: number;
+  updated: number;
+  missingSessionContext: number;
+  errors: number;
+}
+
 /**
  * Helper to create mock questions with or without difficulty field
  */
@@ -58,6 +71,18 @@ function createMockQuestion(
   };
 
   return hasDifficulty ? { ...baseQuestion, difficulty: 'medium' } : baseQuestion;
+}
+
+function createMockUser(id: string, hasCreatedAt: boolean = false): Doc<'users'> {
+  const baseUser: Doc<'users'> = {
+    _id: id as Id<'users'>,
+    _creationTime: Date.now(),
+    email: `${id}@example.com`,
+    clerkId: undefined,
+    name: 'Test',
+  };
+
+  return hasCreatedAt ? { ...baseUser, createdAt: baseUser._creationTime } : baseUser;
 }
 
 /**
@@ -137,6 +162,122 @@ function simulateDifficultyRemoval(
         : status === 'partial'
           ? `Partially completed: ${stats.updated} succeeded, ${failures.length} failed`
           : `Migration failed: All ${failures.length} attempts failed`,
+  };
+}
+
+function simulateUserCreatedAtBackfill(
+  users: Doc<'users'>[],
+  options: { batchSize?: number; dryRun?: boolean } = {}
+): MigrationResult<UserCreatedAtBackfillStats> {
+  const batchSize = options.batchSize || 200;
+  const dryRun = options.dryRun || false;
+
+  const stats: UserCreatedAtBackfillStats = {
+    totalProcessed: 0,
+    updated: 0,
+    alreadyHadCreatedAt: 0,
+    errors: 0,
+  };
+
+  let cursor = 0;
+  while (cursor < users.length) {
+    const batch = users.slice(cursor, cursor + batchSize);
+
+    for (const user of batch) {
+      stats.totalProcessed++;
+
+      if (user.createdAt !== undefined) {
+        stats.alreadyHadCreatedAt++;
+        continue;
+      }
+
+      if (!dryRun) {
+        user.createdAt = user._creationTime;
+      }
+
+      stats.updated++;
+    }
+
+    cursor += batchSize;
+  }
+
+  return {
+    status: 'completed',
+    dryRun,
+    stats,
+    message: dryRun
+      ? `Dry run: Would update ${stats.updated} users`
+      : `Successfully updated ${stats.updated} users`,
+  };
+}
+
+function createMockInteraction(
+  id: string,
+  args: {
+    contextSessionId?: string;
+    sessionId?: string;
+  } = {}
+): Doc<'interactions'> {
+  return {
+    _id: id as Id<'interactions'>,
+    _creationTime: Date.now(),
+    userId: 'user123' as Id<'users'>,
+    questionId: 'question123' as Id<'questions'>,
+    userAnswer: 'A',
+    isCorrect: true,
+    attemptedAt: Date.now(),
+    context: args.contextSessionId ? { sessionId: args.contextSessionId } : undefined,
+    sessionId: args.sessionId,
+  } as Doc<'interactions'>;
+}
+
+function simulateInteractionSessionBackfill(
+  interactions: Array<Doc<'interactions'>>,
+  options: { batchSize?: number; dryRun?: boolean } = {}
+): MigrationResult<InteractionSessionBackfillStats> {
+  const batchSize = options.batchSize || 200;
+  const dryRun = options.dryRun || false;
+
+  const stats: InteractionSessionBackfillStats = {
+    totalProcessed: 0,
+    updated: 0,
+    missingSessionContext: 0,
+    errors: 0,
+  };
+
+  for (let i = 0; i < interactions.length; i += batchSize) {
+    const batch = interactions.slice(i, i + batchSize);
+
+    for (const interaction of batch) {
+      stats.totalProcessed++;
+
+      if (interaction.sessionId) {
+        continue;
+      }
+
+      const data = interaction as any;
+      const contextSessionId = data?.context?.sessionId;
+
+      if (!contextSessionId) {
+        stats.missingSessionContext++;
+        continue;
+      }
+
+      if (!dryRun) {
+        interaction.sessionId = contextSessionId;
+      }
+
+      stats.updated++;
+    }
+  }
+
+  return {
+    status: 'completed',
+    dryRun,
+    stats,
+    message: dryRun
+      ? `Dry run: Would update ${stats.updated} interactions`
+      : `Successfully updated ${stats.updated} interactions`,
   };
 }
 
@@ -376,6 +517,55 @@ describe('Migration Infrastructure', () => {
     });
   });
 
+  describe('User createdAt backfill migration', () => {
+    it('should set createdAt for users missing the field', () => {
+      const users = Array.from({ length: 5 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 2 });
+
+      expect(result.status).toBe('completed');
+      expect(result.dryRun).toBe(false);
+      expect(result.stats.updated).toBe(5);
+      expect(result.stats.alreadyHadCreatedAt).toBe(0);
+      expect(users.every((user) => user.createdAt === user._creationTime)).toBe(true);
+    });
+
+    it('should ignore users that already have createdAt populated', () => {
+      const users = [
+        createMockUser('existing-1', true),
+        createMockUser('existing-2', true),
+        createMockUser('new-1', false),
+      ];
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 10 });
+
+      expect(result.stats.totalProcessed).toBe(3);
+      expect(result.stats.updated).toBe(1);
+      expect(result.stats.alreadyHadCreatedAt).toBe(2);
+      expect(users[2].createdAt).toBeDefined();
+    });
+
+    it('should process large datasets across multiple batches', () => {
+      const users = Array.from({ length: 450 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { batchSize: 100 });
+
+      expect(result.stats.totalProcessed).toBe(450);
+      expect(result.stats.updated).toBe(450);
+      expect(result.stats.alreadyHadCreatedAt).toBe(0);
+    });
+
+    it('should honor dry-run mode without mutating data', () => {
+      const users = Array.from({ length: 3 }, (_, i) => createMockUser(`user-${i}`));
+
+      const result = simulateUserCreatedAtBackfill(users, { dryRun: true });
+
+      expect(result.dryRun).toBe(true);
+      expect(result.stats.updated).toBe(3);
+      expect(users.every((user) => user.createdAt === undefined)).toBe(true);
+    });
+  });
+
   describe('Migration Result Status Logic', () => {
     it('should calculate status correctly for various failure rates', () => {
       const testCases = [
@@ -399,6 +589,44 @@ describe('Migration Infrastructure', () => {
 
         expect(result.status).toBe(expected);
       }
+    });
+  });
+
+  describe('Interaction sessionId backfill', () => {
+    it('backfills sessionId when context contains sessionId', () => {
+      const interactions = [
+        createMockInteraction('i1', { contextSessionId: 'session-1' }),
+        createMockInteraction('i2', { sessionId: 'session-existing' }),
+      ];
+
+      const result = simulateInteractionSessionBackfill(interactions, { batchSize: 1 });
+
+      expect(result.stats.updated).toBe(1);
+      expect(result.stats.missingSessionContext).toBe(0);
+      expect(interactions[0].sessionId).toBe('session-1');
+      expect(interactions[1].sessionId).toBe('session-existing');
+    });
+
+    it('skips interactions without context sessionId', () => {
+      const interactions = [
+        createMockInteraction('i1', {}),
+        createMockInteraction('i2', { contextSessionId: undefined }),
+      ];
+
+      const result = simulateInteractionSessionBackfill(interactions);
+
+      expect(result.stats.updated).toBe(0);
+      expect(result.stats.missingSessionContext).toBe(2);
+    });
+
+    it('respects dry-run mode without mutating documents', () => {
+      const interactions = [createMockInteraction('i1', { contextSessionId: 'session-1' })];
+
+      const result = simulateInteractionSessionBackfill(interactions, { dryRun: true });
+
+      expect(result.dryRun).toBe(true);
+      expect(result.stats.updated).toBe(1);
+      expect(interactions[0].sessionId).toBeUndefined();
     });
   });
 

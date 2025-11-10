@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-
-import type { Id } from './_generated/dataModel';
+import type { Id } from '@/convex/_generated/dataModel';
 
 /**
  * Tests for embeddings module helper functions

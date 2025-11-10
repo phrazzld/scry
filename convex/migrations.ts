@@ -23,6 +23,17 @@ const DEFAULT_DIFFICULTY_REMOVAL_BATCH_SIZE = 500;
 const DEFAULT_TOPIC_REMOVAL_BATCH_SIZE = 500;
 
 /**
+ * Default batch size for user createdAt backfill
+ * Small batch keeps memory bounded while iterating via filter
+ */
+const DEFAULT_USER_CREATED_AT_BATCH_SIZE = 200;
+
+/**
+ * Default batch size for interaction sessionId backfill
+ */
+const DEFAULT_INTERACTION_SESSION_BATCH_SIZE = 200;
+
+/**
  * Log progress every N records during migration
  * Provides feedback without overwhelming logs
  */
@@ -95,6 +106,23 @@ type UserStatsInitStats = {
   totalUsers: number;
   initialized: number;
   alreadyExist: number;
+  errors: number;
+};
+
+/**
+ * Statistics for createdAt backfill migration
+ */
+type UserCreatedAtBackfillStats = {
+  totalProcessed: number;
+  updated: number;
+  alreadyHadCreatedAt: number;
+  errors: number;
+};
+
+type InteractionSessionBackfillStats = {
+  totalProcessed: number;
+  updated: number;
+  missingSessionContext: number;
   errors: number;
 };
 
@@ -799,6 +827,268 @@ export const removeTopicFromQuestions = internalMutation({
   },
   handler: async (ctx, args): Promise<MigrationResult<TopicRemovalStats>> => {
     return await removeTopicFromQuestionsInternal(ctx, args);
+  },
+});
+
+/**
+ * Backfill createdAt field for all existing users
+ *
+ * Uses small batches with runtime property checks to add createdAt timestamps
+ * derived from each document's _creationTime. Safe to rerun; skips users
+ * who already have createdAt populated.
+ */
+export const backfillUserCreatedAt = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<UserCreatedAtBackfillStats>> => {
+    const batchSize = Math.max(1, args.batchSize || DEFAULT_USER_CREATED_AT_BATCH_SIZE);
+    const dryRun = args.dryRun || false;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'backfillUserCreatedAt',
+    });
+
+    const stats: UserCreatedAtBackfillStats = {
+      totalProcessed: 0,
+      updated: 0,
+      alreadyHadCreatedAt: 0,
+      errors: 0,
+    };
+
+    migrationLogger.info('User createdAt backfill started', {
+      event: 'migration.user-created-at.start',
+      batchSize,
+      dryRun,
+    });
+
+    try {
+      let paginationResult = await ctx.db.query('users').paginate({
+        numItems: batchSize,
+        cursor: null,
+      });
+
+      await processBatch(paginationResult.page);
+
+      while (!paginationResult.isDone) {
+        paginationResult = await ctx.db.query('users').paginate({
+          numItems: batchSize,
+          cursor: paginationResult.continueCursor,
+        });
+
+        await processBatch(paginationResult.page);
+      }
+
+      async function processBatch(users: typeof paginationResult.page) {
+        if (users.length === 0) {
+          return;
+        }
+
+        migrationLogger.info('Processing user batch', {
+          event: dryRun ? 'migration.user-created-at.dry-run.batch' : 'migration.user-created-at.batch',
+          batchSize: users.length,
+        });
+
+        for (const user of users) {
+          stats.totalProcessed++;
+          if (user.createdAt !== undefined) {
+            stats.alreadyHadCreatedAt++;
+            continue;
+          }
+
+          try {
+            if (!dryRun) {
+              await ctx.db.patch(user._id, {
+                createdAt: user._creationTime ?? Date.now(),
+              });
+            }
+            stats.updated++;
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            stats.errors++;
+
+            migrationLogger.error('Failed to update createdAt for user', {
+              event: 'migration.user-created-at.error',
+              userId: user._id,
+              error: error.message,
+              stack: error.stack,
+            });
+          }
+        }
+      }
+
+      migrationLogger.info('User createdAt backfill completed', {
+        event: 'migration.user-created-at.complete',
+        stats,
+        dryRun,
+      });
+
+      return {
+        status: 'completed',
+        dryRun,
+        stats,
+        message: dryRun
+          ? `Dry run: Would update ${stats.updated} users`
+          : `Successfully updated ${stats.updated} users`,
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      migrationLogger.error('User createdAt backfill failed', {
+        event: 'migration.user-created-at.failed',
+        error: error.message,
+        stack: error.stack,
+        stats,
+      });
+
+      return {
+        status: 'failed',
+        dryRun,
+        stats,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
+        message: `Migration failed: ${error.message}`,
+      };
+    }
+  },
+});
+
+/**
+ * Promote sessionId from interaction context to top-level field
+ */
+export const backfillInteractionSessionId = internalMutation({
+  args: {
+    batchSize: v.optional(v.number()),
+    dryRun: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<InteractionSessionBackfillStats>> => {
+    const batchSize = Math.max(1, args.batchSize || DEFAULT_INTERACTION_SESSION_BATCH_SIZE);
+    const dryRun = args.dryRun ?? false;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'backfillInteractionSessionId',
+    });
+
+    const stats: InteractionSessionBackfillStats = {
+      totalProcessed: 0,
+      updated: 0,
+      missingSessionContext: 0,
+      errors: 0,
+    };
+
+    migrationLogger.info('Interaction sessionId backfill started', {
+      event: 'migration.interactions.session.start',
+      batchSize,
+      dryRun,
+    });
+
+    try {
+      const baseQuery = ctx.db
+        .query('interactions')
+        .filter((q) => q.eq(q.field('sessionId'), undefined))
+        .order('asc');
+
+      let pagination = await baseQuery.paginate({ numItems: batchSize, cursor: null });
+      await processBatch(pagination.page);
+
+      while (!pagination.isDone) {
+        pagination = await baseQuery.paginate({
+          numItems: batchSize,
+          cursor: pagination.continueCursor,
+        });
+        await processBatch(pagination.page);
+      }
+
+      async function processBatch(batch: typeof pagination.page) {
+        if (batch.length === 0) {
+          return;
+        }
+
+        migrationLogger.info('Processing interaction batch', {
+          event: 'migration.interactions.session.batch',
+          batchSize: batch.length,
+          processedSoFar: stats.totalProcessed,
+        });
+
+        for (const interaction of batch) {
+          stats.totalProcessed++;
+
+          if (interaction.sessionId) {
+            continue;
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const interactionData = interaction as any;
+          const contextSessionId = interactionData?.context?.sessionId;
+
+          if (!contextSessionId) {
+            stats.missingSessionContext++;
+            continue;
+          }
+
+          try {
+            if (!dryRun) {
+              await ctx.db.patch(interaction._id, { sessionId: contextSessionId });
+            }
+            stats.updated++;
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            stats.errors++;
+
+            migrationLogger.error('Failed to backfill interaction sessionId', {
+              event: 'migration.interactions.session.error',
+              interactionId: interaction._id,
+              error: error.message,
+              stack: error.stack,
+            });
+          }
+        }
+      }
+
+      migrationLogger.info('Interaction sessionId backfill completed', {
+        event: 'migration.interactions.session.complete',
+        stats,
+        dryRun,
+      });
+
+      return {
+        status: 'completed',
+        dryRun,
+        stats,
+        message: dryRun
+          ? `Dry run: Would update ${stats.updated} interactions`
+          : `Updated ${stats.updated} interactions`,
+      };
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+
+      migrationLogger.error('Interaction sessionId backfill failed', {
+        event: 'migration.interactions.session.failed',
+        error: error.message,
+        stack: error.stack,
+        stats,
+      });
+
+      return {
+        status: 'failed',
+        dryRun,
+        stats,
+        failures: [
+          {
+            recordId: 'N/A',
+            error: error.message,
+          },
+        ],
+        message: `Migration failed: ${error.message}`,
+      };
+    }
   },
 });
 

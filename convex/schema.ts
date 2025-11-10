@@ -10,9 +10,11 @@ export default defineSchema({
     image: v.optional(v.string()),
     currentStreak: v.optional(v.number()), // Consecutive days with >0 reviews
     lastStreakDate: v.optional(v.number()), // Last date streak was calculated
+    createdAt: v.optional(v.number()), // TODO: make required after migration seeds all rows
   })
     .index('by_email', ['email'])
-    .index('by_clerk_id', ['clerkId']),
+    .index('by_clerk_id', ['clerkId'])
+    .index('by_created_at', ['createdAt']),
 
   // Cached card statistics per user (O(1) reads vs O(N) collection scans)
   // Updated incrementally on card state transitions for bandwidth optimization
@@ -91,6 +93,7 @@ export default defineSchema({
     userAnswer: v.string(),
     isCorrect: v.boolean(),
     attemptedAt: v.number(),
+    sessionId: v.optional(v.string()),
     timeSpent: v.optional(v.number()), // milliseconds
     context: v.optional(
       v.object({
@@ -100,6 +103,7 @@ export default defineSchema({
     ),
   })
     .index('by_user', ['userId', 'attemptedAt'])
+    .index('by_user_session', ['userId', 'sessionId', 'attemptedAt'])
     .index('by_question', ['questionId', 'attemptedAt'])
     .index('by_user_question', ['userId', 'questionId']),
 
