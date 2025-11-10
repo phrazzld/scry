@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { Doc, Id } from '@/convex/_generated/dataModel';
@@ -40,6 +41,7 @@ describe('ConceptsTable', () => {
       fsrs: {
         ...createConcept().fsrs,
         nextReview: Date.now() - 1000,
+        reps: 1, // Concept must have been reviewed at least once to be "due"
       },
     });
 
