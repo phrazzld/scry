@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { Doc, Id } from './_generated/dataModel';
-import { getRetrievability } from './fsrs';
 import { calculateFreshnessDecay, calculateRetrievabilityScore } from './spacedRepetition';
 
 describe('Review Queue Prioritization', () => {
@@ -27,7 +26,7 @@ describe('Review Queue Prioritization', () => {
   function simulatePrioritization(questions: Doc<'questions'>[], currentTime: Date = now) {
     const questionsWithPriority = questions.map((q) => ({
       question: q,
-      retrievability: q.nextReview === undefined ? -1 : getRetrievability(q, currentTime),
+      retrievability: calculateRetrievabilityScore(q, currentTime),
     }));
 
     // Sort by retrievability (lower = higher priority)
@@ -296,7 +295,9 @@ describe('Review Queue Prioritization', () => {
         new Date(now.getTime() + 86400000 * 30), // 1 month later
       ];
 
-      const retrievabilities = times.map((time) => getRetrievability(baseQuestion, time));
+      const retrievabilities = times.map((time) =>
+        calculateRetrievabilityScore(baseQuestion, time)
+      );
 
       // Retrievability should decrease over time
       for (let i = 1; i < retrievabilities.length; i++) {
@@ -892,7 +893,7 @@ describe('Retrievability Scoring Functions', () => {
         expect(score).toBeLessThanOrEqual(1);
 
         // Should match FSRS calculation
-        const expectedFsrsScore = getRetrievability(reviewedQuestion, now);
+        const expectedFsrsScore = calculateRetrievabilityScore(reviewedQuestion, now);
         expect(score).toBe(expectedFsrsScore);
       });
 

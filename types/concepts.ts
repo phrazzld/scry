@@ -11,6 +11,10 @@ export interface FsrsState {
   nextReview: number;
   elapsedDays?: number;
   retrievability?: number;
+  scheduledDays?: number;
+  reps?: number;
+  lapses?: number;
+  state?: 'new' | 'learning' | 'review' | 'relearning';
 }
 
 // ============================================================================
@@ -34,6 +38,8 @@ export interface ConceptDoc {
   userId: Id<'users'>;
   title: string;
   description?: string;
+  generationJobId?: Id<'generationJobs'>;
+  canonicalPhrasingId?: Id<'phrasings'>;
 
   // FSRS state (single source of truth for scheduling)
   fsrs: FsrsState;
