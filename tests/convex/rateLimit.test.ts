@@ -5,7 +5,7 @@ import {
   RATE_LIMITS,
   __test as rateLimitTestConstants,
   recordRateLimitAttempt,
-} from './rateLimit';
+} from '@/convex/rateLimit';
 
 /**
  * Edge case tests for rate limiting boundary calculations

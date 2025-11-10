@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { requireUserFromClerk } from './clerk';
-import { __quizStatsTest, getQuizInteractionStats } from './questionsLibrary';
+import { requireUserFromClerk } from '@/convex/clerk';
+import { __quizStatsTest, getQuizInteractionStats } from '@/convex/questionsLibrary';
 
-vi.mock('./clerk', () => ({
+vi.mock('@/convex/clerk', () => ({
   requireUserFromClerk: vi.fn(),
 }));
 

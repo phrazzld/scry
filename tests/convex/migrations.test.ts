@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Doc, Id } from './_generated/dataModel';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 /**
  * Unit tests for migration logic in migrations.ts

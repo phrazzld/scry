@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deleteUser, ensureUser } from './clerk';
+import { deleteUser, ensureUser } from '@/convex/clerk';
 
 describe('clerk.ensureUser', () => {
   beforeEach(() => {

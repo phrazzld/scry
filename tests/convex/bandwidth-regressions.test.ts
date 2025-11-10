@@ -5,11 +5,11 @@ import {
   generateRateLimitEntries,
   generateUsers,
 } from '@/lib/test-utils/largeFixtures';
-import type { Doc, Id } from './_generated/dataModel';
-import { deleteUser } from './clerk';
-import { __quizStatsTest, getQuizInteractionStats } from './questionsLibrary';
-import { checkEmailRateLimit, __test as rateLimitTest, recordRateLimitAttempt } from './rateLimit';
-import { reconcileUserStats, __test as userStatsTest } from './userStats';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
+import { deleteUser } from '@/convex/clerk';
+import { __quizStatsTest, getQuizInteractionStats } from '@/convex/questionsLibrary';
+import { checkEmailRateLimit, __test as rateLimitTest, recordRateLimitAttempt } from '@/convex/rateLimit';
+import { reconcileUserStats, __test as userStatsTest } from '@/convex/userStats';
 
 describe('Bandwidth regressions (>1,100 docs)', () => {
   describe('userStats reconciliation', () => {

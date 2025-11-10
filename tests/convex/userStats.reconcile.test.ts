@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Doc, Id } from './_generated/dataModel';
-import { __test, reconcileUserStats } from './userStats';
+import type { Doc, Id } from '@/convex/_generated/dataModel';
+import { __test, reconcileUserStats } from '@/convex/userStats';
 
 const { sampleUsersForReconciliation, QUESTION_BATCH_SIZE } = __test;
 

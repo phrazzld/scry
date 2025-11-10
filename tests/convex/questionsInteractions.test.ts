@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Id } from './_generated/dataModel';
-import { requireUserFromClerk } from './clerk';
-import { recordInteraction } from './questionsInteractions';
-import { getScheduler } from './scheduling';
+import type { Id } from '@/convex/_generated/dataModel';
+import { requireUserFromClerk } from '@/convex/clerk';
+import { recordInteraction } from '@/convex/questionsInteractions';
+import { getScheduler } from '@/convex/scheduling';
 
-vi.mock('./clerk', () => ({
+vi.mock('@/convex/clerk', () => ({
   requireUserFromClerk: vi.fn(),
 }));
 
-vi.mock('./scheduling', () => ({
+vi.mock('@/convex/scheduling', () => ({
   getScheduler: vi.fn(),
 }));
 
