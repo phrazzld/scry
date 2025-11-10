@@ -165,6 +165,83 @@ ${userInput}`;
 }
 
 /**
+ * Concept Synthesis Prompt - Stage A
+ *
+ * Generates atomic concepts (title + description) that can be expanded into phrasings later.
+ */
+export function buildConceptSynthesisPrompt(userInput: string): string {
+  return `# Task
+Analyze the learner's request and propose 3-6 atomic learning concepts that can be quizzed independently.
+
+# Output Format
+Return JSON with the following structure:
+{
+  "concepts": [
+    {
+      "title": "Concise concept title (<= 12 words, no multiple topics)",
+      "description": "2-4 sentences describing the concept's core idea, boundaries, and why it matters.",
+      "whyItMatters": "Optional: single sentence framing why the learner should care."
+    }
+  ]
+}
+
+# Guidelines
+- Each concept must focus on ONE retrievable idea (no multi-topic bundles, no 'A vs B' pairings).
+- Break complex subjects into the smallest useful atoms.
+- Avoid vague titles ("Overview", "Basics of X"). Be specific.
+- Descriptions must be standalone and include enough context for a future quiz item.
+- Prefer action-oriented framing ("How sacramental grace operates in Confirmation") over topic labels.
+- Never output markdown. Only valid JSON matching the schema.
+
+# Learner Input
+${userInput}`;
+}
+
+export function buildPhrasingGenerationPrompt(params: {
+  conceptTitle: string;
+  conceptDescription: string;
+  targetCount: number;
+  existingQuestions: string[];
+}): string {
+  const existingBlock =
+    params.existingQuestions.length > 0
+      ? params.existingQuestions.map((q, index) => `${index + 1}. ${q}`).join('\n')
+      : 'None (generate first phrasings for this concept)';
+
+  return `# Concept
+Title: ${params.conceptTitle}
+Description: ${params.conceptDescription}
+
+# Existing Phrasings
+${existingBlock}
+
+# Task
+Generate ${params.targetCount} quiz-ready phrasings that test this concept.
+
+# Requirements
+- Alternate between multiple-choice and true/false when reasonable.
+- Every phrasing must be standalone: include the concept title or necessary context in the question text.
+- For multiple-choice questions, provide 3-4 plausible options and a single correct answer.
+- For true/false questions, provide exactly two options: "True" and "False" (or equivalent) and indicate the correct one.
+- Explanations must justify WHY the answer is correct and why the distractors are wrong.
+- Do not repeat existing phrasing wording.
+- Vary cognitive skill (definition, application, scenario, counter-example).
+
+# Output Format (JSON)
+{
+  "phrasings": [
+    {
+      "question": "Question text",
+      "explanation": "Why the correct answer is right.",
+      "type": "multiple-choice" | "true-false",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "One of the options"
+    }
+  ]
+}`;
+}
+
+/**
  * ARCHITECTURE NOTE: Production Configuration
  *
  * Production config is NO LONGER defined here as a static constant.
