@@ -211,21 +211,21 @@ describe('Review Queue Prioritization', () => {
           nextReview: undefined,
           state: 'new',
           reps: 0,
-          _creationTime: sameCreationTime
+          _creationTime: sameCreationTime,
         }),
         createMockQuestion({
           _id: 'new2' as Id<'questions'>,
           nextReview: undefined,
           state: 'new',
           reps: 0,
-          _creationTime: sameCreationTime
+          _creationTime: sameCreationTime,
         }),
         createMockQuestion({
           _id: 'new3' as Id<'questions'>,
           nextReview: undefined,
           state: 'new',
           reps: 0,
-          _creationTime: sameCreationTime
+          _creationTime: sameCreationTime,
         }),
       ];
 
