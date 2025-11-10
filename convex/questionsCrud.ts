@@ -128,26 +128,21 @@ export const saveBatch = internalMutation({
     // Skip import if no embeddings present (common case)
     if (args.questions.some((q) => q.embedding)) {
       const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
-      const embeddingsToPersist = args.questions
-        .map((q, index) => ({
-          questionId: questionIds[index],
-          embedding: q.embedding,
-          embeddingGeneratedAt: q.embeddingGeneratedAt,
-        }))
-        .filter(
-          (
-            entry
-          ): entry is {
-            questionId: Id<'questions'>;
-            embedding: number[];
-            embeddingGeneratedAt?: number;
-          } => entry.embedding !== undefined
-        );
 
       await Promise.all(
-        embeddingsToPersist.map(({ questionId, embedding, embeddingGeneratedAt }) =>
-          upsertEmbeddingForQuestion(ctx, questionId, args.userId, embedding, embeddingGeneratedAt)
-        )
+        args.questions.map((q, index) => {
+          // Only save if embedding was provided
+          if (q.embedding) {
+            return upsertEmbeddingForQuestion(
+              ctx,
+              questionIds[index],
+              args.userId,
+              q.embedding,
+              q.embeddingGeneratedAt
+            );
+          }
+          return Promise.resolve();
+        })
       );
     }
 
