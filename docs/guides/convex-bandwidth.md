@@ -19,7 +19,7 @@ const SAMPLE_SIZE = 100;
 const pivot = randomBetween(minCreatedAt, maxCreatedAt);
 const sampled = await ctx.db
   .query('users')
-  .withIndex('by_creation_time', (q) => q.gte('createdAt', pivot))
+  .withIndex('by_created_at', (q) => q.gte('createdAt', pivot))
   .order('asc')
   .take(SAMPLE_SIZE);
 ```

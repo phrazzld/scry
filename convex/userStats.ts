@@ -197,13 +197,13 @@ async function sampleUsersForReconciliation(
     return [];
   }
 
-  const firstUser = await ctx.db.query('users').withIndex('by_creation_time').order('asc').first();
+  const firstUser = await ctx.db.query('users').withIndex('by_created_at').order('asc').first();
 
   if (!firstUser) {
     return [];
   }
 
-  const lastUser = await ctx.db.query('users').withIndex('by_creation_time').order('desc').first();
+  const lastUser = await ctx.db.query('users').withIndex('by_created_at').order('desc').first();
 
   if (!lastUser) {
     return [firstUser];
@@ -221,7 +221,7 @@ async function sampleUsersForReconciliation(
   const forwardChunk = await ctx.db
     .query('users')
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .withIndex('by_creation_time', (q: any) => q.gte('createdAt', pivot))
+    .withIndex('by_created_at', (q: any) => q.gte('createdAt', pivot))
     .order('asc')
     .take(sampleSize);
   appendUsers(sampled, forwardChunk, seen, sampleSize);
@@ -230,7 +230,7 @@ async function sampleUsersForReconciliation(
     const wrapChunk = await ctx.db
       .query('users')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .withIndex('by_creation_time', (q: any) => q.lt('createdAt', pivot))
+      .withIndex('by_created_at', (q: any) => q.lt('createdAt', pivot))
       .order('asc')
       .take(sampleSize - sampled.length);
     appendUsers(sampled, wrapChunk, seen, sampleSize);
@@ -239,7 +239,7 @@ async function sampleUsersForReconciliation(
   if (sampled.length < sampleSize) {
     const fallbackChunk = await ctx.db
       .query('users')
-      .withIndex('by_creation_time')
+      .withIndex('by_created_at')
       .order('asc')
       .take(Math.min(USER_SAMPLE_FALLBACK_LIMIT, sampleSize - sampled.length));
     appendUsers(sampled, fallbackChunk, seen, sampleSize);

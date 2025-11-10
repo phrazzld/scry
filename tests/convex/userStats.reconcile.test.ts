@@ -262,7 +262,7 @@ function createExprBuilder<T extends Record<string, unknown>>() {
 }
 
 function getComparator<T extends Record<string, unknown>>(indexName?: string) {
-  if (indexName === 'by_creation_time') {
+  if (indexName === 'by_created_at') {
     return (a: T, b: T) => (getTimestamp(a) ?? 0) - (getTimestamp(b) ?? 0);
   }
   if (indexName === 'by_user') {

@@ -1,6 +1,5 @@
 import { Rating, State } from 'ts-fsrs';
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 import {
   calculateRatingFromCorrectness,

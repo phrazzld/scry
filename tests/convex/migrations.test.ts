@@ -256,7 +256,7 @@ function simulateInteractionSessionBackfill(
         continue;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const data = interaction as any;
       const contextSessionId = data?.context?.sessionId;
 

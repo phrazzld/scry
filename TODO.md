@@ -2,10 +2,10 @@
 
 ## Bandwidth Hardening
 
-- [x] Seed users.by_creation_time sampling index
+- [x] Seed users.by_created_at sampling index
   ```
   Files: convex/schema.ts, convex/clerk.ts, convex/migrations.ts, convex/migrations.test.ts
-  Goal: add a persisted `createdAt` field plus `by_creation_time` index so user sampling can page deterministically without `.collect()`.
+  Goal: add a persisted `createdAt` field plus `by_created_at` index so user sampling can page deterministically without `.collect()`.
   Success: every user document (new + legacy) carries `createdAt`, Convex schema/typegen compile clean, new index visible via `npx convex dev`.
   Tests: convex/migrations.test.ts covers dry-run/apply for the backfill; new convex/clerk.test.ts case ensures `ensureUser` writes `createdAt`.
   Dependencies: —
@@ -13,13 +13,13 @@
   ```
 
 - [x] Refactor reconcileUserStats sampling/pagination
-  depends: Seed users.by_creation_time sampling index
+  depends: Seed users.by_created_at sampling index
   ```
   Files: convex/userStats.ts, convex/lib/logger.ts (metrics hook), convex/userStats.reconcile.test.ts
-  Goal: replace `.collect()` usage with random cursor sampling via `by_creation_time` and stream question scans in fixed batches when recalculating stats.
+  Goal: replace `.collect()` usage with random cursor sampling via `by_created_at` and stream question scans in fixed batches when recalculating stats.
   Success: cron reads ≤ sampleSize users (default 100), per-user question pass processes at most `ceil(total/batchSize)` iterations, run finishes <5s against 10k synthetic users.
   Tests: new convex/userStats.reconcile.test.ts builds 10k-user fixtures + 1,200-question accounts to assert only `sampleSize` docs are fetched and stats still correct.
-  Dependencies: Seed users.by_creation_time sampling index
+  Dependencies: Seed users.by_created_at sampling index
   Estimate: 1.5h
   ```
 

@@ -14,7 +14,7 @@ export default defineSchema({
   })
     .index('by_email', ['email'])
     .index('by_clerk_id', ['clerkId'])
-    .index('by_creation_time', ['createdAt']),
+    .index('by_created_at', ['createdAt']),
 
   // Cached card statistics per user (O(1) reads vs O(N) collection scans)
   // Updated incrementally on card state transitions for bandwidth optimization

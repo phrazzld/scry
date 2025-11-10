@@ -27,7 +27,7 @@ const randomOffset = Math.floor(Math.random() * (allUserCount - SAMPLE_SIZE));
 
 const sampled = await ctx.db
   .query('users')
-  .withIndex('by_creation_time') // NEW INDEX REQUIRED
+  .withIndex('by_created_at') // NEW INDEX REQUIRED
   .order('asc')
   .skip(randomOffset)
   .take(SAMPLE_SIZE);
@@ -37,7 +37,7 @@ const sampled = await ctx.db
 ```
 
 **Actions**:
-1. Add `by_creation_time` index to users schema
+1. Add `by_created_at` index to users schema
 2. Refactor reconciliation cron (userStats.ts:52) to use sampling
 3. Refactor rate limit queries to use `.take(100)` + pagination
 4. Add Vitest regression tests with >1,100 document fixtures
