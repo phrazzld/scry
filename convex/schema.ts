@@ -71,6 +71,7 @@ export default defineSchema({
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
     .index('by_user_next_review', ['userId', 'nextReview'])
+    .index('by_concept', ['conceptId'])
     // Compound indexes for efficient filtering (eliminates client-side .filter())
     // Enables DB-level filtering for active/archived/deleted views at scale (10k+ cards)
     .index('by_user_active', ['userId', 'deletedAt', 'archivedAt', 'generatedAt'])
@@ -90,7 +91,9 @@ export default defineSchema({
 
   interactions: defineTable({
     userId: v.id('users'),
-    questionId: v.id('questions'),
+    questionId: v.optional(v.id('questions')),
+    conceptId: v.optional(v.id('concepts')),
+    phrasingId: v.optional(v.id('phrasings')),
     userAnswer: v.string(),
     isCorrect: v.boolean(),
     attemptedAt: v.number(),
@@ -104,7 +107,9 @@ export default defineSchema({
   })
     .index('by_user', ['userId', 'attemptedAt'])
     .index('by_question', ['questionId', 'attemptedAt'])
-    .index('by_user_question', ['userId', 'questionId']),
+    .index('by_user_question', ['userId', 'questionId'])
+    .index('by_user_concept', ['userId', 'conceptId', 'attemptedAt'])
+    .index('by_concept', ['conceptId', 'attemptedAt']),
 
   /**
    * @deprecated This table is deprecated and should not be used.
@@ -196,7 +201,13 @@ export default defineSchema({
     ),
 
     // Progress (flat fields, no nesting)
-    phase: v.union(v.literal('clarifying'), v.literal('generating'), v.literal('finalizing')),
+    phase: v.union(
+      v.literal('clarifying'),
+      v.literal('concept_synthesis'),
+      v.literal('generating'),
+      v.literal('phrasing_generation'),
+      v.literal('finalizing')
+    ),
     questionsGenerated: v.number(), // Total AI generated
     questionsSaved: v.number(), // Successfully saved to DB
     estimatedTotal: v.optional(v.number()), // AI's estimate
@@ -206,6 +217,8 @@ export default defineSchema({
     // Removed from questions table (PR #44) but still used here for job classification
     topic: v.optional(v.string()), // Extracted topic
     questionIds: v.array(v.id('questions')), // All saved questions
+    conceptIds: v.array(v.id('concepts')), // Concepts generated in Stage A
+    pendingConceptIds: v.array(v.id('concepts')), // Concepts remaining for Stage B
     durationMs: v.optional(v.number()), // Total generation time
 
     // Error handling (flat fields)
@@ -250,7 +263,14 @@ export default defineSchema({
       nextReview: v.number(),
       elapsedDays: v.optional(v.number()),
       retrievability: v.optional(v.number()),
+      scheduledDays: v.optional(v.number()),
+      reps: v.optional(v.number()),
+      lapses: v.optional(v.number()),
+      state: v.optional(
+        v.union(v.literal('new'), v.literal('learning'), v.literal('review'), v.literal('relearning'))
+      ),
     }),
+    canonicalPhrasingId: v.optional(v.id('phrasings')),
 
     // IQC (Intelligent Quality Control) signals
     phrasingCount: v.number(), // Number of phrasings for this concept
@@ -265,12 +285,17 @@ export default defineSchema({
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
+    generationJobId: v.optional(v.id('generationJobs')),
   })
     .index('by_user', ['userId', 'createdAt'])
     .index('by_user_next_review', ['userId', 'fsrs.nextReview'])
     .vectorIndex('by_embedding', {
       vectorField: 'embedding',
       dimensions: 768,
+      filterFields: ['userId'],
+    })
+    .searchIndex('search_concepts', {
+      searchField: 'title',
       filterFields: ['userId'],
     }),
 
