@@ -125,16 +125,19 @@ export const saveBatch = internalMutation({
     );
 
     // Save embeddings to questionEmbeddings table (separate for bandwidth optimization)
-    const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
-    await Promise.all(
-      args.questions.map((q, index) => {
-        // Only save if embedding was provided
-        if (q.embedding) {
-          return upsertEmbeddingForQuestion(ctx, questionIds[index], args.userId, q.embedding);
-        }
-        return Promise.resolve();
-      })
-    );
+    // Skip import if no embeddings present (common case)
+    if (args.questions.some((q) => q.embedding)) {
+      const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
+      await Promise.all(
+        args.questions.map((q, index) => {
+          // Only save if embedding was provided
+          if (q.embedding) {
+            return upsertEmbeddingForQuestion(ctx, questionIds[index], args.userId, q.embedding);
+          }
+          return Promise.resolve();
+        })
+      );
+    }
 
     // Update userStats with new question counts (incremental bandwidth optimization)
     // All new questions start in 'new' state

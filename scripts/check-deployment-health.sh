@@ -161,16 +161,21 @@ else
 fi
 
 # Check for questionEmbeddings indexes
-if echo "$SCHEMA_CHECK" | grep -q "by_question.*questionId"; then
+# Extract only the questionEmbeddings table definition to avoid false positives
+# (interactions table also has a by_question index, questions table has deprecated by_embedding)
+# Pattern: From 'questionEmbeddings:' to the closing vector index line '    }),'
+EMBEDDINGS_TABLE=$(echo "$SCHEMA_CHECK" | sed -n '/questionEmbeddings: defineTable/,/^    }),$/p')
+
+if echo "$EMBEDDINGS_TABLE" | grep -q "by_question"; then
   echo -e "${GREEN}✓${NC} by_question index defined in questionEmbeddings"
 else
-  echo -e "${YELLOW}⚠${NC}  by_question index not found"
+  echo -e "${YELLOW}⚠${NC}  by_question index not found in questionEmbeddings"
 fi
 
-if echo "$SCHEMA_CHECK" | grep -q "by_embedding"; then
+if echo "$EMBEDDINGS_TABLE" | grep -q "by_embedding"; then
   echo -e "${GREEN}✓${NC} by_embedding vector index defined in questionEmbeddings"
 else
-  echo -e "${YELLOW}⚠${NC}  by_embedding vector index not found"
+  echo -e "${YELLOW}⚠${NC}  by_embedding vector index not found in questionEmbeddings"
 fi
 
 echo ""

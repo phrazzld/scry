@@ -89,12 +89,13 @@ export async function deleteEmbeddingForQuestion(
  * @param questionId - Question ID to create/update embedding for
  * @param userId - User ID (must match question's userId)
  * @param embedding - 768-dimensional vector
+ * @param embeddingGeneratedAt - Optional timestamp of when embedding was generated (defaults to Date.now())
  * @returns Created or updated embedding ID
  * @throws Error if userId doesn't match question's userId
  *
  * Usage:
  * ```typescript
- * // After generating embedding from AI
+ * // After generating embedding from AI (uses current timestamp)
  * const embedding = await generateEmbedding(questionText);
  * const embeddingId = await upsertEmbeddingForQuestion(
  *   ctx,
@@ -102,13 +103,23 @@ export async function deleteEmbeddingForQuestion(
  *   userId,
  *   embedding
  * );
+ *
+ * // Preserving existing timestamp during migration
+ * const embeddingId = await upsertEmbeddingForQuestion(
+ *   ctx,
+ *   questionId,
+ *   userId,
+ *   embedding,
+ *   question.embeddingGeneratedAt // Preserve original timestamp
+ * );
  * ```
  */
 export async function upsertEmbeddingForQuestion(
   ctx: MutationCtx,
   questionId: Id<'questions'>,
   userId: Id<'users'>,
-  embedding: number[]
+  embedding: number[],
+  embeddingGeneratedAt?: number
 ): Promise<Id<'questionEmbeddings'>> {
   // Validate question exists and userId matches (security check)
   const question = await ctx.db.get(questionId);
@@ -132,13 +143,14 @@ export async function upsertEmbeddingForQuestion(
     .withIndex('by_question', (q) => q.eq('questionId', questionId))
     .first();
 
-  const now = Date.now();
+  // Use provided timestamp or default to current time
+  const timestamp = embeddingGeneratedAt ?? Date.now();
 
   if (existing) {
     // Update existing embedding
     await ctx.db.patch(existing._id, {
       embedding,
-      embeddingGeneratedAt: now,
+      embeddingGeneratedAt: timestamp,
       // userId should never change, but update for safety
       userId,
     });
@@ -149,7 +161,7 @@ export async function upsertEmbeddingForQuestion(
       questionId,
       userId,
       embedding,
-      embeddingGeneratedAt: now,
+      embeddingGeneratedAt: timestamp,
     });
   }
 }

@@ -8,6 +8,60 @@
 
 ## Now (Sprint-Ready, <2 weeks)
 
+### [TESTING][P1] Add Test Coverage for Embedding Helpers
+
+**Files**:
+- `convex/lib/embeddingHelpers.ts` (217 lines, 0% test coverage)
+- New: `convex/lib/embeddingHelpers.test.ts` (to be created)
+
+**Perspectives**: code-quality-standards, testing-philosophy
+
+**Problem**: Core embedding helper module has zero test coverage
+- Security validation (userId mismatch) not verified
+- Edge cases (invalid dimensions, idempotency) not covered
+- Timestamp preservation logic not tested
+- Upsert/delete operations not validated
+
+**Impact**:
+- No confidence in security checks during refactoring
+- Risk of regression when modifying helper functions
+- **Blocks production deployment confidence** (Phase 1 migration)
+
+**Test Spec** (Vitest):
+```typescript
+// convex/lib/embeddingHelpers.test.ts
+describe('upsertEmbeddingForQuestion', () => {
+  it('creates new embedding when none exists');
+  it('updates existing embedding');
+  it('throws error on userId mismatch (security)');
+  it('throws error on invalid dimensions (!= 768)');
+  it('preserves embeddingGeneratedAt when provided');
+  it('uses Date.now() when embeddingGeneratedAt omitted');
+});
+
+describe('deleteEmbeddingForQuestion', () => {
+  it('deletes existing embedding');
+  it('returns false when already deleted (idempotent)');
+  it('throws error on userId mismatch (security)');
+});
+
+describe('getEmbeddingsForUser', () => {
+  it('fetches all embeddings for user');
+  it('returns empty array when none exist');
+});
+
+describe('countEmbeddingsForUser', () => {
+  it('counts embeddings for user');
+  it('returns 0 when none exist');
+});
+```
+
+**Estimate**: 4h
+**Priority**: P1 (unblocks production confidence)
+**Dependencies**: Phase 1 embeddings migration complete (PR #60)
+
+---
+
 ### [ARCHITECTURE][CRITICAL] Extract AI Provider Initialization
 
 **Files**:

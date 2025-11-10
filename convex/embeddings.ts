@@ -450,29 +450,24 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
   handler: async (ctx, args) => {
     const limit = args.limit ?? 100;
 
+    // Batch fetch ALL embeddings in a single query to build a Set of question IDs
+    // This is more efficient than N+1 queries per question
+    const allEmbeddings = await ctx.db.query('questionEmbeddings').collect();
+    const questionIdsWithEmbeddings = new Set(allEmbeddings.map((e) => e.questionId));
+
     // Get all active questions (not deleted or archived)
-    // Fetch extra to account for filtering out questions that already have embeddings
+    // CRITICAL: Must use .collect() to iterate through ALL questions
+    // Cannot use .take(limit * 2) as that only checks first N questions
+    // Once those have embeddings, the function would return empty forever
     const allActiveQuestions = await ctx.db
       .query('questions')
       .withIndex('by_user_active')
       .filter((q) =>
         q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
-      .take(limit * 2); // Fetch 2x to ensure we get enough after filtering
+      .collect();
 
-    // Get question IDs that already have embeddings in the new table
-    const questionIdsWithEmbeddings = new Set<string>();
-    for (const question of allActiveQuestions) {
-      const embedding = await ctx.db
-        .query('questionEmbeddings')
-        .withIndex('by_question', (q) => q.eq('questionId', question._id))
-        .first();
-      if (embedding) {
-        questionIdsWithEmbeddings.add(question._id);
-      }
-    }
-
-    // Filter to questions without embeddings
+    // Filter to questions without embeddings and take only the requested limit
     const questionsWithoutEmbeddings = allActiveQuestions
       .filter((q) => !questionIdsWithEmbeddings.has(q._id))
       .slice(0, limit);
@@ -492,34 +487,27 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
 export const countQuestionsWithoutEmbeddings = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Use take with a reasonable limit for counting (avoid unbounded queries)
-    // If count exceeds limit, return "limit+" to indicate "at least this many"
-    const SAMPLE_LIMIT = 1000;
+    // Batch fetch ALL embeddings in a single query to build a Set of question IDs
+    const allEmbeddings = await ctx.db.query('questionEmbeddings').collect();
+    const questionIdsWithEmbeddings = new Set(allEmbeddings.map((e) => e.questionId));
 
-    // Get all active questions
+    // Get all active questions (not deleted or archived)
+    // Use .collect() to get accurate count across all questions
     const questions = await ctx.db
       .query('questions')
       .withIndex('by_user_active')
       .filter((q) =>
         q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
       )
-      .take(SAMPLE_LIMIT);
+      .collect();
 
-    // Check which ones have embeddings in the new table
-    let countWithoutEmbeddings = 0;
-    for (const question of questions) {
-      const embedding = await ctx.db
-        .query('questionEmbeddings')
-        .withIndex('by_question', (q) => q.eq('questionId', question._id))
-        .first();
-      if (!embedding) {
-        countWithoutEmbeddings++;
-      }
-    }
+    // Count questions without embeddings
+    const countWithoutEmbeddings = questions.filter((q) => !questionIdsWithEmbeddings.has(q._id))
+      .length;
 
     return {
       count: countWithoutEmbeddings,
-      isApproximate: questions.length === SAMPLE_LIMIT,
+      isApproximate: false, // Now always exact since we use .collect()
     };
   },
 });
@@ -584,7 +572,13 @@ export const saveEmbedding = internalMutation({
 
     // Save embedding to separate questionEmbeddings table
     const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
-    await upsertEmbeddingForQuestion(ctx, args.questionId, question.userId, args.embedding);
+    await upsertEmbeddingForQuestion(
+      ctx,
+      args.questionId,
+      question.userId,
+      args.embedding,
+      args.embeddingGeneratedAt
+    );
   },
 });
 

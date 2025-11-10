@@ -1192,7 +1192,7 @@ type EmbeddingsMigrationStats = {
  * @param dryRun - If true, only simulate the migration without making changes
  * @param batchSize - Number of questions to process per batch (default 100)
  */
-export const migrateEmbeddingsToSeparateTable = mutation({
+export const migrateEmbeddingsToSeparateTable = internalMutation({
   args: {
     dryRun: v.optional(v.boolean()),
     batchSize: v.optional(v.number()),
@@ -1219,23 +1219,30 @@ export const migrateEmbeddingsToSeparateTable = mutation({
       errors: 0,
     };
 
-    // Fetch all questions (we'll process in batches)
-    // Using runtime property check (not TypeScript type check) per migration best practices
-    const allQuestions = await ctx.db.query('questions').collect();
+    // Use cursor-based pagination to avoid memory exhaustion
+    // Streaming batches sequentially without loading entire table
+    let cursor = null;
+    let hasMore = true;
 
-    migrationLogger.info('Fetched questions for migration', {
-      total: allQuestions.length,
+    migrationLogger.info('Starting cursor-based migration', {
+      batchSize,
     });
 
-    // Process in batches
-    for (let i = 0; i < allQuestions.length; i += batchSize) {
-      const batch = allQuestions.slice(i, i + batchSize);
+    while (hasMore) {
+      // Fetch next batch using cursor
+      const page = await ctx.db.query('questions').paginate({
+        cursor: cursor,
+        numItems: batchSize,
+      });
 
-      for (const question of batch) {
+      hasMore = page.isDone === false;
+      cursor = page.continueCursor;
+
+      // Process this batch
+      for (const question of page.page) {
         stats.totalProcessed++;
 
         // Runtime property check (not TypeScript type erasure)
-
         const hasEmbedding =
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           'embedding' in (question as any) && (question as any).embedding !== undefined;
@@ -1309,7 +1316,6 @@ export const migrateEmbeddingsToSeparateTable = mutation({
         if (stats.totalProcessed % PROGRESS_LOG_INTERVAL === 0) {
           migrationLogger.info('Migration progress', {
             ...stats,
-            percentComplete: ((stats.totalProcessed / allQuestions.length) * 100).toFixed(1),
           });
         }
       }
@@ -1339,25 +1345,32 @@ export const migrateEmbeddingsToSeparateTable = mutation({
  *
  * Returns count of questions with embeddings that still need to be migrated.
  * After migration completes, this should return { remaining: 0 }.
+ *
+ * Uses sampling to avoid unbounded queries. When isApproximate=true, counts
+ * are based on first 1000 records from each table.
  */
 export const migrateEmbeddingsToSeparateTableDiagnostic = query({
   args: {},
   handler: async (ctx) => {
-    // Count questions with embeddings
-    const questionsWithEmbeddings = await ctx.db
-      .query('questions')
-      .collect()
-      .then((questions) =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        questions.filter((q) => 'embedding' in (q as any) && (q as any).embedding !== undefined)
-      );
+    const SAMPLE_LIMIT = 1000;
 
-    // Count embeddings in new table
-    const embeddingsInNewTable = await ctx.db.query('questionEmbeddings').collect();
+    // Sample questions to avoid unbounded query
+    const allQuestions = await ctx.db.query('questions').take(SAMPLE_LIMIT);
+
+    // Runtime property check (not TypeScript type erasure)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const questionsWithEmbeddings = allQuestions.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q) => 'embedding' in (q as any) && (q as any).embedding !== undefined
+    );
+
+    // Sample embeddings in new table
+    const embeddingsInNewTable = await ctx.db.query('questionEmbeddings').take(SAMPLE_LIMIT);
+    const embeddingQuestionIds = new Set(embeddingsInNewTable.map((e) => e.questionId));
 
     // Count questions with embeddings but NOT in new table
     const needsMigration = questionsWithEmbeddings.filter(
-      (q) => !embeddingsInNewTable.some((e) => e.questionId === q._id)
+      (q) => !embeddingQuestionIds.has(q._id) // O(1) lookup instead of O(n)!
     );
 
     return {
@@ -1365,6 +1378,7 @@ export const migrateEmbeddingsToSeparateTableDiagnostic = query({
       embeddingsInNewTable: embeddingsInNewTable.length,
       remaining: needsMigration.length,
       complete: needsMigration.length === 0,
+      isApproximate: allQuestions.length === SAMPLE_LIMIT,
     };
   },
 });
