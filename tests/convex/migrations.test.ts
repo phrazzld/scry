@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-
 import type { Doc, Id } from '@/convex/_generated/dataModel';
 
 /**
@@ -256,7 +255,6 @@ function simulateInteractionSessionBackfill(
         continue;
       }
 
-       
       const data = interaction as any;
       const contextSessionId = data?.context?.sessionId;
 
