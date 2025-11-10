@@ -6,22 +6,24 @@ import { api } from '@/convex/_generated/api';
 import { TOAST_DURATION } from '@/lib/constants/ui';
 
 export function useQuizInteractions() {
-  const scheduleReview = useMutation(api.spacedRepetition.scheduleReview);
+  const recordConceptInteraction = useMutation(api.concepts.recordInteraction);
   const { isSignedIn } = useUser();
 
   const trackAnswer = useCallback(
     async (
-      questionId: string,
+      conceptId: string,
+      phrasingId: string,
       userAnswer: string,
       isCorrect: boolean,
       timeSpent?: number,
       sessionId?: string
     ) => {
-      if (!isSignedIn || !questionId) return null;
+      if (!isSignedIn || !conceptId || !phrasingId) return null;
 
       try {
-        const result = await scheduleReview({
-          questionId,
+        const result = await recordConceptInteraction({
+          conceptId,
+          phrasingId,
           userAnswer,
           isCorrect,
           timeSpent,
@@ -46,7 +48,7 @@ export function useQuizInteractions() {
         return null;
       }
     },
-    [scheduleReview, isSignedIn]
+    [recordConceptInteraction, isSignedIn]
   );
 
   return { trackAnswer };

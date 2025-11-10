@@ -40,7 +40,9 @@ export interface Interaction {
   _id: Id<'interactions'>;
   _creationTime: number;
   userId: Id<'users'>;
-  questionId: Id<'questions'>;
+  questionId?: Id<'questions'>;
+  conceptId?: Id<'concepts'>;
+  phrasingId?: Id<'phrasings'>;
   userAnswer: string;
   isCorrect: boolean;
   attemptedAt: number;

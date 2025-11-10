@@ -13,7 +13,6 @@ import {
   RefreshCwIcon,
   XCircleIcon,
 } from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -60,10 +59,15 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
   };
 
   // Calculate progress percentage
+  const savedCount =
+    job.questionIds.length > 0
+      ? job.questionIds.length
+      : (job.conceptIds?.length ?? job.questionsSaved ?? 0);
   const progressValue =
     isProcessingJob(job) && job.estimatedTotal
-      ? Math.min(100, Math.round((job.questionsSaved / job.estimatedTotal) * 100))
+      ? Math.min(100, Math.round((savedCount / job.estimatedTotal) * 100))
       : 0;
+  const phaseLabel = job.phase.replace(/_/g, ' ');
 
   return (
     <Card
@@ -118,9 +122,9 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
         {isProcessingJob(job) && (
           <div className="space-y-2 pl-6">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground capitalize">{job.phase}</span>
+              <span className="text-muted-foreground capitalize">{phaseLabel}</span>
               <span className="font-medium tabular-nums">
-                {job.questionsSaved}
+                {savedCount}
                 {job.estimatedTotal && ` / ${job.estimatedTotal}`}
               </span>
             </div>
@@ -140,7 +144,10 @@ export function GenerationTaskCard({ job }: GenerationTaskCardProps) {
 
         {isCompletedJob(job) && (
           <div className="text-xs text-muted-foreground pl-6">
-            {job.questionIds.length} question{job.questionIds.length !== 1 ? 's' : ''}
+            {savedCount}{' '}
+            {job.questionIds.length > 0
+              ? `question${savedCount !== 1 ? 's' : ''}`
+              : `concept${savedCount !== 1 ? 's' : ''}`}
             {job.durationMs && ` · ${Math.round(job.durationMs / 1000)}s`}
           </div>
         )}

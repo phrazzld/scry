@@ -74,7 +74,7 @@
 
 ## Phase 1 — FSRS & Review Core
 
-- [ ] Extract FSRS engine into deep modules
+- [x] Extract FSRS engine into deep modules
   ```
   Files: convex/spacedRepetition.ts, convex/fsrs/engine.ts, convex/fsrs/conceptScheduler.ts, convex/fsrs/selectionPolicy.ts, convex/fsrs.test.ts
   Goal: Move pure math into fsrs/engine, conceptScheduler orchestrates FSRS state on concepts, selectionPolicy encapsulates phrasing weighting (least-seen/random/canonical).
@@ -88,7 +88,7 @@
   Estimate: 1.5h
   ```
 
-- [ ] Ship concept queue Convex surface
+- [x] Ship concept queue Convex surface
   ```
   Files: convex/concepts.ts (new), convex/questionsInteractions.ts, convex/interactions.ts, convex/_generated/api.ts, convex/scheduling.ts
   Goal: Implement concepts:getDue, concepts:selectPhrasing, concepts:recordInteraction; interactions capture conceptId + phrasingId; concept.fsrs + phrasing stats update atomically.
@@ -102,7 +102,7 @@
   Estimate: 1.75h
   ```
 
-- [ ] Convert review flow UI to concept-first
+- [x] Convert review flow UI to concept-first
   ```
   Files: hooks/use-review-flow.ts, hooks/use-quiz-interactions.ts, components/review-flow.tsx, components/review-question-display.tsx, contexts/current-question-context.tsx, types/questions.ts
   Goal: Fetch concepts via concepts:getDue, render chosen phrasing, submit answers through concepts:recordInteraction, keep optimistic UI + keyboard shortcuts intact.
@@ -118,7 +118,7 @@
 
 ## Phase 2 — Generation & Embeddings
 
-- [ ] Stage A concept synthesis pipeline
+- [x] Stage A concept synthesis pipeline
   ```
   Files: convex/aiGeneration.ts, convex/generationJobs.ts, convex/concepts.ts, lib/ai/prompt-templates.ts, types/concepts.ts
   Goal: Phase runner writes validated concept docs (title, description, fsrs init, phrasingCount=0), enqueues Stage B job per concept with metadata.
@@ -131,7 +131,14 @@
   Estimate: 1.5h
   ```
 
-- [ ] Stage B phrasing generation action
+  ```
+  Work Log:
+  - Added multi-heuristic Stage A pipeline in convex/aiGeneration.ts plus createMany helper to persist validated concepts.
+  - Extended generationJobs + concepts modules to track conceptId progress and initialize FSRS metadata for Stage B fan-out.
+  - Expanded convex/aiGeneration.test.ts with Stage A rejection/failure coverage documenting heuristics.
+  ```
+
+- [x] Stage B phrasing generation action
   ```
   Files: convex/aiGeneration.ts, convex/aiGeneration.test.ts, convex/embeddings.ts, convex/phrasings.ts (helper), convex/cron.ts
   Goal: Implement phrases:generateForConcept action that batches LLM phrasing proposals, validates options/answers, writes phrasings, kicks embeddings per chunkArray.
@@ -145,7 +152,7 @@
   Estimate: 1.5h
   ```
 
-- [ ] Embeddings sync cron for concepts + phrasings
+- [x] Embeddings sync cron for concepts + phrasings
   ```
   Files: convex/embeddings.ts, convex/cron.ts, convex/lib/chunkArray.ts, convex/embeddings.test.ts
   Goal: Add embeddings:syncMissingEmbeddings action/cron to backfill concept + phrasing embeddings daily with per-user limits.
@@ -160,7 +167,7 @@
 
 ## Phase 3 — IQC & Action Workflow
 
-- [ ] IQC candidate scan + proposal action
+- [x] IQC candidate scan + proposal action
   ```
   Files: convex/iqc.ts (new), convex/cron.ts, convex/lib/vectorSearch.ts, convex/lib/hybridSearch.ts, convex/_generated/api.ts
   Goal: Implement iqc:scanAndPropose internal action/cron that clusters concept neighbors via vector + text merge, calls LLM adjudication, writes actionCards (MERGE only for P0).
@@ -173,7 +180,14 @@
   Estimate: 1.5h
   ```
 
-- [ ] IQC action execution mutation
+  ```
+  Work Log:
+  - Added convex/iqc.ts with scanAndPropose internal action, vector neighbor discovery, LLM adjudication fallback, and structured MERGE actionCard payloads (proposalKey dedupe).
+  - Scheduled cron (4:00 UTC) and wired API typings + helper exports for heuristics.
+  - Created convex/iqc.test.ts for heuristic coverage; tests blocked locally due to Rollup optional binary issue (documented in run log).
+  ```
+
+- [x] IQC action execution mutation
   ```
   Files: convex/iqc.ts, convex/lib/fsrsReplay.ts (new), convex/interactions.ts, convex/concepts.ts, convex/cron.ts
   Goal: Implement iqc:applyActionCard mutation for MERGE_CONCEPTS (P0) that moves phrasings, replays last M interactions into target concept.fsrs, archives sources, logs events.
@@ -186,9 +200,16 @@
   Estimate: 1.5h
   ```
 
+  ```
+  Work Log:
+  - Added iqc:applyActionCard mutation with ownership checks, phased document moves (phrasings/questions/interactions), FSRS replay, and stat updates.
+  - Created convex/lib/fsrsReplay.ts helper + unit tests to cover replay depth and ordering; wired cron/API + logging contexts with optional correlationId.
+  - Documented test run blocked by Rollup optional dependency (`@rollup/rollup-darwin-x64`) per environment note.
+  ```
+
 ## Phase 4 — App Surfaces
 
-- [ ] Concepts Library + nav wiring
+- [x] Concepts Library + nav wiring
   ```
   Files: app/concepts/page.tsx, app/concepts/_components/concepts-client.tsx, components/navbar.tsx, components/sidebar-nav.tsx, lib/hooks/use-concepts-query.ts, components/concepts/concepts-table.tsx
   Goal: New left-nav Concepts tab listing concept cards with due badge, phrasing count chip, thin/conflict indicators, search + sort.
@@ -201,7 +222,14 @@
   Estimate: 1.5h
   ```
 
-- [ ] Concept detail + phrasing management
+  ```
+  Work Log:
+  - Added concepts:listForLibrary query + title search index for server-side pagination, filters, and lightweight search.
+  - Built Concepts client page with tabs, sort/search, pagination, and new ConceptsTable/empty-state components; wired global shortcut + navbar entry.
+  - Added vitest coverage for ConceptsTable badges; test command currently blocked by Rollup optional dependency (`@rollup/rollup-darwin-x64`).
+  ```
+
+- [x] Concept detail + phrasing management
   ```
   Files: app/concepts/[conceptId]/page.tsx, components/concepts/concept-detail.tsx, components/concepts/phrasing-list.tsx, components/concepts/generate-phrasings-dialog.tsx, hooks/use-concept-actions.ts
   Goal: Detail view shows concept metadata, FSRS stats, list of phrasings with archive/set-canonical buttons, "Generate more phrasings" button hooking Stage B.
@@ -215,7 +243,14 @@
   Estimate: 1.75h
   ```
 
-- [ ] Action Inbox UI + keyboard controls
+  ```
+  Work Log:
+  - Added concept detail route/components with canonical status, phrasing list actions, and Stage B generation dialog wired to new convex.concepts mutations.
+  - Hooked canonical + archive flows via useConceptActions + Convex queries; detail view shows FSRS stats and thin/conflict signals live.
+  - Added Vitest coverage for concept detail UI and hooks (blocked locally by Rollup optional dependency `@rollup/rollup-darwin-x64`).
+  ```
+
+- [x] Action Inbox UI + keyboard controls
   ```
   Files: app/action-inbox/page.tsx, components/action-inbox/action-inbox-client.tsx, components/action-inbox/action-card.tsx, hooks/use-action-cards.ts, components/navbar.tsx
   Goal: Inbox lists MERGE cards with diff preview (source vs target phrasings, FSRS deltas), supports Accept/Reject, keyboard J/K/Enter, optimistic updates.
@@ -227,6 +262,13 @@
     - pnpm test hooks/use-action-cards.test.ts
   Dependencies: IQC action execution mutation
   Estimate: 1.75h
+  ```
+
+  ```
+  Work Log:
+  - Added iqc:getOpenCards query + rejectActionCard mutation and wired Action Inbox page/components with keyboard navigation + toast hooks.
+  - Built useActionCards hook and action-card UI (diff preview, accept/reject, shortlist instructions) plus navbar entry; tests added for hooks + cards (Vitest blocked by Rollup optional binary).
+  - Action Inbox page now available under /action-inbox with J/K navigation and Enter-to-accept; reject clears card immediately.
   ```
 
 ## Phase 5 — Observability & Guardrails

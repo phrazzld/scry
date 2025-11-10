@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
-
 import type { Id } from '@/convex/_generated/dataModel';
 import { useShuffledOptions } from '@/hooks/use-shuffled-options';
 import { cn } from '@/lib/utils';
@@ -10,7 +9,7 @@ import type { SimpleQuestion } from '@/types/questions';
 
 interface ReviewQuestionDisplayProps {
   question: SimpleQuestion;
-  questionId?: Id<'questions'> | null;
+  questionId?: Id<'questions'> | Id<'phrasings'> | null;
   selectedAnswer: string;
   showFeedback: boolean;
   onAnswerSelect: (answer: string) => void;

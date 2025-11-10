@@ -3,7 +3,6 @@ import { act, renderHook } from '@testing-library/react';
 import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { useQuizInteractions } from './use-quiz-interactions';
 
 // Mock dependencies
@@ -60,7 +59,8 @@ describe('useQuizInteractions', () => {
       let response: any;
       await act(async () => {
         response = await result.current.trackAnswer(
-          'question-1',
+          'concept-1',
+          'phrasing-1',
           'Answer A',
           true,
           15000,
@@ -69,7 +69,8 @@ describe('useQuizInteractions', () => {
       });
 
       expect(mockRecordInteraction).toHaveBeenCalledWith({
-        questionId: 'question-1',
+        conceptId: 'concept-1',
+        phrasingId: 'phrasing-1',
         userAnswer: 'Answer A',
         isCorrect: true,
         timeSpent: 15000,
@@ -96,11 +97,12 @@ describe('useQuizInteractions', () => {
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('question-2', 'Answer B', false);
+        response = await result.current.trackAnswer('concept-2', 'phrasing-2', 'Answer B', false);
       });
 
       expect(mockRecordInteraction).toHaveBeenCalledWith({
-        questionId: 'question-2',
+        conceptId: 'concept-2',
+        phrasingId: 'phrasing-2',
         userAnswer: 'Answer B',
         isCorrect: false,
         timeSpent: undefined,
@@ -121,19 +123,26 @@ describe('useQuizInteractions', () => {
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('question-3', 'Answer C', true);
+        response = await result.current.trackAnswer('concept-3', 'phrasing-3', 'Answer C', true);
       });
 
       expect(mockRecordInteraction).not.toHaveBeenCalled();
       expect(response).toBeNull();
     });
 
-    it('should return null when no question ID', async () => {
+    it('should return null when no concept or phrasing ID', async () => {
       const { result } = renderHook(() => useQuizInteractions());
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('', 'Answer D', false);
+        response = await result.current.trackAnswer('', 'phrasing-3', 'Answer D', false);
+      });
+
+      expect(mockRecordInteraction).not.toHaveBeenCalled();
+      expect(response).toBeNull();
+
+      await act(async () => {
+        response = await result.current.trackAnswer('concept-3', '', 'Answer D', false);
       });
 
       expect(mockRecordInteraction).not.toHaveBeenCalled();
@@ -151,7 +160,7 @@ describe('useQuizInteractions', () => {
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('question-4', 'Answer E', true);
+        response = await result.current.trackAnswer('concept-4', 'phrasing-4', 'Answer E', true);
       });
 
       expect(mockRecordInteraction).toHaveBeenCalled();
@@ -203,7 +212,13 @@ describe('useQuizInteractions', () => {
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('question-5', 'Answer F', true, 8500);
+        response = await result.current.trackAnswer(
+          'concept-5',
+          'phrasing-5',
+          'Answer F',
+          true,
+          8500
+        );
       });
 
       // Should only return the spaced repetition fields
@@ -230,7 +245,7 @@ describe('useQuizInteractions', () => {
 
       let response: any;
       await act(async () => {
-        response = await result.current.trackAnswer('q1', 'a1', true);
+        response = await result.current.trackAnswer('concept-6', 'phrasing-6', 'a1', true);
       });
 
       expect(response).toBeDefined();
@@ -241,7 +256,7 @@ describe('useQuizInteractions', () => {
       rerender();
 
       await act(async () => {
-        response = await result.current.trackAnswer('q2', 'a2', false);
+        response = await result.current.trackAnswer('concept-7', 'phrasing-7', 'a2', false);
       });
 
       expect(response).toBeNull();

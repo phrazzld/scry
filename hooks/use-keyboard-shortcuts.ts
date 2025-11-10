@@ -31,6 +31,12 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDefinition[], enabled = 
       context: 'global',
     },
     {
+      key: 'c',
+      description: 'Go to concepts',
+      action: () => router.push('/concepts'),
+      context: 'global',
+    },
+    {
       key: 's',
       ctrl: true,
       description: 'Go to settings',

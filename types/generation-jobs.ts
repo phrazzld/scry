@@ -8,7 +8,12 @@ export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'can
 /**
  * Job processing phase literal types
  */
-export type JobPhase = 'clarifying' | 'generating' | 'finalizing';
+export type JobPhase =
+  | 'clarifying'
+  | 'concept_synthesis'
+  | 'generating'
+  | 'phrasing_generation'
+  | 'finalizing';
 
 /**
  * Error code literal types for job failures

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-
 import { JOB_CONFIG } from '../lib/constants/jobs';
 import type { Doc, Id } from './_generated/dataModel';
 
@@ -82,6 +81,8 @@ class GenerationJobsSimulator {
       questionsGenerated: 0,
       questionsSaved: 0,
       questionIds: [],
+      conceptIds: [],
+      pendingConceptIds: [],
       createdAt: Date.now(),
       ipAddress,
     };
@@ -190,14 +191,22 @@ class GenerationJobsSimulator {
   }
 
   // Simulate completeJob internal mutation logic
-  async completeJob(jobId: string, topic: string, questionIds: string[], durationMs: number) {
+  async completeJob(
+    jobId: string,
+    topic: string,
+    questionIds: string[],
+    durationMs: number,
+    conceptIds: string[] = []
+  ) {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error('Job not found');
 
     job.status = 'completed';
     job.topic = topic;
     job.questionIds = questionIds as Id<'questions'>[];
-    job.questionsSaved = questionIds.length;
+    job.conceptIds = conceptIds as Id<'concepts'>[];
+    job.pendingConceptIds = [];
+    job.questionsSaved = questionIds.length > 0 ? questionIds.length : conceptIds.length;
     job.durationMs = durationMs;
     job.completedAt = Date.now();
 
@@ -262,6 +271,8 @@ class GenerationJobsSimulator {
       questionsGenerated: 0,
       questionsSaved: 0,
       questionIds: [],
+      conceptIds: [],
+      pendingConceptIds: [],
       createdAt: Date.now(),
       ...job,
     };
@@ -757,6 +768,19 @@ describe('GenerationJobs - Job Mutations', () => {
       expect(job?.status).toBe('completed');
       expect(job?.questionIds).toEqual([]);
       expect(job?.questionsSaved).toBe(0);
+    });
+
+    it('should record conceptIds when provided', async () => {
+      const jobId = simulator.addTestJob({
+        status: 'processing',
+      });
+
+      const conceptIds = ['concept1', 'concept2'];
+      await simulator.completeJob(jobId as string, 'Topic', [], 1200, conceptIds);
+
+      const job = await simulator.getJobById('clerk_user123', jobId as string);
+      expect(job?.conceptIds).toEqual(conceptIds);
+      expect(job?.questionsSaved).toBe(conceptIds.length);
     });
 
     it('should handle zero duration', async () => {

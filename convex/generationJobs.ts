@@ -1,5 +1,4 @@
 import { v } from 'convex/values';
-
 import { JOB_CONFIG } from '../lib/constants/jobs';
 import { internal } from './_generated/api';
 import { Doc } from './_generated/dataModel';
@@ -61,6 +60,8 @@ export const createJob = mutation({
       questionsGenerated: 0,
       questionsSaved: 0,
       questionIds: [],
+      conceptIds: [],
+      pendingConceptIds: [],
       createdAt: Date.now(),
       ipAddress: args.ipAddress,
     });
@@ -182,7 +183,13 @@ export const updateProgress = internalMutation({
   args: {
     jobId: v.id('generationJobs'),
     phase: v.optional(
-      v.union(v.literal('clarifying'), v.literal('generating'), v.literal('finalizing'))
+      v.union(
+        v.literal('clarifying'),
+        v.literal('concept_synthesis'),
+        v.literal('generating'),
+        v.literal('phrasing_generation'),
+        v.literal('finalizing')
+      )
     ),
     questionsGenerated: v.optional(v.number()),
     questionsSaved: v.optional(v.number()),
@@ -215,6 +222,31 @@ export const updateProgress = internalMutation({
   },
 });
 
+export const setConceptWork = internalMutation({
+  args: {
+    jobId: v.id('generationJobs'),
+    conceptIds: v.array(v.id('concepts')),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.jobId, {
+      conceptIds: args.conceptIds,
+      pendingConceptIds: args.conceptIds,
+    });
+  },
+});
+
+export const setPendingConcepts = internalMutation({
+  args: {
+    jobId: v.id('generationJobs'),
+    pendingConceptIds: v.array(v.id('concepts')),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.jobId, {
+      pendingConceptIds: args.pendingConceptIds,
+    });
+  },
+});
+
 /**
  * Internal mutation to mark job as completed
  */
@@ -222,15 +254,22 @@ export const completeJob = internalMutation({
   args: {
     jobId: v.id('generationJobs'),
     topic: v.string(),
-    questionIds: v.array(v.id('questions')),
+    questionIds: v.optional(v.array(v.id('questions'))),
+    conceptIds: v.optional(v.array(v.id('concepts'))),
     durationMs: v.number(),
   },
   handler: async (ctx, args) => {
+    const questionIds = args.questionIds ?? [];
+    const conceptIds = args.conceptIds ?? [];
+    const savedCount = questionIds.length > 0 ? questionIds.length : conceptIds.length;
+
     await ctx.db.patch(args.jobId, {
       status: 'completed',
       topic: args.topic,
-      questionIds: args.questionIds,
-      questionsSaved: args.questionIds.length,
+      questionIds,
+      conceptIds,
+      pendingConceptIds: [],
+      questionsSaved: savedCount,
       durationMs: args.durationMs,
       completedAt: Date.now(),
     });

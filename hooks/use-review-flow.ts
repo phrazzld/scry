@@ -13,11 +13,15 @@ import type { SimpleQuestion } from '@/types/questions';
 interface ReviewModeState {
   phase: 'loading' | 'empty' | 'reviewing' | 'error';
   question: SimpleQuestion | null;
-  questionId: Id<'questions'> | null;
   interactions: Doc<'interactions'>[];
-  lockId: string | null; // Prevents polling from switching questions mid-review
-  isTransitioning: boolean; // Indicates we're waiting for next question (optimistic UI)
-  errorMessage?: string; // Error message for timeout or other issues
+  conceptId: Id<'concepts'> | null;
+  conceptTitle: string | null;
+  phrasingId: Id<'phrasings'> | null;
+  legacyQuestionId: Id<'questions'> | null;
+  selectionReason: string | null;
+  lockId: string | null;
+  isTransitioning: boolean;
+  errorMessage?: string;
 }
 
 // Action types for state machine
@@ -29,8 +33,12 @@ type ReviewAction =
       type: 'QUESTION_RECEIVED';
       payload: {
         question: SimpleQuestion;
-        questionId: Id<'questions'>;
         interactions: Doc<'interactions'>[];
+        conceptId: Id<'concepts'>;
+        conceptTitle: string;
+        phrasingId: Id<'phrasings'>;
+        legacyQuestionId: Id<'questions'> | null;
+        selectionReason: string | null;
         lockId: string;
       };
     }
@@ -41,8 +49,12 @@ type ReviewAction =
 const initialState: ReviewModeState = {
   phase: 'loading',
   question: null,
-  questionId: null,
   interactions: [],
+  conceptId: null,
+  conceptTitle: null,
+  phrasingId: null,
+  legacyQuestionId: null,
+  selectionReason: null,
   lockId: null,
   isTransitioning: false,
 };
@@ -58,8 +70,12 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         ...state,
         phase: 'empty',
         question: null,
-        questionId: null,
         interactions: [],
+        conceptId: null,
+        conceptTitle: null,
+        phrasingId: null,
+        legacyQuestionId: null,
+        selectionReason: null,
         lockId: null,
         isTransitioning: false,
         errorMessage: undefined,
@@ -77,8 +93,12 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
       return {
         phase: 'reviewing',
         question: action.payload.question,
-        questionId: action.payload.questionId,
         interactions: action.payload.interactions,
+        conceptId: action.payload.conceptId,
+        conceptTitle: action.payload.conceptTitle,
+        phrasingId: action.payload.phrasingId,
+        legacyQuestionId: action.payload.legacyQuestionId,
+        selectionReason: action.payload.selectionReason,
         lockId: action.payload.lockId,
         isTransitioning: false, // Clear transitioning state
         errorMessage: undefined,
@@ -124,7 +144,7 @@ export function useReviewFlow() {
   const [state, dispatch] = useReducer(reviewReducer, initialState);
 
   // Use ref to track the last seen question ID
-  const lastQuestionIdRef = useRef<string | null>(null);
+  const lastCandidateKeyRef = useRef<string | null>(null);
 
   // Use ref for loading timeout
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -133,11 +153,7 @@ export function useReviewFlow() {
   const questionsReviewedRef = useRef(0);
 
   // Query - use simple polling for time-sensitive review queries
-  const { data: nextReview } = useSimplePoll(
-    api.spacedRepetition.getNextReview,
-    {},
-    POLLING_INTERVAL_MS
-  );
+  const { data: nextReview } = useSimplePoll(api.concepts.getDue, {}, POLLING_INTERVAL_MS);
 
   // Check if data has actually changed to prevent unnecessary renders
   const { hasChanged: dataHasChanged } = useDataHash(nextReview);
@@ -228,101 +244,81 @@ export function useReviewFlow() {
 
   // Process polling data and update state
   useEffect(() => {
-    // If data hasn't actually changed, skip processing (unless transitioning from loading)
-    // Special case: after REVIEW_COMPLETE, we need to process even if same question returns
     if (!dataHasChanged && state.phase !== 'loading' && !state.isTransitioning) {
       dispatch({ type: 'IGNORE_UPDATE', reason: 'Data unchanged from previous poll' });
       return;
     }
 
-    // If there's an active lock (user is reviewing), ignore updates
     if (state.lockId) {
       dispatch({ type: 'IGNORE_UPDATE', reason: 'User is actively reviewing' });
       return;
     }
 
     if (nextReview === undefined) {
-      // Only show loading on initial load
-      if (state.phase === 'loading' && !lastQuestionIdRef.current) {
+      if (state.phase === 'loading' && !lastCandidateKeyRef.current) {
         dispatch({ type: 'LOAD_START' });
       }
-    } else if (nextReview === null) {
+      return;
+    }
+
+    if (nextReview === null) {
       dispatch({ type: 'LOAD_EMPTY' });
-    } else {
-      // Check if this is a new question
-      const isNewQuestion = nextReview.question._id !== lastQuestionIdRef.current;
+      return;
+    }
 
-      if (isNewQuestion) {
-        if (process.env.NODE_ENV === 'development') {
-          // Mark performance when a new question loads
-          performance.mark('review-question-loaded');
-        }
+    const conceptKey = `${nextReview.concept._id}:${nextReview.phrasing._id}`;
+    const isNewQuestion = conceptKey !== lastCandidateKeyRef.current;
 
-        // Convert to quiz format for compatibility
-        const question: SimpleQuestion = {
-          question: nextReview.question.question,
-          options: nextReview.question.options,
-          correctAnswer: nextReview.question.correctAnswer,
-          explanation: nextReview.question.explanation || '',
-        };
+    const question: SimpleQuestion = {
+      question: nextReview.phrasing.question,
+      options: nextReview.phrasing.options || [],
+      correctAnswer: nextReview.phrasing.correctAnswer || '',
+      explanation: nextReview.phrasing.explanation || '',
+      type: nextReview.phrasing.type || 'multiple-choice',
+    };
 
-        // Generate unique lock ID for this question
-        const lockId = `${nextReview.question._id}-${Date.now()}`;
-
-        dispatch({
-          type: 'QUESTION_RECEIVED',
-          payload: {
-            question,
-            questionId: nextReview.question._id,
-            interactions: nextReview.interactions || [],
-            lockId,
-          },
-        });
-
-        startSession();
-
-        // Update last question ID even if it's the same (immediate re-review case)
-        // This ensures UI resets properly when incorrect answers trigger immediate review
-        lastQuestionIdRef.current = nextReview.question._id;
-      } else {
-        // Same question returned
-        if (state.isTransitioning) {
-          // Treat as full question receipt to re-establish lock protection
-          // This is critical for FSRS re-review: lock prevents polling from
-          // replacing question while user is mid-review
-
-          // Convert to quiz format for compatibility
-          const question: SimpleQuestion = {
-            question: nextReview.question.question,
-            options: nextReview.question.options,
-            correctAnswer: nextReview.question.correctAnswer,
-            explanation: nextReview.question.explanation || '',
-          };
-
-          // Generate new lock ID to protect re-review session
-          const lockId = `${nextReview.question._id}-${Date.now()}`;
-
-          dispatch({
-            type: 'QUESTION_RECEIVED',
-            payload: {
-              question,
-              questionId: nextReview.question._id,
-              interactions: nextReview.interactions || [],
-              lockId, // New lock protects re-review session
-            },
-          });
-
-          startSession();
-
-          // Note: lastQuestionIdRef stays unchanged, so this is still detected
-          // as "same question" on next poll (important for deduplication)
-        } else {
-          dispatch({
-            type: 'IGNORE_UPDATE',
-            reason: 'Poll executed but data unchanged - same question ID',
-          });
-        }
+    if (isNewQuestion) {
+      if (process.env.NODE_ENV === 'development') {
+        performance.mark('review-question-loaded');
       }
+
+      const lockId = `${conceptKey}-${Date.now()}`;
+      dispatch({
+        type: 'QUESTION_RECEIVED',
+        payload: {
+          question,
+          interactions: nextReview.interactions || [],
+          conceptId: nextReview.concept._id,
+          conceptTitle: nextReview.concept.title,
+          phrasingId: nextReview.phrasing._id,
+          legacyQuestionId: nextReview.legacyQuestionId,
+          selectionReason: nextReview.selectionReason ?? null,
+          lockId,
+        },
+      });
+      startSession();
+      lastCandidateKeyRef.current = conceptKey;
+    } else if (state.isTransitioning) {
+      const lockId = `${conceptKey}-${Date.now()}`;
+      dispatch({
+        type: 'QUESTION_RECEIVED',
+        payload: {
+          question,
+          interactions: nextReview.interactions || [],
+          conceptId: nextReview.concept._id,
+          conceptTitle: nextReview.concept.title,
+          phrasingId: nextReview.phrasing._id,
+          legacyQuestionId: nextReview.legacyQuestionId,
+          selectionReason: nextReview.selectionReason ?? null,
+          lockId,
+        },
+      });
+      startSession();
+    } else {
+      dispatch({
+        type: 'IGNORE_UPDATE',
+        reason: 'Poll executed but data unchanged - same concept/phrasing combination',
+      });
     }
   }, [nextReview, state.lockId, state.phase, state.isTransitioning, dataHasChanged, startSession]);
 
@@ -353,7 +349,11 @@ export function useReviewFlow() {
   return {
     phase: state.phase,
     question: state.question,
-    questionId: state.questionId,
+    conceptId: state.conceptId,
+    conceptTitle: state.conceptTitle,
+    phrasingId: state.phrasingId,
+    legacyQuestionId: state.legacyQuestionId,
+    selectionReason: state.selectionReason,
     interactions: state.interactions,
     isTransitioning: state.isTransitioning,
     errorMessage: state.errorMessage,

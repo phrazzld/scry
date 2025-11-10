@@ -3,7 +3,6 @@
 import { ReviewSession } from '@/components/review-session';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { useReviewFlow } from '@/hooks/use-review-flow';
-
 import { ReviewEmptyState } from './review-empty-state';
 
 /**
@@ -13,7 +12,16 @@ import { ReviewEmptyState } from './review-empty-state';
  */
 export function ReviewMode() {
   // Get review state and handlers from custom hook
-  const { phase, question, questionId, interactions, errorMessage, handlers } = useReviewFlow();
+  const {
+    phase,
+    question,
+    conceptId,
+    phrasingId,
+    legacyQuestionId,
+    interactions,
+    errorMessage,
+    handlers,
+  } = useReviewFlow();
 
   // Pure render based on state
   return (
@@ -55,7 +63,9 @@ export function ReviewMode() {
         <div className="w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-6">
           <ReviewSession
             question={question}
-            questionId={questionId || undefined}
+            conceptId={conceptId || undefined}
+            phrasingId={phrasingId || undefined}
+            questionId={legacyQuestionId || undefined}
             onComplete={handlers.onReviewComplete}
             mode="review"
             questionHistory={interactions}

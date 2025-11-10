@@ -532,7 +532,7 @@ function simulateConceptsSeeding(
       }
 
       // Check if question already has conceptId (runtime property check)
-       
+
       const questionData = question as any;
 
       if ('conceptId' in questionData && questionData.conceptId) {

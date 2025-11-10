@@ -1321,6 +1321,10 @@ export const seedConceptsFromQuestions = internalMutation({
                 nextReview: question.nextReview || now,
                 elapsedDays: question.elapsedDays,
                 retrievability: undefined, // Not stored in legacy questions
+                scheduledDays: question.scheduledDays,
+                reps: question.reps,
+                lapses: question.lapses,
+                state: question.state,
               };
 
               // Create concept with question text as title

@@ -12,7 +12,6 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -102,10 +101,15 @@ function TaskRow({ job }: { job: GenerationJob }) {
     }
   };
 
+  const savedCount =
+    job.questionIds.length > 0
+      ? job.questionIds.length
+      : (job.conceptIds?.length ?? job.questionsSaved ?? 0);
   const progressValue =
     isProcessingJob(job) && job.estimatedTotal
-      ? Math.min(100, Math.round((job.questionsSaved / job.estimatedTotal) * 100))
+      ? Math.min(100, Math.round((savedCount / job.estimatedTotal) * 100))
       : 0;
+  const phaseLabel = job.phase.replace(/_/g, ' ');
 
   return (
     <>
@@ -166,9 +170,9 @@ function TaskRow({ job }: { job: GenerationJob }) {
                   <p className="text-sm font-medium mb-2">Progress:</p>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground capitalize">{job.phase}</span>
+                      <span className="text-muted-foreground capitalize">{phaseLabel}</span>
                       <span className="font-medium tabular-nums">
-                        {job.questionsSaved}
+                        {savedCount}
                         {job.estimatedTotal && ` / ${job.estimatedTotal}`}
                       </span>
                     </div>
@@ -184,8 +188,10 @@ function TaskRow({ job }: { job: GenerationJob }) {
                 <div>
                   <p className="text-sm font-medium mb-1">Results:</p>
                   <p className="text-sm text-muted-foreground">
-                    Generated {job.questionIds.length} question
-                    {job.questionIds.length !== 1 ? 's' : ''}
+                    Generated {savedCount}{' '}
+                    {job.questionIds.length > 0
+                      ? `question${savedCount !== 1 ? 's' : ''}`
+                      : `concept${savedCount !== 1 ? 's' : ''}`}
                     {job.durationMs && ` in ${Math.round(job.durationMs / 1000)} seconds`}
                   </p>
                 </div>

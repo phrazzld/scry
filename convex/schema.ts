@@ -267,7 +267,12 @@ export default defineSchema({
       reps: v.optional(v.number()),
       lapses: v.optional(v.number()),
       state: v.optional(
-        v.union(v.literal('new'), v.literal('learning'), v.literal('review'), v.literal('relearning'))
+        v.union(
+          v.literal('new'),
+          v.literal('learning'),
+          v.literal('review'),
+          v.literal('relearning')
+        )
       ),
     }),
     canonicalPhrasingId: v.optional(v.id('phrasings')),

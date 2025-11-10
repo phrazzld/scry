@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Library, ListChecks, Plus } from 'lucide-react';
-
+import { Inbox, Library, ListChecks, Plus, Shapes } from 'lucide-react';
 import { GenerationModal } from '@/components/generation-modal';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -72,6 +71,18 @@ export function Navbar() {
                   <Library className="h-4 w-4" />
                 </Link>
                 <Link
+                  href="/concepts"
+                  className={`relative size-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 ${
+                    pathname?.startsWith('/concepts')
+                      ? 'bg-accent text-foreground'
+                      : 'bg-accent/50 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                  }`}
+                  aria-label="Concepts Library"
+                  title="Concepts Library"
+                >
+                  <Shapes className="h-4 w-4" />
+                </Link>
+                <Link
                   href="/tasks"
                   className={`relative size-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 ${
                     pathname === '/tasks'
@@ -87,6 +98,18 @@ export function Navbar() {
                       {activeCount}
                     </span>
                   )}
+                </Link>
+                <Link
+                  href="/action-inbox"
+                  className={`relative size-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 ${
+                    pathname?.startsWith('/action-inbox')
+                      ? 'bg-accent text-foreground'
+                      : 'bg-accent/50 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                  }`}
+                  aria-label="Action Inbox"
+                  title="Action Inbox"
+                >
+                  <Inbox className="h-4 w-4" />
                 </Link>
                 <ThemeToggle />
                 <div
