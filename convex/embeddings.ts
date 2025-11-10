@@ -502,8 +502,9 @@ export const countQuestionsWithoutEmbeddings = internalQuery({
       .collect();
 
     // Count questions without embeddings
-    const countWithoutEmbeddings = questions.filter((q) => !questionIdsWithEmbeddings.has(q._id))
-      .length;
+    const countWithoutEmbeddings = questions.filter(
+      (q) => !questionIdsWithEmbeddings.has(q._id)
+    ).length;
 
     return {
       count: countWithoutEmbeddings,

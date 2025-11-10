@@ -1358,7 +1358,7 @@ export const migrateEmbeddingsToSeparateTableDiagnostic = query({
     const allQuestions = await ctx.db.query('questions').take(SAMPLE_LIMIT);
 
     // Runtime property check (not TypeScript type erasure)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const questionsWithEmbeddings = allQuestions.filter(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (q) => 'embedding' in (q as any) && (q as any).embedding !== undefined
