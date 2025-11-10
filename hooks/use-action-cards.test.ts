@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useMutation, useQuery } from 'convex/react';
 import { toast } from 'sonner';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 // Mock api import after jest-style mocks
 import { api } from '@/convex/_generated/api';
 import { useActionCards } from './use-action-cards';
@@ -42,12 +42,12 @@ describe('useActionCards', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useQuery as vi.Mock).mockReturnValue(mockCards);
+    (useQuery as Mock).mockReturnValue(mockCards);
 
     applyMutation = vi.fn().mockResolvedValue({});
     rejectMutation = vi.fn().mockResolvedValue({});
 
-    (useMutation as vi.Mock).mockImplementation((fn) => {
+    (useMutation as Mock).mockImplementation((fn: unknown) => {
       if (fn === (api as any)?.iqc?.applyActionCard) return applyMutation;
       if (fn === (api as any)?.iqc?.rejectActionCard) return rejectMutation;
       return vi.fn();

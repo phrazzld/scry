@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useMutation } from 'convex/react';
 import { toast } from 'sonner';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { useConceptActions } from './use-concept-actions';
 
 vi.mock('convex/react', () => ({
@@ -38,7 +38,7 @@ describe('useConceptActions', () => {
     mockArchive = vi.fn().mockResolvedValue({});
     mockGenerate = vi.fn().mockResolvedValue({});
 
-    (useMutation as unknown as vi.Mock).mockImplementation((mutation: any) => {
+    (useMutation as unknown as Mock).mockImplementation((mutation: any) => {
       switch (mutation?._functionPath) {
         case 'concepts:setCanonicalPhrasing':
           return mockSetCanonical;
