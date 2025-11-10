@@ -15,19 +15,38 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject, type LanguageModel } from 'ai';
 import { v } from 'convex/values';
 import OpenAI from 'openai';
-import pino from 'pino';
 import { z } from 'zod';
 import { internal } from './_generated/api';
-import type { Doc } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
 import { trackEvent } from './lib/analytics';
 import { TARGET_PHRASINGS_PER_CONCEPT } from './lib/conceptConstants';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
+import {
+  createConceptsLogger,
+  generateCorrelationId,
+  logConceptEvent,
+  type LogContext,
+} from './lib/logger';
 import { buildConceptSynthesisPrompt, buildPhrasingGenerationPrompt } from './lib/promptTemplates';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';
 
 // Logger for this module
-const logger = pino({ name: 'aiGeneration' });
+const conceptsLogger = createConceptsLogger({
+  module: 'aiGeneration',
+});
+
+const logger = {
+  info(context: LogContext = {}, message = '') {
+    conceptsLogger.info(message, context);
+  },
+  warn(context: LogContext = {}, message = '') {
+    conceptsLogger.warn(message, context);
+  },
+  error(context: LogContext = {}, message = '') {
+    conceptsLogger.error(message, context);
+  },
+};
 
 // Zod schema for concept synthesis (Stage A)
 const conceptIdeaSchema = z.object({
@@ -275,6 +294,12 @@ export const processJob = internalAction({
   handler: async (ctx, args) => {
     const startTime = Date.now();
     let job: Doc<'generationJobs'> | null = null;
+    const stageACorrelationId = generateCorrelationId('stage-a');
+    const stageAMetadata = {
+      phase: 'stage_a' as const,
+      correlationId: stageACorrelationId,
+      jobId: args.jobId,
+    };
 
     // Initialize AI provider from environment configuration
     // Defaults to OpenAI for production, but can be overridden via env vars
@@ -298,7 +323,7 @@ export const processJob = internalAction({
 
       logger.info(
         {
-          jobId: args.jobId,
+          ...stageAMetadata,
           provider: 'google',
           model: modelName,
           keyDiagnostics,
@@ -311,7 +336,7 @@ export const processJob = internalAction({
         const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
         logger.error(
           {
-            jobId: args.jobId,
+            ...stageAMetadata,
             keyDiagnostics,
             deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
           },
@@ -333,7 +358,7 @@ export const processJob = internalAction({
 
       logger.info(
         {
-          jobId: args.jobId,
+          ...stageAMetadata,
           provider: 'openai',
           model: modelName,
           reasoningEffort,
@@ -347,7 +372,7 @@ export const processJob = internalAction({
         const errorMessage = 'OPENAI_API_KEY not configured in Convex environment';
         logger.error(
           {
-            jobId: args.jobId,
+            ...stageAMetadata,
             keyDiagnostics,
             deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
           },
@@ -364,7 +389,7 @@ export const processJob = internalAction({
       openaiClient = new OpenAI({ apiKey });
     } else {
       const errorMessage = `Unsupported AI_PROVIDER: ${provider}. Use 'google' or 'openai'.`;
-      logger.error({ jobId: args.jobId, provider }, errorMessage);
+      logger.error({ ...stageAMetadata, provider }, errorMessage);
       await ctx.runMutation(internal.generationJobs.failJob, {
         jobId: args.jobId,
         errorMessage,
@@ -375,7 +400,16 @@ export const processJob = internalAction({
     }
 
     try {
-      logger.info({ jobId: args.jobId }, 'Starting job processing');
+      logger.info(
+        {
+          ...stageAMetadata,
+          provider,
+          model: modelName,
+          reasoningEffort,
+          verbosity,
+        },
+        'Starting Stage A job processing'
+      );
 
       // Update job to processing status
       await ctx.runMutation(internal.generationJobs.updateProgress, {
@@ -389,20 +423,37 @@ export const processJob = internalAction({
       });
 
       if (!job) {
-        logger.error({ jobId: args.jobId }, 'Job not found');
+        logger.error({ ...stageAMetadata }, 'Job not found');
         throw new Error('Job not found');
       }
 
       // Check if already cancelled
       if (job.status === 'cancelled') {
-        logger.info({ jobId: args.jobId }, 'Job already cancelled, exiting early');
+        logger.info(
+          { ...stageAMetadata, userId: job.userId },
+          'Job already cancelled, exiting early'
+        );
         return;
       }
 
-      logger.info({ jobId: args.jobId, prompt: job.prompt }, 'Job details fetched');
+      logger.info(
+        {
+          ...stageAMetadata,
+          prompt: job.prompt,
+          userId: job.userId,
+        },
+        'Job details fetched'
+      );
 
-      // Stage A: Concept Synthesis
-      logger.info({ jobId: args.jobId }, 'Generating atomic concepts for Stage A');
+      logConceptEvent(conceptsLogger, 'info', 'Stage A concept synthesis started', {
+        ...stageAMetadata,
+        event: 'start',
+        userId: job.userId,
+        provider,
+        model: modelName,
+        reasoningEffort,
+        verbosity,
+      });
 
       trackEvent('Quiz Generation Started', {
         jobId: args.jobId,
@@ -452,9 +503,10 @@ export const processJob = internalAction({
 
       logger.info(
         {
-          jobId: args.jobId,
+          ...stageAMetadata,
           totalSuggestions,
           acceptedConcepts: preparedConcepts.length,
+          userId: job.userId,
         },
         'Concept synthesis validation complete'
       );
@@ -464,7 +516,10 @@ export const processJob = internalAction({
       });
 
       if (currentJob?.status === 'cancelled') {
-        logger.info({ jobId: args.jobId }, 'Job cancelled by user before concept creation');
+        logger.info(
+          { ...stageAMetadata, userId: job.userId },
+          'Job cancelled by user before concept creation'
+        );
         return;
       }
 
@@ -504,14 +559,16 @@ export const processJob = internalAction({
         });
       }
 
-      logger.info(
-        {
-          jobId: args.jobId,
-          conceptCount: conceptIds.length,
-          pendingConceptIds: conceptIds.length,
-        },
-        'Stage A concept synthesis completed, Stage B queued'
-      );
+      const conceptIdStrings = conceptIds.map((id: Id<'concepts'>) => id.toString());
+
+      logConceptEvent(conceptsLogger, 'info', 'Stage A concept synthesis completed', {
+        ...stageAMetadata,
+        event: 'completed',
+        userId: job.userId,
+        conceptIds: conceptIdStrings,
+        conceptCount: conceptIds.length,
+        pendingConceptIds: conceptIds.length,
+      });
     } catch (error) {
       const err = error as Error;
       let code: GenerationErrorCode;
@@ -541,19 +598,18 @@ export const processJob = internalAction({
         }
       }
 
-      logger.error(
-        {
-          jobId: args.jobId,
-          errorCode: code,
-          retryable,
-          errorMessage: err.message,
-          errorName: err.name,
-          stack: err.stack,
-          keyDiagnostics,
-          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-        },
-        'Job processing failed'
-      );
+      logConceptEvent(conceptsLogger, 'error', 'Stage A concept synthesis failed', {
+        ...stageAMetadata,
+        event: 'failed',
+        errorCode: code,
+        retryable,
+        errorMessage: err.message,
+        errorName: err.name,
+        stack: err.stack,
+        keyDiagnostics,
+        userId: job ? job.userId : undefined,
+        conceptIds: job?.conceptIds?.map((id) => id.toString()),
+      });
 
       // Mark job as failed
       await ctx.runMutation(internal.generationJobs.failJob, {
@@ -590,6 +646,13 @@ export const generatePhrasingsForConcept = internalAction({
     const modelName = process.env.AI_MODEL || 'gpt-5-mini';
     const reasoningEffort = process.env.AI_REASONING_EFFORT || 'high';
     const verbosity = process.env.AI_VERBOSITY || 'medium';
+    const stageBCorrelationId = generateCorrelationId('stage-b');
+    const stageBMetadata = {
+      phase: 'stage_b' as const,
+      correlationId: stageBCorrelationId,
+      jobId: args.jobId,
+      conceptIds: [args.conceptId.toString()],
+    };
 
     let job: Doc<'generationJobs'> | null = null;
     let keyDiagnostics: ReturnType<typeof getSecretDiagnostics> = {
@@ -606,12 +669,15 @@ export const generatePhrasingsForConcept = internalAction({
       });
 
       if (!job) {
-        logger.error({ jobId: args.jobId }, 'Job not found for Stage B generation');
+        logger.error({ ...stageBMetadata }, 'Job not found for Stage B generation');
         return;
       }
 
       if (job.status === 'cancelled') {
-        logger.info({ jobId: args.jobId }, 'Job cancelled before Stage B started');
+        logger.info(
+          { ...stageBMetadata, userId: job.userId },
+          'Job cancelled before Stage B started'
+        );
         return;
       }
 
@@ -621,8 +687,9 @@ export const generatePhrasingsForConcept = internalAction({
       if (!concept || concept.userId !== job.userId) {
         logger.warn(
           {
-            jobId: args.jobId,
+            ...stageBMetadata,
             conceptId: args.conceptId,
+            userId: job.userId,
           },
           'Concept missing or unauthorized for Stage B, skipping'
         );
@@ -639,13 +706,24 @@ export const generatePhrasingsForConcept = internalAction({
       if (!job.pendingConceptIds || !job.pendingConceptIds.includes(args.conceptId)) {
         logger.info(
           {
-            jobId: args.jobId,
+            ...stageBMetadata,
             conceptId: args.conceptId,
+            userId: job.userId,
           },
           'Concept already processed for Stage B, skipping'
         );
         return;
       }
+
+      logConceptEvent(conceptsLogger, 'info', 'Stage B phrasing generation started', {
+        ...stageBMetadata,
+        event: 'start',
+        userId: job.userId,
+        provider,
+        model: modelName,
+        reasoningEffort,
+        verbosity,
+      });
 
       if (provider === 'google') {
         const apiKey = process.env.GOOGLE_AI_API_KEY;
@@ -775,6 +853,7 @@ export const generatePhrasingsForConcept = internalAction({
           } else {
             logger.warn(
               {
+                ...stageBMetadata,
                 event: 'stage-b.embedding.failure',
                 jobId: args.jobId,
                 conceptId: concept._id,
@@ -853,15 +932,13 @@ export const generatePhrasingsForConcept = internalAction({
         });
       }
 
-      logger.info(
-        {
-          jobId: job._id,
-          conceptId: concept._id,
-          phrasingsCreated: insertedIds.length,
-          remainingConcepts: remainingConceptIds.length,
-        },
-        'Stage B phrasing generation completed'
-      );
+      logConceptEvent(conceptsLogger, 'info', 'Stage B phrasing generation completed', {
+        ...stageBMetadata,
+        event: 'completed',
+        userId: job.userId,
+        phrasingsCreated: insertedIds.length,
+        remainingConcepts: remainingConceptIds.length,
+      });
     } catch (error) {
       const err = error as Error;
       const { code, retryable } =
@@ -898,19 +975,17 @@ export const generatePhrasingsForConcept = internalAction({
         durationMs,
       });
 
-      logger.error(
-        {
-          jobId: args.jobId,
-          errorCode: code,
-          retryable,
-          errorMessage: err.message,
-          errorName: err.name,
-          stack: err.stack,
-          keyDiagnostics,
-          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-        },
-        'Stage B phrasing generation failed'
-      );
+      logConceptEvent(conceptsLogger, 'error', 'Stage B phrasing generation failed', {
+        ...stageBMetadata,
+        event: 'failed',
+        errorCode: code,
+        retryable,
+        errorMessage: err.message,
+        errorName: err.name,
+        stack: err.stack,
+        keyDiagnostics,
+        userId: job ? job.userId : undefined,
+      });
 
       throw error;
     }

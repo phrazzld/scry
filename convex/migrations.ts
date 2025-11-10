@@ -2,7 +2,12 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { createLogger } from './lib/logger';
+import {
+  createConceptsLogger,
+  createLogger,
+  generateCorrelationId,
+  logConceptEvent,
+} from './lib/logger';
 
 /**
  * Default batch size for quiz results migration
@@ -1185,12 +1190,18 @@ const DEFAULT_CONCEPTS_SEEDING_BATCH_SIZE = 500;
 export const checkConceptsSeedingStatus = query({
   args: {},
   handler: async (ctx) => {
-    const migrationLogger = createLogger({
+    const correlationId = generateCorrelationId('migration-status');
+    const migrationLogger = createConceptsLogger({
       module: 'migrations',
       function: 'checkConceptsSeedingStatus',
+      correlationId,
     });
 
-    migrationLogger.info('Checking concepts seeding migration status');
+    logConceptEvent(migrationLogger, 'info', 'Concepts migration status check started', {
+      phase: 'migration',
+      event: 'start',
+      correlationId,
+    });
 
     // Count all questions
     const allQuestions = await ctx.db.query('questions').collect();
@@ -1207,7 +1218,7 @@ export const checkConceptsSeedingStatus = query({
 
     const needsMigration = totalQuestions - linked;
 
-    return {
+    const result = {
       totalQuestions,
       linked,
       needsMigration,
@@ -1217,6 +1228,18 @@ export const checkConceptsSeedingStatus = query({
       // Sanity checks
       countsMatch: concepts.length === phrasings.length && phrasings.length === linked,
     };
+
+    logConceptEvent(migrationLogger, 'info', 'Concepts migration status computed', {
+      phase: 'migration',
+      event: 'completed',
+      correlationId,
+      totalQuestions,
+      linked,
+      needsMigration,
+      complete: result.complete,
+    });
+
+    return result;
   },
 });
 
@@ -1253,10 +1276,12 @@ export const seedConceptsFromQuestions = internalMutation({
   handler: async (ctx, args): Promise<MigrationResult<ConceptsSeedingStats>> => {
     const batchSize = args.batchSize || DEFAULT_CONCEPTS_SEEDING_BATCH_SIZE;
     const dryRun = args.dryRun || false;
+    const correlationId = generateCorrelationId('migration-seed-concepts');
 
-    const migrationLogger = createLogger({
+    const migrationLogger = createConceptsLogger({
       module: 'migrations',
       function: 'seedConceptsFromQuestions',
+      correlationId,
     });
 
     const stats: ConceptsSeedingStats = {
@@ -1271,8 +1296,10 @@ export const seedConceptsFromQuestions = internalMutation({
     const failures: Array<{ recordId: string; error: string }> = [];
 
     try {
-      migrationLogger.info('Starting concepts seeding migration', {
-        event: 'migration.concepts-seeding.start',
+      logConceptEvent(migrationLogger, 'info', 'Concepts seeding migration started', {
+        phase: 'migration',
+        event: 'start',
+        correlationId,
         batchSize,
         dryRun,
       });
@@ -1376,7 +1403,12 @@ export const seedConceptsFromQuestions = internalMutation({
             // Log progress every 100 records
             if (stats.questionsLinked % PROGRESS_LOG_INTERVAL === 0) {
               migrationLogger.info(
-                `Migration progress: ${stats.questionsLinked} questions migrated`
+                `Migration progress: ${stats.questionsLinked} questions migrated`,
+                {
+                  event: 'migration.concepts-seeding.progress',
+                  correlationId,
+                  questionsLinked: stats.questionsLinked,
+                }
               );
             }
           } catch (err) {
@@ -1400,13 +1432,17 @@ export const seedConceptsFromQuestions = internalMutation({
           phrasingsCreated: stats.phrasingsCreated,
           questionsLinked: stats.questionsLinked,
           alreadyLinked: stats.alreadyLinked,
+          correlationId,
         });
       }
 
-      migrationLogger.info('Migration completed', {
-        event: 'migration.concepts-seeding.complete',
+      logConceptEvent(migrationLogger, 'info', 'Concepts seeding migration completed', {
+        phase: 'migration',
+        event: 'completed',
+        correlationId,
         dryRun,
         stats,
+        failures: failures.length,
       });
 
       // Determine migration status
@@ -1433,11 +1469,13 @@ export const seedConceptsFromQuestions = internalMutation({
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
 
-      migrationLogger.error('Migration failed', {
-        event: 'migration.concepts-seeding.error',
-        error: error.message,
-        stack: error.stack,
+      logConceptEvent(migrationLogger, 'error', 'Concepts seeding migration failed', {
+        phase: 'migration',
+        event: 'failed',
+        correlationId,
+        errorMessage: error.message,
         stats,
+        failureCount: failures.length,
       });
 
       return {

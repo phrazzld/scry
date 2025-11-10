@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { prepareConceptIdeas, prepareGeneratedPhrasings } from './aiGeneration';
+import { logConceptEvent, type ConceptsLogger } from './lib/logger';
 
 /**
  * Tests for AI generation error classification
@@ -393,6 +394,34 @@ describe('AI Generation - Error Classification', () => {
         expect(result.retryable).toBe(false);
       });
     });
+  });
+});
+
+describe('Concept Logging', () => {
+  it('logs stage completion with concept ids and correlation id', () => {
+    const infoSpy = vi.fn();
+    const stubLogger: ConceptsLogger = {
+      info: infoSpy,
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    logConceptEvent(stubLogger, 'info', 'Stage A concept synthesis completed', {
+      phase: 'stage_a',
+      event: 'completed',
+      correlationId: 'corr-stage-a',
+      conceptIds: ['concept-1', 'concept-2'],
+      jobId: 'job-123',
+      conceptCount: 2,
+    });
+
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const [message, context] = infoSpy.mock.calls[0];
+    expect(message).toBe('Stage A concept synthesis completed');
+    expect(context?.event).toBe('concepts.stage_a.completed');
+    expect(context?.conceptIds).toEqual(['concept-1', 'concept-2']);
+    expect(context?.correlationId).toBe('corr-stage-a');
   });
 });
 

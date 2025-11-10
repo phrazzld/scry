@@ -19,15 +19,34 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { embed } from 'ai';
 import { v } from 'convex/values';
-import pino from 'pino';
 import { internal } from './_generated/api';
 import type { Doc, Id } from './_generated/dataModel';
 import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { chunkArray } from './lib/chunkArray';
+import {
+  createConceptsLogger,
+  generateCorrelationId,
+  logConceptEvent,
+  type LogContext,
+} from './lib/logger';
 
 // Logger for this module
-const logger = pino({ name: 'embeddings' });
+const conceptsLogger = createConceptsLogger({
+  module: 'embeddings',
+});
+
+const logger = {
+  info(context: LogContext = {}, message = '') {
+    conceptsLogger.info(message, context);
+  },
+  warn(context: LogContext = {}, message = '') {
+    conceptsLogger.warn(message, context);
+  },
+  error(context: LogContext = {}, message = '') {
+    conceptsLogger.error(message, context);
+  },
+};
 
 const EMBEDDING_SYNC_CONFIG = {
   ttlMs: 1000 * 60 * 60 * 6, // 6 hours
@@ -692,6 +711,11 @@ export const syncMissingEmbeddings = internalAction({
   handler: async (ctx) => {
     const startTime = Date.now();
     const cutoff = Date.now() - EMBEDDING_SYNC_CONFIG.ttlMs;
+    const correlationId = generateCorrelationId('embeddings-sync');
+    const syncMetadata = {
+      phase: 'embeddings_sync' as const,
+      correlationId,
+    };
 
     const [questions, concepts, phrasings] = await Promise.all([
       ctx.runQuery(internal.embeddings.getQuestionsWithoutEmbeddings, {
@@ -725,29 +749,25 @@ export const syncMissingEmbeddings = internalAction({
       limitedQuestions.length + limitedConcepts.length + limitedPhrasings.length;
 
     if (totalCandidates === 0) {
-      logger.info(
-        {
-          event: 'embeddings.sync.complete',
-          questionCandidates: questions.length,
-          conceptCandidates: concepts.length,
-          phrasingCandidates: phrasings.length,
-          duration: Date.now() - startTime,
-        },
-        'No embeddings needed for questions, concepts, or phrasings'
-      );
+      logConceptEvent(conceptsLogger, 'info', 'Embedding sync no-op', {
+        ...syncMetadata,
+        event: 'noop',
+        questionCandidates: questions.length,
+        conceptCandidates: concepts.length,
+        phrasingCandidates: phrasings.length,
+        duration: Date.now() - startTime,
+      });
       return;
     }
 
-    logger.info(
-      {
-        event: 'embeddings.sync.start',
-        questionCandidates: limitedQuestions.length,
-        conceptCandidates: limitedConcepts.length,
-        phrasingCandidates: limitedPhrasings.length,
-        cutoff,
-      },
-      'Starting embeddings sync for questions, concepts, and phrasings'
-    );
+    logConceptEvent(conceptsLogger, 'info', 'Embedding sync started', {
+      ...syncMetadata,
+      event: 'start',
+      questionCandidates: limitedQuestions.length,
+      conceptCandidates: limitedConcepts.length,
+      phrasingCandidates: limitedPhrasings.length,
+      cutoff,
+    });
 
     type QuestionDoc = (typeof limitedQuestions)[number];
     type ConceptDoc = (typeof limitedConcepts)[number];
@@ -857,24 +877,22 @@ export const syncMissingEmbeddings = internalAction({
       ctx.runQuery(internal.embeddings.countPhrasingsWithoutEmbeddings, { cutoff }),
     ]);
 
-    logger.info(
-      {
-        event: 'embeddings.sync.complete',
-        questionProcessed: questionStats.success,
-        questionFailed: questionStats.failure,
-        conceptProcessed: conceptStats.success,
-        conceptFailed: conceptStats.failure,
-        phrasingProcessed: phrasingStats.success,
-        phrasingFailed: phrasingStats.failure,
-        duration,
-        remainingQuestions: remainingQuestions.count,
-        remainingConcepts: remainingConcepts.count,
-        remainingPhrasings: remainingPhrasings.count,
-        remainingQuestionsApprox: remainingQuestions.isApproximate,
-        remainingConceptsApprox: remainingConcepts.isApproximate,
-        remainingPhrasingsApprox: remainingPhrasings.isApproximate,
-      },
-      'Embeddings sync complete'
-    );
+    logConceptEvent(conceptsLogger, 'info', 'Embedding sync completed', {
+      ...syncMetadata,
+      event: 'completed',
+      questionProcessed: questionStats.success,
+      questionFailed: questionStats.failure,
+      conceptProcessed: conceptStats.success,
+      conceptFailed: conceptStats.failure,
+      phrasingProcessed: phrasingStats.success,
+      phrasingFailed: phrasingStats.failure,
+      duration,
+      remainingQuestions: remainingQuestions.count,
+      remainingConcepts: remainingConcepts.count,
+      remainingPhrasings: remainingPhrasings.count,
+      remainingQuestionsApprox: remainingQuestions.isApproximate,
+      remainingConceptsApprox: remainingConcepts.isApproximate,
+      remainingPhrasingsApprox: remainingPhrasings.isApproximate,
+    });
   },
 });

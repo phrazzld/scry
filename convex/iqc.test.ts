@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Doc, Id } from './_generated/dataModel';
 import { initializeConceptFsrs } from './fsrs';
 import { buildProposalKey, computeTitleSimilarity, shouldConsiderMerge } from './iqc';
 import { DEFAULT_REPLAY_LIMIT, replayInteractionsIntoState } from './lib/fsrsReplay';
+import { logConceptEvent, type ConceptsLogger } from './lib/logger';
 
 describe('IQC helpers', () => {
   describe('buildProposalKey', () => {
@@ -104,5 +105,34 @@ describe('IQC helpers', () => {
       const result = replayInteractionsIntoState(concept, interactions, { limit: 5 });
       expect(result.applied).toBe(5);
     });
+  });
+});
+
+describe('IQC logging', () => {
+  it('includes action card metadata in apply logs', () => {
+    const infoSpy = vi.fn();
+    const stubLogger: ConceptsLogger = {
+      info: infoSpy,
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    logConceptEvent(stubLogger, 'info', 'IQC merge apply completed', {
+      phase: 'iqc_apply',
+      event: 'completed',
+      correlationId: 'corr-iqc-apply',
+      actionCardId: 'card_123',
+      conceptIds: ['concept_a', 'concept_b'],
+      movedPhrasings: 4,
+    });
+
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const [message, context] = infoSpy.mock.calls[0];
+    expect(message).toBe('IQC merge apply completed');
+    expect(context?.event).toBe('concepts.iqc_apply.completed');
+    expect(context?.actionCardId).toBe('card_123');
+    expect(context?.conceptIds).toEqual(['concept_a', 'concept_b']);
+    expect(context?.correlationId).toBe('corr-iqc-apply');
   });
 });

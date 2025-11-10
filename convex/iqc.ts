@@ -11,13 +11,13 @@ import { chunkArray } from './lib/chunkArray';
 import { calculateConceptStatsDelta } from './lib/conceptFsrsHelpers';
 import { getSecretDiagnostics } from './lib/envDiagnostics';
 import { DEFAULT_REPLAY_LIMIT, replayInteractionsIntoState } from './lib/fsrsReplay';
-import { createLogger } from './lib/logger';
+import { createConceptsLogger, generateCorrelationId, logConceptEvent } from './lib/logger';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';
 import type { StatDeltas } from './lib/userStatsHelpers';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 
 type ConceptDoc = Doc<'concepts'>;
-const logger = createLogger({
+const logger = createConceptsLogger({
   module: 'iqc',
   function: 'scanAndPropose',
 });
@@ -95,9 +95,11 @@ type MergeCandidate = {
 export const scanAndPropose = internalAction({
   args: {
     maxUsers: v.optional(v.number()),
+    correlationId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const startTime = Date.now();
+    const correlationId = args.correlationId ?? generateCorrelationId('iqc-scan');
     const stats = {
       usersConsidered: 0,
       conceptsScanned: 0,
@@ -108,6 +110,13 @@ export const scanAndPropose = internalAction({
     };
 
     const maxUsers = Math.min(args.maxUsers ?? IQC_SCAN_CONFIG.maxUsersPerRun, 25);
+
+    logConceptEvent(logger, 'info', 'IQC scan started', {
+      phase: 'iqc_scan',
+      event: 'start',
+      correlationId,
+      maxUsers,
+    });
 
     const conceptSamples = await ctx.runMutation(internal.iqc.getRecentConceptSamples, {
       limit: IQC_SCAN_CONFIG.maxConceptSamples,
@@ -163,6 +172,7 @@ export const scanAndPropose = internalAction({
         logger.info('IQC scan aborted due to runtime budget', {
           event: 'iqc.scan.timeout',
           stats,
+          correlationId,
         });
         break;
       }
@@ -247,6 +257,7 @@ export const scanAndPropose = internalAction({
             event: 'iqc.scan.llm.failure',
             userId,
             error: error instanceof Error ? error.message : String(error),
+            correlationId,
           });
         }
 
@@ -275,12 +286,23 @@ export const scanAndPropose = internalAction({
           keyDiagnostics
         );
 
-        await ctx.runMutation(internal.iqc.insertActionCard, {
+        const actionCardId = await ctx.runMutation(internal.iqc.insertActionCard, {
           userId,
           kind: 'MERGE_CONCEPTS',
           payload,
           createdAt: Date.now(),
           expiresAt: Date.now() + IQC_SCAN_CONFIG.proposalTtlHours * 60 * 60 * 1000,
+        });
+
+        logConceptEvent(logger, 'info', 'IQC merge action card created', {
+          phase: 'iqc_scan',
+          event: 'card_created',
+          correlationId,
+          actionCardId,
+          conceptIds: [candidate.source._id.toString(), candidate.target._id.toString()],
+          proposalKey,
+          similarity: candidate.vectorScore,
+          titleSimilarity: candidate.titleSimilarity,
         });
 
         existingKeys.add(proposalKey);
@@ -294,8 +316,10 @@ export const scanAndPropose = internalAction({
     }
 
     const duration = Date.now() - startTime;
-    logger.info('IQC scan completed', {
-      event: 'iqc.scan.complete',
+    logConceptEvent(logger, 'info', 'IQC scan completed', {
+      phase: 'iqc_scan',
+      event: 'completed',
+      correlationId,
       duration,
       stats,
     });
@@ -311,10 +335,11 @@ export const applyActionCard = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUserFromClerk(ctx);
-    const baseLogger = createLogger({
+    const correlationId = args.correlationId ?? generateCorrelationId('iqc-apply');
+    const actionLogger = createConceptsLogger({
       module: 'iqc',
       function: 'applyActionCard',
-      correlationId: args.correlationId,
+      correlationId,
       actionCardId: args.actionCardId,
     });
 
@@ -365,10 +390,19 @@ export const applyActionCard = mutation({
         resolvedAt: Date.now(),
       });
 
-      baseLogger.warn('Merge concept missing; resolving card as no-op', {
+      actionLogger.warn('Merge concept missing; resolving card as no-op', {
         event: 'iqc.apply_action.skip',
         canonicalConceptId,
         mergeConceptId,
+        correlationId,
+      });
+
+      logConceptEvent(actionLogger, 'warn', 'IQC merge apply skipped - missing source', {
+        phase: 'iqc_apply',
+        event: 'skipped_missing_source',
+        correlationId,
+        actionCardId: args.actionCardId,
+        conceptIds: [canonicalConceptId.toString(), mergeConceptId.toString()],
       });
 
       return { status: 'skipped_missing_source' };
@@ -377,6 +411,17 @@ export const applyActionCard = mutation({
     if (canonicalConcept.userId !== user._id || mergeConcept.userId !== user._id) {
       throw new Error('Concept ownership mismatch');
     }
+
+    const conceptIdStrings = [canonicalConceptId.toString(), mergeConceptId.toString()];
+
+    logConceptEvent(actionLogger, 'info', 'IQC merge apply started', {
+      phase: 'iqc_apply',
+      event: 'start',
+      correlationId,
+      actionCardId: args.actionCardId,
+      conceptIds: conceptIdStrings,
+      userId: user._id,
+    });
 
     const nowMs = Date.now();
     const statsDelta: StatDeltas = { totalCards: -1 };
@@ -489,10 +534,24 @@ export const applyActionCard = mutation({
       await updateStatsCounters(ctx, user._id, statsDelta);
     }
 
-    baseLogger.info('Applied IQC merge action card', {
+    actionLogger.info('Applied IQC merge action card', {
       event: 'iqc.apply_action.success',
       canonicalConceptId,
       mergeConceptId,
+      movedPhrasings: mergePhrasings.length,
+      movedQuestions: relatedQuestions.length,
+      interactionsReassigned: mergeInteractions.length,
+      interactionsReplayed,
+      correlationId,
+      actionCardId: args.actionCardId,
+    });
+
+    logConceptEvent(actionLogger, 'info', 'IQC merge apply completed', {
+      phase: 'iqc_apply',
+      event: 'completed',
+      correlationId,
+      actionCardId: args.actionCardId,
+      conceptIds: conceptIdStrings,
       movedPhrasings: mergePhrasings.length,
       movedQuestions: relatedQuestions.length,
       interactionsReassigned: mergeInteractions.length,
@@ -534,6 +593,7 @@ export const rejectActionCard = mutation({
     actionCardId: v.id('actionCards'),
   },
   handler: async (ctx, args) => {
+    const correlationId = generateCorrelationId('iqc-reject');
     const user = await requireUserFromClerk(ctx);
     const card = await ctx.db.get(args.actionCardId);
 
@@ -555,6 +615,7 @@ export const rejectActionCard = mutation({
       actionCardId: card._id,
       kind: card.kind,
       userId: user._id,
+      correlationId,
     });
 
     return { status: 'rejected' as const };

@@ -273,7 +273,7 @@
 
 ## Phase 5 — Observability & Guardrails
 
-- [ ] Concepts logger + metrics wiring
+- [x] Concepts logger + metrics wiring
   ```
   Files: lib/logger.ts, convex/lib/logger.ts, convex/aiGeneration.ts, convex/iqc.ts, convex/cron.ts, instrumentation.ts
   Goal: Add conceptsLogger child with ai/database contexts; emit structured logs for Stage A/B, iqc scan/apply, embedding sync, migration counters.
