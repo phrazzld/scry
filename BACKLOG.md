@@ -8,6 +8,116 @@
 
 ## Now (Sprint-Ready, <2 weeks)
 
+### [TESTING][P1] Add Test Coverage for Embedding Helpers
+
+**Files**:
+- `convex/lib/embeddingHelpers.ts` (217 lines, 0% test coverage)
+- New: `convex/lib/embeddingHelpers.test.ts` (to be created)
+
+**Perspectives**: code-quality-standards, testing-philosophy
+
+**Problem**: Core embedding helper module has zero test coverage
+- Security validation (userId mismatch) not verified
+- Edge cases (invalid dimensions, idempotency) not covered
+- Timestamp preservation logic not tested
+- Upsert/delete operations not validated
+
+**Impact**:
+- No confidence in security checks during refactoring
+- Risk of regression when modifying helper functions
+- **Blocks production deployment confidence** (Phase 1 migration)
+
+**Test Spec** (Vitest):
+```typescript
+// convex/lib/embeddingHelpers.test.ts
+describe('upsertEmbeddingForQuestion', () => {
+  it('creates new embedding when none exists');
+  it('updates existing embedding (atomic delete-then-insert)');
+  it('throws error on userId mismatch (security)');
+  it('throws error on invalid dimensions (!= 768)');
+  it('preserves embeddingGeneratedAt when provided');
+  it('uses Date.now() when embeddingGeneratedAt omitted');
+  it('prevents race condition duplicates (concurrent upserts)');
+});
+
+describe('deleteEmbeddingForQuestion', () => {
+  it('deletes existing embedding');
+  it('returns false when already deleted (idempotent)');
+  it('throws error on userId mismatch (security)');
+});
+
+describe('getEmbeddingsForUser', () => {
+  it('fetches all embeddings for user');
+  it('returns empty array when none exist');
+});
+
+describe('countEmbeddingsForUser', () => {
+  it('counts embeddings for user');
+  it('returns 0 when none exist');
+});
+```
+
+**Estimate**: 4h
+**Priority**: P1 (unblocks production confidence)
+**Dependencies**: Phase 1 embeddings migration complete (PR #60)
+
+---
+
+### [DOCUMENTATION][P0] Add JSDoc Coverage for Public APIs
+
+**Source**: CodeRabbit PR #60 review feedback
+
+**Problem**: 0% docstring coverage (threshold: 80%)
+- No API documentation for public mutations/queries
+- Bulk operations lack side effect documentation
+- No examples in code comments
+- Difficult for new developers to understand API contracts
+
+**Scope** (High-impact files first):
+1. `convex/questionsBulk.ts` - Document side effects (userStats, analytics), atomicity, error behavior
+2. `convex/lib/embeddingHelpers.ts` - Document security validation, race condition prevention, timestamp handling
+3. `convex/questionsLibrary.ts` - Document pagination, filtering, search behavior
+4. `convex/spacedRepetition.ts` - Document FSRS calculations, due date logic, scheduling parameters
+5. `convex/generationJobs.ts` - Document job lifecycle, cleanup policies, concurrent limits
+
+**Template**:
+```typescript
+/**
+ * Brief description of what the function does
+ *
+ * Detailed explanation of behavior, side effects, atomicity guarantees.
+ *
+ * Side Effects:
+ * - List database writes (userStats updates, analytics tracking, etc.)
+ * - List external API calls if any
+ *
+ * Atomicity: All-or-nothing / Partial failures allowed / etc.
+ *
+ * @param paramName - Description of parameter
+ * @returns Description of return value
+ * @throws {Error} "Error message format" - When this error occurs
+ *
+ * @example
+ * // Example usage with expected outcome
+ * await functionName({ param: value });
+ * // Returns: { result: data }
+ */
+```
+
+**Acceptance Criteria**:
+- All exported mutations/queries have JSDoc comments
+- Side effects documented clearly
+- Example usage provided
+- Error conditions documented
+- Atomicity guarantees explained
+- Docstring coverage >80% (measured by CodeRabbit)
+
+**Effort**: 6 hours (5 files × 1.2h average)
+**Priority**: P0 - Required for code review standards, onboarding
+**Dependencies**: None
+
+---
+
 ### [ARCHITECTURE][CRITICAL] Extract AI Provider Initialization
 
 **Files**:

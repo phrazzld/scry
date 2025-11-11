@@ -20,11 +20,17 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { embed } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
-
 import { internal } from './_generated/api';
-import { Id } from './_generated/dataModel';
-import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type QueryCtx,
+} from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
 
 // Logger for this module
 const logger = pino({ name: 'embeddings' });
@@ -263,25 +269,46 @@ export const searchQuestions = action({
     };
 
     // Perform vector search with userId-only filter (view filtering happens post-fetch)
+    // Now searches questionEmbeddings table instead of questions table
     // Note: Vector search filters don't support AND conditions, so we filter by view state below
-    const rawVectorResults = queryEmbedding
-      ? await ctx.vectorSearch('questions', 'by_embedding', {
+    const rawEmbeddingResults = queryEmbedding
+      ? await ctx.vectorSearch('questionEmbeddings', 'by_embedding', {
           vector: queryEmbedding,
           limit: limit * 2, // Get extra results for merging with text search
-          filter: buildFilter,
+          filter: buildFilter, // Filters by userId only
         })
       : [];
 
     // Post-filter vector results by view state
-    // Vector search returns partial documents, so we need full docs to check deletedAt/archivedAt
+    // Vector search returns embedding records, so we need to:
+    // 1. Extract questionIds from embedding records
+    // 2. Fetch full question documents
+    // 3. Filter by view state
+    // 4. Re-attach similarity scores
     let vectorResults: SearchResult[];
-    if (rawVectorResults.length > 0) {
-      // Fetch full documents to access deletedAt and archivedAt fields
-      const questionIds = rawVectorResults.map((r) => r._id);
-      const fullDocs = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
+    if (rawEmbeddingResults.length > 0) {
+      // Fetch embedding records to get questionIds
+      const embeddingIds = rawEmbeddingResults.map((r) => r._id);
+      const embeddings = await ctx.runQuery(internal.embeddings.getEmbeddingsByIds, {
+        embeddingIds,
+      });
 
-      // Create score map for quick lookup (preserve vector similarity scores)
-      const scoreMap = new Map(rawVectorResults.map((r) => [r._id.toString(), r._score]));
+      // Extract questionIds and create score map (questionId → similarity score)
+      const questionIds = embeddings
+        .filter((e: (typeof embeddings)[number]): e is NonNullable<typeof e> => e !== null)
+        .map((e: NonNullable<(typeof embeddings)[number]>) => e.questionId);
+
+      const scoreMap = new Map(
+        rawEmbeddingResults
+          .map((r, i) => {
+            const embedding = embeddings[i];
+            return embedding ? ([embedding.questionId, r._score] as const) : null;
+          })
+          .filter((entry): entry is [string, number] => entry !== null)
+      );
+
+      // Fetch full question documents
+      const fullDocs = await ctx.runQuery(internal.embeddings.getQuestionsByIds, { questionIds });
 
       // Apply view state filtering (active/archived/trash)
       const filteredDocs = filterResultsByView(fullDocs as SearchResult[], view);
@@ -414,36 +441,74 @@ function mergeSearchResults(
 }
 
 /**
+ * Minimal question data for embedding generation (bandwidth optimization)
+ */
+type QuestionWithoutEmbedding = {
+  _id: Id<'questions'>;
+  question: string;
+  explanation: string | undefined;
+  userId: Id<'users'>;
+};
+
+/**
  * Get questions without embeddings for backfill sync
  *
  * Internal query used by daily sync cron to identify questions that need embeddings.
+ * Now checks separate questionEmbeddings table instead of questions.embedding field.
  * Limits results to prevent overwhelming the sync process.
  *
+ * Bandwidth Optimization: Returns only fields needed for embedding generation
+ * (question, explanation, _id, userId) instead of full Doc<'questions'>.
+ *
+ * Pagination Strategy: Continues iterating through all active questions until
+ * finding `limit` questions without embeddings, ensuring daily sync eventually
+ * processes all missing embeddings (not just the earliest N questions).
+ *
  * @param limit - Maximum questions to return (default 100 for daily sync)
- * @returns Array of questions without embeddings
+ * @returns Array of minimal question data for questions without embeddings
  */
 export const getQuestionsWithoutEmbeddings = internalQuery({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<QuestionWithoutEmbedding[]> => {
     const limit = args.limit ?? 100;
+    const questionIdsWithEmbeddings = await collectQuestionIdsWithEmbeddings(ctx);
+    const questionsWithoutEmbeddings: QuestionWithoutEmbedding[] = [];
+    let cursor: string | null = null;
 
-    // Query questions where embedding is undefined
-    // Only active questions (not deleted or archived) to avoid wasting API calls
-    const questions = await ctx.db
-      .query('questions')
-      .withIndex('by_user_active')
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('embedding'), undefined),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
-        )
-      )
-      .take(limit);
+    // Iterate through questions until we find enough without embeddings
+    while (questionsWithoutEmbeddings.length < limit) {
+      const page = await activeQuestionsQuery(ctx).paginate({
+        cursor,
+        numItems: getActiveQuestionPageSize(limit),
+      });
 
-    return questions;
+      for (const question of page.page) {
+        if (!questionIdsWithEmbeddings.has(question._id)) {
+          // Only return fields needed for embedding generation (bandwidth optimization)
+          questionsWithoutEmbeddings.push({
+            _id: question._id,
+            question: question.question,
+            explanation: question.explanation,
+            userId: question.userId,
+          });
+
+          if (questionsWithoutEmbeddings.length === limit) {
+            break;
+          }
+        }
+      }
+
+      // Stop if we've found enough or reached end of questions
+      if (page.isDone || questionsWithoutEmbeddings.length === limit) {
+        break;
+      }
+
+      cursor = page.continueCursor ?? null;
+    }
+
+    return questionsWithoutEmbeddings;
   },
 });
 
@@ -451,31 +516,39 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
  * Count questions without embeddings
  *
  * Used for monitoring and progress tracking of backfill sync.
+ * Now checks separate questionEmbeddings table.
  *
  * @returns Count of questions missing embeddings
  */
 export const countQuestionsWithoutEmbeddings = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Use take with a reasonable limit for counting (avoid unbounded queries)
-    // If count exceeds limit, return "limit+" to indicate "at least this many"
-    const SAMPLE_LIMIT = 1000;
+    const questionIdsWithEmbeddings = await collectQuestionIdsWithEmbeddings(ctx);
+    let cursor: string | null = null;
+    let countWithoutEmbeddings = 0;
 
-    const questions = await ctx.db
-      .query('questions')
-      .withIndex('by_user_active')
-      .filter((q) =>
-        q.and(
-          q.eq(q.field('embedding'), undefined),
-          q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
-        )
-      )
-      .take(SAMPLE_LIMIT);
+    while (true) {
+      const page = await activeQuestionsQuery(ctx).paginate({
+        cursor,
+        numItems: MAX_ACTIVE_QUESTION_PAGE_SIZE,
+      });
+
+      for (const question of page.page) {
+        if (!questionIdsWithEmbeddings.has(question._id)) {
+          countWithoutEmbeddings += 1;
+        }
+      }
+
+      if (page.isDone) {
+        break;
+      }
+
+      cursor = page.continueCursor ?? null;
+    }
 
     return {
-      count: questions.length,
-      isApproximate: questions.length === SAMPLE_LIMIT,
+      count: countWithoutEmbeddings,
+      isApproximate: false,
     };
   },
 });
@@ -499,9 +572,27 @@ export const getQuestionForEmbedding = internalQuery({
 });
 
 /**
+ * Get embeddings by IDs
+ *
+ * Internal query used by search action to fetch embedding records.
+ *
+ * @param embeddingIds - Array of embedding IDs to fetch
+ * @returns Array of embedding documents (nulls if not found)
+ */
+export const getEmbeddingsByIds = internalQuery({
+  args: {
+    embeddingIds: v.array(v.id('questionEmbeddings')),
+  },
+  handler: async (ctx, args) => {
+    return await Promise.all(args.embeddingIds.map((id) => ctx.db.get(id)));
+  },
+});
+
+/**
  * Save embedding to a question
  *
  * Internal mutation used by sync to update questions with generated embeddings.
+ * Now uses separate questionEmbeddings table for bandwidth optimization.
  *
  * @param questionId - ID of question to update
  * @param embedding - 768-dimensional embedding vector
@@ -514,12 +605,64 @@ export const saveEmbedding = internalMutation({
     embeddingGeneratedAt: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.questionId, {
-      embedding: args.embedding,
-      embeddingGeneratedAt: args.embeddingGeneratedAt,
-    });
+    // Get question to extract userId (needed for questionEmbeddings table)
+    const question = await ctx.db.get(args.questionId);
+    if (!question) {
+      throw new Error(`Question not found: ${args.questionId}`);
+    }
+
+    // Save embedding to separate questionEmbeddings table
+    await upsertEmbeddingForQuestion(
+      ctx,
+      args.questionId,
+      question.userId,
+      args.embedding,
+      args.embeddingGeneratedAt
+    );
   },
 });
+
+const MIN_ACTIVE_QUESTION_PAGE_SIZE = 100;
+const MAX_ACTIVE_QUESTION_PAGE_SIZE = 500;
+
+type QueryLikeCtx = Pick<QueryCtx, 'db'>;
+
+function getActiveQuestionPageSize(limit: number): number {
+  return Math.min(
+    MAX_ACTIVE_QUESTION_PAGE_SIZE,
+    Math.max(limit * 2, MIN_ACTIVE_QUESTION_PAGE_SIZE)
+  );
+}
+
+function activeQuestionsQuery(ctx: QueryLikeCtx) {
+  return ctx.db
+    .query('questions')
+    .withIndex('by_user_active')
+    .filter((q) =>
+      q.and(q.eq(q.field('deletedAt'), undefined), q.eq(q.field('archivedAt'), undefined))
+    );
+}
+
+async function collectQuestionIdsWithEmbeddings(ctx: QueryLikeCtx): Promise<Set<Id<'questions'>>> {
+  const questionIds = new Set<Id<'questions'>>();
+  let cursor: string | null = null;
+
+  while (true) {
+    const page = await ctx.db.query('questionEmbeddings').paginate({
+      cursor,
+      numItems: 500,
+    });
+
+    for (const embedding of page.page) {
+      questionIds.add(embedding.questionId);
+    }
+
+    if (page.isDone) break;
+    cursor = page.continueCursor;
+  }
+
+  return questionIds;
+}
 
 /**
  * Sync missing embeddings (daily cron)

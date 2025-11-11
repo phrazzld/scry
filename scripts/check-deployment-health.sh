@@ -149,6 +149,37 @@ fi
 
 echo ""
 
+# Check if questionEmbeddings table exists (bandwidth optimization - embeddings separation)
+echo "📋 Checking questionEmbeddings table (embeddings separation)..."
+echo ""
+
+if echo "$SCHEMA_CHECK" | grep -q "questionEmbeddings:"; then
+  echo -e "${GREEN}✓${NC} questionEmbeddings table defined in schema"
+else
+  echo -e "${YELLOW}⚠${NC}  questionEmbeddings table not found in schema"
+  echo "   Note: Required for embeddings separation (bandwidth optimization)"
+fi
+
+# Check for questionEmbeddings indexes
+# Extract only the questionEmbeddings table definition to avoid false positives
+# (interactions table also has a by_question index, questions table has deprecated by_embedding)
+# Pattern: From 'questionEmbeddings:' to the closing vector index line '    }),'
+EMBEDDINGS_TABLE=$(echo "$SCHEMA_CHECK" | sed -n '/questionEmbeddings: defineTable/,/^    }),$/p')
+
+if echo "$EMBEDDINGS_TABLE" | grep -q "by_question"; then
+  echo -e "${GREEN}✓${NC} by_question index defined in questionEmbeddings"
+else
+  echo -e "${YELLOW}⚠${NC}  by_question index not found in questionEmbeddings"
+fi
+
+if echo "$EMBEDDINGS_TABLE" | grep -q "vectorIndex('by_embedding'"; then
+  echo -e "${GREEN}✓${NC} by_embedding vector index defined in questionEmbeddings"
+else
+  echo -e "${YELLOW}⚠${NC}  by_embedding vector index not found in questionEmbeddings"
+fi
+
+echo ""
+
 # Check 5: Verify deployment health via health check query
 # This validates that env vars are present and functions are callable
 echo "🔐 Checking environment variables..."

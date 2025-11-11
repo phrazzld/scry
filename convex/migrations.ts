@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { Id } from './_generated/dataModel';
 import { internalMutation, mutation, MutationCtx, query } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
 import { createLogger } from './lib/logger';
 
 /**
@@ -1442,6 +1443,234 @@ export const checkDueNowCountMigration = query({
       missing,
       migrated: stats.length - missing,
       complete: missing === 0,
+    };
+  },
+});
+
+/**
+ * Statistics for embeddings migration
+ */
+type EmbeddingsMigrationStats = {
+  totalProcessed: number;
+  migrated: number; // Copied to questionEmbeddings
+  cleaned: number; // Removed from questions table
+  skipped: number;
+  errors: number;
+};
+
+/**
+ * Migration: Move embeddings from questions table to questionEmbeddings table
+ *
+ * **Phase 1 of 3-phase migration pattern:**
+ * - Copies existing embeddings from questions.embedding to questionEmbeddings table
+ * - Dual-writes during transition period (both tables populated)
+ * - Phase 2: Remove embedding fields from questions schema after migration completes
+ * - Phase 3: Remove backward compatibility dual-write code
+ *
+ * **Migration strategy:**
+ * 1. Iterate through all questions that have embeddings
+ * 2. Create corresponding record in questionEmbeddings table
+ * 3. Preserve embedding vector and generation timestamp
+ * 4. Duplicate userId for security filtering in vector search
+ *
+ * **Safety features:**
+ * - Dry-run mode to preview changes
+ * - Batch processing with progress logging
+ * - Idempotent (safe to re-run)
+ * - Validates embedding dimensions (768)
+ * - Skips questions without embeddings
+ *
+ * @param dryRun - If true, only simulate the migration without making changes
+ * @param batchSize - Number of questions to process per batch (default 100)
+ */
+export const migrateEmbeddingsToSeparateTable = internalMutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<MigrationResult<EmbeddingsMigrationStats>> => {
+    const dryRun = args.dryRun ?? false;
+    const batchSize = args.batchSize ?? 100;
+
+    const migrationLogger = createLogger({
+      module: 'migrations',
+      function: 'migrateEmbeddingsToSeparateTable',
+    });
+
+    migrationLogger.info('Migration started', {
+      dryRun,
+      batchSize,
+    });
+
+    const stats: EmbeddingsMigrationStats = {
+      totalProcessed: 0,
+      migrated: 0,
+      cleaned: 0,
+      skipped: 0,
+      errors: 0,
+    };
+
+    // Use cursor-based pagination to avoid memory exhaustion
+    // Streaming batches sequentially without loading entire table
+    let cursor = null;
+    let hasMore = true;
+
+    migrationLogger.info('Starting cursor-based migration', {
+      batchSize,
+    });
+
+    while (hasMore) {
+      // Fetch next batch using cursor
+      const page = await ctx.db.query('questions').paginate({
+        cursor: cursor,
+        numItems: batchSize,
+      });
+
+      hasMore = page.isDone === false;
+      cursor = page.continueCursor;
+
+      // Process this batch
+      for (const question of page.page) {
+        stats.totalProcessed++;
+
+        // Runtime property check (not TypeScript type erasure)
+        const hasEmbedding =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          'embedding' in (question as any) && (question as any).embedding !== undefined;
+
+        if (!hasEmbedding) {
+          stats.skipped++;
+          continue;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const embedding = (question as any).embedding as number[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const embeddingGeneratedAt = (question as any).embeddingGeneratedAt as number | undefined;
+
+        // Validate embedding dimensions
+        if (embedding.length !== 768) {
+          migrationLogger.warn('Invalid embedding dimensions', {
+            questionId: question._id,
+            dimensions: embedding.length,
+            expected: 768,
+          });
+          stats.errors++;
+          continue;
+        }
+
+        // Check if embedding already exists in new table
+        const existingEmbedding = await ctx.db
+          .query('questionEmbeddings')
+          .withIndex('by_question', (q) => q.eq('questionId', question._id))
+          .first();
+
+        if (!dryRun) {
+          try {
+            // Only create if doesn't exist in new table
+            if (!existingEmbedding) {
+              await upsertEmbeddingForQuestion(
+                ctx,
+                question._id,
+                question.userId,
+                embedding,
+                embeddingGeneratedAt ?? Date.now()
+              );
+              stats.migrated++;
+            } else {
+              stats.skipped++;
+            }
+
+            // Always cleanup from questions table (even if already in new table)
+            await ctx.db.patch(question._id, {
+              embedding: undefined,
+              embeddingGeneratedAt: undefined,
+            });
+            stats.cleaned++;
+          } catch (error) {
+            migrationLogger.error('Failed to migrate/cleanup embedding', {
+              questionId: question._id,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            stats.errors++;
+          }
+        } else {
+          // Dry run: count what would happen
+          if (!existingEmbedding) {
+            stats.migrated++;
+          } else {
+            stats.skipped++;
+          }
+          stats.cleaned++;
+        }
+
+        // Log progress every 100 records
+        if (stats.totalProcessed % PROGRESS_LOG_INTERVAL === 0) {
+          migrationLogger.info('Migration progress', {
+            ...stats,
+          });
+        }
+      }
+    }
+
+    const message = dryRun
+      ? `Dry run completed: Would migrate ${stats.migrated} embeddings and clean ${stats.cleaned} from questions table (${stats.skipped} skipped, ${stats.errors} errors)`
+      : `Migration completed: Migrated ${stats.migrated} embeddings and cleaned ${stats.cleaned} from questions table (${stats.skipped} skipped, ${stats.errors} errors)`;
+
+    migrationLogger.info('Migration finished', {
+      ...stats,
+      message,
+      dryRun,
+    });
+
+    return {
+      status: stats.errors > 0 ? 'partial' : 'completed',
+      dryRun,
+      stats,
+      message,
+    };
+  },
+});
+
+/**
+ * Diagnostic query to check embeddings migration status
+ *
+ * Returns count of questions with embeddings that still need to be migrated.
+ * After migration completes, this should return { remaining: 0 }.
+ *
+ * Uses sampling to avoid unbounded queries. When isApproximate=true, counts
+ * are based on first 1000 records from each table.
+ */
+export const migrateEmbeddingsToSeparateTableDiagnostic = query({
+  args: {},
+  handler: async (ctx) => {
+    const SAMPLE_LIMIT = 1000;
+
+    // Sample questions to avoid unbounded query
+    const allQuestions = await ctx.db.query('questions').take(SAMPLE_LIMIT);
+
+    // Runtime property check (not TypeScript type erasure)
+
+    const questionsWithEmbeddings = allQuestions.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (q) => 'embedding' in (q as any) && (q as any).embedding !== undefined
+    );
+
+    // Sample embeddings in new table
+    const embeddingsInNewTable = await ctx.db.query('questionEmbeddings').take(SAMPLE_LIMIT);
+    const embeddingQuestionIds = new Set(embeddingsInNewTable.map((e) => e.questionId));
+
+    // Count questions with embeddings but NOT in new table
+    const needsMigration = questionsWithEmbeddings.filter(
+      (q) => !embeddingQuestionIds.has(q._id) // O(1) lookup instead of O(n)!
+    );
+
+    return {
+      questionsWithEmbeddings: questionsWithEmbeddings.length,
+      embeddingsInNewTable: embeddingsInNewTable.length,
+      remaining: needsMigration.length,
+      complete: needsMigration.length === 0,
+      isApproximate: allQuestions.length === SAMPLE_LIMIT,
     };
   },
 });

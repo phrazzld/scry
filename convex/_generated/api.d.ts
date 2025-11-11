@@ -23,6 +23,8 @@ import type * as generationJobs from "../generationJobs.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
 import type * as lab from "../lab.js";
+import type * as lib_analytics from "../lib/analytics.js";
+import type * as lib_embeddingHelpers from "../lib/embeddingHelpers.js";
 import type * as lib_envDiagnostics from "../lib/envDiagnostics.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_productionConfig from "../lib/productionConfig.js";
@@ -63,6 +65,8 @@ declare const fullApi: ApiFromModules<{
   health: typeof health;
   http: typeof http;
   lab: typeof lab;
+  "lib/analytics": typeof lib_analytics;
+  "lib/embeddingHelpers": typeof lib_embeddingHelpers;
   "lib/envDiagnostics": typeof lib_envDiagnostics;
   "lib/logger": typeof lib_logger;
   "lib/productionConfig": typeof lib_productionConfig;

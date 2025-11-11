@@ -11,6 +11,7 @@ import { v } from 'convex/values';
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { trackEvent } from './lib/analytics';
+import { deleteEmbeddingForQuestion } from './lib/embeddingHelpers';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { validateBulkOwnership } from './lib/validation';
 
@@ -230,6 +231,9 @@ export const permanentlyDelete = mutation({
 
     // Atomic validation via shared helper (also fetches questions for stats)
     const questions = await validateBulkOwnership(ctx, userId, args.questionIds);
+
+    // Delete associated embeddings from questionEmbeddings table
+    await Promise.all(args.questionIds.map((id) => deleteEmbeddingForQuestion(ctx, id)));
 
     // All validations passed - execute deletions in parallel
     await Promise.all(args.questionIds.map((id) => ctx.db.delete(id)));
