@@ -30,6 +30,7 @@ import {
   type QueryCtx,
 } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
 
 // Logger for this module
 const logger = pino({ name: 'embeddings' });
@@ -611,7 +612,6 @@ export const saveEmbedding = internalMutation({
     }
 
     // Save embedding to separate questionEmbeddings table
-    const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
     await upsertEmbeddingForQuestion(
       ctx,
       args.questionId,

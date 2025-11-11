@@ -12,6 +12,10 @@ import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { trackEvent } from './lib/analytics';
+import {
+  deleteEmbeddingForQuestion,
+  upsertEmbeddingForQuestion,
+} from './lib/embeddingHelpers';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { getScheduler } from './scheduling';
 
@@ -125,10 +129,7 @@ export const saveBatch = internalMutation({
     );
 
     // Save embeddings to questionEmbeddings table (separate for bandwidth optimization)
-    // Skip import if no embeddings present (common case)
     if (args.questions.some((q) => q.embedding)) {
-      const { upsertEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
-
       await Promise.all(
         args.questions.map((q, index) => {
           // Only save if embedding was provided
@@ -250,7 +251,6 @@ export const updateQuestion = mutation({
     const textChanged = args.question !== undefined || args.explanation !== undefined;
     if (textChanged) {
       // Delete from questionEmbeddings table when text changes
-      const { deleteEmbeddingForQuestion } = await import('./lib/embeddingHelpers');
       await deleteEmbeddingForQuestion(ctx, args.questionId);
       updateFields.embedding = undefined;
       updateFields.embeddingGeneratedAt = undefined;
