@@ -431,14 +431,17 @@ describe('Stage A Concept Preparation', () => {
       {
         title: 'Eucharistic Theology Foundations',
         description: 'Analyzes transubstantiation and the sacramental presence of Christ.',
+        whyItMatters: 'Central to Catholic worship understanding.',
       },
       {
         title: 'eucharistic theology foundations',
         description: 'Duplicate entry that should be removed.',
+        whyItMatters: 'Duplicate for testing.',
       },
       {
         title: 'Guardian Angels in Daily Life',
         description: 'Explores theological sources describing how guardian angels guide believers.',
+        whyItMatters: 'Relevant to daily spiritual practice.',
       },
     ]);
 
@@ -453,11 +456,13 @@ describe('Stage A Concept Preparation', () => {
         title: 'Grace and Free Will Debate',
         description:
           'Contrast Augustine vs Pelagius, outline both views, contrast them, and explain how the Council of Orange mediates between them.',
+        whyItMatters: 'Fundamental theological controversy in Church history.',
       },
       {
         title: "Pascal's Wager Motivation",
         description:
           "Explain the intuition behind Pascal's Wager and why it influenced apologetics.",
+        whyItMatters: 'Key apologetic argument for faith.',
       },
     ]);
 
@@ -469,6 +474,7 @@ describe('Stage A Concept Preparation', () => {
     const bulkIdeas = Array.from({ length: 10 }).map((_, index) => ({
       title: `Concept ${index + 1}`,
       description: `Detailed standalone explanation number ${index + 1} covering a single learning objective about topic ${index}.`,
+      whyItMatters: `Important for understanding topic ${index}.`,
     }));
 
     const ideas = prepareConceptIdeas(bulkIdeas);
@@ -480,11 +486,13 @@ describe('Stage A Concept Preparation', () => {
       {
         title: 'Insufficient Detail Concept',
         description: 'Barely says anything at all.',
+        whyItMatters: 'Should be filtered out.',
       },
       {
         title: 'Rich Eucharistic Symbolism',
         description:
           'Explains how each eucharistic symbol reinforces Christological teaching and why the faithful revisit them weekly.',
+        whyItMatters: 'Essential for liturgical understanding.',
       },
     ]);
 
@@ -498,11 +506,13 @@ describe('Stage A Concept Preparation', () => {
         title: 'Grace, Merit, and Cooperation',
         description:
           'Define sanctifying grace and habitual grace and actual grace and then connect each to merit and synergy.',
+        whyItMatters: 'Foundational for understanding salvation theology.',
       },
       {
         title: 'Single Doctrine Focus',
         description:
           'Describes how Augustine frames grace as both gift and ongoing invitation, highlighting a single retrievable unit.',
+        whyItMatters: 'Core Augustinian teaching on grace.',
       },
     ]);
 
@@ -515,11 +525,13 @@ describe('Stage A Concept Preparation', () => {
       {
         title: 'Short One',
         description: 'Tiny.',
+        whyItMatters: 'Too short.',
       },
       {
         title: 'Comparison Bundle',
         description:
           'Contrast Peter vs Paul vs Barnabas across missionary journeys and doctrinal disputes and liturgical leadership.',
+        whyItMatters: 'Understanding apostolic leadership.',
       },
     ]);
 

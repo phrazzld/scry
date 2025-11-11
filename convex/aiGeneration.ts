@@ -52,7 +52,7 @@ const logger = {
 const conceptIdeaSchema = z.object({
   title: z.string(),
   description: z.string(),
-  whyItMatters: z.optional(z.string()),
+  whyItMatters: z.string(),
 });
 
 const conceptIdeasSchema = z.object({

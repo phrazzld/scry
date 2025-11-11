@@ -180,7 +180,7 @@ Return JSON with the following structure:
     {
       "title": "Concise concept title (<= 12 words, no multiple topics)",
       "description": "2-4 sentences describing the concept's core idea, boundaries, and why it matters.",
-      "whyItMatters": "Optional: single sentence framing why the learner should care."
+      "whyItMatters": "Required: single sentence framing why the learner should care."
     }
   ]
 }
