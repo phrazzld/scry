@@ -16,6 +16,7 @@ An AI-powered quiz generation and learning application built with Next.js 15 and
 - **Real-time Updates**: Built on Convex for instant data synchronization
 - **Responsive Design**: Modern UI with Tailwind CSS and shadcn/ui components
 - **Keyboard Shortcuts**: Power user shortcuts for efficient navigation and review
+- **Convex-Safe Bandwidth**: Every backend query is paginated, indexed, and proven via >1,100 doc regression suites (see [Convex Bandwidth Guardrails](docs/guides/convex-bandwidth.md))
 
 ## Philosophy: Hypersimplicity & Pure Memory Science
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { prepareConceptIdeas, prepareGeneratedPhrasings } from './aiGeneration';
-import { logConceptEvent, type ConceptsLogger } from './lib/logger';
+import { prepareConceptIdeas, prepareGeneratedPhrasings } from '../../convex/aiGeneration';
+import { logConceptEvent, type ConceptsLogger } from '../../convex/lib/logger';
 
 /**
  * Tests for AI generation error classification

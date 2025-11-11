@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Id } from './_generated/dataModel';
-import { enforcePerUserLimit } from './embeddings';
-import { chunkArray } from './lib/chunkArray';
+import type { Id } from '../../convex/_generated/dataModel';
+import { enforcePerUserLimit } from '../../convex/embeddings';
+import { chunkArray } from '../../convex/lib/chunkArray';
 
 /**
  * Tests for embeddings module helper functions

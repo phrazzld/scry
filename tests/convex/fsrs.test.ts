@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Doc, Id } from './_generated/dataModel';
+import type { Doc, Id } from '../../convex/_generated/dataModel';
 import {
   FsrsEngine,
   getConceptRetrievability,
@@ -7,7 +7,7 @@ import {
   isConceptDue,
   scheduleConceptReview,
   selectPhrasingForConcept,
-} from './fsrs';
+} from '../../convex/fsrs';
 
 const engine = new FsrsEngine();
 const fixedNow = new Date('2025-01-16T12:00:00Z');
