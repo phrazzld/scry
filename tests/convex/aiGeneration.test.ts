@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { prepareConceptIdeas, prepareGeneratedPhrasings } from '../../convex/aiGeneration';
+import { logConceptEvent, type ConceptsLogger } from '../../convex/lib/logger';
 
 /**
  * Tests for AI generation error classification
@@ -392,5 +394,188 @@ describe('AI Generation - Error Classification', () => {
         expect(result.retryable).toBe(false);
       });
     });
+  });
+});
+
+describe('Concept Logging', () => {
+  it('logs stage completion with concept ids and correlation id', () => {
+    const infoSpy = vi.fn();
+    const stubLogger: ConceptsLogger = {
+      info: infoSpy,
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+
+    logConceptEvent(stubLogger, 'info', 'Stage A concept synthesis completed', {
+      phase: 'stage_a',
+      event: 'completed',
+      correlationId: 'corr-stage-a',
+      conceptIds: ['concept-1', 'concept-2'],
+      jobId: 'job-123',
+      conceptCount: 2,
+    });
+
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const [message, context] = infoSpy.mock.calls[0];
+    expect(message).toBe('Stage A concept synthesis completed');
+    expect(context?.event).toBe('concepts.stage_a.completed');
+    expect(context?.conceptIds).toEqual(['concept-1', 'concept-2']);
+    expect(context?.correlationId).toBe('corr-stage-a');
+  });
+});
+
+describe('Stage A Concept Preparation', () => {
+  it('removes duplicate titles case-insensitively', () => {
+    const ideas = prepareConceptIdeas([
+      {
+        title: 'Eucharistic Theology Foundations',
+        description: 'Analyzes transubstantiation and the sacramental presence of Christ.',
+      },
+      {
+        title: 'eucharistic theology foundations',
+        description: 'Duplicate entry that should be removed.',
+      },
+      {
+        title: 'Guardian Angels in Daily Life',
+        description: 'Explores theological sources describing how guardian angels guide believers.',
+      },
+    ]);
+
+    expect(ideas).toHaveLength(2);
+    expect(ideas.map((c) => c.title)).toContain('Eucharistic Theology Foundations');
+    expect(ideas.map((c) => c.title)).toContain('Guardian Angels in Daily Life');
+  });
+
+  it('filters multi-topic concepts that bundle comparisons', () => {
+    const ideas = prepareConceptIdeas([
+      {
+        title: 'Grace and Free Will Debate',
+        description:
+          'Contrast Augustine vs Pelagius, outline both views, contrast them, and explain how the Council of Orange mediates between them.',
+      },
+      {
+        title: "Pascal's Wager Motivation",
+        description:
+          "Explain the intuition behind Pascal's Wager and why it influenced apologetics.",
+      },
+    ]);
+
+    expect(ideas).toHaveLength(1);
+    expect(ideas[0].title).toBe("Pascal's Wager Motivation");
+  });
+
+  it('caps the number of accepted concepts', () => {
+    const bulkIdeas = Array.from({ length: 10 }).map((_, index) => ({
+      title: `Concept ${index + 1}`,
+      description: `Detailed standalone explanation number ${index + 1} covering a single learning objective about topic ${index}.`,
+    }));
+
+    const ideas = prepareConceptIdeas(bulkIdeas);
+    expect(ideas.length).toBeLessThanOrEqual(6);
+  });
+
+  it('filters concepts with descriptions that are too short', () => {
+    const ideas = prepareConceptIdeas([
+      {
+        title: 'Insufficient Detail Concept',
+        description: 'Barely says anything at all.',
+      },
+      {
+        title: 'Rich Eucharistic Symbolism',
+        description:
+          'Explains how each eucharistic symbol reinforces Christological teaching and why the faithful revisit them weekly.',
+      },
+    ]);
+
+    expect(ideas).toHaveLength(1);
+    expect(ideas[0].title).toBe('Rich Eucharistic Symbolism');
+  });
+
+  it('rejects conjunction-heavy proposals that bundle multiple ideas', () => {
+    const ideas = prepareConceptIdeas([
+      {
+        title: 'Grace, Merit, and Cooperation',
+        description:
+          'Define sanctifying grace and habitual grace and actual grace and then connect each to merit and synergy.',
+      },
+      {
+        title: 'Single Doctrine Focus',
+        description:
+          'Describes how Augustine frames grace as both gift and ongoing invitation, highlighting a single retrievable unit.',
+      },
+    ]);
+
+    expect(ideas).toHaveLength(1);
+    expect(ideas[0].title).toBe('Single Doctrine Focus');
+  });
+
+  it('returns empty array when every proposed concept violates heuristics', () => {
+    const ideas = prepareConceptIdeas([
+      {
+        title: 'Short One',
+        description: 'Tiny.',
+      },
+      {
+        title: 'Comparison Bundle',
+        description:
+          'Contrast Peter vs Paul vs Barnabas across missionary journeys and doctrinal disputes and liturgical leadership.',
+      },
+    ]);
+
+    expect(ideas).toEqual([]);
+  });
+});
+
+describe('Stage B Phrasing Preparation', () => {
+  it('filters duplicate or short phrasings', () => {
+    const phrasings = prepareGeneratedPhrasings(
+      [
+        {
+          question: 'What is the primary symbolism of Baptismal water?',
+          explanation: 'Explains cleansing from sin and participation in Christ.',
+          type: 'multiple-choice',
+          options: ['New birth', 'Forgiveness', 'Cleansing', 'All of the above'],
+          correctAnswer: 'All of the above',
+        },
+        {
+          question: 'What is the primary symbolism of Baptismal water?',
+          explanation: 'Duplicate question should be filtered out.',
+          type: 'multiple-choice',
+          options: ['Grace', 'Faith', 'Hope', 'Love'],
+          correctAnswer: 'Grace',
+        },
+        {
+          question: 'Short?',
+          explanation: 'Too short question should be removed.',
+          type: 'true-false',
+          options: ['True', 'False'],
+          correctAnswer: 'True',
+        },
+      ],
+      [],
+      4
+    );
+
+    expect(phrasings).toHaveLength(1);
+    expect(phrasings[0].question).toContain('Baptismal water');
+  });
+
+  it('normalizes correct answers for multiple choice', () => {
+    const phrasings = prepareGeneratedPhrasings(
+      [
+        {
+          question: 'Which gospel contains the Beatitudes?',
+          explanation: 'Checks knowledge of Matthew 5.',
+          type: 'multiple-choice',
+          options: ['Mark', 'john', 'Matthew', 'Luke'],
+          correctAnswer: 'matthew',
+        },
+      ],
+      [],
+      3
+    );
+
+    expect(phrasings[0].correctAnswer).toBe('Matthew');
   });
 });

@@ -1,0 +1,1 @@
+export const TARGET_PHRASINGS_PER_CONCEPT = 4;

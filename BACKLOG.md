@@ -8,64 +8,6 @@
 
 ## Now (Sprint-Ready, <2 weeks)
 
-### [ARCHITECTURE][CRITICAL] Extract AI Provider Initialization
-
-**Files**:
-- `convex/aiGeneration.ts:87-191` (105 lines of provider setup)
-- `convex/lab.ts:79-177` (98 lines of **identical** provider setup)
-
-**Perspectives**: complexity-archaeologist, architecture-guardian (cross-validated by 2 agents)
-
-**Problem**: 203 lines of duplicated provider initialization code
-- Same environment variable reading (`AI_PROVIDER`, `AI_MODEL`, etc.)
-- Same `getSecretDiagnostics` calls
-- Same OpenAI vs Google conditional logic
-- Same error handling
-- Bug fixes require 2 updates (already happened: see git history)
-
-**Impact**:
-- Maintenance burden (duplicate bug fixes)
-- Inconsistent behavior risk (one file updated, other forgotten)
-- **Blocks adding Anthropic provider** (would create 3x duplication)
-
-**Fix**:
-```typescript
-// NEW: convex/lib/aiProviders.ts
-export interface ProviderClient {
-  model?: LanguageModel;
-  openaiClient?: OpenAI;
-  provider: 'google' | 'openai';
-  diagnostics: SecretDiagnostics;
-}
-
-export async function initializeProvider(
-  provider: string,
-  modelName: string
-): Promise<ProviderClient> {
-  // Centralized initialization logic (100 lines once vs 200+ duplicated)
-  // Environment validation
-  // Client creation (Google vs OpenAI)
-  // Error handling
-  return { model, openaiClient, provider, diagnostics };
-}
-
-// USAGE in aiGeneration.ts and lab.ts (3 lines each vs 100 lines each):
-const { model, openaiClient, provider } = await initializeProvider(
-  process.env.AI_PROVIDER || 'openai',
-  process.env.AI_MODEL || 'gpt-5-mini'
-);
-```
-
-**Acceptance Criteria**:
-- Both aiGeneration.ts and lab.ts use shared module
-- -200 lines of code duplication eliminated
-- Tests prove identical behavior between files
-- Adding Anthropic provider requires changes in 1 location only
-
-**Effort**: 3 hours | **Priority**: P0 - Blocks provider expansion, accumulating technical debt
-
----
-
 ### [PERFORMANCE][HIGH] Fix Library Table Selection O(N×M)
 
 **File**: `app/library/_components/library-table.tsx:350-358`

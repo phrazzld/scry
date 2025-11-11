@@ -1,5 +1,8 @@
 import type { Id } from '@/convex/_generated/dataModel';
 
+// Re-export concept types for convenience
+export type { ConceptDoc, PhrasingDoc, FsrsState, IqcScores } from './concepts';
+
 export type QuestionType = 'multiple-choice' | 'true-false';
 
 export interface SimpleQuestion {
@@ -28,6 +31,8 @@ export interface Question {
   attemptCount: number;
   correctCount: number;
   lastAttemptedAt?: number;
+  // Concepts & Phrasings migration (Phase 1: Add optional field)
+  conceptId?: Id<'concepts'>;
 }
 
 // Types matching Convex schema for interactions table
@@ -35,7 +40,9 @@ export interface Interaction {
   _id: Id<'interactions'>;
   _creationTime: number;
   userId: Id<'users'>;
-  questionId: Id<'questions'>;
+  questionId?: Id<'questions'>;
+  conceptId?: Id<'concepts'>;
+  phrasingId?: Id<'phrasings'>;
   userAnswer: string;
   isCorrect: boolean;
   attemptedAt: number;

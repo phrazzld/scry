@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { ArrowRight, Calendar, CheckCircle, XCircle } from 'lucide-react';
-
 import { QuestionHistory } from '@/components/question-history';
 import { Button } from '@/components/ui/button';
 import type { Doc } from '@/convex/_generated/dataModel';
@@ -13,7 +12,9 @@ import type { SimpleQuestion } from '@/types/questions';
 
 interface ReviewSessionProps {
   question: SimpleQuestion;
-  questionId?: string;
+  conceptId?: string;
+  phrasingId?: string;
+  questionId?: string; // Legacy question ID for edit/delete contexts
   onComplete: (
     answers: Array<{ userAnswer: string; isCorrect: boolean }>,
     sessionId: string
@@ -24,6 +25,8 @@ interface ReviewSessionProps {
 
 export function ReviewSession({
   question,
+  conceptId,
+  phrasingId,
   questionId,
   onComplete,
   mode = 'quiz',
@@ -40,8 +43,8 @@ export function ReviewSession({
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime] = useState(Date.now());
 
-  // Shuffle options deterministically based on questionId + userId
-  const shuffledOptions = useShuffledOptions(question.options, questionId ?? null);
+  // Shuffle options deterministically based on phrasing/question id + userId
+  const shuffledOptions = useShuffledOptions(question.options, phrasingId ?? questionId ?? null);
 
   const isCorrect = selectedAnswer === question.correctAnswer;
 
@@ -55,11 +58,12 @@ export function ReviewSession({
 
     setShowFeedback(true);
 
-    // Track interaction if we have a question ID
-    if (questionId) {
+    // Track interaction if we have concept + phrasing IDs
+    if (conceptId && phrasingId) {
       const timeSpent = Date.now() - questionStartTime;
       const reviewInfo = await trackAnswer(
-        questionId,
+        conceptId,
+        phrasingId,
         selectedAnswer,
         isCorrect,
         timeSpent,
@@ -79,7 +83,7 @@ export function ReviewSession({
     // Since we're dealing with a single question, always complete
     const finalAnswers = [
       {
-        questionId,
+        questionId: questionId ?? phrasingId,
         userAnswer: selectedAnswer,
         isCorrect,
         timeTaken: Date.now() - questionStartTime,

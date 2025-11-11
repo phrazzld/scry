@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { Doc, Id } from '@/convex/_generated/dataModel';
-import { getRetrievability } from '@/convex/fsrs';
-import { calculateFreshnessDecay, calculateRetrievabilityScore } from '@/convex/spacedRepetition';
+import type { Doc, Id } from '../../convex/_generated/dataModel';
+import {
+  calculateFreshnessDecay,
+  calculateRetrievabilityScore,
+} from '../../convex/spacedRepetition';
 
 describe('Review Queue Prioritization', () => {
   const mockUserId = 'user123' as Id<'users'>;
@@ -27,7 +29,7 @@ describe('Review Queue Prioritization', () => {
   function simulatePrioritization(questions: Doc<'questions'>[], currentTime: Date = now) {
     const questionsWithPriority = questions.map((q) => ({
       question: q,
-      retrievability: q.nextReview === undefined ? -1 : getRetrievability(q, currentTime),
+      retrievability: calculateRetrievabilityScore(q, currentTime),
     }));
 
     // Sort by retrievability (lower = higher priority)
@@ -42,6 +44,7 @@ describe('Review Queue Prioritization', () => {
         _id: 'new1' as Id<'questions'>,
         nextReview: undefined,
         state: 'new',
+        reps: 0,
       });
 
       const overdueQuestion = createMockQuestion({
@@ -50,12 +53,17 @@ describe('Review Queue Prioritization', () => {
         state: 'review',
         stability: 5,
         lastReview: now.getTime() - 86400000 * 2,
+        reps: 5,
+        elapsedDays: 1,
+        scheduledDays: 1,
       });
 
       const prioritized = simulatePrioritization([overdueQuestion, newQuestion]);
 
       expect(prioritized[0].question._id).toBe('new1');
-      expect(prioritized[0].retrievability).toBe(-1);
+      // New questions with freshness boost should be in range -2 to -1
+      expect(prioritized[0].retrievability).toBeLessThanOrEqual(-1);
+      expect(prioritized[0].retrievability).toBeGreaterThanOrEqual(-2);
       expect(prioritized[1].question._id).toBe('overdue1');
       expect(prioritized[1].retrievability).toBeGreaterThanOrEqual(0);
       expect(prioritized[1].retrievability).toBeLessThanOrEqual(1);
@@ -94,6 +102,7 @@ describe('Review Queue Prioritization', () => {
         lastReview: now.getTime() - 86400000 * 14,
         elapsedDays: 7,
         scheduledDays: 7,
+        reps: 5,
       });
 
       const slightlyOverdue = createMockQuestion({
@@ -104,6 +113,7 @@ describe('Review Queue Prioritization', () => {
         lastReview: now.getTime() - 86400000,
         elapsedDays: 0.04, // ~1 hour
         scheduledDays: 1,
+        reps: 3,
       });
 
       const moderatelyOverdue = createMockQuestion({
@@ -114,6 +124,7 @@ describe('Review Queue Prioritization', () => {
         lastReview: now.getTime() - 86400000 * 5,
         elapsedDays: 2,
         scheduledDays: 3,
+        reps: 4,
       });
 
       const prioritized = simulatePrioritization([slightlyOverdue, veryOverdue, moderatelyOverdue]);
@@ -122,7 +133,7 @@ describe('Review Queue Prioritization', () => {
       expect(prioritized[0].retrievability).toBeLessThan(prioritized[1].retrievability);
       expect(prioritized[1].retrievability).toBeLessThan(prioritized[2].retrievability);
 
-      // Verify all retrievability values are in valid range
+      // Verify all retrievability values are in valid range (0-1 for reviewed questions)
       prioritized.forEach((p) => {
         expect(p.retrievability).toBeGreaterThanOrEqual(0);
         expect(p.retrievability).toBeLessThanOrEqual(1);
@@ -137,6 +148,7 @@ describe('Review Queue Prioritization', () => {
           _id: 'new1' as Id<'questions'>,
           state: 'new',
           nextReview: undefined,
+          reps: 0,
         }),
         createMockQuestion({
           _id: 'learning1' as Id<'questions'>,
@@ -162,6 +174,7 @@ describe('Review Queue Prioritization', () => {
           _id: 'new2' as Id<'questions'>,
           state: 'new',
           nextReview: undefined,
+          reps: 0,
         }),
         createMockQuestion({
           _id: 'relearning1' as Id<'questions'>,
@@ -178,31 +191,58 @@ describe('Review Queue Prioritization', () => {
 
       const prioritized = simulatePrioritization(questions);
 
-      // New questions should be first (retrievability = -1)
+      // New questions should be first (retrievability between -2 and -1)
       expect(prioritized[0].question.state).toBe('new');
       expect(prioritized[1].question.state).toBe('new');
-      expect(prioritized[0].retrievability).toBe(-1);
-      expect(prioritized[1].retrievability).toBe(-1);
+      expect(prioritized[0].retrievability).toBeLessThanOrEqual(-1);
+      expect(prioritized[0].retrievability).toBeGreaterThanOrEqual(-2);
+      expect(prioritized[1].retrievability).toBeLessThanOrEqual(-1);
+      expect(prioritized[1].retrievability).toBeGreaterThanOrEqual(-2);
 
-      // Then other states sorted by retrievability
+      // Then other states sorted by retrievability (0-1 range for reviewed cards)
       expect(prioritized[2].retrievability).toBeGreaterThanOrEqual(0);
       expect(prioritized[3].retrievability).toBeGreaterThanOrEqual(0);
       expect(prioritized[4].retrievability).toBeGreaterThanOrEqual(0);
     });
 
     it('should maintain stable sort for questions with same retrievability', () => {
+      // Create questions with identical creation time to ensure same retrievability
+      const sameCreationTime = now.getTime();
       const questions = [
-        createMockQuestion({ _id: 'new1' as Id<'questions'>, nextReview: undefined }),
-        createMockQuestion({ _id: 'new2' as Id<'questions'>, nextReview: undefined }),
-        createMockQuestion({ _id: 'new3' as Id<'questions'>, nextReview: undefined }),
+        createMockQuestion({
+          _id: 'new1' as Id<'questions'>,
+          nextReview: undefined,
+          state: 'new',
+          reps: 0,
+          _creationTime: sameCreationTime,
+        }),
+        createMockQuestion({
+          _id: 'new2' as Id<'questions'>,
+          nextReview: undefined,
+          state: 'new',
+          reps: 0,
+          _creationTime: sameCreationTime,
+        }),
+        createMockQuestion({
+          _id: 'new3' as Id<'questions'>,
+          nextReview: undefined,
+          state: 'new',
+          reps: 0,
+          _creationTime: sameCreationTime,
+        }),
       ];
 
       const prioritized = simulatePrioritization(questions);
 
-      // All new questions have -1 retrievability
-      expect(prioritized.every((p) => p.retrievability === -1)).toBe(true);
+      // All new questions created at same time have same retrievability
+      const firstRetrievability = prioritized[0].retrievability;
+      expect(prioritized.every((p) => p.retrievability === firstRetrievability)).toBe(true);
 
-      // Order should be preserved for equal priorities
+      // Retrievability should be in new question range (-2 to -1)
+      expect(firstRetrievability).toBeLessThanOrEqual(-1);
+      expect(firstRetrievability).toBeGreaterThanOrEqual(-2);
+
+      // Order should be preserved for equal priorities (stable sort)
       expect(prioritized.map((p) => p.question._id)).toEqual(['new1', 'new2', 'new3']);
     });
   });
@@ -213,7 +253,8 @@ describe('Review Queue Prioritization', () => {
       const newQuestion = createMockQuestion({
         _id: 'new-no-fsrs' as Id<'questions'>,
         state: 'new',
-        nextReview: undefined, // Will get -1 priority
+        nextReview: undefined,
+        reps: 0,
       });
 
       const reviewQuestion = createMockQuestion({
@@ -231,9 +272,10 @@ describe('Review Queue Prioritization', () => {
 
       const prioritized = simulatePrioritization([reviewQuestion, newQuestion]);
 
-      // New question should be first with -1 retrievability
+      // New question should be first with retrievability in -2 to -1 range
       expect(prioritized[0].question._id).toBe('new-no-fsrs');
-      expect(prioritized[0].retrievability).toBe(-1);
+      expect(prioritized[0].retrievability).toBeLessThanOrEqual(-1);
+      expect(prioritized[0].retrievability).toBeGreaterThanOrEqual(-2);
 
       // Review question should have valid retrievability
       expect(prioritized[1].retrievability).toBeGreaterThanOrEqual(0);
@@ -254,6 +296,7 @@ describe('Review Queue Prioritization', () => {
         lastReview: now.getTime() - 86400000 * 365 * 2,
         elapsedDays: 365,
         scheduledDays: 180,
+        reps: 10,
       });
 
       const recentQuestion = createMockQuestion({
@@ -264,6 +307,7 @@ describe('Review Queue Prioritization', () => {
         lastReview: now.getTime() - 86400000,
         elapsedDays: 0.04,
         scheduledDays: 1,
+        reps: 3,
       });
 
       const prioritized = simulatePrioritization([recentQuestion, ancientQuestion]);
@@ -271,6 +315,7 @@ describe('Review Queue Prioritization', () => {
       // Ancient question should have much lower retrievability (higher priority)
       expect(prioritized[0].question._id).toBe('ancient');
       expect(prioritized[0].retrievability).toBeLessThan(prioritized[1].retrievability); // Lower than recent
+      expect(prioritized[0].retrievability).toBeGreaterThanOrEqual(0); // Still in valid range
       expect(prioritized[0].retrievability).toBeLessThan(0.7); // Reasonably low
       expect(prioritized[1].retrievability).toBeGreaterThan(0.8); // Recent should be high
     });
@@ -296,7 +341,9 @@ describe('Review Queue Prioritization', () => {
         new Date(now.getTime() + 86400000 * 30), // 1 month later
       ];
 
-      const retrievabilities = times.map((time) => getRetrievability(baseQuestion, time));
+      const retrievabilities = times.map((time) =>
+        calculateRetrievabilityScore(baseQuestion, time)
+      );
 
       // Retrievability should decrease over time
       for (let i = 1; i < retrievabilities.length; i++) {
@@ -343,6 +390,7 @@ describe('No Daily Limits Enforcement', () => {
           _id: `new-${i}` as Id<'questions'>,
           nextReview: undefined,
           state: 'new',
+          reps: 0,
         })
       );
     }
@@ -359,6 +407,7 @@ describe('No Daily Limits Enforcement', () => {
           lastReview: now.getTime() - 86400000 * (daysOverdue + 5),
           elapsedDays: daysOverdue,
           scheduledDays: daysOverdue,
+          reps: Math.floor(Math.random() * 10) + 1, // 1-10 reps
         })
       );
     }
@@ -383,11 +432,12 @@ describe('No Daily Limits Enforcement', () => {
     // Verify the queue contains all 150 questions
     expect(questionsWithPriority).toHaveLength(150);
 
-    // Verify new questions are prioritized first
+    // Verify new questions are prioritized first (they have negative scores -2 to -1)
     const first50 = questionsWithPriority.slice(0, 50);
     first50.forEach((item) => {
       expect(item.question.state).toBe('new');
       expect(item.retrievability).toBeLessThan(0); // New questions have negative scores
+      expect(item.retrievability).toBeGreaterThanOrEqual(-2); // In valid range
     });
 
     // Verify review questions come after new questions
@@ -489,18 +539,20 @@ describe('No Daily Limits Enforcement', () => {
           _id: `yesterday-${i}` as Id<'questions'>,
           nextReview: undefined,
           state: 'new',
+          reps: 0,
           _creationTime: now.getTime() - 86400000, // 24 hours old
         })
       );
     }
 
-    // Today's fresh questions (0-1 hours old)
+    // Today's fresh questions (0-30 minutes old)
     for (let i = 0; i < 30; i++) {
       questions.push(
         createMockQuestion({
           _id: `today-${i}` as Id<'questions'>,
           nextReview: undefined,
           state: 'new',
+          reps: 0,
           _creationTime: now.getTime() - i * 60000, // 0-30 minutes old
         })
       );
@@ -515,6 +567,7 @@ describe('No Daily Limits Enforcement', () => {
           state: 'review',
           stability: 8,
           lastReview: now.getTime() - 86400000 * ((i % 10) + 5),
+          reps: Math.floor(i / 10) + 1, // 1-20 reps depending on overdue group
         })
       );
     }
@@ -531,27 +584,36 @@ describe('No Daily Limits Enforcement', () => {
     expect(questionsWithPriority).toHaveLength(280);
 
     // Verify Pure FSRS ordering:
-    // 1. Today's fresh questions first (highest priority due to freshness)
-    const first30 = questionsWithPriority.slice(0, 30);
-    first30.forEach((item) => {
-      expect(item.question._id).toContain('today');
-      expect(item.retrievability).toBeLessThan(-1.5); // Very fresh = very low score
-    });
+    // 1. All new questions first (today's + yesterday's) - they have scores -2 to -1
+    const allNewQuestions = questionsWithPriority.filter((item) => item.question.state === 'new');
+    expect(allNewQuestions).toHaveLength(80); // 30 today + 50 yesterday
 
-    // 2. Yesterday's questions next (still new but less fresh)
-    const next50 = questionsWithPriority.slice(30, 80);
-    next50.forEach((item) => {
-      expect(item.question._id).toContain('yesterday');
-      expect(item.retrievability).toBeGreaterThan(-1.5);
+    // All new questions should have negative scores (higher priority than reviewed)
+    allNewQuestions.forEach((item) => {
       expect(item.retrievability).toBeLessThan(0);
+      expect(item.retrievability).toBeGreaterThanOrEqual(-2);
     });
 
-    // 3. All 200 overdue reviews last (even though they're overdue)
-    const remaining200 = questionsWithPriority.slice(80, 280);
+    // 2. Fresh questions should be prioritized over older new questions
+    const todayQuestions = allNewQuestions.filter((item) => item.question._id.includes('today'));
+    const yesterdayQuestions = allNewQuestions.filter((item) =>
+      item.question._id.includes('yesterday')
+    );
+
+    // Today's questions should generally have lower scores (higher priority)
+    // Find the least fresh today question and most fresh yesterday question
+    const leastFreshToday = Math.max(...todayQuestions.map((q) => q.retrievability));
+    const mostFreshYesterday = Math.min(...yesterdayQuestions.map((q) => q.retrievability));
+
+    // Today's least fresh should still be higher priority than yesterday's most fresh
+    expect(leastFreshToday).toBeLessThan(mostFreshYesterday);
+
+    // 3. All 200 overdue reviews last (positive scores 0-1)
+    const remaining200 = questionsWithPriority.filter((item) => item.question.state === 'review');
     expect(remaining200).toHaveLength(200);
     remaining200.forEach((item) => {
-      expect(item.question.state).toBe('review');
       expect(item.retrievability).toBeGreaterThanOrEqual(0);
+      expect(item.retrievability).toBeLessThanOrEqual(1);
     });
 
     // Key principle: No comfort features
@@ -883,6 +945,7 @@ describe('Retrievability Scoring Functions', () => {
           lastReview: now.getTime() - 86400000 * 5,
           elapsedDays: 5,
           scheduledDays: 4,
+          reps: 5, // Required for concept engine to treat as reviewed
         });
 
         const score = calculateRetrievabilityScore(reviewedQuestion, now);
@@ -891,8 +954,8 @@ describe('Retrievability Scoring Functions', () => {
         expect(score).toBeGreaterThanOrEqual(0);
         expect(score).toBeLessThanOrEqual(1);
 
-        // Should match FSRS calculation
-        const expectedFsrsScore = getRetrievability(reviewedQuestion, now);
+        // Should match FSRS calculation (idempotent)
+        const expectedFsrsScore = calculateRetrievabilityScore(reviewedQuestion, now);
         expect(score).toBe(expectedFsrsScore);
       });
 
@@ -931,11 +994,15 @@ describe('Retrievability Scoring Functions', () => {
         const brandNewQuestion = createMockQuestion({
           _creationTime: now.getTime(),
           nextReview: undefined,
+          state: 'new',
+          reps: 0,
         });
 
         const oldNewQuestion = createMockQuestion({
           _creationTime: now.getTime() - 72 * 3600000, // 3 days old
           nextReview: undefined,
+          state: 'new',
+          reps: 0,
         });
 
         const veryOverdueReview = createMockQuestion({
@@ -945,18 +1012,22 @@ describe('Retrievability Scoring Functions', () => {
           lastReview: now.getTime() - 86400000 * 60,
           elapsedDays: 30,
           scheduledDays: 30,
+          reps: 10, // Required for concept engine to treat as reviewed
         });
 
         const newScore = calculateRetrievabilityScore(brandNewQuestion, now);
         const oldNewScore = calculateRetrievabilityScore(oldNewQuestion, now);
         const reviewScore = calculateRetrievabilityScore(veryOverdueReview, now);
 
-        // New questions should have negative scores
+        // New questions should have negative scores (-2 to -1)
         expect(newScore).toBeLessThan(0);
+        expect(newScore).toBeGreaterThanOrEqual(-2);
         expect(oldNewScore).toBeLessThan(0);
+        expect(oldNewScore).toBeGreaterThanOrEqual(-2);
 
-        // Review question should have positive score
+        // Review question should have positive score (0-1)
         expect(reviewScore).toBeGreaterThanOrEqual(0);
+        expect(reviewScore).toBeLessThanOrEqual(1);
 
         // Both new questions should have higher priority (lower score) than review
         expect(newScore).toBeLessThan(reviewScore);

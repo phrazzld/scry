@@ -28,7 +28,18 @@ import { useReviewFlow } from '@/hooks/use-review-flow';
  */
 export function ReviewFlow() {
   // Get review state and handlers from custom hook
-  const { phase, question, questionId, interactions, isTransitioning, handlers } = useReviewFlow();
+  const {
+    phase,
+    question,
+    conceptTitle,
+    conceptId,
+    phrasingId,
+    legacyQuestionId,
+    selectionReason,
+    interactions,
+    isTransitioning,
+    handlers,
+  } = useReviewFlow();
 
   // Use context for current question
   const { setCurrentQuestion } = useCurrentQuestion();
@@ -51,6 +62,14 @@ export function ReviewFlow() {
   const { trackAnswer } = useQuizInteractions();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const selectionBadge =
+    selectionReason === 'canonical'
+      ? 'Canonical phrasing'
+      : selectionReason === 'least-seen'
+        ? 'Least seen phrasing'
+        : selectionReason === 'random'
+          ? 'Randomized phrasing'
+          : null;
 
   // Query for current due count - reactive via Convex WebSockets
   const dueCountData = useQuery(api.spacedRepetition.getDueCount);
@@ -70,22 +89,21 @@ export function ReviewFlow() {
 
   // Update context when current question changes
   useEffect(() => {
-    if (question && questionId) {
-      // Convert SimpleQuestion to a partial Doc<"questions"> format
+    if (question && legacyQuestionId) {
       setCurrentQuestion({
         ...question,
-        _id: questionId,
+        _id: legacyQuestionId,
         type: question.type || 'multiple-choice',
       } as Doc<'questions'>);
     } else {
       setCurrentQuestion(undefined);
     }
-  }, [question, questionId, setCurrentQuestion]);
+  }, [question, legacyQuestionId, setCurrentQuestion]);
 
   // Reset state when question changes OR when transition completes
-  // This handles both normal question changes AND FSRS immediate re-review (same questionId)
+  // This handles both normal question changes AND FSRS immediate re-review (same phrasing)
   useEffect(() => {
-    if (questionId && !isTransitioning) {
+    if (phrasingId && !isTransitioning) {
       setSelectedAnswer('');
       setFeedbackState({
         showFeedback: false,
@@ -93,7 +111,7 @@ export function ReviewFlow() {
       });
       setQuestionStartTime(Date.now());
     }
-  }, [questionId, isTransitioning]);
+  }, [phrasingId, isTransitioning]);
 
   const handleAnswerSelect = useCallback(
     (answer: string) => {
@@ -104,14 +122,15 @@ export function ReviewFlow() {
   );
 
   const handleSubmit = useCallback(async () => {
-    if (!selectedAnswer || !question || !questionId) return;
+    if (!selectedAnswer || !question || !conceptId || !phrasingId) return;
 
     const isCorrect = selectedAnswer === question.correctAnswer;
 
     // Track interaction with FSRS scheduling (before showing feedback)
     const timeSpent = Date.now() - questionStartTime;
     const reviewInfo = await trackAnswer(
-      questionId,
+      conceptId,
+      phrasingId,
       selectedAnswer,
       isCorrect,
       timeSpent,
@@ -128,7 +147,7 @@ export function ReviewFlow() {
           }
         : null,
     });
-  }, [selectedAnswer, question, questionId, questionStartTime, trackAnswer, sessionId]);
+  }, [selectedAnswer, question, conceptId, phrasingId, questionStartTime, trackAnswer, sessionId]);
 
   const handleNext = useCallback(() => {
     // Tell the review flow we're done with this question
@@ -139,13 +158,13 @@ export function ReviewFlow() {
 
   // Edit handler
   const handleEdit = useCallback(() => {
-    if (!question || !questionId) return;
+    if (!question || !legacyQuestionId) return;
     setEditModalOpen(true);
-  }, [question, questionId]);
+  }, [question, legacyQuestionId]);
 
   // Delete handler with confirmation
   const handleDelete = useCallback(async () => {
-    if (!question || !questionId) return;
+    if (!question || !legacyQuestionId) return;
 
     const confirmed = await confirm({
       title: 'Delete this question?',
@@ -157,14 +176,14 @@ export function ReviewFlow() {
     });
 
     if (confirmed) {
-      const result = await optimisticDelete({ questionId });
+      const result = await optimisticDelete({ questionId: legacyQuestionId });
       if (result.success) {
         // Toast already shown by optimisticDelete hook
         // Move to next question after delete
         handlers.onReviewComplete();
       }
     }
-  }, [question, questionId, optimisticDelete, handlers, confirm]);
+  }, [question, legacyQuestionId, optimisticDelete, handlers, confirm]);
 
   // Handle save from edit modal - now supports all fields
   const handleSaveEdit = useCallback(
@@ -174,11 +193,11 @@ export function ReviewFlow() {
       correctAnswer: string;
       explanation: string;
     }) => {
-      if (!questionId) return;
+      if (!legacyQuestionId) return;
 
       // Pass all fields including options and correctAnswer
       const result = await optimisticEdit({
-        questionId,
+        questionId: legacyQuestionId,
         question: updates.question,
         explanation: updates.explanation,
         options: updates.options,
@@ -190,10 +209,12 @@ export function ReviewFlow() {
         toast.success('Question updated');
       }
     },
-    [questionId, optimisticEdit]
+    [legacyQuestionId, optimisticEdit]
   );
 
   // Wire up keyboard shortcuts
+  const canModifyLegacyQuestion = Boolean(legacyQuestionId);
+
   useReviewShortcuts({
     onSelectAnswer: !feedbackState.showFeedback
       ? (index: number) => {
@@ -204,8 +225,8 @@ export function ReviewFlow() {
       : undefined,
     onSubmit: !feedbackState.showFeedback && selectedAnswer ? handleSubmit : undefined,
     onNext: feedbackState.showFeedback && !isTransitioning ? handleNext : undefined,
-    onEdit: handleEdit,
-    onDelete: handleDelete,
+    onEdit: canModifyLegacyQuestion ? handleEdit : undefined,
+    onDelete: canModifyLegacyQuestion ? handleDelete : undefined,
     showingFeedback: feedbackState.showFeedback,
     canSubmit: !!selectedAnswer,
   });
@@ -229,9 +250,25 @@ export function ReviewFlow() {
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium tabular-nums">
                 <span className="text-foreground">{cachedDueCount}</span>
-                <span className="text-muted-foreground ml-1">cards due</span>
+                <span className="text-muted-foreground ml-1">concepts due</span>
               </span>
             </div>
+
+            {conceptTitle && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                  <span>Concept</span>
+                  {selectionBadge && (
+                    <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground/80">
+                      {selectionBadge}
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-2xl font-semibold text-foreground break-words">
+                  {conceptTitle}
+                </h1>
+              </div>
+            )}
 
             {/* Use memoized component for question display with error boundary */}
             <ReviewErrorBoundary
@@ -245,7 +282,7 @@ export function ReviewFlow() {
             >
               <ReviewQuestionDisplay
                 question={question}
-                questionId={questionId}
+                questionId={phrasingId ?? undefined}
                 selectedAnswer={selectedAnswer}
                 showFeedback={feedbackState.showFeedback}
                 onAnswerSelect={handleAnswerSelect}
@@ -254,28 +291,32 @@ export function ReviewFlow() {
 
             {/* Action buttons - positioned above feedback for layout stability */}
             <div className="flex items-center justify-between mt-6 mb-4">
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleEdit}
-                  className="text-muted-foreground hover:text-foreground"
-                  title="Edit question (E)"
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  className="text-muted-foreground hover:text-error"
-                  title="Delete question (D)"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              </div>
+              {canModifyLegacyQuestion ? (
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEdit}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Edit question (E)"
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDelete}
+                    className="text-muted-foreground hover:text-error"
+                    title="Delete question (D)"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              ) : (
+                <div />
+              )}
 
               {!feedbackState.showFeedback ? (
                 <Button onClick={handleSubmit} disabled={!selectedAnswer} size="lg">
@@ -352,13 +393,13 @@ export function ReviewFlow() {
           </article>
 
           {/* Edit Question Modal */}
-          {question && questionId && (
+          {question && legacyQuestionId && (
             <EditQuestionModal
               open={editModalOpen}
               onOpenChange={setEditModalOpen}
               question={
                 {
-                  _id: questionId,
+                  _id: legacyQuestionId,
                   _creationTime: Date.now(),
                   userId: '' as Doc<'questions'>['userId'], // Type assertion for missing field
                   question: question.question,

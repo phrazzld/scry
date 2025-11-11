@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Id } from '@/convex/_generated/dataModel';
+import type { Id } from '../../convex/_generated/dataModel';
+import { enforcePerUserLimit } from '../../convex/embeddings';
+import { chunkArray } from '../../convex/lib/chunkArray';
 
 /**
  * Tests for embeddings module helper functions
@@ -55,18 +57,6 @@ function mergeSearchResults(
 
   // Sort by score descending and take top N
   return merged.sort((a, b) => b._score - a._score).slice(0, limit);
-}
-
-/**
- * Helper to chunk array into batches
- * (Extracted from embeddings.ts for testing)
- */
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
 }
 
 /**
@@ -404,5 +394,42 @@ describe('Embeddings Module - chunkArray', () => {
       // Last chunk should be size 5
       expect(chunks[9].length).toBe(5);
     });
+  });
+});
+
+describe('Embeddings Module - enforcePerUserLimit', () => {
+  it('limits number of items per user', () => {
+    const items = [
+      { userId: 'user1' as Id<'users'>, value: 1 },
+      { userId: 'user1' as Id<'users'>, value: 2 },
+      { userId: 'user1' as Id<'users'>, value: 3 },
+      { userId: 'user2' as Id<'users'>, value: 4 },
+    ];
+
+    const limited = enforcePerUserLimit(items, 2);
+    expect(limited.length).toBe(3);
+    expect(limited.filter((item) => item.userId === ('user1' as Id<'users'>))).toHaveLength(2);
+    expect(limited.filter((item) => item.userId === ('user2' as Id<'users'>))).toHaveLength(1);
+  });
+
+  it('returns empty array when limit is zero', () => {
+    const items = [{ userId: 'user1' as Id<'users'>, value: 1 }];
+    const limited = enforcePerUserLimit(items, 0);
+    expect(limited).toEqual([]);
+  });
+
+  it('preserves item order', () => {
+    const items = [
+      { userId: 'user1' as Id<'users'>, value: 1 },
+      { userId: 'user2' as Id<'users'>, value: 2 },
+      { userId: 'user1' as Id<'users'>, value: 3 },
+      { userId: 'user2' as Id<'users'>, value: 4 },
+    ];
+
+    const limited = enforcePerUserLimit(items, 1);
+    expect(limited).toEqual([
+      { userId: 'user1' as Id<'users'>, value: 1 },
+      { userId: 'user2' as Id<'users'>, value: 2 },
+    ]);
   });
 });

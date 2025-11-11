@@ -23,7 +23,7 @@ type CardState = 'new' | 'learning' | 'review' | 'relearning';
  * Delta object for stat counter updates
  * Positive values = increment, negative values = decrement
  */
-interface StatDeltas {
+export interface StatDeltas {
   totalCards?: number;
   newCount?: number;
   learningCount?: number;

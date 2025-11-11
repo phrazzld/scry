@@ -35,11 +35,13 @@
  */
 
 import { v } from 'convex/values';
-import { Doc } from './_generated/dataModel';
+import type { Doc } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
+import type { MutationCtx } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
-import { calculateStateTransitionDelta, updateStatsCounters } from './lib/userStatsHelpers';
-import { getScheduler } from './scheduling';
+import { defaultEngine as conceptEngine, scheduleConceptReview } from './fsrs';
+import { calculateConceptStatsDelta, questionToConceptFsrsState } from './lib/conceptFsrsHelpers';
+import { updateStatsCounters } from './lib/userStatsHelpers';
 
 // Export for testing
 export { calculateFreshnessDecay, calculateRetrievabilityScore };
@@ -98,9 +100,64 @@ function calculateRetrievabilityScore(question: Doc<'questions'>, now: Date = ne
     return -1 - freshnessBoost;
   }
 
-  // Reviewed question - use scheduler interface for algorithm-agnostic retrievability
-  const scheduler = getScheduler();
-  return scheduler.getRetrievability(question, now);
+  // Reviewed question - reuse concept FSRS engine for consistent scoring
+  const state = questionToConceptFsrsState(question, now.getTime());
+  return conceptEngine.getRetrievability(state, now);
+}
+
+async function ensureConceptForQuestion(
+  ctx: MutationCtx,
+  question: Doc<'questions'>
+): Promise<Doc<'concepts'>> {
+  if (question.conceptId) {
+    const existing = await ctx.db.get(question.conceptId);
+    if (existing) {
+      return existing;
+    }
+  }
+
+  const now = Date.now();
+  const fsrsState = questionToConceptFsrsState(question, now);
+  const conceptId = await ctx.db.insert('concepts', {
+    userId: question.userId,
+    title: question.question.substring(0, 200),
+    description: question.explanation,
+    fsrs: fsrsState,
+    phrasingCount: 1,
+    conflictScore: undefined,
+    thinScore: undefined,
+    qualityScore: undefined,
+    embedding: question.embedding,
+    embeddingGeneratedAt: question.embeddingGeneratedAt,
+    createdAt: question.generatedAt ?? now,
+  });
+
+  await ctx.db.insert('phrasings', {
+    userId: question.userId,
+    conceptId,
+    question: question.question,
+    explanation: question.explanation,
+    type: question.type,
+    options: question.options,
+    correctAnswer: question.correctAnswer,
+    attemptCount: question.attemptCount,
+    correctCount: question.correctCount,
+    lastAttemptedAt: question.lastAttemptedAt,
+    createdAt: question.generatedAt ?? now,
+    updatedAt: undefined,
+    archivedAt: question.archivedAt,
+    deletedAt: question.deletedAt,
+    embedding: question.embedding,
+    embeddingGeneratedAt: question.embeddingGeneratedAt,
+  });
+
+  await ctx.db.patch(question._id, { conceptId });
+
+  const concept = await ctx.db.get(conceptId);
+  if (!concept) {
+    throw new Error('Failed to create concept for question');
+  }
+  return concept;
 }
 
 /**
@@ -132,161 +189,63 @@ export const scheduleReview = mutation({
     const user = await requireUserFromClerk(ctx);
     const userId = user._id;
 
-    // Verify user owns this question
     const question = await ctx.db.get(args.questionId);
     if (!question || question.userId !== userId) {
       throw new Error('Question not found or unauthorized');
     }
 
-    // Record interaction first
+    const nowMs = Date.now();
+    const now = new Date(nowMs);
+
     await ctx.db.insert('interactions', {
       userId,
       questionId: args.questionId,
       userAnswer: args.userAnswer,
       isCorrect: args.isCorrect,
-      attemptedAt: Date.now(),
+      attemptedAt: nowMs,
       timeSpent: args.timeSpent,
       context: args.sessionId ? { sessionId: args.sessionId } : undefined,
     });
 
-    // Update denormalized stats on question
     const updatedStats = {
       attemptCount: question.attemptCount + 1,
       correctCount: question.correctCount + (args.isCorrect ? 1 : 0),
-      lastAttemptedAt: Date.now(),
+      lastAttemptedAt: nowMs,
     };
 
-    // Calculate FSRS scheduling
-    const now = new Date();
+    await ctx.db.patch(args.questionId, updatedStats);
 
-    // If this is the first interaction and question has no FSRS state, initialize it
-    if (!question.state) {
-      const oldState = question.state; // undefined for new cards
-      const scheduler = getScheduler();
-      const initialDbFields = scheduler.initializeCard();
-
-      // Schedule the first review
-      const result = scheduler.scheduleNextReview(
-        { ...question, ...initialDbFields },
-        args.isCorrect,
-        now
-      );
-      const scheduledFields = result.dbFields;
-
-      // Update question with both stats and FSRS fields
-      await ctx.db.patch(args.questionId, {
-        ...updatedStats,
-        ...scheduledFields,
-      });
-
-      // Update userStats counters (incremental bandwidth optimization)
-      const newState = scheduledFields.state;
-      const deltas = calculateStateTransitionDelta(oldState, newState);
-
-      // Track time-based due count for badge reactivity
-      // New cards (undefined oldNextReview) are always considered "due"
-      const nowMs = Date.now();
-      const newNextReview = scheduledFields.nextReview;
-
-      if (newNextReview !== undefined) {
-        // First review: card transitions from "always due" to scheduled
-        const isDueNow = newNextReview <= nowMs;
-        if (!isDueNow) {
-          // Card scheduled in future, decrement due count
-          if (deltas) {
-            deltas.dueNowCount = (deltas.dueNowCount || 0) - 1;
-          } else {
-            // No state change, but still need to update dueNowCount
-            await updateStatsCounters(ctx, userId, { dueNowCount: -1 });
-            return {
-              success: true,
-              nextReview: scheduledFields.nextReview || null,
-              scheduledDays: scheduledFields.scheduledDays || 0,
-              newState: scheduledFields.state || 'new',
-            };
-          }
-        }
-        // If isDueNow is true (immediate re-review), dueNowCount stays same
-      }
-
-      if (deltas) {
-        await updateStatsCounters(ctx, userId, deltas);
-      }
-
-      return {
-        success: true,
-        nextReview: scheduledFields.nextReview || null,
-        scheduledDays: scheduledFields.scheduledDays || 0,
-        newState: scheduledFields.state || 'new',
-      };
+    const concept = await ensureConceptForQuestion(ctx, question);
+    if (concept.userId !== userId) {
+      throw new Error('Concept not found or unauthorized');
     }
 
-    // For subsequent reviews, use existing FSRS state
-    const oldState = question.state; // Capture state before scheduling
-    const scheduler = getScheduler();
-    const result = scheduler.scheduleNextReview(question, args.isCorrect, now);
-    const scheduledFields = result.dbFields;
+    const oldState = concept.fsrs.state ?? 'new';
+    const oldNextReview = concept.fsrs.nextReview;
+    const scheduleResult = scheduleConceptReview(concept, args.isCorrect, { now });
 
-    // Update question with both stats and FSRS fields
-    await ctx.db.patch(args.questionId, {
-      ...updatedStats,
-      ...scheduledFields,
+    await ctx.db.patch(concept._id, {
+      fsrs: scheduleResult.fsrs,
+      updatedAt: nowMs,
     });
 
-    // Update userStats counters (incremental bandwidth optimization)
-    const newState = scheduledFields.state || question.state;
-    const deltas = calculateStateTransitionDelta(oldState, newState);
+    const statsDelta = calculateConceptStatsDelta({
+      oldState,
+      newState: scheduleResult.state,
+      oldNextReview,
+      newNextReview: scheduleResult.nextReview,
+      nowMs,
+    });
 
-    // Track time-based due count for badge reactivity
-    // Detect when nextReview crosses the "due now" boundary
-    const oldNextReview = question.nextReview;
-    const newNextReview = scheduledFields.nextReview;
-    const nowMs = Date.now();
-
-    if (oldNextReview !== undefined && newNextReview !== undefined) {
-      const wasDue = oldNextReview <= nowMs;
-      const isDueNow = newNextReview <= nowMs;
-
-      if (wasDue && !isDueNow) {
-        // Card moved from due to not-due (answered correctly, scheduled future)
-        if (deltas) {
-          deltas.dueNowCount = (deltas.dueNowCount || 0) - 1;
-        } else {
-          // No state change, but still need to update dueNowCount
-          await updateStatsCounters(ctx, userId, { dueNowCount: -1 });
-          return {
-            success: true,
-            nextReview: scheduledFields.nextReview || null,
-            scheduledDays: scheduledFields.scheduledDays || 0,
-            newState: scheduledFields.state || question.state || 'new',
-          };
-        }
-      } else if (!wasDue && isDueNow) {
-        // Card moved from not-due to due (rare: manual reschedule or immediate lapse)
-        if (deltas) {
-          deltas.dueNowCount = (deltas.dueNowCount || 0) + 1;
-        } else {
-          await updateStatsCounters(ctx, userId, { dueNowCount: 1 });
-          return {
-            success: true,
-            nextReview: scheduledFields.nextReview || null,
-            scheduledDays: scheduledFields.scheduledDays || 0,
-            newState: scheduledFields.state || question.state || 'new',
-          };
-        }
-      }
-      // If both wasDue and isDue are same, dueNowCount doesn't change
-    }
-
-    if (deltas) {
-      await updateStatsCounters(ctx, userId, deltas);
+    if (statsDelta) {
+      await updateStatsCounters(ctx, userId, statsDelta);
     }
 
     return {
       success: true,
-      nextReview: scheduledFields.nextReview || null,
-      scheduledDays: scheduledFields.scheduledDays || 0,
-      newState: scheduledFields.state || question.state || 'new',
+      nextReview: scheduleResult.nextReview || null,
+      scheduledDays: scheduleResult.scheduledDays || 0,
+      newState: scheduleResult.state,
     };
   },
 });

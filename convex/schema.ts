@@ -63,6 +63,9 @@ export default defineSchema({
     // Archive and generation tracking
     archivedAt: v.optional(v.number()), // For pausing questions without deleting
     generationJobId: v.optional(v.id('generationJobs')), // Link to source generation job
+    // Concepts & Phrasings migration (Phase 1: Add optional field)
+    // Will be backfilled via migration, then enforced in Phase 3
+    conceptId: v.optional(v.id('concepts')), // Link to parent concept (added in v2.3.0)
     // Vector embeddings for semantic search
     embedding: v.optional(v.array(v.float64())), // 768-dimensional vector from text-embedding-004
     embeddingGeneratedAt: v.optional(v.number()), // Timestamp when embedding was generated
@@ -70,6 +73,7 @@ export default defineSchema({
     .index('by_user', ['userId', 'generatedAt'])
     .index('by_user_unattempted', ['userId', 'attemptCount'])
     .index('by_user_next_review', ['userId', 'nextReview'])
+    .index('by_concept', ['conceptId'])
     // Compound indexes for efficient filtering (eliminates client-side .filter())
     // Enables DB-level filtering for active/archived/deleted views at scale (10k+ cards)
     .index('by_user_active', ['userId', 'deletedAt', 'archivedAt', 'generatedAt'])
@@ -89,7 +93,9 @@ export default defineSchema({
 
   interactions: defineTable({
     userId: v.id('users'),
-    questionId: v.id('questions'),
+    questionId: v.optional(v.id('questions')),
+    conceptId: v.optional(v.id('concepts')),
+    phrasingId: v.optional(v.id('phrasings')),
     userAnswer: v.string(),
     isCorrect: v.boolean(),
     attemptedAt: v.number(),
@@ -105,7 +111,9 @@ export default defineSchema({
     .index('by_user', ['userId', 'attemptedAt'])
     .index('by_user_session', ['userId', 'sessionId', 'attemptedAt'])
     .index('by_question', ['questionId', 'attemptedAt'])
-    .index('by_user_question', ['userId', 'questionId']),
+    .index('by_user_question', ['userId', 'questionId'])
+    .index('by_user_concept', ['userId', 'conceptId', 'attemptedAt'])
+    .index('by_concept', ['conceptId', 'attemptedAt']),
 
   /**
    * @deprecated This table is deprecated and should not be used.
@@ -197,7 +205,13 @@ export default defineSchema({
     ),
 
     // Progress (flat fields, no nesting)
-    phase: v.union(v.literal('clarifying'), v.literal('generating'), v.literal('finalizing')),
+    phase: v.union(
+      v.literal('clarifying'),
+      v.literal('concept_synthesis'),
+      v.literal('generating'),
+      v.literal('phrasing_generation'),
+      v.literal('finalizing')
+    ),
     questionsGenerated: v.number(), // Total AI generated
     questionsSaved: v.number(), // Successfully saved to DB
     estimatedTotal: v.optional(v.number()), // AI's estimate
@@ -207,6 +221,8 @@ export default defineSchema({
     // Removed from questions table (PR #44) but still used here for job classification
     topic: v.optional(v.string()), // Extracted topic
     questionIds: v.array(v.id('questions')), // All saved questions
+    conceptIds: v.optional(v.array(v.id('concepts'))), // Concepts generated in Stage A (optional for backward compat)
+    pendingConceptIds: v.optional(v.array(v.id('concepts'))), // Concepts remaining for Stage B (optional for backward compat)
     durationMs: v.optional(v.number()), // Total generation time
 
     // Error handling (flat fields)
@@ -224,4 +240,150 @@ export default defineSchema({
   })
     .index('by_user_status', ['userId', 'status', 'createdAt'])
     .index('by_status_created', ['status', 'createdAt']),
+
+  // ============================================================================
+  // Concepts & Phrasings Architecture (v2.3.0)
+  // ============================================================================
+  // New table architecture supporting atomic knowledge concepts with multiple
+  // phrasing variations. FSRS scheduling moves to concept-level to eliminate
+  // duplicate scheduling pressure from near-identical questions.
+  //
+  // Migration Path (3-phase):
+  // - Phase 1: Add tables + optional conceptId to questions (this deployment)
+  // - Phase 2: Run backfill migration (1 concept per existing question)
+  // - Phase 3: Enforce conceptId requirement, deprecate question-level FSRS
+
+  // Concepts: Atomic units of knowledge with concept-level FSRS scheduling
+  concepts: defineTable({
+    userId: v.id('users'),
+    title: v.string(), // Concise, user-facing concept name
+    description: v.optional(v.string()), // Optional detailed explanation
+
+    // FSRS state (single source of truth for scheduling)
+    fsrs: v.object({
+      stability: v.number(),
+      difficulty: v.number(),
+      lastReview: v.optional(v.number()),
+      nextReview: v.number(),
+      elapsedDays: v.optional(v.number()),
+      retrievability: v.optional(v.number()),
+      scheduledDays: v.optional(v.number()),
+      reps: v.optional(v.number()),
+      lapses: v.optional(v.number()),
+      state: v.optional(
+        v.union(
+          v.literal('new'),
+          v.literal('learning'),
+          v.literal('review'),
+          v.literal('relearning')
+        )
+      ),
+    }),
+    canonicalPhrasingId: v.optional(v.id('phrasings')),
+
+    // IQC (Intelligent Quality Control) signals
+    phrasingCount: v.number(), // Number of phrasings for this concept
+    conflictScore: v.optional(v.number()), // Heuristic for "overloaded" concepts
+    thinScore: v.optional(v.number()), // Heuristic for "needs more phrasings"
+    qualityScore: v.optional(v.number()), // Overall quality signal
+
+    // Vector embeddings for semantic search and clustering
+    embedding: v.optional(v.array(v.float64())), // 768-dim from text-embedding-004
+    embeddingGeneratedAt: v.optional(v.number()),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    generationJobId: v.optional(v.id('generationJobs')),
+  })
+    .index('by_user', ['userId', 'createdAt'])
+    .index('by_user_next_review', ['userId', 'fsrs.nextReview'])
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
+      dimensions: 768,
+      filterFields: ['userId'],
+    })
+    .searchIndex('search_concepts', {
+      searchField: 'title',
+      filterFields: ['userId'],
+    }),
+
+  // Phrasings: Different ways to test the same concept
+  phrasings: defineTable({
+    userId: v.id('users'),
+    conceptId: v.id('concepts'),
+
+    // Question content (preserves compatibility with existing question schema)
+    question: v.string(),
+    explanation: v.optional(v.string()),
+    type: v.optional(
+      v.union(
+        v.literal('multiple-choice'),
+        v.literal('true-false'),
+        v.literal('cloze'),
+        v.literal('short-answer') // Scaffold for future free-response
+      )
+    ),
+    options: v.optional(v.array(v.string())), // For MCQ
+    correctAnswer: v.optional(v.string()),
+
+    // Local attempt statistics (analytics only, not scheduling)
+    attemptCount: v.optional(v.number()),
+    correctCount: v.optional(v.number()),
+    lastAttemptedAt: v.optional(v.number()),
+
+    // Soft delete and update tracking
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
+
+    // Vector embeddings per phrasing (for similarity detection)
+    embedding: v.optional(v.array(v.float64())),
+    embeddingGeneratedAt: v.optional(v.number()),
+  })
+    .index('by_user_concept', ['userId', 'conceptId', 'createdAt'])
+    .index('by_user_active', ['userId', 'deletedAt', 'archivedAt', 'createdAt'])
+    .searchIndex('search_phrasings', {
+      searchField: 'question',
+      filterFields: ['userId', 'deletedAt', 'archivedAt'],
+    })
+    .vectorIndex('by_embedding', {
+      vectorField: 'embedding',
+      dimensions: 768,
+      filterFields: ['userId', 'deletedAt', 'archivedAt'],
+    }),
+
+  // Reclustering Jobs: Track IQC background processing
+  reclusterJobs: defineTable({
+    userId: v.id('users'),
+    status: v.union(
+      v.literal('queued'),
+      v.literal('running'),
+      v.literal('done'),
+      v.literal('failed')
+    ),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+    stats: v.optional(v.any()), // Job statistics (concepts processed, proposals created, etc.)
+  }).index('by_user_status', ['userId', 'status', 'createdAt']),
+
+  // Action Cards: IQC proposals for user review
+  actionCards: defineTable({
+    userId: v.id('users'),
+    kind: v.union(
+      v.literal('MERGE_CONCEPTS'), // Duplicate concepts detected
+      v.literal('SPLIT_CONCEPT'), // Overloaded concept detected
+      v.literal('ASSIGN_ORPHANS'), // Orphaned phrasings need concept
+      v.literal('FILL_OUT_CONCEPT'), // Thin concept needs more phrasings
+      v.literal('RENAME_CONCEPT') // Ambiguous concept title
+    ),
+    payload: v.any(), // Concrete proposal (concept IDs, reason strings, preview diffs)
+
+    // Lifecycle
+    createdAt: v.number(),
+    expiresAt: v.optional(v.number()), // Auto-expire stale proposals
+    resolvedAt: v.optional(v.number()), // When user accepted/rejected
+    resolution: v.optional(v.union(v.literal('accepted'), v.literal('rejected'))),
+  }).index('by_user_open', ['userId', 'resolvedAt', 'createdAt']),
 });

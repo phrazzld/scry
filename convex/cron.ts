@@ -1,5 +1,4 @@
 import { cronJobs } from 'convex/server';
-
 import { internal } from './_generated/api';
 
 const crons = cronJobs();
@@ -47,6 +46,17 @@ crons.daily(
     minuteUTC: 30, // 30 minutes after job cleanup, 15 minutes after stats reconciliation
   },
   internal.embeddings.syncMissingEmbeddings
+);
+
+// Schedule IQC candidate scan to run daily at 4:00 AM UTC
+// Finds near-duplicate concepts and enqueues MERGE action cards
+crons.daily(
+  'scanForIqcCandidates',
+  {
+    hourUTC: 4,
+    minuteUTC: 0,
+  },
+  internal.iqc.scanAndPropose
 );
 
 export default crons;

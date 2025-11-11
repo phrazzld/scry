@@ -23,4 +23,4 @@
  * - Deploy backend first, then frontend (atomic deployment)
  */
 
-export const SCHEMA_VERSION = '2.2.0';
+export const SCHEMA_VERSION = '2.7.0';

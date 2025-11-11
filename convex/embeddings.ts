@@ -19,15 +19,69 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { embed } from 'ai';
 import { v } from 'convex/values';
-import pino from 'pino';
-
 import { internal } from './_generated/api';
-import { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { action, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { chunkArray } from './lib/chunkArray';
+import {
+  createConceptsLogger,
+  generateCorrelationId,
+  logConceptEvent,
+  type LogContext,
+} from './lib/logger';
 
 // Logger for this module
-const logger = pino({ name: 'embeddings' });
+const conceptsLogger = createConceptsLogger({
+  module: 'embeddings',
+});
+
+const logger = {
+  info(context: LogContext = {}, message = '') {
+    conceptsLogger.info(message, context);
+  },
+  warn(context: LogContext = {}, message = '') {
+    conceptsLogger.warn(message, context);
+  },
+  error(context: LogContext = {}, message = '') {
+    conceptsLogger.error(message, context);
+  },
+};
+
+const EMBEDDING_SYNC_CONFIG = {
+  ttlMs: 1000 * 60 * 60 * 6, // 6 hours
+  perUserLimit: 20,
+  questionLimit: 60,
+  conceptLimit: 40,
+  phrasingLimit: 80,
+  batchSize: 10,
+  batchDelayMs: 1000,
+} as const;
+
+export function enforcePerUserLimit<T extends { userId: Id<'users'> }>(
+  items: T[],
+  perUserLimit: number
+): T[] {
+  if (perUserLimit <= 0) {
+    return [];
+  }
+
+  const counts = new Map<string, number>();
+  const limited: T[] = [];
+
+  for (const item of items) {
+    const key = item.userId.toString();
+    const current = counts.get(key) ?? 0;
+    if (current >= perUserLimit) {
+      continue;
+    }
+
+    counts.set(key, current + 1);
+    limited.push(item);
+  }
+
+  return limited;
+}
 
 /**
  * Secret diagnostics helper (reused pattern from aiGeneration.ts)
@@ -425,9 +479,11 @@ function mergeSearchResults(
 export const getQuestionsWithoutEmbeddings = internalQuery({
   args: {
     limit: v.optional(v.number()),
+    cutoff: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 100;
+    const cutoff = args.cutoff ?? Date.now();
 
     // Query questions where embedding is undefined
     // Only active questions (not deleted or archived) to avoid wasting API calls
@@ -436,9 +492,9 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
       .withIndex('by_user_active')
       .filter((q) =>
         q.and(
-          q.eq(q.field('embedding'), undefined),
           q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
+          q.eq(q.field('archivedAt'), undefined),
+          q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
         )
       )
       .take(limit);
@@ -455,20 +511,21 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
  * @returns Count of questions missing embeddings
  */
 export const countQuestionsWithoutEmbeddings = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    // Use take with a reasonable limit for counting (avoid unbounded queries)
-    // If count exceeds limit, return "limit+" to indicate "at least this many"
+  args: {
+    cutoff: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const SAMPLE_LIMIT = 1000;
+    const cutoff = args.cutoff ?? Date.now();
 
     const questions = await ctx.db
       .query('questions')
       .withIndex('by_user_active')
       .filter((q) =>
         q.and(
-          q.eq(q.field('embedding'), undefined),
           q.eq(q.field('deletedAt'), undefined),
-          q.eq(q.field('archivedAt'), undefined)
+          q.eq(q.field('archivedAt'), undefined),
+          q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
         )
       )
       .take(SAMPLE_LIMIT);
@@ -498,6 +555,98 @@ export const getQuestionForEmbedding = internalQuery({
   },
 });
 
+export const getConceptsWithoutEmbeddings = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+    cutoff: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 50;
+    const cutoff = args.cutoff ?? Date.now();
+
+    const concepts = await ctx.db
+      .query('concepts')
+      .filter((q) =>
+        q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
+      )
+      .take(limit * 3);
+
+    return concepts.slice(0, limit);
+  },
+});
+
+export const countConceptsWithoutEmbeddings = internalQuery({
+  args: {
+    cutoff: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const SAMPLE_LIMIT = 1000;
+    const cutoff = args.cutoff ?? Date.now();
+
+    const concepts = await ctx.db
+      .query('concepts')
+      .filter((q) =>
+        q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
+      )
+      .take(SAMPLE_LIMIT);
+
+    return {
+      count: concepts.length,
+      isApproximate: concepts.length === SAMPLE_LIMIT,
+    };
+  },
+});
+
+export const getPhrasingsWithoutEmbeddings = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+    cutoff: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 80;
+    const cutoff = args.cutoff ?? Date.now();
+
+    const phrasings = await ctx.db
+      .query('phrasings')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined),
+          q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
+        )
+      )
+      .take(limit);
+
+    return phrasings;
+  },
+});
+
+export const countPhrasingsWithoutEmbeddings = internalQuery({
+  args: {
+    cutoff: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const SAMPLE_LIMIT = 1000;
+    const cutoff = args.cutoff ?? Date.now();
+
+    const phrasings = await ctx.db
+      .query('phrasings')
+      .filter((q) =>
+        q.and(
+          q.eq(q.field('deletedAt'), undefined),
+          q.eq(q.field('archivedAt'), undefined),
+          q.or(q.eq(q.field('embedding'), undefined), q.lt(q.field('embeddingGeneratedAt'), cutoff))
+        )
+      )
+      .take(SAMPLE_LIMIT);
+
+    return {
+      count: phrasings.length,
+      isApproximate: phrasings.length === SAMPLE_LIMIT,
+    };
+  },
+});
+
 /**
  * Save embedding to a question
  *
@@ -521,6 +670,34 @@ export const saveEmbedding = internalMutation({
   },
 });
 
+export const saveConceptEmbedding = internalMutation({
+  args: {
+    conceptId: v.id('concepts'),
+    embedding: v.array(v.float64()),
+    embeddingGeneratedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.conceptId, {
+      embedding: args.embedding,
+      embeddingGeneratedAt: args.embeddingGeneratedAt,
+    });
+  },
+});
+
+export const savePhrasingEmbedding = internalMutation({
+  args: {
+    phrasingId: v.id('phrasings'),
+    embedding: v.array(v.float64()),
+    embeddingGeneratedAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.phrasingId, {
+      embedding: args.embedding,
+      embeddingGeneratedAt: args.embeddingGeneratedAt,
+    });
+  },
+});
+
 /**
  * Sync missing embeddings (daily cron)
  *
@@ -533,117 +710,189 @@ export const syncMissingEmbeddings = internalAction({
   args: {},
   handler: async (ctx) => {
     const startTime = Date.now();
+    const cutoff = Date.now() - EMBEDDING_SYNC_CONFIG.ttlMs;
+    const correlationId = generateCorrelationId('embeddings-sync');
+    const syncMetadata = {
+      phase: 'embeddings_sync' as const,
+      correlationId,
+    };
 
-    // Fetch questions without embeddings
-    const questions = await ctx.runQuery(internal.embeddings.getQuestionsWithoutEmbeddings, {
-      limit: 100,
-    });
+    const [questions, concepts, phrasings] = await Promise.all([
+      ctx.runQuery(internal.embeddings.getQuestionsWithoutEmbeddings, {
+        limit: EMBEDDING_SYNC_CONFIG.questionLimit,
+        cutoff,
+      }),
+      ctx.runQuery(internal.embeddings.getConceptsWithoutEmbeddings, {
+        limit: EMBEDDING_SYNC_CONFIG.conceptLimit,
+        cutoff,
+      }),
+      ctx.runQuery(internal.embeddings.getPhrasingsWithoutEmbeddings, {
+        limit: EMBEDDING_SYNC_CONFIG.phrasingLimit,
+        cutoff,
+      }),
+    ]);
 
-    // Type the questions array (from the internal query return type)
-    type Question = (typeof questions)[number];
+    const limitedQuestions: Doc<'questions'>[] = enforcePerUserLimit<Doc<'questions'>>(
+      questions,
+      EMBEDDING_SYNC_CONFIG.perUserLimit
+    );
+    const limitedConcepts: Doc<'concepts'>[] = enforcePerUserLimit<Doc<'concepts'>>(
+      concepts,
+      EMBEDDING_SYNC_CONFIG.perUserLimit
+    );
+    const limitedPhrasings: Doc<'phrasings'>[] = enforcePerUserLimit<Doc<'phrasings'>>(
+      phrasings,
+      EMBEDDING_SYNC_CONFIG.perUserLimit
+    );
 
-    if (questions.length === 0) {
-      logger.info(
-        {
-          event: 'embeddings.sync.complete',
-          count: 0,
-          duration: Date.now() - startTime,
-        },
-        'No questions need embeddings'
-      );
+    const totalCandidates =
+      limitedQuestions.length + limitedConcepts.length + limitedPhrasings.length;
+
+    if (totalCandidates === 0) {
+      logConceptEvent(conceptsLogger, 'info', 'Embedding sync no-op', {
+        ...syncMetadata,
+        event: 'noop',
+        questionCandidates: questions.length,
+        conceptCandidates: concepts.length,
+        phrasingCandidates: phrasings.length,
+        duration: Date.now() - startTime,
+      });
       return;
     }
 
-    logger.info(
-      {
-        event: 'embeddings.sync.start',
-        count: questions.length,
-      },
-      `Starting embedding sync for ${questions.length} questions`
-    );
+    logConceptEvent(conceptsLogger, 'info', 'Embedding sync started', {
+      ...syncMetadata,
+      event: 'start',
+      questionCandidates: limitedQuestions.length,
+      conceptCandidates: limitedConcepts.length,
+      phrasingCandidates: limitedPhrasings.length,
+      cutoff,
+    });
 
-    // Process in batches of 10 for rate limit protection
-    const BATCH_SIZE = 10;
-    const batches = chunkArray(questions, BATCH_SIZE);
+    type QuestionDoc = (typeof limitedQuestions)[number];
+    type ConceptDoc = (typeof limitedConcepts)[number];
+    type PhrasingDoc = (typeof limitedPhrasings)[number];
 
-    let successCount = 0;
-    let failureCount = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const processItems = async <T extends { _id: Id<any>; userId: Id<'users'> }>(
+      label: string,
+      items: T[],
+      getText: (item: T) => string | null,
+      save: (item: T, embedding: number[], timestamp: number) => Promise<void>
+    ) => {
+      if (items.length === 0) {
+        return { success: 0, failure: 0 };
+      }
 
-    for (let i = 0; i < batches.length; i += 1) {
-      const batch = batches[i];
+      const batches = chunkArray(items, EMBEDDING_SYNC_CONFIG.batchSize);
+      let success = 0;
+      let failure = 0;
 
-      // Process batch in parallel using Promise.allSettled
-      const results = await Promise.allSettled(
-        batch.map(async (question: Question) => {
-          // Combine question + explanation for embedding
-          const text = `${question.question} ${question.explanation || ''}`;
+      for (let i = 0; i < batches.length; i += 1) {
+        const batch = batches[i];
+        const results = await Promise.allSettled(
+          batch.map(async (item) => {
+            const text = getText(item);
+            if (!text || text.trim().length === 0) {
+              throw new Error('EMPTY_EMBEDDING_TEXT');
+            }
 
-          // Generate embedding
-          const embedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
-            text,
-          });
+            const embedding = await ctx.runAction(internal.embeddings.generateEmbedding, {
+              text,
+            });
 
-          // Save to database
-          await ctx.runMutation(internal.embeddings.saveEmbedding, {
-            questionId: question._id,
-            embedding,
-            embeddingGeneratedAt: Date.now(),
-          });
+            await save(item, embedding, Date.now());
+          })
+        );
 
-          return question._id;
-        })
-      );
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            success += 1;
+          } else {
+            failure += 1;
+            const current = batch[index];
+            logger.warn(
+              {
+                event: 'embeddings.sync.item-failure',
+                label,
+                id: current._id,
+                userId: current.userId,
+                reason:
+                  result.reason instanceof Error ? result.reason.message : String(result.reason),
+              },
+              `Failed to sync embedding for ${label.slice(0, -1)}`
+            );
+          }
+        });
 
-      // Count successes and failures
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          successCount += 1;
-        } else {
-          failureCount += 1;
-          logger.error(
-            {
-              event: 'embeddings.sync.batch-failure',
-              error: result.reason,
-              batch: i + 1,
-            },
-            'Failed to generate embedding in batch'
-          );
+        if (i < batches.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, EMBEDDING_SYNC_CONFIG.batchDelayMs));
         }
       }
 
-      // Rate limit protection: Sleep 1 second between batches (except last)
-      if (i < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    }
+      return { success, failure };
+    };
+
+    const questionStats = await processItems<QuestionDoc>(
+      'questions',
+      limitedQuestions,
+      (question) => `${question.question}\n\n${question.explanation ?? ''}`.trim(),
+      (question, embedding, timestamp) =>
+        ctx.runMutation(internal.embeddings.saveEmbedding, {
+          questionId: question._id,
+          embedding,
+          embeddingGeneratedAt: timestamp,
+        })
+    );
+
+    const conceptStats = await processItems<ConceptDoc>(
+      'concepts',
+      limitedConcepts,
+      (concept) => `${concept.title}\n\n${concept.description ?? ''}`.trim(),
+      (concept, embedding, timestamp) =>
+        ctx.runMutation(internal.embeddings.saveConceptEmbedding, {
+          conceptId: concept._id,
+          embedding,
+          embeddingGeneratedAt: timestamp,
+        })
+    );
+
+    const phrasingStats = await processItems<PhrasingDoc>(
+      'phrasings',
+      limitedPhrasings,
+      (phrasing) => `${phrasing.question}\n\n${phrasing.explanation ?? ''}`.trim(),
+      (phrasing, embedding, timestamp) =>
+        ctx.runMutation(internal.embeddings.savePhrasingEmbedding, {
+          phrasingId: phrasing._id,
+          embedding,
+          embeddingGeneratedAt: timestamp,
+        })
+    );
 
     const duration = Date.now() - startTime;
 
-    // Get remaining count for logging
-    const remaining = await ctx.runQuery(internal.embeddings.countQuestionsWithoutEmbeddings);
+    const [remainingQuestions, remainingConcepts, remainingPhrasings] = await Promise.all([
+      ctx.runQuery(internal.embeddings.countQuestionsWithoutEmbeddings, { cutoff }),
+      ctx.runQuery(internal.embeddings.countConceptsWithoutEmbeddings, { cutoff }),
+      ctx.runQuery(internal.embeddings.countPhrasingsWithoutEmbeddings, { cutoff }),
+    ]);
 
-    logger.info(
-      {
-        event: 'embeddings.sync.complete',
-        successCount,
-        failureCount,
-        totalProcessed: successCount + failureCount,
-        duration,
-        remainingCount: remaining.count,
-        remainingIsApproximate: remaining.isApproximate,
-      },
-      `Embedding sync complete: ${successCount} success, ${failureCount} failed, ${remaining.count} remaining`
-    );
+    logConceptEvent(conceptsLogger, 'info', 'Embedding sync completed', {
+      ...syncMetadata,
+      event: 'completed',
+      questionProcessed: questionStats.success,
+      questionFailed: questionStats.failure,
+      conceptProcessed: conceptStats.success,
+      conceptFailed: conceptStats.failure,
+      phrasingProcessed: phrasingStats.success,
+      phrasingFailed: phrasingStats.failure,
+      duration,
+      remainingQuestions: remainingQuestions.count,
+      remainingConcepts: remainingConcepts.count,
+      remainingPhrasings: remainingPhrasings.count,
+      remainingQuestionsApprox: remainingQuestions.isApproximate,
+      remainingConceptsApprox: remainingConcepts.isApproximate,
+      remainingPhrasingsApprox: remainingPhrasings.isApproximate,
+    });
   },
 });
-
-/**
- * Helper to chunk array into batches
- */
-function chunkArray<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
-}

@@ -9,8 +9,14 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface LogContext {
   event?: string;
+  context?: string;
+  correlationId?: string;
+  domains?: string[];
+  deployment?: string;
   [key: string]: unknown;
 }
+
+const DEFAULT_DEPLOYMENT = process.env.CONVEX_CLOUD_URL ?? 'unknown';
 
 /**
  * Determines if logging should be enabled based on environment
@@ -100,4 +106,60 @@ export function createLogger(defaultContext: Partial<LogContext>) {
     error: (message: string, error?: Error | unknown, context?: LogContext) =>
       logger.error(message, error, { ...defaultContext, ...context }),
   };
+}
+
+const BASE_CONCEPTS_CONTEXT: LogContext = {
+  context: 'concepts',
+  domains: ['concepts', 'ai', 'database'],
+  deployment: DEFAULT_DEPLOYMENT,
+};
+
+export function createConceptsLogger(defaultContext: Partial<LogContext> = {}) {
+  return createLogger({
+    ...BASE_CONCEPTS_CONTEXT,
+    ...defaultContext,
+  });
+}
+
+type ConceptLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export type ConceptLogPhase =
+  | 'stage_a'
+  | 'stage_b'
+  | 'iqc_scan'
+  | 'iqc_apply'
+  | 'embeddings_sync'
+  | 'migration';
+
+export type ConceptLogMetadata = LogContext & {
+  phase: ConceptLogPhase;
+  event: string;
+  correlationId: string;
+  conceptIds?: string[];
+  actionCardId?: string;
+};
+
+type ConceptsLoggerInstance = ReturnType<typeof createConceptsLogger>;
+
+export type ConceptsLogger = Pick<ConceptsLoggerInstance, ConceptLogLevel>;
+
+export function logConceptEvent(
+  structuredLogger: ConceptsLogger,
+  level: ConceptLogLevel,
+  message: string,
+  metadata: ConceptLogMetadata
+) {
+  const eventName = metadata.event.startsWith('concepts.')
+    ? metadata.event
+    : `concepts.${metadata.phase}.${metadata.event}`;
+
+  structuredLogger[level](message, {
+    ...metadata,
+    event: eventName,
+  });
+}
+
+export function generateCorrelationId(prefix = 'concepts'): string {
+  const randomSegment = Math.random().toString(36).slice(2, 8);
+  return `${prefix}-${Date.now().toString(36)}-${randomSegment}`;
 }
