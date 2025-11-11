@@ -172,7 +172,7 @@ else
   echo -e "${YELLOW}⚠${NC}  by_question index not found in questionEmbeddings"
 fi
 
-if echo "$EMBEDDINGS_TABLE" | grep -q "by_embedding"; then
+if echo "$EMBEDDINGS_TABLE" | grep -q "vectorIndex('by_embedding'"; then
   echo -e "${GREEN}✓${NC} by_embedding vector index defined in questionEmbeddings"
 else
   echo -e "${YELLOW}⚠${NC}  by_embedding vector index not found in questionEmbeddings"

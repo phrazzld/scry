@@ -137,33 +137,27 @@ export async function upsertEmbeddingForQuestion(
     throw new Error(`Invalid embedding dimensions: expected 768, got ${embedding.length}`);
   }
 
-  // Check if embedding already exists
+  // Use provided timestamp or default to current time
+  const timestamp = embeddingGeneratedAt ?? Date.now();
+
+  // Atomic operation: delete any existing embedding, then insert
+  // This prevents race conditions from creating duplicates
   const existing = await ctx.db
     .query('questionEmbeddings')
     .withIndex('by_question', (q) => q.eq('questionId', questionId))
     .first();
 
-  // Use provided timestamp or default to current time
-  const timestamp = embeddingGeneratedAt ?? Date.now();
-
   if (existing) {
-    // Update existing embedding
-    await ctx.db.patch(existing._id, {
-      embedding,
-      embeddingGeneratedAt: timestamp,
-      // userId should never change, but update for safety
-      userId,
-    });
-    return existing._id;
-  } else {
-    // Create new embedding
-    return await ctx.db.insert('questionEmbeddings', {
-      questionId,
-      userId,
-      embedding,
-      embeddingGeneratedAt: timestamp,
-    });
+    await ctx.db.delete(existing._id);
   }
+
+  // Always insert fresh record
+  return await ctx.db.insert('questionEmbeddings', {
+    questionId,
+    userId,
+    embedding,
+    embeddingGeneratedAt: timestamp,
+  });
 }
 
 /**

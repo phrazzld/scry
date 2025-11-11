@@ -21,7 +21,7 @@ import { embed } from 'ai';
 import { v } from 'convex/values';
 import pino from 'pino';
 import { internal } from './_generated/api';
-import type { Doc, Id } from './_generated/dataModel';
+import type { Id } from './_generated/dataModel';
 import {
   action,
   internalAction,
@@ -440,25 +440,43 @@ function mergeSearchResults(
 }
 
 /**
+ * Minimal question data for embedding generation (bandwidth optimization)
+ */
+type QuestionWithoutEmbedding = {
+  _id: Id<'questions'>;
+  question: string;
+  explanation: string | undefined;
+  userId: Id<'users'>;
+};
+
+/**
  * Get questions without embeddings for backfill sync
  *
  * Internal query used by daily sync cron to identify questions that need embeddings.
  * Now checks separate questionEmbeddings table instead of questions.embedding field.
  * Limits results to prevent overwhelming the sync process.
  *
+ * Bandwidth Optimization: Returns only fields needed for embedding generation
+ * (question, explanation, _id, userId) instead of full Doc<'questions'>.
+ *
+ * Pagination Strategy: Continues iterating through all active questions until
+ * finding `limit` questions without embeddings, ensuring daily sync eventually
+ * processes all missing embeddings (not just the earliest N questions).
+ *
  * @param limit - Maximum questions to return (default 100 for daily sync)
- * @returns Array of questions without embeddings
+ * @returns Array of minimal question data for questions without embeddings
  */
 export const getQuestionsWithoutEmbeddings = internalQuery({
   args: {
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<QuestionWithoutEmbedding[]> => {
     const limit = args.limit ?? 100;
     const questionIdsWithEmbeddings = await collectQuestionIdsWithEmbeddings(ctx);
-    const questionsWithoutEmbeddings: Doc<'questions'>[] = [];
+    const questionsWithoutEmbeddings: QuestionWithoutEmbedding[] = [];
     let cursor: string | null = null;
 
+    // Iterate through questions until we find enough without embeddings
     while (questionsWithoutEmbeddings.length < limit) {
       const page = await activeQuestionsQuery(ctx).paginate({
         cursor,
@@ -467,7 +485,13 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
 
       for (const question of page.page) {
         if (!questionIdsWithEmbeddings.has(question._id)) {
-          questionsWithoutEmbeddings.push(question);
+          // Only return fields needed for embedding generation (bandwidth optimization)
+          questionsWithoutEmbeddings.push({
+            _id: question._id,
+            question: question.question,
+            explanation: question.explanation,
+            userId: question.userId,
+          });
 
           if (questionsWithoutEmbeddings.length === limit) {
             break;
@@ -475,6 +499,7 @@ export const getQuestionsWithoutEmbeddings = internalQuery({
         }
       }
 
+      // Stop if we've found enough or reached end of questions
       if (page.isDone || questionsWithoutEmbeddings.length === limit) {
         break;
       }
@@ -619,8 +644,24 @@ function activeQuestionsQuery(ctx: QueryLikeCtx) {
 }
 
 async function collectQuestionIdsWithEmbeddings(ctx: QueryLikeCtx): Promise<Set<Id<'questions'>>> {
-  const embeddings = await ctx.db.query('questionEmbeddings').collect();
-  return new Set(embeddings.map((embedding) => embedding.questionId));
+  const questionIds = new Set<Id<'questions'>>();
+  let cursor: string | null = null;
+
+  while (true) {
+    const page = await ctx.db.query('questionEmbeddings').paginate({
+      cursor,
+      numItems: 500,
+    });
+
+    for (const embedding of page.page) {
+      questionIds.add(embedding.questionId);
+    }
+
+    if (page.isDone) break;
+    cursor = page.continueCursor;
+  }
+
+  return questionIds;
 }
 
 /**
