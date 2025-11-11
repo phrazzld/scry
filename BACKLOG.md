@@ -293,6 +293,147 @@ export const bulkDelete = mutation({
 
 ---
 
+## Follow-Up from PR #58 Code Review
+
+### [TEST][LOW] Provider Name Edge Cases
+
+**Source**: CodeRabbitAI review of PR #58
+**File**: `convex/lib/aiProviders.test.ts`
+
+**Problem**: Test coverage missing for provider name normalization edge cases:
+- Empty string provider (should default to OpenAI or reject?)
+- Case-insensitive normalization (`GOOGLE` → `google`)
+- Null/undefined handling
+
+**Current Coverage**:
+- ✅ Happy paths (Google, OpenAI with valid keys)
+- ✅ Missing API keys
+- ✅ Unsupported provider rejection (`anthropic`)
+- ❌ Edge cases listed above
+
+**Fix**:
+```typescript
+it('defaults to OpenAI when provider is empty string', () => {
+  process.env.OPENAI_API_KEY = 'key';
+  const result = initializeProvider('', 'gpt-5-mini', {});
+  expect(result.provider).toBe('openai');
+});
+
+it('normalizes provider names case-insensitively', () => {
+  process.env.GOOGLE_AI_API_KEY = 'key';
+  const result = initializeProvider('GOOGLE', 'gemini-pro', {});
+  expect(result.provider).toBe('google');
+});
+```
+
+**Effort**: 30 minutes (2 test cases) | **Priority**: LOW
+
+**Rationale for Deferral**: PR scope is refactoring duplication, not expanding test coverage. Edge cases are rare in production (env vars set by deployment system).
+
+**Impact**: Stronger contract validation, catches config errors earlier
+
+---
+
+### [DOCS][LOW] Improve ProviderClient Documentation Clarity
+
+**Source**: CodeRabbitAI review of PR #58
+**File**: `CLAUDE.md:278-282`
+
+**Problem**: Interface documentation shows all fields as optional (`model?`, `openaiClient?`) without explicitly stating that exactly ONE is present based on `provider` field. Discriminated union nature is implicit rather than explicit.
+
+**Current Documentation**:
+```typescript
+interface ProviderClient {
+  provider: 'google' | 'openai';
+  model?: LanguageModel;           // Present for Google (Vercel AI SDK models)
+  openaiClient?: OpenAI;           // Present for OpenAI Responses API usage
+  diagnostics: SecretDiagnostics;
+}
+```
+
+**Enhanced Documentation**:
+```typescript
+// Discriminated union: provider field determines which client is present:
+// - provider: 'google' → model is defined, openaiClient is undefined
+// - provider: 'openai' → openaiClient is defined, model is undefined
+
+interface ProviderClient {
+  provider: 'google' | 'openai';
+  model?: LanguageModel;           // Present only when provider === 'google'
+  openaiClient?: OpenAI;           // Present only when provider === 'openai'
+  diagnostics: SecretDiagnostics;
+}
+```
+
+**Effort**: 10 minutes (add 4-line comment) | **Priority**: LOW
+
+**Rationale for Deferral**: Non-blocking, type system enforces correctness. Documentation is already clear enough for current team.
+
+**Impact**: Clearer for future developers, reduces confusion about when `model` vs `openaiClient` is set
+
+---
+
+### [BUILD][BLOCKED] Classify Retry-Eligible Errors in vercel-build.sh
+
+**Source**: CodeRabbitAI review of PR #58
+**File**: `scripts/vercel-build.sh:94`
+
+**Problem**: Current retry logic retries ALL exit code 1 failures, including non-transient errors like:
+- Invalid `CONVEX_DEPLOY_KEY` (authentication failure → shouldn't retry)
+- TypeScript syntax errors in Convex functions (compilation failure → shouldn't retry)
+- Bad configuration (400 errors → shouldn't retry)
+
+Ideally should only retry transient errors (500, 503, timeouts).
+
+**Blocker**: Convex CLI doesn't provide granular exit codes. All failures exit with code 1.
+
+**Potential Solution**:
+```bash
+is_transient_error() {
+  local exitCode=$1
+  # Parse stderr for error patterns
+  if grep -q "503 Service Unavailable\|500 Internal Server Error\|timeout" "$error_log"; then
+    return 0  # Retry
+  fi
+  return 1  # Don't retry
+}
+```
+
+**Effort**: 2 hours (research Convex CLI error output patterns, test edge cases) | **Priority**: MEDIUM
+
+**Rationale for Deferral**:
+- Current behavior is acceptable (3 attempts with ~7s total delay)
+- Documentation correctly explains limitation (`docs/operations/deployment-resilience.md`)
+- Upstream feature request to Convex would be cleaner solution
+
+**Impact**: Avoid wasting retry attempts on permanent failures, faster failure feedback
+
+**Dependencies**: Requires Convex CLI to either:
+1. Provide granular exit codes (feature request)
+2. Standardize error message patterns (document current behavior)
+
+---
+
+### [DOCS][LOW] Move/Archive CI Investigation Document
+
+**Source**: CodeRabbitAI review of PR #58
+**File**: `docs/operations/ci-investigation-pr58.md`
+
+**Problem**: In-progress investigation report (status: "REQUIRES MANUAL DASHBOARD ACCESS") mixed with operational documentation. Creates confusion about document status and purpose.
+
+**Options**:
+1. **Archive as postmortem**: `docs/postmortems/pr58-ci-investigation.md` with resolution section (if issue resolved)
+2. **Move to investigations**: `docs/investigations/ongoing/pr58-ci-failures.md` (if issue persists)
+3. **Remove entirely**: Keep only `deployment-resilience.md` which captures lessons learned (if no longer relevant)
+
+**Effort**: 15 minutes (move file, update references) | **Priority**: LOW
+
+**Rationale for Deferral**: Non-blocking, doesn't affect functionality. Document provides valuable debugging context even in current location.
+
+**Impact**: Clearer documentation organization, separates operational docs from investigations
+
+---
+
 ## Next (This Quarter, <3 months)
 
 ### [PRODUCT][CRITICAL] Export/Import Functionality

@@ -23,11 +23,11 @@ export interface InitializeProviderOptions {
 const GOOGLE_PROVIDER = "google" as const;
 const OPENAI_PROVIDER = "openai" as const;
 
-export async function initializeProvider(
+export function initializeProvider(
   requestedProvider: string,
   modelName: string,
   options: InitializeProviderOptions = {}
-): Promise<ProviderClient> {
+): ProviderClient {
   const provider = normalizeProvider(requestedProvider);
 
   if (provider === GOOGLE_PROVIDER) {
@@ -53,7 +53,7 @@ function initializeGoogleProvider(
 
   logInfo(options.logger, logFields, "Using Google AI provider");
 
-  if (!apiKey || apiKey === "") {
+  if (!apiKey?.trim()) {
     const errorMessage = "GOOGLE_AI_API_KEY not configured in Convex environment";
     logError(options.logger, logFields, errorMessage);
     throw new Error(errorMessage);
@@ -80,7 +80,7 @@ function initializeOpenAIProvider(
 
   logInfo(options.logger, logFields, "Using OpenAI provider with Responses API");
 
-  if (!apiKey || apiKey === "") {
+  if (!apiKey?.trim()) {
     const errorMessage = "OPENAI_API_KEY not configured in Convex environment";
     logError(options.logger, logFields, errorMessage);
     throw new Error(errorMessage);
@@ -100,7 +100,7 @@ function buildLogFields(
   provider: "google" | "openai",
   modelName: string,
   diagnostics: SecretDiagnostics
-) {
+): Record<string, unknown> {
   return {
     ...(options.logContext ?? {}),
     provider,
@@ -110,13 +110,13 @@ function buildLogFields(
   };
 }
 
-function logInfo(logger: Logger | undefined, context: Record<string, unknown>, message: string) {
+function logInfo(logger: Logger | undefined, context: Record<string, unknown>, message: string): void {
   if (logger) {
     logger.info(context, message);
   }
 }
 
-function logError(logger: Logger | undefined, context: Record<string, unknown>, message: string) {
+function logError(logger: Logger | undefined, context: Record<string, unknown>, message: string): void {
   if (logger) {
     logger.error(context, message);
   }

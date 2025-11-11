@@ -92,14 +92,14 @@ describe('initializeProvider', () => {
     );
   });
 
-  it('throws when GOOGLE_AI_API_KEY is missing and logs error diagnostics', async () => {
+  it('throws when GOOGLE_AI_API_KEY is missing and logs error diagnostics', () => {
     const logger = createLogger();
 
-    await expect(
+    expect(() =>
       initializeProvider('google', 'gemini-pro', {
         logger,
       })
-    ).rejects.toThrow('GOOGLE_AI_API_KEY not configured in Convex environment');
+    ).toThrow('GOOGLE_AI_API_KEY not configured in Convex environment');
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ provider: 'google' }),
@@ -108,14 +108,14 @@ describe('initializeProvider', () => {
     expect(mockCreateGoogleGenerativeAI).not.toHaveBeenCalled();
   });
 
-  it('throws when OPENAI_API_KEY is missing and logs error diagnostics', async () => {
+  it('throws when OPENAI_API_KEY is missing and logs error diagnostics', () => {
     const logger = createLogger();
 
-    await expect(
+    expect(() =>
       initializeProvider('openai', 'gpt-5-mini', {
         logger,
       })
-    ).rejects.toThrow('OPENAI_API_KEY not configured in Convex environment');
+    ).toThrow('OPENAI_API_KEY not configured in Convex environment');
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ provider: 'openai' }),
@@ -124,15 +124,15 @@ describe('initializeProvider', () => {
     expect(mockOpenAIConstructor).not.toHaveBeenCalled();
   });
 
-  it('rejects unsupported providers with helpful error message', async () => {
+  it('rejects unsupported providers with helpful error message', () => {
     const logger = createLogger();
 
-    await expect(
+    expect(() =>
       initializeProvider('anthropic', 'claude-3', {
         logger,
         logContext: { jobId: 'job-99' },
       })
-    ).rejects.toThrow("Unsupported AI_PROVIDER: anthropic. Use 'google' or 'openai'.");
+    ).toThrow("Unsupported AI_PROVIDER: anthropic. Use 'google' or 'openai'.");
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: 'job-99', provider: 'anthropic' }),
