@@ -892,7 +892,9 @@ export const backfillUserCreatedAt = internalMutation({
         }
 
         migrationLogger.info('Processing user batch', {
-          event: dryRun ? 'migration.user-created-at.dry-run.batch' : 'migration.user-created-at.batch',
+          event: dryRun
+            ? 'migration.user-created-at.dry-run.batch'
+            : 'migration.user-created-at.batch',
           batchSize: users.length,
         });
 

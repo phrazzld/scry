@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { calculateFreshnessDecay, calculateRetrievabilityScore } from '../../convex/spacedRepetition';
+import {
+  calculateFreshnessDecay,
+  calculateRetrievabilityScore,
+} from '../../convex/spacedRepetition';
 
 describe('Review Queue Prioritization', () => {
   const mockUserId = 'user123' as Id<'users'>;

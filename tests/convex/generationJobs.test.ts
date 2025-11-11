@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { JOB_CONFIG } from '../../lib/constants/jobs';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
+import { JOB_CONFIG } from '../../lib/constants/jobs';
 
 /**
  * Tests for generationJobs.ts mutation business logic
