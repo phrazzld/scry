@@ -168,6 +168,39 @@ This ensures atomicity: Convex functions only deploy if frontend build succeeds,
 
 **Key Insight**: Deploy key TYPE (preview: vs prod:) determines target backend automatically.
 
+### Deployment Resilience (NEW: 2025-11-10)
+
+**Retry Logic**: `vercel-build.sh` now includes automatic retry with exponential backoff
+
+**Configuration:**
+- **Max Attempts**: 3
+- **Backoff Strategy**: Exponential (1s → 2s → 4s)
+- **Total Max Delay**: ~7 seconds
+- **Handles**: Transient Convex API failures (500, 503 errors)
+
+**Example Output:**
+```
+🔄 Deployment attempt 1/3...
+⚠️  Attempt 1 failed (exit code: 1)
+⏳ Retrying in 1s...
+🔄 Deployment attempt 2/3...
+✅ Deployment succeeded on attempt 2
+```
+
+**Rationale:**
+- Convex experienced elevated instability in November 2025 (see status.convex.dev)
+- Retry logic handles transient API outages without manual intervention
+- Reduces false-positive deployment failures
+- Industry best practice for distributed systems
+
+**When All Retries Fail:**
+1. Check https://status.convex.dev for active incidents
+2. Verify `CONVEX_DEPLOY_KEY` is valid and not corrupted
+3. Wait for Convex service recovery (typical: 10-30 minutes)
+4. Manually retry via GitHub Actions "Re-run failed jobs"
+
+**Documentation**: See `docs/operations/deployment-resilience.md` for detailed runbook
+
 ### Vercel Environment Variable Setup
 
 **Must be configured in Vercel Dashboard** (Settings → Environment Variables):
@@ -235,9 +268,21 @@ This ensures atomicity: Convex functions only deploy if frontend build succeeds,
 - Google provider kept configured for instant rollback if needed
 
 **Implementation Pattern:**
-- **No provider factory** - inline conditionals in `convex/lab.ts` and `convex/aiGeneration.ts`
-- **Discriminated unions** - TypeScript type safety via `GoogleInfraConfig | OpenAIInfraConfig`
-- **Minimal abstraction** - only abstract when 3+ concrete examples exist (Carmack's rule)
+- **Shared initializer** – `convex/lib/aiProviders.ts` exports `initializeProvider()` which encapsulates env reads, diagnostics, and Google/OpenAI client creation. Both `convex/aiGeneration.ts` and `convex/lab.ts` import this helper so provider selection lives in one place.
+- **ProviderClient contract** – Callers receive `{ provider, model?, openaiClient?, diagnostics }`, hiding SDK-specific plumbing while keeping explicit dependencies.
+- **Contract tests** – `convex/lib/aiProviders.test.ts` mocks each SDK to verify happy-path initialization, missing key failures, and unsupported provider guards.
+
+```ts
+// ProviderClient interface
+interface ProviderClient {
+  provider: 'google' | 'openai';
+  model?: LanguageModel;           // Present for Google (Vercel AI SDK models)
+  openaiClient?: OpenAI;           // Present for OpenAI Responses API usage
+  diagnostics: SecretDiagnostics;  // Sanitized metadata for logging
+}
+```
+
+> When adding Anthropic or other providers, extend `initializeProvider()` and its tests; downstream modules stay untouched if the ProviderClient surface remains stable.
 
 ### OpenAI Reasoning Models
 

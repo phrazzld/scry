@@ -9,15 +9,13 @@
  * LEGACY: Multi-phase chains with template interpolation (for experimentation)
  */
 
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateObject, type LanguageModel } from 'ai';
+import { generateObject } from 'ai';
 import { v } from 'convex/values';
-import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 
 import { action } from './_generated/server';
-import { getSecretDiagnostics } from './lib/envDiagnostics';
+import { initializeProvider, type ProviderClient } from './lib/aiProviders';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';
 
 // Logger for this module
@@ -126,55 +124,22 @@ export const executeConfig = action({
       );
 
       // Initialize provider based on config
-      let model: LanguageModel | undefined;
-      let openaiClient: OpenAI | undefined;
+      let model: ProviderClient['model'];
+      let openaiClient: ProviderClient['openaiClient'];
+      let provider: ProviderClient['provider'] = 'openai';
 
-      if (args.provider === 'google') {
-        const apiKey = process.env.GOOGLE_AI_API_KEY;
-        const keyDiagnostics = getSecretDiagnostics(apiKey);
+      const providerClient = await initializeProvider(args.provider, args.model, {
+        logger,
+        logContext: {
+          configId: args.configId,
+          configName: args.configName,
+        },
+        deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+      });
 
-        logger.info(
-          {
-            configId: args.configId,
-            provider: 'google',
-            keyDiagnostics,
-            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-          },
-          'Using Google AI provider'
-        );
-
-        if (!apiKey || apiKey === '') {
-          const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
-          logger.error({ configId: args.configId, keyDiagnostics }, errorMessage);
-          throw new Error(errorMessage);
-        }
-
-        const google = createGoogleGenerativeAI({ apiKey });
-        model = google(args.model) as unknown as LanguageModel;
-      } else if (args.provider === 'openai') {
-        const apiKey = process.env.OPENAI_API_KEY;
-        const keyDiagnostics = getSecretDiagnostics(apiKey);
-
-        logger.info(
-          {
-            configId: args.configId,
-            provider: 'openai',
-            keyDiagnostics,
-            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-          },
-          'Using OpenAI provider with Responses API'
-        );
-
-        if (!apiKey || apiKey === '') {
-          const errorMessage = 'OPENAI_API_KEY not configured in Convex environment';
-          logger.error({ configId: args.configId, keyDiagnostics }, errorMessage);
-          throw new Error(errorMessage);
-        }
-
-        openaiClient = new OpenAI({ apiKey });
-      } else {
-        throw new Error(`Provider '${args.provider}' not supported. Use 'google' or 'openai'.`);
-      }
+      provider = providerClient.provider;
+      model = providerClient.model;
+      openaiClient = providerClient.openaiClient;
 
       // Execute N-phase chain
       const context: Record<string, string> = {
@@ -249,7 +214,7 @@ export const executeConfig = action({
           // Questions output (Phase 3, 5)
           let response;
 
-          if (args.provider === 'openai' && openaiClient) {
+          if (provider === 'openai' && openaiClient) {
             // Use native Responses API for OpenAI
             response = await generateObjectWithResponsesApi({
               client: openaiClient,
@@ -260,7 +225,7 @@ export const executeConfig = action({
               verbosity: args.verbosity,
               reasoningEffort: args.reasoningEffort,
             });
-          } else if (args.provider === 'google' && model) {
+          } else if (provider === 'google' && model) {
             // Use Vercel AI SDK for Google
             response = await generateObject({
               model,

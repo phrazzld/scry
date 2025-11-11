@@ -11,17 +11,15 @@
  * - Structured outputs via Zod schema validation
  */
 
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { generateObject, type LanguageModel } from 'ai';
+import { generateObject } from 'ai';
 import { v } from 'convex/values';
-import OpenAI from 'openai';
 import pino from 'pino';
 import { z } from 'zod';
 import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
 import { trackEvent } from './lib/analytics';
-import { getSecretDiagnostics } from './lib/envDiagnostics';
+import { initializeProvider, type ProviderClient } from './lib/aiProviders';
 import { buildLearningSciencePrompt } from './lib/promptTemplates';
 import { generateObjectWithResponsesApi } from './lib/responsesApi';
 
@@ -94,100 +92,47 @@ export const processJob = internalAction({
 
     // Initialize AI provider from environment configuration
     // Defaults to OpenAI for production, but can be overridden via env vars
-    const provider = process.env.AI_PROVIDER || 'openai';
+    const requestedProvider = process.env.AI_PROVIDER || 'openai';
     const modelName = process.env.AI_MODEL || 'gpt-5-mini';
     const reasoningEffort = process.env.AI_REASONING_EFFORT || 'high';
     const verbosity = process.env.AI_VERBOSITY || 'medium';
 
     // Declare keyDiagnostics outside conditional blocks for error handler access
-    let keyDiagnostics: ReturnType<typeof getSecretDiagnostics> = {
+    let keyDiagnostics: ProviderClient['diagnostics'] = {
       present: false,
       length: 0,
       fingerprint: null,
     };
-    let model: LanguageModel | undefined;
-    let openaiClient: OpenAI | undefined;
+    let model: ProviderClient['model'];
+    let openaiClient: ProviderClient['openaiClient'];
+    let provider: ProviderClient['provider'] = 'openai';
 
-    if (provider === 'google') {
-      const apiKey = process.env.GOOGLE_AI_API_KEY;
-      keyDiagnostics = getSecretDiagnostics(apiKey);
-
-      logger.info(
-        {
+    try {
+      const providerClient = await initializeProvider(requestedProvider, modelName, {
+        logger,
+        logContext: {
           jobId: args.jobId,
-          provider: 'google',
-          model: modelName,
-          keyDiagnostics,
-          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+          ...(requestedProvider.toLowerCase() === 'openai' && { reasoningEffort }),
         },
-        'Using Google AI provider'
-      );
+        deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
+      });
 
-      if (!apiKey || apiKey === '') {
-        const errorMessage = 'GOOGLE_AI_API_KEY not configured in Convex environment';
-        logger.error(
-          {
-            jobId: args.jobId,
-            keyDiagnostics,
-            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-          },
-          errorMessage
-        );
-        await ctx.runMutation(internal.generationJobs.failJob, {
-          jobId: args.jobId,
-          errorMessage,
-          errorCode: 'API_KEY',
-          retryable: false,
-        });
-        throw new Error(errorMessage);
-      }
-      const google = createGoogleGenerativeAI({ apiKey });
-      model = google(modelName) as unknown as LanguageModel;
-    } else if (provider === 'openai') {
-      const apiKey = process.env.OPENAI_API_KEY;
-      keyDiagnostics = getSecretDiagnostics(apiKey);
+      provider = providerClient.provider;
+      model = providerClient.model;
+      openaiClient = providerClient.openaiClient;
+      keyDiagnostics = providerClient.diagnostics;
+    } catch (error) {
+      const err = error as Error;
+      const errorCode = err.message.includes('not configured') ? 'API_KEY' : 'CONFIG_ERROR';
 
-      logger.info(
-        {
-          jobId: args.jobId,
-          provider: 'openai',
-          model: modelName,
-          reasoningEffort,
-          keyDiagnostics,
-          deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-        },
-        'Using OpenAI provider with Responses API'
-      );
-
-      if (!apiKey || apiKey === '') {
-        const errorMessage = 'OPENAI_API_KEY not configured in Convex environment';
-        logger.error(
-          {
-            jobId: args.jobId,
-            keyDiagnostics,
-            deployment: process.env.CONVEX_CLOUD_URL ?? 'unknown',
-          },
-          errorMessage
-        );
-        await ctx.runMutation(internal.generationJobs.failJob, {
-          jobId: args.jobId,
-          errorMessage,
-          errorCode: 'API_KEY',
-          retryable: false,
-        });
-        throw new Error(errorMessage);
-      }
-      openaiClient = new OpenAI({ apiKey });
-    } else {
-      const errorMessage = `Unsupported AI_PROVIDER: ${provider}. Use 'google' or 'openai'.`;
-      logger.error({ jobId: args.jobId, provider }, errorMessage);
       await ctx.runMutation(internal.generationJobs.failJob, {
         jobId: args.jobId,
-        errorMessage,
-        errorCode: 'CONFIG_ERROR',
+        errorMessage: err.message,
+        errorCode,
         retryable: false,
       });
-      throw new Error(errorMessage);
+
+      throw err;
     }
 
     try {
