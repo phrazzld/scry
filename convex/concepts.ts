@@ -119,12 +119,22 @@ export const getDue = query({
       .withIndex('by_user_next_review', (q) => q.eq('userId', userId).lte('fsrs.nextReview', nowMs))
       .take(MAX_CONCEPT_CANDIDATES);
 
-    const candidates = dueConcepts.length
-      ? dueConcepts
-      : await ctx.db
-          .query('concepts')
-          .withIndex('by_user_next_review', (q) => q.eq('userId', userId))
-          .take(MAX_CONCEPT_CANDIDATES);
+    let candidates = dueConcepts;
+
+    if (candidates.length === 0) {
+      const newConcepts = await ctx.db
+        .query('concepts')
+        .withIndex('by_user_next_review', (q) => q.eq('userId', userId))
+        .filter((q) => q.eq(q.field('fsrs.state'), 'new'))
+        .take(MAX_CONCEPT_CANDIDATES);
+
+      if (newConcepts.length === 0) {
+        // Never return future-scheduled concepts—breaks FSRS intervals.
+        return null;
+      }
+
+      candidates = newConcepts;
+    }
 
     const prioritized = prioritizeConcepts(candidates, now);
     for (const candidate of prioritized) {

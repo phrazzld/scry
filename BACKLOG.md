@@ -1115,4 +1115,196 @@ export function ActiveEmptyState() {
 
 ---
 
+## Concepts & Phrasings: Future Enhancements
+
+### Manual Cluster Editing UI
+**Estimated effort**: 1 week
+
+**Description**: After auto-migration clusters questions by semantic similarity, some clusters may be incorrect (unrelated questions grouped, or related questions split). Need UI to manually split/merge concepts post-migration.
+
+**Features**:
+- View all phrasings for a concept
+- "Split concept" action: Select phrasings to move to new concept
+- "Merge concepts" action: Combine two concepts into one
+- FSRS state handling: When splitting, inherit state; when merging, use most-reviewed state
+
+**Value**: Fixes clustering errors without re-running entire migration. Empowers users to curate their library.
+
+**Priority**: Medium (only needed if clustering quality <90% accurate)
+
+---
+
+### Concept-Level Statistics Dashboard
+**Estimated effort**: 3 days
+
+**Description**: Aggregate view showing learning metrics across all concepts: overall accuracy, review frequency, retention curves, hardest concepts, mastery progress.
+
+**Features**:
+- Overall stats: Total concepts, mastery rate, average accuracy
+- Retention curve visualization (concept retrievability over time)
+- "Hardest concepts" list (lowest accuracy, most lapses)
+- "Mastered concepts" celebration view (100% accuracy, review state)
+- Daily/weekly/monthly review streak tracking
+
+**Value**: Insights into learning patterns, motivation via progress visualization, identifies weak areas.
+
+**Priority**: Low (analytics are nice-to-have, core flow works without)
+
+**Design inspiration**: Anki statistics screen, Duolingo progress dashboard
+
+---
+
+### Bulk Phrasing Operations
+**Estimated effort**: 2 days
+
+**Description**: Multi-select UI for batch operations on phrasings: archive multiple, delete multiple, move to different concept, set canonical.
+
+**Features**:
+- Checkbox selection in phrasing list
+- "Archive selected" / "Delete selected" actions
+- "Move to concept" with autocomplete concept search
+- "Set as canonical" (mark one phrasing as preferred)
+
+**Value**: Easier library management for power users with 10+ phrasings per concept. Reduces repetitive clicking.
+
+**Priority**: Medium (useful for library cleanup after migration)
+
+---
+
+### FSRS Parameter Tuning UI
+**Estimated effort**: 1 week
+
+**Description**: Advanced settings page allowing users to customize FSRS algorithm parameters: desired retention (default 90%), maximum interval (default 365 days), learning steps, graduating interval.
+
+**Features**:
+- Slider controls for key parameters
+- "Reset to defaults" button
+- Preview: "With these settings, you'll review X times in first month"
+- Warning: "Changing parameters affects future reviews, not past scheduling"
+
+**Value**: Advanced users can optimize for their learning style (e.g., medical students want higher retention, language learners accept lower).
+
+**Priority**: Low (default FSRS parameters work for 95% of users)
+
+**Research needed**: What parameters actually matter? Avoid overwhelming users with 20 knobs.
+
+---
+
+### Phrasing Difficulty Indicators
+**Estimated effort**: 2 days
+
+**Description**: Show difficulty/success rate per phrasing, not just concept-level. Helps identify "tricky phrasings" that need rewording.
+
+**Features**:
+- Phrasing accuracy badge: "67% correct (3/5 attempts)"
+- Sort phrasings by difficulty
+- "Reword phrasing" suggestion when accuracy <50%
+
+**Value**: Quality control—identifies poorly-worded questions.
+
+**Priority**: Medium (useful for content improvement)
+
+---
+
+### Learning Mode Onboarding Tour
+**Estimated effort**: 2 days
+
+**Description**: Interactive walkthrough (like Intro.js or Shepherd.js) showing new users how FSRS learning mode works: "This is a new concept, you'll see it a few times today. Here's why..."
+
+**Impact**: Reduces first-run confusion. Users understand learning vs review states.
+
+**Implementation**: Use `react-joyride` or similar library, trigger on first concept review.
+
+---
+
+### Concept Tagging System (Beyond Current Decks)
+**Estimated effort**: 4 days
+
+**Description**: Add tags/categories to concepts for better organization. E.g., tag Latin concepts as #pronunciation, #grammar, #liturgy.
+
+**Impact**: Helps users with 100+ concepts find related content, filter reviews by topic.
+
+**Schema changes**: Add `tags: v.array(v.string())` to concepts table, full-text search on tags.
+
+---
+
+### Collaborative Concept Sharing
+**Estimated effort**: 2 weeks
+
+**Description**: Share concepts with other users (read-only), fork shared concepts to personal library, community ratings.
+
+**Impact**: Social learning, leverage community expertise.
+
+**Complexity**: Requires permissions system, content moderation, attribution tracking.
+
+**Priority**: Low (substantial feature, requires product validation)
+
+---
+
+### Adaptive Phrasing Selection
+**Estimated effort**: 1 week
+
+**Description**: Instead of random/least-seen selection, use ML to predict which phrasing user is most likely to struggle with, show that one.
+
+**Algorithm**: Track per-phrasing accuracy, predict difficulty based on embedding similarity to past errors, prioritize challenging phrasings.
+
+**Impact**: More efficient learning—focus on weak spots.
+
+**Priority**: Low (optimization, requires data collection and validation)
+
+---
+
+### Technical Debt: Consolidate FSRS Engines
+**Estimated effort**: 1 day
+
+**Description**: Currently have two FSRS implementations: `convex/spacedRepetition.ts` (legacy questions) and `convex/fsrs/conceptScheduler.ts` (new concepts). Logic is duplicated.
+
+**Benefit**: Single source of truth for FSRS algorithm. Easier to update when new FSRS version releases.
+
+**Note**: Will be resolved by TODO.md Task 15 (removing legacy system after migration).
+
+---
+
+### Technical Debt: Centralize Embedding Generation
+**Estimated effort**: 1 day
+
+**Description**: Multiple places call OpenAI embeddings API directly (`convex/aiGeneration.ts`, `convex/migrations/clusterQuestions.ts`). Should be centralized in `convex/lib/embeddings.ts` with consistent parameters.
+
+**Benefit**:
+- Consistent embedding model/dimensions across system
+- Easier to swap providers (OpenAI → Cohere → local model)
+- Centralized rate limiting and error handling
+
+**Refactor**: Extract to `generateEmbedding(text: string): Promise<number[]>` helper.
+
+---
+
+### AI-Powered Concept Synthesis (Wishlist)
+**Description**: When user adds new knowledge, AI automatically identifies related existing concepts and suggests merging or linking.
+
+**Example**: User generates "Latin vowel length" concept. AI suggests: "This relates to your existing 'Latin pronunciation' concept—would you like to add as a phrasing?"
+
+**Feasibility**: Requires vector similarity search on concept embeddings + GPT prompt engineering.
+
+---
+
+### Spaced Repetition for Non-Trivia (Wishlist)
+**Description**: Extend beyond Q&A to support procedural knowledge (how to perform a task), conceptual understanding (explain a concept), creative recall (generate examples).
+
+**Example**: Instead of "What is the Nicene Creed?", support "Recite the opening lines of the Nicene Creed" (open-ended answer evaluation).
+
+**Challenge**: Auto-grading open-ended responses is hard. May require manual grading or AI evaluation.
+
+---
+
+### Rejected Ideas (And Why)
+
+**Daily Review Limits**: Violates Pure FSRS philosophy. If 300 cards are due, user needs to see 300 cards. Natural consequences teach sustainable habits. (Reference: `convex/spacedRepetition.ts` header comment)
+
+**"Similar Concepts" Recommendations**: Premature optimization. Users can search/browse library. Recommendation engine adds complexity for uncertain benefit. (Reconsider if: User research shows discovery is a major pain point - >30% of users can't find concepts they created)
+
+**Gamification (Streaks, Points, Leaderboards)**: Philosophical opposition—extrinsic motivation (points) crowds out intrinsic motivation (learning). Anki doesn't have gamification; neither should we. (Exception: Non-competitive features OK - e.g., "You've reviewed X concepts this week" as feedback, not competition)
+
+---
+
 **End of Backlog**
