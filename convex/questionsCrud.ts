@@ -12,10 +12,7 @@ import type { Id } from './_generated/dataModel';
 import { internalMutation, mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { trackEvent } from './lib/analytics';
-import {
-  deleteEmbeddingForQuestion,
-  upsertEmbeddingForQuestion,
-} from './lib/embeddingHelpers';
+import { deleteEmbeddingForQuestion, upsertEmbeddingForQuestion } from './lib/embeddingHelpers';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 import { getScheduler } from './scheduling';
 
