@@ -97,9 +97,18 @@ interactions: defineTable({
 **Problem**: Query fetches ALL interactions for a concept (across all 4 phrasings), showing user history from unrelated questions. Confusing—"I've never seen this question before, why does it say I got it wrong yesterday?"
 
 **Fix**:
-- [ ] Change query from `by_user_concept` index to `by_user_phrasing` index (requires Task 2 complete)
-- [ ] Update query parameters to filter by `phrasingSelection.phrasing._id` instead of `concept._id`
-- [ ] Verify interactions returned are specific to the current phrasing
+- [x] Change query from `by_user_concept` index to `by_user_phrasing` index (requires Task 2 complete)
+- [x] Update query parameters to filter by `phrasingSelection.phrasing._id` instead of `concept._id`
+- [x] Verify interactions returned are specific to the current phrasing
+
+```
+Work Log:
+- Updated convex/concepts.ts:146-152 to use by_user_phrasing index
+- Changed filter from conceptId to phrasingId (phrasingSelection.phrasing._id)
+- TypeScript compilation passed
+- Code simplicity review: Already optimal, no further changes needed
+- Edge cases verified: early return at line 142 guarantees valid phrasingSelection
+```
 
 **Success criteria**: User sees ONLY their attempt history for the specific phrasing currently displayed, not history from other phrasings of the same concept.
 

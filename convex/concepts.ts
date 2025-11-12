@@ -145,8 +145,8 @@ export const getDue = query({
 
       const interactions = await ctx.db
         .query('interactions')
-        .withIndex('by_user_concept', (q) =>
-          q.eq('userId', userId).eq('conceptId', candidate.concept._id)
+        .withIndex('by_user_phrasing', (q) =>
+          q.eq('userId', userId).eq('phrasingId', phrasingSelection.phrasing._id)
         )
         .order('desc')
         .take(MAX_INTERACTIONS);
