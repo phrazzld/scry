@@ -36,6 +36,7 @@ describe('reviewReducer', () => {
         selectionReason: 'canonical',
         lockId: 'lock123',
         isTransitioning: false,
+        conceptFsrs: null,
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
@@ -62,6 +63,7 @@ describe('reviewReducer', () => {
         selectionReason: null,
         lockId: 'lock456',
         isTransitioning: false,
+        conceptFsrs: null,
       };
 
       // Act: Dispatch REVIEW_COMPLETE action
@@ -88,6 +90,7 @@ describe('reviewReducer', () => {
         selectionReason: null,
         lockId: null,
         isTransitioning: false,
+        conceptFsrs: null,
       };
 
       // The reducer should accept QUESTION_RECEIVED
@@ -112,6 +115,7 @@ describe('reviewReducer', () => {
           legacyQuestionId: 'q2' as Id<'questions'>,
           selectionReason: 'least-seen',
           lockId: 'newLock',
+          conceptFsrs: { state: 'new' as const, reps: 0 },
         },
       };
 
@@ -147,6 +151,7 @@ describe('reviewReducer', () => {
       legacyQuestionId: 'q1' as Id<'questions'>,
       selectionReason: 'least-seen',
       lockId: 'lock123',
+      conceptFsrs: { state: 'new' as const, reps: 0 },
     };
 
     const reviewingState = {
@@ -160,12 +165,14 @@ describe('reviewReducer', () => {
       selectionReason: 'least-seen',
       lockId: 'lock123',
       isTransitioning: false,
+        conceptFsrs: null,
     };
 
     it('should set isTransitioning when REVIEW_COMPLETE dispatched', () => {
       const state = {
         ...reviewingState,
         isTransitioning: false,
+        conceptFsrs: null,
       };
       const newState = reviewReducer(state, { type: 'REVIEW_COMPLETE' });
 
@@ -178,6 +185,7 @@ describe('reviewReducer', () => {
       const state = {
         ...reviewingState,
         isTransitioning: true,
+        conceptFsrs: null,
       };
       const newState = reviewReducer(state, {
         type: 'QUESTION_RECEIVED',
@@ -192,6 +200,7 @@ describe('reviewReducer', () => {
       const state = {
         ...reviewingState,
         isTransitioning: true,
+        conceptFsrs: null,
       };
       const newState = reviewReducer(state, { type: 'LOAD_START' });
 
@@ -203,6 +212,7 @@ describe('reviewReducer', () => {
       const state = {
         ...reviewingState,
         isTransitioning: true,
+        conceptFsrs: null,
       };
       const newState = reviewReducer(state, { type: 'LOAD_EMPTY' });
 
@@ -228,6 +238,7 @@ describe('reviewReducer', () => {
         legacyQuestionId: 'q1' as Id<'questions'>,
         selectionReason: 'random',
         lockId: 'q1-1234567890', // New lock generated
+        conceptFsrs: { state: 'new' as const, reps: 0 },
       };
 
       const newState = reviewReducer(initialState, {

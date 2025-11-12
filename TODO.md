@@ -235,10 +235,23 @@ const dueCountData = useQuery(api.concepts.getConceptsDueCount);
 **Problem**: Users don't understand they're in "learning mode" with short intervals. Seeing same concept multiple times feels like a bug, but it's correct FSRS behavior for new concepts.
 
 **Fix**:
-- [ ] Add badge component showing FSRS state when `concept.fsrs.state === 'learning'`
-- [ ] Display: "Learning Mode • Step X of 4" (where X = `concept.fsrs.reps + 1`)
-- [ ] Use distinct color (blue) to differentiate from error states
-- [ ] Position above concept title for visibility
+- [x] Add badge component showing FSRS state when `concept.fsrs.state === 'learning'`
+- [x] Display: "Learning Mode • Step X of 4" (where X = `concept.fsrs.reps + 1`)
+- [x] Use distinct color (blue) to differentiate from error states
+- [x] Position above concept title for visibility
+
+```
+Work Log:
+- Modified useReviewFlow hook to pass conceptFsrs state through
+- Added conceptFsrs to ReviewModeState interface with state and reps
+- Updated all reducer cases (LOAD_EMPTY, QUESTION_RECEIVED)
+- Modified dispatch calls to extract FSRS data from nextReview.concept.fsrs
+- Updated all test fixtures in use-review-flow.test.ts
+- Added Brain icon and Badge imports to review-flow.tsx
+- Implemented learning mode badge with blue styling (light/dark mode)
+- Badge positioned between due count indicator and concept title
+- Code simplicity review: Implementation safe to merge, follows existing patterns
+```
 
 **Success criteria**: When reviewing new concepts, user sees clear indicator they're in learning phase with stepped repetitions.
 

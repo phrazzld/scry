@@ -22,6 +22,10 @@ interface ReviewModeState {
   lockId: string | null;
   isTransitioning: boolean;
   errorMessage?: string;
+  conceptFsrs: {
+    state?: 'new' | 'learning' | 'review' | 'relearning';
+    reps?: number;
+  } | null;
 }
 
 // Action types for state machine
@@ -40,6 +44,10 @@ type ReviewAction =
         legacyQuestionId: Id<'questions'> | null;
         selectionReason: string | null;
         lockId: string;
+        conceptFsrs: {
+          state?: 'new' | 'learning' | 'review' | 'relearning';
+          reps?: number;
+        };
       };
     }
   | { type: 'REVIEW_COMPLETE' }
@@ -57,6 +65,7 @@ const initialState: ReviewModeState = {
   selectionReason: null,
   lockId: null,
   isTransitioning: false,
+  conceptFsrs: null,
 };
 
 // Reducer function to manage state transitions
@@ -79,6 +88,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         lockId: null,
         isTransitioning: false,
         errorMessage: undefined,
+        conceptFsrs: null,
       };
 
     case 'LOAD_TIMEOUT':
@@ -102,6 +112,7 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         lockId: action.payload.lockId,
         isTransitioning: false, // Clear transitioning state
         errorMessage: undefined,
+        conceptFsrs: action.payload.conceptFsrs,
       };
 
     case 'REVIEW_COMPLETE':
@@ -294,6 +305,10 @@ export function useReviewFlow() {
           legacyQuestionId: nextReview.legacyQuestionId,
           selectionReason: nextReview.selectionReason ?? null,
           lockId,
+          conceptFsrs: {
+            state: nextReview.concept.fsrs.state,
+            reps: nextReview.concept.fsrs.reps,
+          },
         },
       });
       startSession();
@@ -311,6 +326,10 @@ export function useReviewFlow() {
           legacyQuestionId: nextReview.legacyQuestionId,
           selectionReason: nextReview.selectionReason ?? null,
           lockId,
+          conceptFsrs: {
+            state: nextReview.concept.fsrs.state,
+            reps: nextReview.concept.fsrs.reps,
+          },
         },
       });
       startSession();
@@ -357,6 +376,7 @@ export function useReviewFlow() {
     interactions: state.interactions,
     isTransitioning: state.isTransitioning,
     errorMessage: state.errorMessage,
+    conceptFsrs: state.conceptFsrs,
     handlers: {
       onReviewComplete: handleReviewComplete,
     },

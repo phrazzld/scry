@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowRight, Calendar, Clock, Info, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Brain, Calendar, Clock, Info, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditQuestionModal } from '@/components/edit-question-modal';
 import { PageContainer } from '@/components/page-container';
@@ -10,6 +10,7 @@ import { QuestionHistory } from '@/components/question-history';
 import { ReviewQuestionDisplay } from '@/components/review-question-display';
 import { ReviewEmptyState } from '@/components/review/review-empty-state';
 import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -39,6 +40,7 @@ export function ReviewFlow() {
     selectionReason,
     interactions,
     isTransitioning,
+    conceptFsrs,
     handlers,
   } = useReviewFlow();
 
@@ -264,6 +266,14 @@ export function ReviewFlow() {
                 )}
               </span>
             </div>
+
+            {/* FSRS State Badge - Learning Mode Indicator */}
+            {conceptFsrs?.state === 'learning' && (
+              <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50 dark:border-blue-400 dark:text-blue-300 dark:bg-blue-950">
+                <Brain className="h-3 w-3 mr-1" />
+                Learning Mode • Step {(conceptFsrs.reps ?? 0) + 1} of 4
+              </Badge>
+            )}
 
             {conceptTitle && (
               <div className="space-y-1">
