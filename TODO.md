@@ -285,10 +285,10 @@ Work Log:
 **Problem**: User sees 4 different questions for same concept and thinks they're separate items. No indication these are variations testing the same knowledge.
 
 **Fix**:
-- [ ] Query total phrasing count for current concept
-- [ ] Determine current phrasing's index (1-4)
-- [ ] Display: "Phrasing X of Y • [Selection reason]" below concept title
-- [ ] Selection reason: "Your preferred phrasing" (canonical), "Least practiced" (least-seen), "Random rotation"
+- [x] Query total phrasing count for current concept
+- [x] Determine current phrasing's index (1-4)
+- [x] Display: "Phrasing X of Y • [Selection reason]" below concept title
+- [x] Selection reason: "Your preferred phrasing" (canonical), "Least practiced" (least-seen), "Random rotation"
 
 **Success criteria**: User understands they're seeing one concept tested multiple ways, with context about which variation and why it was selected.
 

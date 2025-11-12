@@ -36,6 +36,8 @@ export function ReviewFlow() {
     conceptTitle,
     conceptId,
     phrasingId,
+    phrasingIndex,
+    totalPhrasings,
     legacyQuestionId,
     selectionReason,
     interactions,
@@ -65,14 +67,23 @@ export function ReviewFlow() {
   const { trackAnswer } = useQuizInteractions();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
-  const selectionBadge =
-    selectionReason === 'canonical'
-      ? 'Canonical phrasing'
-      : selectionReason === 'least-seen'
-        ? 'Least seen phrasing'
-        : selectionReason === 'random'
-          ? 'Randomized phrasing'
-          : null;
+  const selectionReasonDescriptions: Record<string, string> = {
+    canonical: 'Your preferred phrasing',
+    'least-seen': 'Least practiced',
+    random: 'Random rotation',
+    none: 'Default selection',
+  };
+  const hasPhrasingPosition =
+    typeof phrasingIndex === 'number' &&
+    typeof totalPhrasings === 'number' &&
+    phrasingIndex > 0 &&
+    totalPhrasings > 0;
+  const phrasingPositionLabel = hasPhrasingPosition
+    ? `Phrasing ${phrasingIndex} of ${totalPhrasings}`
+    : null;
+  const selectionReasonLabel = selectionReason
+    ? selectionReasonDescriptions[selectionReason] ?? 'Active phrasing'
+    : null;
 
   // Query for current due count - reactive via Convex WebSockets
   const dueCountData = useQuery(api.concepts.getConceptsDueCount);
@@ -269,7 +280,10 @@ export function ReviewFlow() {
 
             {/* FSRS State Badge - Learning Mode Indicator */}
             {conceptFsrs?.state === 'learning' && (
-              <Badge variant="outline" className="border-blue-500 text-blue-700 bg-blue-50 dark:border-blue-400 dark:text-blue-300 dark:bg-blue-950">
+              <Badge
+                variant="outline"
+                className="border-blue-500 text-blue-700 bg-blue-50 dark:border-blue-400 dark:text-blue-300 dark:bg-blue-950"
+              >
                 <Brain className="h-3 w-3 mr-1" />
                 Learning Mode • Step {(conceptFsrs.reps ?? 0) + 1} of 4
               </Badge>
@@ -279,15 +293,17 @@ export function ReviewFlow() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
                   <span>Concept</span>
-                  {selectionBadge && (
-                    <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-foreground/80">
-                      {selectionBadge}
-                    </span>
-                  )}
                 </div>
                 <h1 className="text-2xl font-semibold text-foreground break-words">
                   {conceptTitle}
                 </h1>
+                {(phrasingPositionLabel || selectionReasonLabel) && (
+                  <p className="text-sm text-muted-foreground">
+                    {phrasingPositionLabel}
+                    {phrasingPositionLabel && selectionReasonLabel && ' • '}
+                    {selectionReasonLabel}
+                  </p>
+                )}
               </div>
             )}
 

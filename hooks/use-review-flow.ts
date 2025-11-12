@@ -17,6 +17,8 @@ interface ReviewModeState {
   conceptId: Id<'concepts'> | null;
   conceptTitle: string | null;
   phrasingId: Id<'phrasings'> | null;
+  phrasingIndex: number | null;
+  totalPhrasings: number | null;
   legacyQuestionId: Id<'questions'> | null;
   selectionReason: string | null;
   lockId: string | null;
@@ -41,6 +43,7 @@ type ReviewAction =
         conceptId: Id<'concepts'>;
         conceptTitle: string;
         phrasingId: Id<'phrasings'>;
+        phrasingStats: { index: number; total: number } | null;
         legacyQuestionId: Id<'questions'> | null;
         selectionReason: string | null;
         lockId: string;
@@ -61,6 +64,8 @@ const initialState: ReviewModeState = {
   conceptId: null,
   conceptTitle: null,
   phrasingId: null,
+  phrasingIndex: null,
+  totalPhrasings: null,
   legacyQuestionId: null,
   selectionReason: null,
   lockId: null,
@@ -83,6 +88,8 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         conceptId: null,
         conceptTitle: null,
         phrasingId: null,
+        phrasingIndex: null,
+        totalPhrasings: null,
         legacyQuestionId: null,
         selectionReason: null,
         lockId: null,
@@ -107,6 +114,8 @@ export function reviewReducer(state: ReviewModeState, action: ReviewAction): Rev
         conceptId: action.payload.conceptId,
         conceptTitle: action.payload.conceptTitle,
         phrasingId: action.payload.phrasingId,
+        phrasingIndex: action.payload.phrasingStats?.index ?? null,
+        totalPhrasings: action.payload.phrasingStats?.total ?? null,
         legacyQuestionId: action.payload.legacyQuestionId,
         selectionReason: action.payload.selectionReason,
         lockId: action.payload.lockId,
@@ -302,6 +311,7 @@ export function useReviewFlow() {
           conceptId: nextReview.concept._id,
           conceptTitle: nextReview.concept.title,
           phrasingId: nextReview.phrasing._id,
+          phrasingStats: nextReview.phrasingStats ?? null,
           legacyQuestionId: nextReview.legacyQuestionId,
           selectionReason: nextReview.selectionReason ?? null,
           lockId,
@@ -323,6 +333,7 @@ export function useReviewFlow() {
           conceptId: nextReview.concept._id,
           conceptTitle: nextReview.concept.title,
           phrasingId: nextReview.phrasing._id,
+          phrasingStats: nextReview.phrasingStats ?? null,
           legacyQuestionId: nextReview.legacyQuestionId,
           selectionReason: nextReview.selectionReason ?? null,
           lockId,
@@ -371,6 +382,8 @@ export function useReviewFlow() {
     conceptId: state.conceptId,
     conceptTitle: state.conceptTitle,
     phrasingId: state.phrasingId,
+    phrasingIndex: state.phrasingIndex,
+    totalPhrasings: state.totalPhrasings,
     legacyQuestionId: state.legacyQuestionId,
     selectionReason: state.selectionReason,
     interactions: state.interactions,

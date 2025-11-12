@@ -21,6 +21,8 @@ type SelectionResult = {
   concept: ConceptDoc;
   phrasing: PhrasingDoc;
   selectionReason: ReturnType<typeof selectPhrasingForConcept>['reason'];
+  totalPhrasings: number;
+  phrasingIndex: number;
 };
 
 const MAX_CONCEPT_CANDIDATES = 25;
@@ -167,6 +169,10 @@ export const getDue = query({
         concept: candidate.concept,
         phrasing: phrasingSelection.phrasing,
         selectionReason: phrasingSelection.selectionReason,
+        phrasingStats: {
+          total: phrasingSelection.totalPhrasings,
+          index: phrasingSelection.phrasingIndex,
+        },
         retrievability: candidate.retrievability,
         interactions,
         legacyQuestionId: legacyQuestion?._id ?? null,
@@ -351,6 +357,8 @@ async function selectActivePhrasing(
     return null;
   }
 
+  const totalPhrasings = phrasings.length;
+
   const selection = selectPhrasingForConcept(phrasings, {
     canonicalPhrasingId: concept.canonicalPhrasingId,
   });
@@ -358,10 +366,15 @@ async function selectActivePhrasing(
     return null;
   }
 
+  const zeroBasedIndex = phrasings.findIndex((p) => p._id === selection.phrasing?._id);
+  const phrasingIndex = zeroBasedIndex === -1 ? 1 : zeroBasedIndex + 1;
+
   return {
     concept,
     phrasing: selection.phrasing,
     selectionReason: selection.reason,
+    totalPhrasings,
+    phrasingIndex,
   };
 }
 
