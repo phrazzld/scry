@@ -146,10 +146,24 @@ const interactions = await ctx.db
 **Problem**: Badge shows "163 concepts due" but actually counting orphaned questions from `userStats.dueNowCount` (questions table). Review flow only shows concepts, so user sees "163 due" but loops on 1 concept forever.
 
 **Fix**:
-- [ ] Create new query: `concepts.getConceptsDueCount()` that counts ONLY concepts with `nextReview <= nowMs` AND `phrasingCount > 0`
-- [ ] Query should return: `{ conceptsDue: number, orphanedQuestions: number, totalReviewable: number }`
-- [ ] Update `review-flow.tsx` line 75 to call new query instead of `api.spacedRepetition.getDueCount`
-- [ ] Update badge UI to show: "X concepts due" (accurate) with tooltip: "Plus Y orphaned questions (need migration)"
+- [x] Create new query: `concepts.getConceptsDueCount()` that counts ONLY concepts with `nextReview <= nowMs` AND `phrasingCount > 0`
+- [x] Query should return: `{ conceptsDue: number, orphanedQuestions: number }`
+- [x] Update `review-flow.tsx` line 75 to call new query instead of `api.spacedRepetition.getDueCount`
+- [x] Update badge UI to show: "X concepts due" (accurate) with tooltip: "Plus Y orphaned questions (need migration)"
+
+```
+Work Log:
+- Added getConceptsDueCount query to convex/concepts.ts (lines 181-211)
+- Used DB-level filtering (.filter on phrasingCount > 0) instead of .collect()
+- Fixed correctness: queries orphaned questions directly (conceptId === undefined)
+- Updated review-flow.tsx to use new query with unified state object
+- Simplified tooltip implementation (removed TooltipProvider nesting)
+- Code simplicity review identified and fixed:
+  * Backend: Wrong data source (userStats.totalCards → direct query)
+  * Backend: O(N) bandwidth issue (.collect() → .take(1000) with DB filter)
+  * Frontend: Redundant state (2 variables → 1 object)
+  * Removed unused totalReviewable field (YAGNI)
+```
 
 **Success criteria**: Badge shows accurate count of reviewable concepts. User understands orphaned questions exist but aren't yet reviewable.
 

@@ -178,6 +178,36 @@ export const getDue = query({
   },
 });
 
+export const getConceptsDueCount = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUserFromClerk(ctx);
+    const userId = user._id;
+    const nowMs = Date.now();
+
+    // Count due concepts with phrasings (DB-level filtering)
+    const dueConcepts = await ctx.db
+      .query('concepts')
+      .withIndex('by_user_next_review', (q) => q.eq('userId', userId).lte('fsrs.nextReview', nowMs))
+      .filter((q) => q.gt(q.field('phrasingCount'), 0))
+      .take(1000); // Safety limit for large collections
+
+    // Count orphaned questions (questions without conceptId)
+    const orphanedQuestions = await ctx.db
+      .query('questions')
+      .withIndex('by_user_active', (q) =>
+        q.eq('userId', userId).eq('deletedAt', undefined).eq('archivedAt', undefined)
+      )
+      .filter((q) => q.eq(q.field('conceptId'), undefined))
+      .take(5000); // Higher limit for legacy data
+
+    return {
+      conceptsDue: dueConcepts.length,
+      orphanedQuestions: orphanedQuestions.length,
+    };
+  },
+});
+
 export const recordInteraction = mutation({
   args: {
     conceptId: v.id('concepts'),

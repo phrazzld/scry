@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowRight, Calendar, Clock, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, Calendar, Clock, Info, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditQuestionModal } from '@/components/edit-question-modal';
 import { PageContainer } from '@/components/page-container';
@@ -12,6 +12,7 @@ import { ReviewEmptyState } from '@/components/review/review-empty-state';
 import { ReviewErrorBoundary } from '@/components/review/review-error-boundary';
 import { Button } from '@/components/ui/button';
 import { QuizFlowSkeleton } from '@/components/ui/loading-skeletons';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCurrentQuestion } from '@/contexts/current-question-context';
 import { api } from '@/convex/_generated/api';
 import type { Doc } from '@/convex/_generated/dataModel';
@@ -72,13 +73,13 @@ export function ReviewFlow() {
           : null;
 
   // Query for current due count - reactive via Convex WebSockets
-  const dueCountData = useQuery(api.spacedRepetition.getDueCount);
+  const dueCountData = useQuery(api.concepts.getConceptsDueCount);
 
   // Cache the last known due count to prevent flicker during refetch
-  const [cachedDueCount, setCachedDueCount] = useState(0);
+  const [cachedData, setCachedData] = useState({ conceptsDue: 0, orphanedQuestions: 0 });
   useEffect(() => {
     if (dueCountData !== undefined) {
-      setCachedDueCount(dueCountData.totalReviewable);
+      setCachedData(dueCountData);
     }
   }, [dueCountData]);
 
@@ -249,8 +250,18 @@ export function ReviewFlow() {
             <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border/50 shadow-sm">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium tabular-nums">
-                <span className="text-foreground">{cachedDueCount}</span>
+                <span className="text-foreground">{cachedData.conceptsDue}</span>
                 <span className="text-muted-foreground ml-1">concepts due</span>
+                {cachedData.orphanedQuestions > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 ml-1 inline text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Plus {cachedData.orphanedQuestions} orphaned questions (need migration)
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </span>
             </div>
 
