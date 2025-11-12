@@ -58,9 +58,16 @@ const candidates = dueConcepts.length > 0 ? dueConcepts : newConcepts;
 **Problem**: No index exists for querying interactions by `phrasingId`, causing next task's query to be inefficient or impossible.
 
 **Fix**:
-- [ ] Add new index to `interactions` table: `.index('by_user_phrasing', ['userId', 'phrasingId', 'attemptedAt'])`
-- [ ] Deploy schema change via `npx convex dev` (local) or `npx convex deploy` (production)
-- [ ] Verify index created: Check Convex dashboard → Data → interactions → Indexes tab
+- [x] Add new index to `interactions` table: `.index('by_user_phrasing', ['userId', 'phrasingId', 'attemptedAt'])`
+- [x] Deploy schema change via `npx convex dev` (local) or `npx convex deploy` (production)
+- [x] Verify index created: Check Convex dashboard → Data → interactions → Indexes tab
+
+```
+Work Log:
+- Deployed schema to production (uncommon-axolotl-639)
+- Confirmed index added: interactions.by_user_phrasing ["userId","phrasingId","attemptedAt","_creationTime"]
+- All concepts/phrasings indexes also deployed successfully (14 new indexes total)
+```
 
 **Success criteria**: Index `by_user_phrasing` appears in schema, queryable via Convex dashboard.
 

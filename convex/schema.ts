@@ -113,6 +113,7 @@ export default defineSchema({
     .index('by_question', ['questionId', 'attemptedAt'])
     .index('by_user_question', ['userId', 'questionId'])
     .index('by_user_concept', ['userId', 'conceptId', 'attemptedAt'])
+    .index('by_user_phrasing', ['userId', 'phrasingId', 'attemptedAt'])
     .index('by_concept', ['conceptId', 'attemptedAt']),
 
   /**
