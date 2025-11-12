@@ -82,7 +82,7 @@ export function ReviewFlow() {
     ? `Phrasing ${phrasingIndex} of ${totalPhrasings}`
     : null;
   const selectionReasonLabel = selectionReason
-    ? selectionReasonDescriptions[selectionReason] ?? 'Active phrasing'
+    ? (selectionReasonDescriptions[selectionReason] ?? 'Active phrasing')
     : null;
 
   // Query for current due count - reactive via Convex WebSockets
