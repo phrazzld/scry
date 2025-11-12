@@ -245,6 +245,7 @@ describe('reviewReducer', () => {
         conceptId: 'concept1' as Id<'concepts'>,
         conceptTitle: 'Concept 1',
         phrasingId: 'phrasing1' as Id<'phrasings'>,
+        phrasingStats: { index: 1, total: 2 },
         legacyQuestionId: 'q1' as Id<'questions'>,
         selectionReason: 'random',
         lockId: 'q1-1234567890', // New lock generated
