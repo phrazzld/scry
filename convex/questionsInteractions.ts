@@ -11,6 +11,7 @@ import { v } from 'convex/values';
 import { Doc } from './_generated/dataModel';
 import { mutation } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
+import { buildInteractionContext } from './lib/interactionContext';
 import { getScheduler } from './scheduling';
 
 /**
@@ -40,38 +41,17 @@ export const recordInteraction = mutation({
     }
 
     // Record interaction
-    await ctx.db.insert('interactions', {
-      userId,
-      questionId: args.questionId,
-      userAnswer: args.userAnswer,
-      isCorrect: args.isCorrect,
-      attemptedAt: Date.now(),
-      sessionId: args.sessionId,
-      timeSpent: args.timeSpent,
-      context: args.sessionId ? { sessionId: args.sessionId } : undefined,
-    });
-
-    // Prepare updated stats
-    const updatedStats = {
-      attemptCount: question.attemptCount + 1,
-      correctCount: question.correctCount + (args.isCorrect ? 1 : 0),
-      lastAttemptedAt: Date.now(),
-    };
-
-    // Calculate FSRS scheduling using scheduler interface
+    const timestamp = Date.now();
     const scheduler = getScheduler();
-    const now = new Date();
+    const now = new Date(timestamp);
     let fsrsFields: Partial<typeof question> = {};
+    let scheduledDays: number | null = null;
+    let nextReview: number | null = null;
+    type FsrsState = 'new' | 'learning' | 'review' | 'relearning';
+    let fsrsState: FsrsState | null = null;
 
-    // If this is the first interaction and question has no FSRS state, initialize it
     if (!question.state) {
       const initialDbFields = scheduler.initializeCard();
-
-      // Schedule the first review
-      // Merge with question doc because scheduleNextReview expects:
-      // 1. userId field for logging/validation
-      // 2. Full doc shape to safely compute next review
-      // 3. Any existing partial FSRS fields to be overwritten (migration safety)
       const result = scheduler.scheduleNextReview(
         { ...question, ...initialDbFields } as Doc<'questions'>,
         args.isCorrect,
@@ -79,13 +59,41 @@ export const recordInteraction = mutation({
       );
 
       fsrsFields = result.dbFields;
+      scheduledDays = result.dbFields.scheduledDays ?? null;
+      nextReview = result.dbFields.nextReview ?? null;
+      fsrsState = (result.dbFields.state ?? 'new') as FsrsState;
     } else {
-      // For subsequent reviews, use existing FSRS state
       const result = scheduler.scheduleNextReview(question, args.isCorrect, now);
       fsrsFields = result.dbFields;
+      scheduledDays = result.dbFields.scheduledDays ?? null;
+      nextReview = result.dbFields.nextReview ?? null;
+      fsrsState = (result.dbFields.state ?? question.state ?? 'new') as FsrsState;
     }
 
-    // Update question with both stats and FSRS fields
+    const interactionContext = buildInteractionContext({
+      sessionId: args.sessionId,
+      scheduledDays,
+      nextReview,
+      fsrsState,
+    });
+
+    await ctx.db.insert('interactions', {
+      userId,
+      questionId: args.questionId,
+      userAnswer: args.userAnswer,
+      isCorrect: args.isCorrect,
+      attemptedAt: timestamp,
+      sessionId: args.sessionId,
+      timeSpent: args.timeSpent,
+      context: interactionContext,
+    });
+
+    const updatedStats = {
+      attemptCount: question.attemptCount + 1,
+      correctCount: question.correctCount + (args.isCorrect ? 1 : 0),
+      lastAttemptedAt: timestamp,
+    };
+
     await ctx.db.patch(args.questionId, {
       ...updatedStats,
       ...fsrsFields,

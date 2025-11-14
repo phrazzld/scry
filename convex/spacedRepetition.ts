@@ -41,6 +41,7 @@ import type { MutationCtx } from './_generated/server';
 import { requireUserFromClerk } from './clerk';
 import { defaultEngine as conceptEngine, scheduleConceptReview } from './fsrs';
 import { calculateConceptStatsDelta, questionToConceptFsrsState } from './lib/conceptFsrsHelpers';
+import { buildInteractionContext } from './lib/interactionContext';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 
 // Export for testing
@@ -197,6 +198,22 @@ export const scheduleReview = mutation({
     const nowMs = Date.now();
     const now = new Date(nowMs);
 
+    const concept = await ensureConceptForQuestion(ctx, question);
+    if (concept.userId !== userId) {
+      throw new Error('Concept not found or unauthorized');
+    }
+
+    const oldState = concept.fsrs.state ?? 'new';
+    const oldNextReview = concept.fsrs.nextReview;
+    const scheduleResult = scheduleConceptReview(concept, args.isCorrect, { now });
+
+    const interactionContext = buildInteractionContext({
+      sessionId: args.sessionId,
+      scheduledDays: scheduleResult.scheduledDays,
+      nextReview: scheduleResult.nextReview,
+      fsrsState: scheduleResult.state,
+    });
+
     await ctx.db.insert('interactions', {
       userId,
       questionId: args.questionId,
@@ -204,7 +221,7 @@ export const scheduleReview = mutation({
       isCorrect: args.isCorrect,
       attemptedAt: nowMs,
       timeSpent: args.timeSpent,
-      context: args.sessionId ? { sessionId: args.sessionId } : undefined,
+      context: interactionContext,
     });
 
     const updatedStats = {
@@ -214,15 +231,6 @@ export const scheduleReview = mutation({
     };
 
     await ctx.db.patch(args.questionId, updatedStats);
-
-    const concept = await ensureConceptForQuestion(ctx, question);
-    if (concept.userId !== userId) {
-      throw new Error('Concept not found or unauthorized');
-    }
-
-    const oldState = concept.fsrs.state ?? 'new';
-    const oldNextReview = concept.fsrs.nextReview;
-    const scheduleResult = scheduleConceptReview(concept, args.isCorrect, { now });
 
     await ctx.db.patch(concept._id, {
       fsrs: scheduleResult.fsrs,

@@ -12,6 +12,7 @@ import {
 } from './fsrs';
 import { TARGET_PHRASINGS_PER_CONCEPT } from './lib/conceptConstants';
 import { calculateConceptStatsDelta } from './lib/conceptFsrsHelpers';
+import { buildInteractionContext } from './lib/interactionContext';
 import { updateStatsCounters } from './lib/userStatsHelpers';
 
 type ConceptDoc = Doc<'concepts'>;
@@ -252,6 +253,15 @@ export const recordInteraction = mutation({
     const nowMs = Date.now();
     const now = new Date(nowMs);
 
+    const scheduleResult = scheduleConceptReview(concept, args.isCorrect, { now });
+
+    const interactionContext = buildInteractionContext({
+      sessionId: args.sessionId,
+      scheduledDays: scheduleResult.scheduledDays,
+      nextReview: scheduleResult.nextReview,
+      fsrsState: scheduleResult.state,
+    });
+
     await ctx.db.insert('interactions', {
       userId,
       conceptId: concept._id,
@@ -260,7 +270,7 @@ export const recordInteraction = mutation({
       isCorrect: args.isCorrect,
       attemptedAt: nowMs,
       timeSpent: args.timeSpent,
-      context: args.sessionId ? { sessionId: args.sessionId } : undefined,
+      context: interactionContext,
     });
 
     await ctx.db.patch(phrasing._id, {
@@ -268,8 +278,6 @@ export const recordInteraction = mutation({
       correctCount: (phrasing.correctCount ?? 0) + (args.isCorrect ? 1 : 0),
       lastAttemptedAt: nowMs,
     });
-
-    const scheduleResult = scheduleConceptReview(concept, args.isCorrect, { now });
 
     await ctx.db.patch(concept._id, {
       fsrs: scheduleResult.fsrs,

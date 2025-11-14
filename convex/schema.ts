@@ -105,6 +105,16 @@ export default defineSchema({
       v.object({
         sessionId: v.optional(v.string()), // for grouping quiz attempts
         isRetry: v.optional(v.boolean()),
+        scheduledDays: v.optional(v.number()), // FSRS interval chosen for this attempt
+        nextReview: v.optional(v.number()), // Next review timestamp recorded at scheduling time
+        fsrsState: v.optional(
+          v.union(
+            v.literal('new'),
+            v.literal('learning'),
+            v.literal('review'),
+            v.literal('relearning')
+          )
+        ),
       })
     ),
   })

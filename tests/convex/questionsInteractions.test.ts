@@ -14,6 +14,7 @@ vi.mock('@/convex/scheduling', () => ({
 
 const mockRequireUserFromClerk = vi.mocked(requireUserFromClerk);
 const mockGetScheduler = vi.mocked(getScheduler);
+let mockNextReview: number;
 
 describe('recordInteraction', () => {
   beforeEach(() => {
@@ -25,13 +26,15 @@ describe('recordInteraction', () => {
       email: 'test@example.com',
     } as any);
 
+    mockNextReview = Date.now() + 1000;
+
     mockGetScheduler.mockReturnValue({
       initializeCard: vi.fn().mockReturnValue({
         state: 'new',
       }),
       scheduleNextReview: vi.fn().mockReturnValue({
         dbFields: {
-          nextReview: Date.now() + 1000,
+          nextReview: mockNextReview,
           scheduledDays: 1,
           state: 'learning',
         },
@@ -54,7 +57,12 @@ describe('recordInteraction', () => {
     expect(insertSpy).toHaveBeenCalledTimes(1);
     const inserted = insertSpy.mock.calls[0][1];
     expect(inserted.sessionId).toBe('session-123');
-    expect(inserted.context).toEqual({ sessionId: 'session-123' });
+    expect(inserted.context).toEqual({
+      sessionId: 'session-123',
+      scheduledDays: 1,
+      nextReview: mockNextReview,
+      fsrsState: 'learning',
+    });
   });
 });
 

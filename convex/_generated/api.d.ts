@@ -34,6 +34,7 @@ import type * as lib_conceptConstants from "../lib/conceptConstants.js";
 import type * as lib_conceptFsrsHelpers from "../lib/conceptFsrsHelpers.js";
 import type * as lib_envDiagnostics from "../lib/envDiagnostics.js";
 import type * as lib_fsrsReplay from "../lib/fsrsReplay.js";
+import type * as lib_interactionContext from "../lib/interactionContext.js";
 import type * as lib_logger from "../lib/logger.js";
 import type * as lib_productionConfig from "../lib/productionConfig.js";
 import type * as lib_promptTemplates from "../lib/promptTemplates.js";
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "lib/conceptFsrsHelpers": typeof lib_conceptFsrsHelpers;
   "lib/envDiagnostics": typeof lib_envDiagnostics;
   "lib/fsrsReplay": typeof lib_fsrsReplay;
+  "lib/interactionContext": typeof lib_interactionContext;
   "lib/logger": typeof lib_logger;
   "lib/productionConfig": typeof lib_productionConfig;
   "lib/promptTemplates": typeof lib_promptTemplates;

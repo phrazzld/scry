@@ -334,11 +334,11 @@ Work Log:
 **Problem**: Previous attempts list is flat and dense, hard to scan. After fixing interactions query (Task 3), need better visual presentation of phrasing-specific history.
 
 **Fix**:
-- [ ] Refactor history display from flat list to timeline format
-- [ ] Group by outcome: Correct (green badge) / Incorrect (red badge)
-- [ ] Show timestamp as relative time ("2 hours ago")
-- [ ] Add metadata: time spent, FSRS scheduling result ("Scheduled for 10min later")
-- [ ] Show max 5 recent attempts, collapse older ones with "Show all X attempts" expander
+- [x] Refactor history display from flat list to timeline format
+- [x] Group by outcome: Correct (green badge) / Incorrect (red badge)
+- [x] Show timestamp as relative time ("2 hours ago")
+- [x] Add metadata: time spent, FSRS scheduling result ("Scheduled for 10min later")
+- [x] Show max 5 recent attempts, collapse older ones with "Show all X attempts" expander
 
 **Success criteria**: User can quickly scan their performance on THIS specific phrasing with clear visual hierarchy.
 
